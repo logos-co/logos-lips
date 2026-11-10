@@ -24,6 +24,7 @@
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-08-25 |
 | 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
+| 1.3.0 | Computed the reward in exact integers and named the Blend share, the era and the stake it reads ([Bedrock Eras](bedrock-eras.md)) | 2026-11-05 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -532,24 +533,20 @@ $$
 So we propose a reference implementation that uses integers:
 
 ```python
-import numpy as np
-from numpy import int64
+A_SCALE = 120_000_000            # I_max * D0_target / alpha_d, the denominator of A_t
+INFLATION_NUMERATOR = 62_500     # numerator of I_max * S_CAP * DELTA_t / f
+INFLATION_DENOMINATOR = 657      # denominator of I_max * S_CAP * DELTA_t / f
+FEE_AVG_NUMERATOR = 10_512       # A_SCALE * alpha_a / (I_max * D1_target * Delta_t * T)
+STAKE_TARGET = 3_000_000_000
+BLEND_SHARE_NUMERATOR = 6        # numerator of the Blend nodes' share of a reward
+BLEND_SHARE_DENOMINATOR = 10     # denominator of the Blend nodes' share of a reward
 
-A_SCALE = int64(120_000_000)            # denominator of 1/(I_max * D1_target * Delta_t * T)
-INFLATION_NUMERATOR = int64(62_500)     # numerator of I_max * S_CAP * DELTA_t / f
-INFLATION_DENOMINATOR = int64(657)      # denominator of I_max * S_CAP * DELTA_t / f
-FEE_AVG_NUMERATOR = int64(10_512)       # numerator of 1/(I_max * D1_target * Delta_t * T)
-STAKE_TARGET = int64(3_000_000_000)
 
-
-def block_reward(total_stake: int64, pooled_fees_window: list[int64]) -> tuple[int64, int64]:
-    sum_fees = np.sum(pooled_fees_window, dtype=int64)
+def block_reward(total_stake: int, pooled_fees_window: list[int]) -> tuple[int, int]:
+    sum_fees = sum(pooled_fees_window)
     last_pooled_fee = pooled_fees_window[-1]
 
-    a_numerator = np.minimum(
-        np.maximum(STAKE_TARGET + FEE_AVG_NUMERATOR * sum_fees - total_stake, int64(0)),
-        A_SCALE,
-    )
+    a_numerator = min(max(STAKE_TARGET + FEE_AVG_NUMERATOR * sum_fees - total_stake, 0), A_SCALE)
 
     reward_numerator = (
         INFLATION_NUMERATOR * a_numerator
@@ -557,8 +554,13 @@ def block_reward(total_stake: int64, pooled_fees_window: list[int64]) -> tuple[i
     )
     reward_denominator = INFLATION_DENOMINATOR * A_SCALE
 
-    blend_reward = reward_numerator * int64(6) // (reward_denominator * int64(10))
-    leader_reward = reward_numerator * int64(4) // (reward_denominator * int64(10))
+    denominator = reward_denominator * BLEND_SHARE_DENOMINATOR
+    blend_reward = reward_numerator * BLEND_SHARE_NUMERATOR // denominator
+    leader_reward = reward_numerator * (BLEND_SHARE_DENOMINATOR - BLEND_SHARE_NUMERATOR) // denominator
 
     return blend_reward, leader_reward
 ```
+
+The code uses unbounded integers. At these constants, with each fee below $`2^{64}`$, a signed 128-bit integer holds every intermediate value.
+
+`block_reward` uses the constants of the era of the block's slot. `total_stake` is the inferred total stake $`D`$ of the epoch of the block's slot ([Epoch State](cryptarchia-v1-protocol.md#epoch-state)).

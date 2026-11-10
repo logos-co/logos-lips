@@ -166,7 +166,7 @@ A node whose release lacks the rules of an era it must apply halts when it start
 
 Every node must know, for any slot or epoch, which era's rules apply.
 
-A release carries one **era schedule** per network. Each entry gives the first epoch number of an era and its **parameter record**. The record holds the values the era gives to the constants that may change between eras, from [Blend Protocol](blend-protocol.md), [Cryptarchia Protocol](cryptarchia-v1-protocol.md), the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) (SDP) and [Proof of Work](proof-of-work.md). Its encoding starts with a version, which names the era's rules, the layout of its blocks and the fields of the record, followed by its Blend, Cryptarchia and Time fields ([Era Parameters](#era-parameters)).
+A release carries one **era schedule** per network. Each entry gives the first epoch number of an era and its **parameter record**. The record holds the values the era gives to the constants that may change between eras, from [Blend Protocol](blend-protocol.md), [Cryptarchia Protocol](cryptarchia-v1-protocol.md), the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) (SDP), [Proof of Work](proof-of-work.md), [Execution Market](execution-market.md), [Storage Markets](storage-markets.md), [Block Rewards](block-rewards.md) and [Mantle](bedrock-v1.1-mantle-specification.md). Its encoding starts with a version, which names the era's rules, the layout of its blocks and the fields of the record, followed by its fields, section by section ([Era Parameters](#era-parameters)).
 
 Every slot and every epoch belongs to the last era that begins at or before it. An era may change the epoch length and the slot length, so a node computes the start of each era from the era before it ([Era Boundaries](#era-boundaries)):
 
@@ -234,7 +234,7 @@ A node migrates state recorded in an earlier era before it uses it:
 - it derives a value for an epoch from the chain state as of a slot, migrated to the epoch's era;
 - it builds a block from its mempool against its parent's state, migrated to the block's era ([Block Building View](mempool.md#block-building-view)).
 
-The values derived for an epoch, such as its epoch state, its Blend difficulty and its proof-of-work reward, follow the rules of the epoch's own era ([Era Migration](#era-migration)).
+The epoch state, the Blend difficulty and the proof-of-work reward derived for an epoch follow the rules of the epoch's own era ([Era Migration](#era-migration)).
 
 ## Network Layer
 
@@ -371,10 +371,13 @@ A field holds the value of its source constant under the rules of the era. The E
 | `blend` | `network_absorption_in_rounds` | `UINT64` | $`\eta`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `data_replication_factor` | `UINT64` | $`R_D`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `message_frequency_per_round` | `ratio` | $`F_C`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `blend` | `replication_factor` | `UINT64` | $`R_C`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `maximum_release_delay_in_rounds` | `UINT64` | $`\Delta_{max}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `blend` | `target_peering_degree` | `UINT32` | $`\Phi_{CC}`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `verification_rate_per_second` | `UINT32` | $`V`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `edge_node_send_deadline_in_rounds` | `UINT64` | $`T_E`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `core_handshake_deadline_in_rounds` | `UINT128` | $`T_H`$ of [Global Parameters](blend-protocol.md#global-parameters) |
+| `blend` | `expected_deliveries_per_observation_window` | `UINT64` | $`\lambda`$ of [Global Parameters](blend-protocol.md#global-parameters) |
 | `blend` | `activity_threshold_sensitivity` | `UINT64` | $`\theta`$ of [Activity Threshold](blend-protocol.md#activity-threshold) |
 | `cryptarchia` | `epoch_config` | `phases` | The lengths of the three phases of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule), in multiples of $`\lfloor k/f \rfloor`$ |
 | `cryptarchia` | `security_param` | `UINT32` | $`k`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
@@ -382,6 +385,8 @@ A field holds the value of its source constant under the rules of the era. The E
 | `cryptarchia` | `learning_rate` | `binary64` | `beta` of [Parameters and variables](cryptarchia-total-stake-inference.md#parameters-and-variables) |
 | `cryptarchia` | `uncle_reference_window_in_block` | `UINT32` | $`W`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
 | `cryptarchia` | `max_uncles` | `UINT8` | `MAX_UNCLES` of [Constants](cryptarchia-v1-protocol.md#constants) |
+| `cryptarchia` | `max_transactions` | `UINT16` | `MAX_BLOCK_TXS` of [Constants](cryptarchia-v1-protocol.md#constants) |
+| `cryptarchia` | `max_transactions_size` | `UINT32` | `MAX_BLOCK_SIZE` of [Constants](cryptarchia-v1-protocol.md#constants) |
 | `cryptarchia` | `service_params` | `service_params` | [Service Parameters](bedrock-service-declaration-protocol.md#service-parameters) |
 | `cryptarchia` | `min_stake` | `min_stake` | [Minimum Stake](bedrock-service-declaration-protocol.md#minimum-stake) |
 | `cryptarchia` | `base_difficulty` | `UINT32` | $`j`$ in `BLEND_DIFFICULTY_BASE` $`= \lfloor p / 2^j \rfloor`$ of [Parameters](proof-of-work.md#parameters) |
@@ -398,6 +403,27 @@ A field holds the value of its source constant under the rules of the era. The E
 | `cryptarchia` | `pow_share` | `UINT64` | `POW_SHARE` of [Parameters](proof-of-work.md#parameters) |
 | `cryptarchia` | `share_den` | `UINT64` | `SHARE_DEN` of [Parameters](proof-of-work.md#parameters) |
 | `cryptarchia` | `slot_window` | `UINT64` | `WINDOW` of [Parameters](proof-of-work.md#parameters) |
+| `execution_market` | `max_gas_per_block` | `UINT64` | $`G_{\max}`$ of [Notation](execution-market.md#notation) |
+| `execution_market` | `fee_adjustment_rate` | `ratio` | $`\phi`$ of [Notation](execution-market.md#notation) |
+| `execution_market` | `ema_smoothing_factor` | `ratio` | $`q`$ of [Notation](execution-market.md#notation), the weight of the previous average |
+| `storage_market` | `max_adjustment_factor` | `ratio` | $`\alpha`$ of [Protocol Constants](storage-markets.md#protocol-constants) |
+| `storage_market` | `ema_smoothing_factor` | `ratio` | $`\beta`$ of [Protocol Constants](storage-markets.md#protocol-constants), the weight of the latest usage |
+| `block_rewards` | `stake_target` | `UINT64` | `STAKE_TARGET` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) |
+| `block_rewards` | `emission_factor_scale` | `UINT64` | `A_SCALE` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) |
+| `block_rewards` | `fee_average_numerator` | `UINT64` | `FEE_AVG_NUMERATOR` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) |
+| `block_rewards` | `max_emission_per_block` | `ratio` | `INFLATION_NUMERATOR` over `INFLATION_DENOMINATOR` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) |
+| `block_rewards` | `blend_share` | `ratio` | `BLEND_SHARE_NUMERATOR` over `BLEND_SHARE_DENOMINATOR` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) |
+| `gas_profile` | `transfer` | `UINT64` | `EXECUTION_TRANSFER_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `channel_config` | `UINT64` | `EXECUTION_CHANNEL_CONFIG_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `channel_inscribe` | `UINT64` | `EXECUTION_CHANNEL_INSCRIBE_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `channel_deposit` | `UINT64` | `EXECUTION_CHANNEL_DEPOSIT_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `channel_withdraw` | `UINT64` | `EXECUTION_CHANNEL_WITHDRAW_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `channel_transfer` | `UINT64` | `EXECUTION_CHANNEL_TRANSFER_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `sdp_declare` | `UINT64` | `EXECUTION_SDP_DECLARE_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `sdp_withdraw` | `UINT64` | `EXECUTION_SDP_WITHDRAW_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `sdp_active` | `UINT64` | `EXECUTION_SDP_ACTIVE_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `leader_claim` | `UINT64` | `EXECUTION_LEADER_CLAIM_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
+| `gas_profile` | `claim_pow_reward` | `UINT64` | `EXECUTION_CLAIM_POW_REWARD_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
 | `time` | `slot_duration_in_seconds` | `UINT64` | The slot length of [Constants](cryptarchia-v1-protocol.md#constants), in seconds |
 
 ```python
@@ -423,9 +449,9 @@ def service_params(entries: list[ServiceParameters]) -> bytes:
     return b"".join(uint(4)(e.inactivity_period) for e in entries)
 
 def min_stake(m: MinStake) -> bytes:
-    return uint(8)(m.stake_threshold)
+    return uint(8)(m.threshold)
 
-ENCODERS = {"UINT8": uint(1), "UINT32": uint(4), "UINT64": uint(8), "UINT128": uint(16),
+ENCODERS = {"UINT8": uint(1), "UINT16": uint(2), "UINT32": uint(4), "UINT64": uint(8), "UINT128": uint(16),
             "ratio": ratio, "binary64": binary64, "phases": phases,
             "service_params": service_params, "min_stake": min_stake}
 
@@ -440,15 +466,35 @@ def encode(p: EraParameters) -> bytes:
     return out
 ```
 
-`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, encoded as the record gives them, without reduction. A `binary64` field is an IEEE 754 double-precision value. `service_params` is an array with one entry per [`ServiceType`](bedrock-service-declaration-protocol.md#service-types): the entry at index `i` holds the `inactivity_period` of the service type whose byte is `i`. `min_stake` has `stake_threshold`. A record that `encode` rejects is invalid.
+`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, encoded as the record gives them, without reduction. A `binary64` field is an IEEE 754 double-precision value. `service_params` is an array with one entry per [`ServiceType`](bedrock-service-declaration-protocol.md#service-types): the entry at index `i` holds the `inactivity_period` of the service type whose byte is `i`. `min_stake` has `threshold`. A record that `encode` rejects is invalid.
 
-In every record, the numerator of `slot_activation_coeff`, the epoch length $`L_n`$ and the slot length $`\Delta_n`$ are at least 1. Otherwise `epoch_length(n)`, $`\textbf{epoch}(sl)`$ or $`\textbf{slot}(t)`$ divides by zero.
+In every record, the numerator of `slot_activation_coeff` and the slot length $`\Delta_n`$ are at least 1. Otherwise `epoch_length(n)` or $`\textbf{slot}(t)`$ divides by zero.
+
+In every record, each entry of `epoch_config` is at least 1. Otherwise `PERIOD` of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) or the epoch length $`L_n`$ can be 0, and [Total Stake Inference](cryptarchia-total-stake-inference.md#algorithm) or $`\textbf{epoch}(sl)`$ divides by zero.
 
 In every record, `slot_activation_coeff` is below 1. Otherwise the lottery constants $`t_0`$ and $`t_1`$ of [Proof of Leadership](cryptarchia-proof-of-leadership.md#circuit-public-inputs) take the logarithm of 0. It is also at least $`1/\text{PRECISION}`$, with `PRECISION` of [Total Stake Inference](cryptarchia-total-stake-inference.md#algorithm). Otherwise Total Stake Inference truncates $`f \cdot \text{PRECISION}`$ to 0.
 
 In every record, $`\lfloor k/(4f) \rfloor`$ is at least 1. Otherwise $`s_{gen}`$ of [Fork Choice](fork-choice.md#definitions) is 0, and the density check of the bootstrap rule compares empty windows.
 
-Every era after the first keeps its uncle reference window within the finalization window of the era before it: $`W_n \cdot f_n^{-1} \le s_{n-1}/5`$, with $`W_n`$, $`f_n`$ and $`s_{n-1}`$ the $`W`$, $`f`$ and $`s`$ of [Constants](cryptarchia-v1-protocol.md#constants) of the era indicated. This adds to the bound of [Uncle Selection](cryptarchia-v1-protocol.md#uncle-selection) within each era. Otherwise, while the latest immutable block still lies in era $`n-1`$, a block of era $`n`$ can reference an uncle whose parent lies below the latest immutable block.
+In every record, `max_transactions` is at least 1. Otherwise no block can carry a transaction.
+
+In every record, the largest [Block Proposal](bedrock-v1.1-block-construction.md#block-proposal) is at most 65,535 bytes. Otherwise it does not fit the `body_length` of [Length](payload-formatting.md#length), and Blend cannot carry it. A transaction holding one `CLAIM_POW_REWARD` and the `TRANSFER` that spends its note fits both that size and `max_transactions_size`. Otherwise a reward claim can reach no block.
+
+In every record, the largest block, with `max_uncles` uncle headers and `max_transactions_size` bytes of transactions, fits a synchronization message of at most 16 MiB. Otherwise a node cannot [download](cryptarchia-v1-bootstr-sync.md#downloading-blocks) it.
+
+In every record, `replication_factor` is 0. Otherwise a core node's quota grows while no cover message is replicated.
+
+In every record, `expected_deliveries_per_observation_window` is at least 1. Otherwise the observation window $`W`$ of [Global Parameters](blend-protocol.md#global-parameters) is 0 rounds.
+
+In every record, `max_gas_per_block` is at least 2. Otherwise $`G_{\mathrm{target}}`$ of [Notation](execution-market.md#notation) is 0, and the base fee update divides by zero. Each field of `gas_profile` is at most `max_gas_per_block`. Otherwise no block can include an Operation that costs that field or more.
+
+In every record, the ratios of `execution_market` and `storage_market` and `blend_share` lie strictly between 0 and 1. Otherwise a price can fall to 0 or stop following usage, an average can stop smoothing usage, or the Blend nodes or the leaders receive no share of the block reward.
+
+In every record, `emission_factor_scale` is at least 1. Otherwise `block_reward` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) divides by zero.
+
+In every record, `rate_den`, `share_den`, `target_claims_per_block`, `max_step` and `target_transactions_per_block` are at least 1, and `pow_share` is at most `share_den`. Otherwise a proof of work update divides by zero, a block pools a negative fee, or the Blend difficulty falls to 0.
+
+Every era after the first keeps its uncle reference window within the finalization window of the era before it: $`\lfloor W_n \cdot f_n^{-1} \rfloor \le s_{n-1}/5`$, with $`W_n`$, $`f_n`$ and $`s_{n-1}`$ the $`W`$, $`f`$ and $`s`$ of [Constants](cryptarchia-v1-protocol.md#constants) of the era indicated. This adds to the bound of [Uncle Selection](cryptarchia-v1-protocol.md#uncle-selection) within each era. Otherwise, while the latest immutable block still lies in era $`n-1`$, a block of era $`n`$ can reference an uncle whose parent lies below the latest immutable block.
 
 A release that changes anything a version names defines a new version, used by the eras that adopt it. Otherwise the nodes of two releases apply different rules under one fork digest.
 
@@ -523,7 +569,7 @@ def fork_digest(n: int) -> hash:
 
 A block or proposal, and everything it carries, is parsed, validated and executed under the rules of the era of its slot, $`\textbf{era}(sl)`$. The exceptions are a transaction, which is parsed under the era whose fork digest it carries, and an active message or reward claim, which is verified as [Era Migration](#era-migration) specifies. `slot` is the first field of the header ([Block Header](cryptarchia-v1-protocol.md#block-header)) and has the same encoding in every era. The encoding of every block and proposal begins with its header, in its [canonical encoding](bedrock-v1.1-block-construction.md#canonical-encoding). Otherwise a node cannot parse a block before it knows the block's era.
 
-Every transaction begins with its fork digest ([Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)), in the same encoding in every era. Otherwise a node cannot parse a transaction before it knows the transaction's era. A transaction is valid under era `n` only if `accepts_fork_digest` holds for `n` and the transaction's `fork_digest`:
+Every transaction begins with its fork digest ([Mantle Transaction](bedrock-v1.1-mantle-specification.md#mantle-transaction)), in the same encoding in every era. Otherwise a node cannot parse a transaction before it knows the transaction's era. The `MAX_OPERATION_DATA_SIZE` that parsing checks ([Channel Operations](mantle-transaction-encoding.md#channel-operations)) is that of the era that validates the transaction: the era of the slot of the block that carries it, or the era in force when the mempool admits it. A transaction that arrives on the [mempool topic](mempool.md#dissemination) of an era, or in a Blend data message on a connection of an era, must also meet that era's `MAX_OPERATION_DATA_SIZE`. A transaction is valid under era `n` only if `accepts_fork_digest` holds for `n` and the transaction's `fork_digest`:
 
 ```python
 def accepts_fork_digest(n: int, digest: hash) -> bool:
@@ -568,13 +614,15 @@ def migrate(state: State, from_era: int, to_era: int) -> State:
 A node derives some values once per epoch: the [Epoch State](cryptarchia-v1-protocol.md#epoch-state), `difficulty_blend` ([Blend Difficulty](proof-of-work.md#blend-difficulty)) and `epoch_pow_reward` ([Reward Pool](proof-of-work.md#reward-pool)). To derive such a value for an epoch `ep`, it:
 
 - applies the rules of the era of `ep`;
-- measures a quantity over an epoch, such as a phase boundary, an observation window or an expected block count, with the parameters of the era of the epoch it is measured over;
-- reads the chain state as of a slot from the state after the last block at or before that slot, migrated to the era of `ep` with `migrate`;
+- measures a quantity over an epoch, such as a phase boundary, an observation period or an expected block count, with the parameters of the era of the epoch it is measured over;
+- reads the chain state as of a slot from the state after the last block before that slot, migrated to the era of `ep` with `migrate`;
 - uses a value derived for an earlier epoch as it was derived.
 
-For example, the Epoch State of epoch $`E_n`$ uses the learning rate of era $`n`$. Its observation window is the first $`\lfloor 6k/f \rfloor`$ slots of epoch $`E_n - 1`$, with the $`k`$ and $`f`$ of era $`n-1`$. Its eligible notes come from the state as of the first slot of epoch $`E_n - 1`$, migrated to era $`n`$. Its stake inference starts from the $`D`$ that era $`n-1`$ derived for epoch $`E_n - 1`$.
+The storage price is derived once per epoch under its own rule ([Price Update Algorithm](storage-markets.md#price-update-algorithm)).
 
-A node verifies an active message ([Active Message](blend-protocol.md#active-message)) or a [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) under the rules of the era of the epoch it is for, whatever the era of the block that carries it, except for the [acceptance window](proof-of-work.md#acceptance-window) of the claim. Otherwise the rewards of the last epoch of an era, which are claimed in the next era, are lost. An active message is for the epoch in its `epoch_number`. A claim is for the epoch whose nonce it carries.
+For example, the Epoch State of epoch $`E_n`$ uses the learning rate of era $`n`$. Its observation period is the first `PERIOD` slots of epoch $`E_n - 1`$ ([Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule)), with the parameters of era $`n-1`$. Its eligible notes come from the state as of the first slot of epoch $`E_n - 1`$, migrated to era $`n`$. Its stake inference starts from the $`D`$ that era $`n-1`$ derived for epoch $`E_n - 1`$.
+
+A node verifies an active message ([Active Message](blend-protocol.md#active-message)) or a [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) under the rules of the era of the epoch it is for, whatever the era of the block that carries it. Otherwise the rewards of the last epoch of an era, which are claimed in the next era, are lost. Two things are excepted. The [acceptance window](proof-of-work.md#acceptance-window) of a claim is the one that section specifies. The Execution Gas of the Operation that carries an active message or a claim is that of the era of the block's slot. An active message is for the epoch in its `epoch_number`. A claim is for the epoch whose nonce it carries.
 
 ## Era Change
 
@@ -582,7 +630,7 @@ When the era in force changes to era `new`, a node retires the pending transacti
 
 ## Era Transition Period
 
-The Era Transition Period is the first $`T`$ [rounds](blend-protocol.md#time) after the era in force changes, with $`T`$ the [Transition Period](blend-protocol.md#transition-period) of the previous era. It applies to the network layer only. A node that starts during an Era Transition Period runs only the protocols of the era in force.
+The Era Transition Period is the first $`\lceil T \cdot \Delta_{n-1} / \Delta_n \rceil`$ [rounds](blend-protocol.md#time) after the era in force changes to era $`n`$, with $`T`$ the [Transition Period](blend-protocol.md#transition-period) of era $`n-1`$. It applies to the network layer only. A node that starts during an Era Transition Period runs only the protocols of the era in force.
 
 During the Era Transition Period, a node keeps the identifiers of the previous era only for what is already in flight on them, as Blend keeps the connections of a past epoch ([Transition Period](blend-protocol.md#transition-period)). A node must:
 

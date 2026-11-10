@@ -24,8 +24,8 @@
 
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
-| 1.0.0 | Initial revision. | 2026-10-21 |
-| 1.1.0 | A transaction is decoded under the era its fork digest names, admitted only when the era in force accepts that digest, applied under the era of the block's slot, and retired when the era in force stops accepting its digest ([Bedrock Eras](bedrock-eras.md)). | 2026-10-21 |
+| 1.0.0 | Initial revision. | 2026-11-03 |
+| 1.1.0 | A transaction is decoded under the era its fork digest names, admitted only when the era in force accepts that digest, applied under the era of the block's slot, and retired when the era in force stops accepting its digest or a block of the block's era cannot carry it ([Bedrock Eras](bedrock-eras.md)). | 2026-11-10 |
 
 # Introduction
 
@@ -125,7 +125,7 @@ A transaction must reach every node, whichever node it was submitted to. Nodes p
 
 A leader must fill its block with transactions that apply on its chain, including transactions that depend on each other. The mempool offers it every pending transaction, and block building finds the ones that apply.
 
-The leader passes over the pending transactions in admission order and applies each one that succeeds, repeating until a pass applies nothing new. It stops early at the first transaction that would take the block's Execution Gas past `G_max`. A transaction is **inapplicable** if its own Execution Gas exceeds `G_max`, or if no pass applies it and the leader did not stop early. The leader then fills the block in the order it applied the transactions, up to `MAX_BLOCK_TXS` and `MAX_BLOCK_SIZE`. A transaction that applies but does not fit stays pending. [Block Building View](#block-building-view) specifies both steps.
+The leader passes over the pending transactions in admission order and applies each one that succeeds, repeating until a pass applies nothing new. It stops early at the first transaction that would take the block's Execution Gas past `G_max`. A transaction is **inapplicable** if its encoding is larger than `MAX_BLOCK_SIZE`, if its own Execution Gas exceeds `G_max`, or if no pass applies it and the leader did not stop early. The leader then fills the block in the order it applied the transactions, up to `MAX_BLOCK_TXS` and `MAX_BLOCK_SIZE`. A transaction that applies but does not fit stays pending. [Block Building View](#block-building-view) specifies both steps.
 
 ## Proposal References
 
@@ -351,8 +351,16 @@ def applicability(mempool, parent_state, header) -> tuple[list[SignedMantleTx], 
         progress = False
         for key in list(remaining):
             tx = mempool.bodies[key]
+            # A transaction admitted under an era with a larger MAX_BLOCK_SIZE
+            # may fit no block of the block's era.
+            if encoded_size([tx]) > MAX_BLOCK_SIZE:
+                over_limit.append(key)
+                remaining.remove(key)
+                continue
             after = apply_transaction(state, tx)
-            if after is None:
+            # The proofs are checked before the gas, so that a transaction
+            # whose proof fails cannot end the determination at G_max.
+            if after is None or not batched_proofs_verify(state, tx):
                 continue
             tx_gas = execution_gas(state, tx)
             if tx_gas > G_max:
@@ -362,7 +370,7 @@ def applicability(mempool, parent_state, header) -> tuple[list[SignedMantleTx], 
                 # The transactions not yet applied may fit another block,
                 # so none of them is inapplicable.
                 return applied, over_limit
-            elif batched_proofs_verify(state, tx):
+            else:
                 state, gas = after, gas + tx_gas
                 applied.append(tx)
                 remaining.remove(key)
