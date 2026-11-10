@@ -20,6 +20,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-04 |
+| 1.1.0 | Encoded `learning_rate` as a ratio, and dropped the lower bound that Total Stake Inference put on `slot_activation_coeff`. | 2026-11-10 |
 
 # Introduction
 
@@ -382,7 +383,7 @@ A field holds the value of its source constant under the rules of the era. The E
 | `cryptarchia` | `epoch_config` | `phases` | The lengths of the three phases of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule), in multiples of $`\lfloor k/f \rfloor`$ |
 | `cryptarchia` | `security_param` | `UINT32` | $`k`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
 | `cryptarchia` | `slot_activation_coeff` | `ratio` | $`f`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
-| `cryptarchia` | `learning_rate` | `binary64` | `beta` of [Parameters and variables](cryptarchia-total-stake-inference.md#parameters-and-variables) |
+| `cryptarchia` | `learning_rate` | `ratio` | `beta` of [Parameters and variables](cryptarchia-total-stake-inference.md#parameters-and-variables) |
 | `cryptarchia` | `uncle_reference_window_in_block` | `UINT32` | $`W`$ of [Constants](cryptarchia-v1-protocol.md#constants) |
 | `cryptarchia` | `max_uncles` | `UINT8` | `MAX_UNCLES` of [Constants](cryptarchia-v1-protocol.md#constants) |
 | `cryptarchia` | `max_transactions` | `UINT16` | `MAX_BLOCK_TXS` of [Constants](cryptarchia-v1-protocol.md#constants) |
@@ -434,11 +435,6 @@ def ratio(r: Ratio) -> bytes:
     assert r.den != 0
     return uint(4)(r.num) + uint(4)(r.den)
 
-def binary64(x: float) -> bytes:
-    # Excluding negative zero leaves zero a single encoding.
-    assert math.isfinite(x) and x >= 0 and math.copysign(1.0, x) > 0
-    return struct.pack('<d', x)
-
 def phases(lengths: tuple[int, int, int]) -> bytes:
     return b"".join(uint(1)(x) for x in lengths)
 
@@ -452,7 +448,7 @@ def min_stake(m: MinStake) -> bytes:
     return uint(8)(m.threshold)
 
 ENCODERS = {"UINT8": uint(1), "UINT16": uint(2), "UINT32": uint(4), "UINT64": uint(8), "UINT128": uint(16),
-            "ratio": ratio, "binary64": binary64, "phases": phases,
+            "ratio": ratio, "phases": phases,
             "service_params": service_params, "min_stake": min_stake}
 
 def encode(p: EraParameters) -> bytes:
@@ -466,13 +462,13 @@ def encode(p: EraParameters) -> bytes:
     return out
 ```
 
-`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, encoded as the record gives them, without reduction. A `binary64` field is an IEEE 754 double-precision value. `service_params` is an array with one entry per [`ServiceType`](bedrock-service-declaration-protocol.md#service-types): the entry at index `i` holds the `inactivity_period` of the service type whose byte is `i`. `min_stake` has `threshold`. A record that `encode` rejects is invalid.
+`FIELDS` maps each section of the table above, in table order, to its rows, as pairs of a field and its encoding. A ratio's parts are `num` and `den`, encoded as the record gives them, without reduction. `service_params` is an array with one entry per [`ServiceType`](bedrock-service-declaration-protocol.md#service-types): the entry at index `i` holds the `inactivity_period` of the service type whose byte is `i`. `min_stake` has `threshold`. A record that `encode` rejects is invalid.
 
 In every record, the numerator of `slot_activation_coeff` and the slot length $`\Delta_n`$ are at least 1. Otherwise `epoch_length(n)` or $`\textbf{slot}(t)`$ divides by zero.
 
 In every record, each entry of `epoch_config` is at least 1. Otherwise `PERIOD` of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) or the epoch length $`L_n`$ can be 0, and [Total Stake Inference](cryptarchia-total-stake-inference.md#algorithm) or $`\textbf{epoch}(sl)`$ divides by zero.
 
-In every record, `slot_activation_coeff` is below 1. Otherwise the lottery constants $`t_0`$ and $`t_1`$ of [Proof of Leadership](cryptarchia-proof-of-leadership.md#circuit-public-inputs) take the logarithm of 0. It is also at least $`1/\text{PRECISION}`$, with `PRECISION` of [Total Stake Inference](cryptarchia-total-stake-inference.md#algorithm). Otherwise Total Stake Inference truncates $`f \cdot \text{PRECISION}`$ to 0.
+In every record, `slot_activation_coeff` is below 1. Otherwise the lottery constants $`t_0`$ and $`t_1`$ of [Proof of Leadership](cryptarchia-proof-of-leadership.md#circuit-public-inputs) take the logarithm of 0.
 
 In every record, $`\lfloor k/(4f) \rfloor`$ is at least 1. Otherwise $`s_{gen}`$ of [Fork Choice](fork-choice.md#definitions) is 0, and the density check of the bootstrap rule compares empty windows.
 
