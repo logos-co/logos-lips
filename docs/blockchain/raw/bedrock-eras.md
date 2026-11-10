@@ -637,7 +637,7 @@ During the Era Transition Period, a node keeps the identifiers of the previous e
 1. Open and accept no new connection, request or topic subscription on an identifier of the previous era. This holds for Blend as for every other protocol.
 2. Validate a Blend message under the era of the connection it arrived on.
 3. Keep, until the period ends, every input that the previous era's Blend message checks read.
-4. Process any other message that arrives on an identifier of either era as it would on an identifier of the era in force ([Era of Chain Data](#era-of-chain-data), [Network Protocol Identity](#network-protocol-identity)).
+4. Process any other message that arrives on an identifier of either era as it would on an identifier of the era in force, except for the operation data limit of a transaction ([Era of Chain Data](#era-of-chain-data), [Network Protocol Identity](#network-protocol-identity)).
 
 After the Era Transition Period the node must drop the identifiers of the previous era, with every synchronization request on them it has not yet served, and must not process its Blend messages. A node whose request is dropped continues [downloading](cryptarchia-v1-bootstr-sync.md#downloading-blocks) over the identifiers of the era in force.
 
