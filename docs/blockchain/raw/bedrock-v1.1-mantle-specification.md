@@ -55,6 +55,7 @@
 | 2.2.0 | Execution Gas from [Gas Cost Determination](analysis-gas-cost-determination.md) 2.0.0: a Mantle Transaction pays its bytes, each channel or SDP note set it changes and each root extension its proofs share, and each Operation pays its proofs, nullifiers, commitments, signatures, steps, payments, openings and program proofs, through `spend_gas` and the per-component constants of Gas Determination | 2026-10-27 |
 | 2.3.0 | [RFC] `SDP_ACTIVE` and `SDP_WITHDRAW` advance the `sequence` of the declaration's `nonce` by exactly one | 2026-11-04 |
 | 2.4.0 | [RFC] A claim pays a share of its reward as a vested note, which a proof consumes only once its vesting has ended, and `SDP_DECLARE` stakes notes through ZkStake proofs until its `locked_until` slot | 2026-11-06 |
+| 2.5.0 | [RFC] A claim reads the vested share from `epoch_pow_vested_share`, fixed for the epoch like the reward | 2026-11-06 |
 
 # Introduction
 
@@ -1582,12 +1583,13 @@ Validators must maintain the following state to process proof of work Operations
 ```python
 pow_reward_pool: TokenValue      # Reserve the rewards are paid from
 epoch_pow_reward: TokenValue     # Reward per claim, fixed for the epoch
+epoch_pow_vested_share: uint64   # Share of that reward that vests, out of SHARE_DEN, fixed for the epoch
 difficulty_reward: PowTarget     # the reward threshold, retargeted every block
 pow_nullifiers: set[zkhash]      # Spent solutions, retained for the acceptance window
 block_slots: dict[hash, SlotNumber]  # Slots of recently seen blocks, for the window check
 ```
 
-`PowTarget`, the acceptance window, and the maintenance of `pow_reward_pool`, `epoch_pow_reward` and `difficulty_reward` between blocks are specified in [Proof of Work](proof-of-work.md).
+`PowTarget`, the acceptance window, and the maintenance of `pow_reward_pool`, `epoch_pow_reward`, `epoch_pow_vested_share` and `difficulty_reward` between blocks are specified in [Proof of Work](proof-of-work.md).
 
 ### CLAIM_POW_REWARD
 
@@ -1627,19 +1629,18 @@ difficulty_reward: PowTarget       # retargeted every block
 pow_nullifiers: set[zkhash]        # spent solutions, retained for WINDOW
 pow_reward_pool: TokenValue
 epoch_pow_reward: TokenValue
-POW_VESTED_SHARE: uint64           # the share of a reward that vests, out of SHARE_DEN
-SHARE_DEN: uint64                  # the denominator of POW_SHARE and POW_VESTED_SHARE
+epoch_pow_vested_share: uint64     # the share of a reward that vests, out of SHARE_DEN
+SHARE_DEN: uint64                  # the denominator of POW_SHARE and of the vested shares
 VESTING_EPOCHS: uint64             # the length of the vesting, in epochs
 EPOCH_LENGTH: uint64               # the length of an epoch, in slots
 ```
 
-  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window), `POW_VESTED_SHARE`, `SHARE_DEN` and `VESTING_EPOCHS` are [Parameters](proof-of-work.md#parameters) of Proof of Work, and `EPOCH_LENGTH` is as in [SDP_DECLARE](#sdp_declare).
+  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window), `SHARE_DEN` and `VESTING_EPOCHS` are [Parameters](proof-of-work.md#parameters) of Proof of Work, and `EPOCH_LENGTH` is as in [SDP_DECLARE](#sdp_declare).
 
   *Validate*
 
 ```python
 # 1. Claiming must be enabled for this block: the pool must be able to cover a reward.
-assert epoch_pow_reward > 0
 assert pow_reward_pool >= epoch_pow_reward
 
 # 2. The referenced block must be canonical and within the acceptance window.
@@ -1664,7 +1665,7 @@ assert puzzle_ticket not in pow_nullifiers
 # 6. Construct the liquid and the vested output notes under the public key given in the
 #    payload, which is also their staking key, and add them to the buffer of the ledger note set.
 claim_id = derive_op_id(claim)
-vested_value = checked_uint64(epoch_pow_reward * POW_VESTED_SHARE) // SHARE_DEN
+vested_value = checked_uint64(epoch_pow_reward * epoch_pow_vested_share) // SHARE_DEN
 liquid_value = checked_uint64(epoch_pow_reward - vested_value)
 liquid_note = Note(
     value = liquid_value,
