@@ -194,7 +194,7 @@ The protocol for generating the initial randomness nonce can be found below.
 1. **Schedule Epoch Nonce Ceremony Event:**
   We must fix well in advance when this epoch nonce ceremony will take place, let `t` denote the time of the Epoch Nonce Ceremony, broadcast `t` widely.
 
-  The `STAKE_DISTRIBUTION` must be finalized before `t` to ensure a fair Cryptarchia slot lottery.
+  The Genesis Mantle Transaction, all but `genesis_epoch_nonce`, must be finalized before `t` to ensure a fair Cryptarchia slot lottery: the tickets of the first epoch take the commitments of the initial notes and service notes, whose nonces derive from the Operations of that transaction, the `chain_id` and `genesis_time` of the Cryptarchia inscription included.
 
 2. **Randomness Collection:**
   We collect the entropy from multiple randomness sources:
