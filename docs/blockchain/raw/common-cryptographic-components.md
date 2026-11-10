@@ -26,7 +26,7 @@
 | 1.0.2 | Clarification of the Poseidon2 function Add test values | 2026-05-07 |
 | 1.1.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
 | 1.2.0 | Strict EdDSA verification: reject small-order public keys and small-order `R` | 2026-09-22 |
-| 1.3.0 | Add HashWX, the client puzzle | 2026-11-06 |
+| 1.3.0 | Add HashWX, the client puzzle | 2026-11-10 |
 
 # Introduction
 
@@ -322,7 +322,7 @@ Technical Details:
 
 - A nonce satisfies a target $`T`$ for a challenge when its ticket is below $`T`$. Finding such a nonce takes $`2^{64} / T`$ hashes in expectation. Checking one takes one `hashwx_make` and one `hashwx_exec` at every target.
 - `HASHWX_NONCES_PER_SEED` must stay $`463`$. A larger value gives a GPU more nonces over which to recover the cost of compiling a function.
-- `HASHWX_MACHINE_RATE` is TBD hashes per second. It is the rate of all four cores of a Raspberry Pi 5, the target machine, at $`463`$ nonces per seed, measured on that hardware.
+- `HASHWX_MACHINE_RATE` is 970,000 hashes per second. It is the rate of all four cores of a Raspberry Pi 5, the target machine, at $`463`$ nonces per seed, rounded down from the 977,000 measured on that hardware ([benchmark](https://github.com/logos-blockchain/research/blob/hashwx-benchmark/reports/EmPoWering/HashWX/findings.md)).
 
 Use in the Logos Blockchain:
 
