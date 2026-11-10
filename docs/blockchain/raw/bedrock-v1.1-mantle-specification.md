@@ -404,9 +404,9 @@ A program governs notes of a channel that no single user holds, such as the rese
 
 **Holder.** Every program note is held by `PK0`, the public key of the spending secret key `0` ([Keys](#keys)). A program note moves only with the proof of its program, so it needs no holder of its own, and a fixed holder keeps a sequencer from creating a note of the program under its own key, which no other sequencer could then spend. Anyone can therefore derive the nullifiers of the program notes, and which program notes a step consumes is public, as the state of a program is. A program whose notes only some sequencers may move enforces it in its circuit, for example with a signature over the `op_id`.
 
-**Staker.** A program note has a [staking key](#keys) like any note, which the program chooses. A program should never give a note the staking key `PK0`: its staking secret key `NF_SK0` is public, so anyone could lead with that note.
+**Staker.** A program note has a [staking key](#keys) like any note, which the program chooses. A program should never give a note of the program the staking key `PK0`: `NF_SK0`, its nullifier key and its staking secret key, is public, so anyone could lead with that note.
 
-The ledger fixes neither the value of each note a program pays, nor the staking key of the notes it pays, nor the note an intent targets, so a program should fix all three, the staking key of a payout for example to the public key of its payee. Otherwise a sequencer can split a payout so that its payee cannot recompute the note, or give a payout a staking key its payee does not know, so that the payee cannot spend it and the sequencer stakes it. The program proof sees neither the channel nor the signer, so a creation step its rule admits runs in any channel, by any sequencer, and two pools of one program in one channel can serve each other's intents unless each intent names its pool.
+The ledger fixes neither the value of each note a program pays, nor the staking key of the notes it pays, nor the note an intent targets, so a program should fix all three, the staking key of a payout for example to the public key of its payee. Otherwise a sequencer can split a payout so that its payee cannot recompute the note, or give a payout a staking key its payee does not know, so that the payee cannot spend it. The program proof sees neither the channel nor the signer, so a creation step its rule admits runs in any channel, by any sequencer, and two pools of one program in one channel can serve each other's intents unless each intent names its pool.
 
 **What enforces what.**
 
@@ -432,7 +432,7 @@ A program using LOGOS only, such as lending, is thus enforced by the ledger, and
 - A program deposit exists only together with the program step that consumes it, the next program step of its mini-block, so it is never left unconsumed: if the sequencer does not publish the program step, the inscription carrying the program deposit is invalid and the notes of the user are not consumed.
 - The program spend and the program proof are bound to the `op_id` of the inscription, which covers the inscription and the public data of every step but no proof. A program step is thus attributable to its inscription and valid in no other.
 - Program notes take part in Proof of Stake by default, as every note does through its staking key: the Proof of Leadership reads the `program` and `data` of its note. The LOGOS a program keeps in notes its steps do not move thus stakes, and a program open to everyone, such as a pool, can offer liquid staking, its notes moved by any sequencer and staked by the holder of their staking secret key. A program opts out by constraining the staking key of its notes to `0` in its proof ([Keys](#keys)).
-- The reward of a block led by a program note goes, as for any leader, to the key its staker chooses, not to the program: the ledger cannot make the reward a note of the program, since only the proof of a program creates its notes. A program that does not constrain the staking key of the notes it creates, its own notes and its payouts, lets the sequencer proving the step choose it: that sequencer can stake those notes and keep their rewards, the value of its own notes staying governed by the program, and a payout whose staking key its payee does not know cannot be spent by the payee.
+- The reward of a block led by a program note goes, as for any leader, to the key its staker chooses, not to the program: the ledger cannot make the reward a note of the program, since only the proof of a program creates its notes. A program that does not constrain the staking key of the notes it creates, its own notes and its payouts, lets the sequencer proving the step choose it: that sequencer can stake the notes of the program and keep their rewards, their value staying governed by the program, and a payout whose staking key its payee does not know cannot be spent by the payee.
 - Program notes are never withdrawn, since a withdrawal consumes notes with a ZkTransfer.
 - The opening of every note of the program a step creates is published with the step, and checked by the ledger. A sequencer withholding the opening of a note of the program would otherwise freeze it: program notes are never withdrawn, and no sequencer can prove a program spend consuming a note it cannot open. The openings serve this data availability only: the ledger keeps nothing from them, and they are prunable from the blocks behind the latest immutable block of the node.
 
@@ -455,7 +455,7 @@ class ProgramDeposit:
     program_id: ProgramId          # the program the program deposit pays
     inputs: list[NoteNullifier]    # nullifiers of the consumed user notes of the channel
     outputs: list[NoteCommitment]  # commitments of the change, user notes of the channel
-    commitment_root: MerkleRoot    # a recent (less than ROOT_WINDOW blocks) MMR root of the channel note set
+    commitment_root: MerkleRoot    # the MMR root of the channel note set at the end of one of the last ROOT_WINDOW blocks
     value: TokenValue              # the value the program deposit pays to the program
     intent: zkhash                 # the hash of what the user expects from the program
     inscription: bytes             # the zone message of this program deposit, signed by its holder
@@ -465,7 +465,7 @@ class ProgramStep:
     inputs: list[NoteNullifier]            # nullifiers of the consumed notes of the program, possibly empty
     program_outputs: list[NoteCommitment]  # commitments of the created notes of the program
     outputs: list[NoteCommitment]          # commitments of the user notes the step pays
-    commitment_root: MerkleRoot            # a recent (less than ROOT_WINDOW blocks) MMR root of the channel note set
+    commitment_root: MerkleRoot            # the MMR root of the channel note set at the end of one of the last ROOT_WINDOW blocks
     program_step_id: zkhash                # the hash of the input and output notes of the program spend
     inscription: bytes                     # the zone message of this step, bound by the op_id
 
@@ -1841,7 +1841,7 @@ NF_SK0 = zkhash(FiniteField(b"NF_KDF_V1", byte_order="little", modulus= p), 0)
 PK0 = zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), NF_SK0)
 ```
 
-`NF_SK0` is public, so `PK0` should never be the staking key of a note: anyone could lead with it, taking `NF_SK0` as staking secret key.
+`NF_SK0` is public, so `PK0` should never be the staking key of a note `PK0` holds: anyone could lead with it, taking `NF_SK0` as nullifier key and as staking secret key.
 
 - **Spending.** A [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) proves `spending_sk`, from which it derives `nf_sk`, then the `public_key` and the nullifier of the note. Spending a note takes `spending_sk`, and no other secret.
 - **Leading.** A [Proof of Leadership](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement) proves the `public_key` from `nf_sk`, which ties the nullifier it shows unspent to the note, and the `stake_public_key` from `staking_sk`, which derives the lottery ticket. The nullifier key sits between the spending secret key and the public key so that this proof never takes `spending_sk`.
@@ -2356,7 +2356,7 @@ Such that the following constraints hold, where `inputs_commitment` are the comm
   ```
   The flags `outputs_of_program` mark the `program_outputs` of the step, whose openings the step must publish.
 
-- If the step consumes a note of the program, the nonce of each active output is derived from the nullifier of the first input and the index of the output, as the nonce of a note the ledger creates is derived from its `op_id` and its output number. The active inputs come first, which the circuit enforces, so `inputs_active[0]` holds exactly when the step consumes a note.
+- If the step consumes a note of the program, the nonce of each active output is derived from the nullifier of the first input and the index of the output, as the nonce of a note the ledger creates is derived from its `op_id` and its output number. `k` counts the `program_outputs` of the step first, so entry `j` of its `outputs` has `k = len(program_outputs) + j`. The active inputs come first, which the circuit enforces, so `inputs_active[0]` holds exactly when the step consumes a note.
   ```python
   assert not inputs_active[0] or all(
       outputs_nonce[k] == zkhash(FiniteField(b"NOTE_NONCE_V1", byte_order="little", modulus= p), inputs[0], FiniteField(k, byte_order="little", modulus= p), outputs_value[k], outputs_pk[k])

@@ -263,3 +263,5 @@ A `G1Point` holds the coordinate `x` of the point as 32 little-endian bytes. A `
 - Bit 6 flags the point at infinity, which has no encoding: a decoder MUST reject a point with bit 6 set.
 
 A decoder MUST also reject a coordinate not less than the modulus $`q`$ of the base field of BN254, so that a point has a single encoding.
+
+A `Groth16Proof` is decompressed only when it is verified. The null proof of the [Genesis Block](bedrock-genesis-block.md#block-header-fields), never verified, is 128 zero bytes, which encode no point.

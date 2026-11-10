@@ -235,7 +235,7 @@ The Genesis Block header fields are set to the following values:
 - `proof_of_leadership`: Stubbed leadership proof.
   - `reward_commitment` and `reward_value`: 0 (as there is no leader block reward for the initial block).
   - `entropy_contribution`: 0 (no entropy is provided through the initial PoL).
-  - `proof`: Null Groth16Proof, all values are set to zero.
+  - `proof`: the null `Groth16Proof`, 128 zero bytes, which encode no point and are never decompressed.
 
 **Example**
 
@@ -249,7 +249,7 @@ GENESIS_HEADER = Header(
         reward_commitment=bytes(32),
         reward_value=0,
         entropy_contribution=bytes(32),
-        proof=Groth16Proof(G1_ZERO, G2_ZERO, G1_ZERO),
+        proof=bytes(128),
     )
 )
 ```
@@ -328,7 +328,7 @@ GENESIS_HEADER = Header(
         reward_commitment=bytes(32),
         reward_value=0,
         entropy_contribution=bytes(32),
-        proof=Groth16Proof(G1.ZERO, G2.ZERO, G1.ZERO),
+        proof=bytes(128),
     )
 )
 
