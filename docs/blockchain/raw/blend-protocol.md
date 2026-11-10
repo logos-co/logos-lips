@@ -40,7 +40,7 @@
 | 1.7.0 | Derived the observation window $`W`$ from cover traffic in place of the maximal release delay. | 2026-10-29 |
 | 1.8.0 | Refused a neighbor closed as not live for $`W`$ rounds, restarting its liveness count, in place of shutting it out for the rest of the epoch. | 2026-10-30 |
 | 1.8.1 | Derived $`M_W`$ from the messages a neighbor is expected to deliver in an observation window and from the peering degree, in place of a fixed value. | 2026-10-30 |
-| 1.9.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, bounded the transition period and the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). A round lasts one slot, and $`\beta_{max}`$ replaces $`\beta_C`$ and $`\beta_D`$. | 2026-11-09 |
+| 1.9.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, made the transition period the larger of $`\lfloor 1/f \rfloor`$ and $`T_M + 1`$ rounds, bounded the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). A round lasts one slot, and $`\beta_{max}`$ replaces $`\beta_C`$ and $`\beta_D`$. | 2026-11-10 |
 | 1.9.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, and an encapsulated message to 19313 bytes, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-11-02 |
 | 1.10.0 | Named each epoch's connections by a digest of the epoch's proof-of-quota public input. A node opens and accepts connections only of its current epoch, and sends a message only on connections of its epoch, in place of the one-round release delay and the last-round exemption from blacklisting. | 2026-11-02 |
 | 1.11.0 | A node opens and accepts a new epoch's connections, and bootstraps that epoch's network, a two-second clock slack before the epoch begins, and honest clocks must differ by less than that slack. | 2026-11-02 |
@@ -618,11 +618,15 @@ where:
 - $`\eta = 2`$ defines the network absorption of one hop ([Global Parameters](#global-parameters));
 - $`\beta_{max}=3`$ defines maximum number of blending operations of a single message.
 
-After $`T_M`$ rounds, all messages for the past epoch should have been processed and disseminated. To provide an additional safety buffer, we round the transition period up to $`T=30`$ rounds. After this period, all old connections can be safely terminated, and messages for the past epoch must not be processed anymore.
+The transition period is the larger of $`\lfloor 1/f \rfloor`$ rounds, with $`f`$ the slot activation coefficient of [Constants](cryptarchia-v1-protocol.md#constants), and the message traversal time plus one round:
 
-The transition period must be at least the message traversal time plus the largest clock difference between two honest nodes: $`T \ge T_M + T_C`$. Otherwise a node whose clock runs ahead stops processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)).
+$$
+T = \max(\lfloor 1/f \rfloor, T_M + 1) = \max(30, 16) = 30 \text{ rounds}
+$$
 
-A node opens and accepts connections only of its current epoch, by its local clock, and from $`T_S = 2`$ seconds before a new epoch begins also those of the new epoch ([Connection Details](#connection-details)). It counts the new epoch's connections towards the [Degree](#connectivity-maintenance) rules apart from the connections of the current epoch. The new epoch's public input is fixed before the epoch begins. Nodes must keep their clocks synchronized so that $`T_C`$ is below $`T_S`$, a round lasting one second ([Time](#time)). Otherwise a neighbor whose clock runs behind a node can still refuse its connections of the new epoch after its epoch changes, and the messages it generates in that time reach none of those neighbors.
+After this period, all old connections can be safely terminated, and messages for the past epoch must not be processed anymore.
+
+A node opens and accepts connections only of its current epoch, by its local clock, and from $`T_S = 2`$ seconds before a new epoch begins also those of the new epoch ([Connection Details](#connection-details)). It counts the new epoch's connections towards the [Degree](#connectivity-maintenance) rules apart from the connections of the current epoch. The new epoch's public input is fixed before the epoch begins. Nodes must keep their clocks synchronized so that $`T_C`$ is below $`T_S`$, a round lasting one second ([Time](#time)). The transition period must be at least $`T_M + T_C`$. Otherwise a node whose clock runs ahead can stop processing past-epoch messages while some are still crossing the network, and their senders wait for a delivery that can no longer happen ([Detection](#detection)). A neighbor whose clock runs behind a node can also still refuse its connections of the new epoch after its epoch changes, and the messages it generates in that time reach none of those neighbors.
 
 When a new **epoch** begins:
 
