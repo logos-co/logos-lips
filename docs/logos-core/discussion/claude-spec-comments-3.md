@@ -38,7 +38,7 @@ appendices everything that is settled.
 | 1 | Earlier items answered, still needing discussion | 11 remarks covering 15 items |
 | 2.1 | Items of the second audit with no response | 10 |
 | 2.2 | Concerns of `human-spec-comments.md` that still need an answer | 4 |
-| 3.1 | New: contradictions and gaps in the spec text | 11 |
+| 3.1 | New: contradictions and gaps in the spec text | 14 |
 | 3.2 | New: the system contracts against their own rules | 10 |
 | 3.3 | New: the integrator documents against the specs | 8 |
 | 3.4 | New: porting the existing module catalog | 7 |
@@ -150,7 +150,7 @@ earlier item is named under **Overlap** or **See**; its outcome is in section 1 
 
 ### 3.1 Contradictions and gaps in the spec text
 
-These five items are places where two passages of the specs cannot both be followed, or where a rule that
+These items are places where two passages of the specs cannot both be followed, or where a rule that
 other rules depend on is not stated.
 
 #### TF-01 — INTERFACE says Runtime and Transport must not be required to know payload schemas; RUNTIME and TRANSPORT require exactly that
@@ -391,30 +391,57 @@ other rules depend on is not stated.
   `runtime_control_scope`: which method or event entries and which record constraints establish it for
   each use; or add an explicit observation action to the Capability Authority.
 
-#### TF-10 — The lifecycle state after a start that fails for missing configuration is not stated
+#### TF-10 — The lifecycle state after an accepted start is stopped before any realization exists is not stated, for missing configuration and for a denied execution authorization
 - **Specs:** CONFIG l.123-126 ("Runtime MUST NOT start a module whose declaration contains a
   configuration-schema binding"; "Missing eligible configuration MUST prevent initialization and produce
   `NOT_READY` for an otherwise authorized startup attempt. This startup failure does not cancel execution
   intent accepted under Runtime's lifecycle rules"), l.213 (`update_configuration` does not "invoke a
-  lifecycle operation"); RUNTIME l.3643-3646 (acceptance establishes `requested` intent, and "A
-  subsequent startup denial or failure MUST NOT cancel that intent or change its origin"), l.3753 (the
-  failure classifications, none of which names missing configuration), l.3758 ("A local instance in
-  `error` MUST include `failure`, using `other` when no more specific cause is established").
-- **Issue:** the attempt returns `NOT_READY` and leaves intent `requested`. Whether the instance stays
-  `unloaded` with no `failure`, or enters `error` with a classification (CONFIG calls the outcome a
-  "startup failure"), is not said, and both are observable through the module record, the readiness
-  result and the state events. Nor is it said what makes the retained intent take effect once a value is
-  supplied, since updating configuration starts nothing.
-- **Impact:** an orchestrator or a presentation module cannot tell "waiting for configuration" from "not
-  started" or from a failure, two Runtimes report different states for it, and whether the module starts
-  by itself when the value arrives differs as well.
-- **Reading an implementation needs today:** keep the instance `unloaded` with intent `requested` and no
-  failure, and leave the retry to orchestration; or enter `error` with `other`. The first is the
-  conservative reading, because it invents no failure.
+  lifecycle operation"); RUNTIME l.3643-3646 (acceptance establishes `requested` intent "before execution
+  authorization or startup", and "A subsequent startup denial or failure MUST NOT cancel that intent or
+  change its origin"), l.1737-1741 ("When authority policy denies an operation, the runtime MUST NOT
+  perform the operation and MUST report an authorization failure through the method, transport, or
+  runtime API error channel used for the attempted operation"), l.1747-1748 ("retained observation or
+  audit material MUST distinguish denial from evaluation failure"); CA l.343-345 ("Runtime MUST obtain an
+  allow decision before asking Module Loader to realize a direct native implementation"); RUNTIME
+  l.553-570 (the state diagram has no edge from `unloaded` to `error`, and `error` means "Realization,
+  initialization, readiness, execution, or cleanup failed"), l.3750 (`failure` is optional and "describes
+  the current local failure"), l.3753 (the failure classifications: `authority-denied` and
+  `authority-evaluation-failed` are among them, and none names missing configuration), l.3757 (Runtime
+  clears the classification "when a new execution attempt is accepted or an explicit stop completes
+  successfully"), l.3758 ("A local instance in `error` MUST include `failure`, using `other` when no more
+  specific cause is established"), l.3537-3538 (`recover_module` requests one attempt for retained
+  intent, with the instance `unloaded` or `error`), l.3803 ("orchestration MUST request resumption of
+  that intent through `recover_module`, including deployment intent initially blocked by missing
+  permissions").
+- **Issue:** two causes can stop an accepted start before a realization exists, and for neither is the
+  resulting state given.
+  1. Missing configuration. The attempt returns `NOT_READY` and leaves intent `requested`. Whether the
+     instance stays `unloaded` with no `failure`, or enters `error` with a classification (CONFIG calls
+     the outcome a "startup failure"), is not said. Nor is it said who acts on the retained intent once
+     a value is supplied: updating configuration starts nothing, and l.3803 gives the `recover_module`
+     request to orchestration only for permissions.
+  2. Denied execution authorization. Intent is established before the decision, the decision has to
+     come before realization, and the denial is reported on the call and must stay distinguishable from
+     an evaluation failure. The two classifications suggest that the record carries one. But `failure`
+     is required only in `error` (l.3758), `error` is defined as a failure of something that was
+     attempted (l.570), and the diagram has no edge from `unloaded` to `error`. An instance whose start
+     was denied is therefore either `unloaded` and carrying a `failure`, which no rule allows or
+     forbids, or in `error` although nothing was realized.
+
+  Both outcomes are observable through the module record, the readiness result and the state events.
+- **Impact:** an orchestrator or a presentation module cannot tell "waiting for configuration" or
+  "waiting for permission" from "not started" or from a failure, two Runtimes report different states for
+  the same event, and whether the module starts by itself when the value arrives differs as well.
+- **Reading an implementation needs today:** keep the instance `unloaded` with intent `requested` in both
+  cases, with no failure for missing configuration and with `failure` set to `authority-denied` or
+  `authority-evaluation-failed` after a refused authorization, and leave the retry to orchestration; or
+  enter `error`, with `other` for missing configuration. The first is the conservative reading, because
+  it reports no failure of something that never ran.
 - **Overlap:** NC-02 (missing configuration gives `NOT_READY` and preserves intent), NL-07, TL-07.
-- **Suggested resolution:** state the lifecycle state and whether a `failure` classification applies,
-  adding one such as `configuration-missing` if `error` is intended, and say that acting on the retained
-  intent after a configuration mutation is orchestration's task.
+- **Suggested resolution:** state the lifecycle state for both causes and whether an `unloaded` instance
+  may carry a `failure`; add a classification such as `configuration-missing` if one is intended for the
+  first cause; and say that acting on the retained intent after a configuration mutation is
+  orchestration's task, as l.3803 says for permissions.
 
 #### TF-11 — A line break inside an unprefixed byte-string literal: which bytes it contributes is not defined
 - **Specs:** cdCDDLe l.127 ("For text-string and byte-string literals, the grammar and escape rules MUST
@@ -478,12 +505,116 @@ other rules depend on is not stated.
   same installed state, catalog inputs, and protected policy" (l.1298-1299).
 - **Reading an implementation needs today:** the first reading is the conservative one. It never alters
   or contradicts a recorded edge, keeps one version per name in every installed closure, and needs no
-  catalog material for packages that are already installed.
+  material for a version that a recorded edge excludes.
 - **Overlap:** PM-07 and PM-08 (source selection and unavailable material), TP-07.
 - **Suggested resolution:** state in PM §11 that an installed candidate contributes its recorded direct
   dependency edges as exact requirements, transitively; that a candidate excluded by such an edge is
   neither considered nor charged; and that a conflict with another accumulated requirement makes the
   installed candidate unsatisfiable, so that resolution backtracks.
+
+#### TF-13 — The verified views of HASH Appendix B.1 and B.2 must be accepted, and the verification procedure cannot be applied to them
+- **Specs:** HASH l.1214-1216 ("Verification requires the schema construction input defined by
+  LOGOS-MODULE-COMMITMENT-MODEL Section 3.1, including its required dependency documents, separately from
+  the verified view. The verifier MUST validate that input and compute the schema root and selected schema
+  subtree root for comparison with the view in step 2"; "Previously validated construction results and
+  computed roots MAY be reused"), l.1223-1232 (steps 2 to 4: check that the schema root and schema subtree
+  root "identify the schema under which the value root is interpreted", "Validate the typed path against
+  the schema", and normalize the disclosed value "under the schema selected by the typed path"),
+  l.1385-1392 ("The vectors in Sections B.1 through B.3 use these synthetic 32-byte schema identities": a
+  schema root that is the byte `10` repeated, and three subtree roots of the same kind), l.1406-1408 and
+  l.1423-1425 (B.1 and B.2 each describe a verified view and say "The verified view MUST validate against
+  the value root above"), l.1266 ("A verified-view implementation MUST accept the valid Appendix B views
+  and reject mutations that change a disclosed value, path, range, label, count, schema identity, payload
+  schema root, node kind, child digest, payload discriminator, domain tag, step order, or expected value
+  root"), l.1476 (B.4, by contrast: "All schema identities are computed from the documents above and the
+  pinned common schema").
+- **Issue:** the identities of B.1 to B.3 are arbitrary byte patterns. No schema construction input has
+  that schema root or those subtree roots, since producing one would mean inverting the hash. A verifier
+  that follows §8 therefore has no input to validate, nothing to compare in step 2, no schema to validate
+  the path against in step 3 and none to normalize the disclosed `uint16` or byte range under in step 4.
+  It never reaches steps 5 to 7, which are what these two vectors exercise. The reuse sentence of l.1216
+  does not help, because it covers the results of a construction that was validated. B.3 has no view, and
+  B.4 does not have the problem.
+- **Impact:** the conformance requirement of l.1266 and the two "MUST validate" sentences cannot be met by
+  the normative procedure. Each implementation needs a test-only path that supplies the identities in
+  place of steps 2 to 4, and each decides for itself what that path checks, so the mutations of l.1266
+  that concern "schema identity" and "payload schema root" are not tested alike.
+- **Reading an implementation needs today:** check the B.1 and B.2 views with the table of l.1387-1392
+  standing in for the results of steps 2 to 4, and keep that path out of the verifier that callers use.
+- **Overlap:** CM-08 (the verifier receives the schema input separately from the view), SO-10.
+- **Suggested resolution:** rebuild B.1 and B.2 over concrete schema documents, as B.4 is; or state that
+  for B.1 to B.3 the listed identities stand for the results of schema construction, and which steps of
+  §8 then apply.
+
+#### TF-14 — Two resolver counters are not fully defined: dependency depth for a package reached by more than one path, and what the root is charged
+- **Specs:** PM l.1236-1241 (four resolver limits: package names in one partial closure, dependency
+  depth, candidate records considered for one name, and candidate-assignment attempts), l.1249-1252 ("The
+  root package counts toward the partial-closure limit and has dependency depth zero. Dependency depth is
+  the number of manifest dependency edges from the root"; the limit is verified "Before adding a package
+  name to a partial closure or inspecting a manifest at a greater depth"), l.1254-1255 ("A candidate
+  consideration occurs when Package Manager examines one satisfying candidate in the required order for
+  possible assignment and dependency exploration"), l.1263 (an attempt "occurs whenever Package Manager
+  tentatively binds a package name to a candidate"), l.1267-1271 (exceeding a limit ends the operation
+  with `dependency-unavailable`; "Limit exhaustion and all counter values are determined by the installed
+  state, catalog inputs, and protected policy and MUST NOT depend on implementation-local resource
+  thresholds"), l.1298-1299 (resolution is deterministic), l.1302-1303 (a root without a version takes
+  "the highest available normal release under SemVer precedence"), l.1306 (the next name resolved is "the
+  unresolved package name that is first in UTF-8 byte order", whatever its depth).
+- **Issue:**
+  1. A package name can be required along paths of different lengths. If root R requires M directly and
+     also requires A, which requires M, then "the number of manifest dependency edges from the root"
+     (l.1250) is 1 or 2 for M. The fewest edges, the most edges, and the edges of the path through which
+     M was first required are all readings; with a depth limit of 1 the first accepts and the second
+     fails. The fewest edges are not even known when M is inspected, because names are taken in byte
+     order (l.1306). With R requiring A and Z, A requiring B, and both B and Z requiring M, the names are
+     resolved in the order A, B, M, Z, so M is inspected at three edges before the two-edge path through Z
+     exists.
+  2. l.1249 says that the root counts toward the name limit and has depth zero. It does not say whether
+     selecting the root is a candidate consideration and a candidate-assignment attempt. With an attempt
+     limit of N and a closure that needs N assignments below the root, the operation succeeds under one
+     reading and fails under the other.
+- **Impact:** for the same installed state, catalog and policy, two Package Managers reach limit
+  exhaustion at different points and so disagree on whether an operation succeeds, which l.1270-1271 and
+  l.1298-1299 exclude. The difference shows only near a limit.
+- **Reading an implementation needs today:** none is safer than the others. Whichever is chosen has to be
+  documented with the limits, since it decides when they are reached.
+- **Overlap:** TF-12 (its fourth reading differs from the first only in these counters), PM-08.
+- **Suggested resolution:** define depth for a name with several requiring paths, for example as the
+  fewest edges through the packages already bound when the name is selected, and state whether the root is
+  charged against the consideration and attempt limits.
+
+#### TF-15 — A new operation through a route handle whose connection was lost for no known cause has no assigned code
+- **Specs:** RUNTIME l.1341-1347 ("A route handle remains usable only while its route is `ready` and its
+  consumer module context is live"; for a new operation, `NOT_AUTHORISED` "when route authority has been
+  withdrawn, has expired, or cannot be established"; "If no such authorization failure is known, explicit
+  route closure or loss of Runtime-owned provider or route readiness MUST produce `NOT_READY`"), l.1350
+  ("A transport failure that prevents receiving a result remains `TRANSPORT_ERROR`", which concerns a call
+  already made), l.1354-1356 (the terminal observer reports the end of the handle's invocation path,
+  "including session failure while the logical route remains ready"), l.3474-3475 ("Loss of a
+  provider-session connection ends that session and its invocation path. Connection loss alone need not
+  make the logical route terminal"); TRANSPORT l.541-545 (on close, "The caller-side handle becomes
+  unusable for ordinary invocation and subscription operations"); INTERFACE l.1486-1491 (the binding
+  retains a termination code, and "Connection failure without a known authorization or readiness cause
+  uses `TRANSPORT_ERROR`"; a later `observe_end` registration returns that code), l.1496 ("A replacement
+  connection or provider MUST NOT revive the handle or its registration"), l.2045-2046 (a prepared call
+  fails "without provider dispatch" and does not reconnect).
+- **Issue:** after a connection fails with no authorization or readiness cause, the route can still be
+  `ready` while the handle is unusable. A `call`, a `subscribe` or a `prepare_call` then made through that
+  handle must fail, and no rule gives the code. RUNTIME l.1343-1344 covers withdrawn authority and
+  "explicit route closure or loss of Runtime-owned provider or route readiness", and this case is neither.
+  `TRANSPORT_ERROR` is assigned to the call that was in flight (l.1350) and to the retained termination
+  code, which only `observe_end` returns. The retained code cannot simply serve for new operations: it
+  "MUST NOT be replaced when a later cause becomes known" (INTERFACE l.1490), while RUNTIME l.1343 requires
+  `NOT_AUTHORISED` for a new operation once a withdrawal of authority is known.
+- **Impact:** a consumer that calls through such a handle gets `NOT_READY` from one implementation and
+  `TRANSPORT_ERROR` from another. The two call for different handling: wait for the provider, or renew
+  the route and materialize a new handle.
+- **Reading an implementation needs today:** `TRANSPORT_ERROR`, the code the handle's observer receives;
+  or `NOT_READY`.
+- **Overlap:** EC-05 (codes for a closed, failed, revoked or expired route), TL-03 (a `ready` route need
+  not have a usable path), TS-04.
+- **Suggested resolution:** add the case to RUNTIME l.1343-1347: when the handle's invocation path has
+  ended and no authorization or readiness cause is known, a new operation returns `TRANSPORT_ERROR`.
 
 ### 3.2 The system contracts, checked against their own rules
 
@@ -1184,6 +1315,56 @@ holds keys. A and B stand for other modules and are local to one item.
   (`LOGOS_CALLER_MODULE` or `LOGOS_CALLER_SYSTEM_SERVICE`, INTERFACE l.3505-3506, l.3519-3523). If
   l.888 means which system service is calling, the view has no field for it; if it means the caller
   kind, saying so would remove the doubt.
+- INTERFACE §2.4 rule 8 (l.1280-1283) says "Unbounded and ranged `bstr` fields expand to adjacent
+  pointer-and-length parameters" and spells out an output form only for the exact-size case ("its
+  caller-allocated output uses `uint8_t (*out_<name>)[N]`"). Rule 6 gives the text output ("An
+  unconstrained `tstr` response field uses `const char** out_<name>`", l.1275) and rule 9 the list output
+  ("Its output uses adjacent `<type>** out_<name>` and `size_t* out_<name>_count` parameters", l.1285).
+  The byte-string output is left to analogy, including whether the pointee is `const` and what the
+  length parameter is called, although l.641 requires any two implementations to produce the same
+  parameter types. One sentence giving `const uint8_t** out_<name>` with `size_t* out_<name>_len`, and
+  the constrained typedef for a ranged field, would close it.
+- `TIMEOUT` has one assigned producer: "expiration of the caller-selected duration produces `TIMEOUT`"
+  (INTERFACE l.2067), for a prepared call. "Applicable policy, route lifetime and execution-envelope
+  failure may still end delivery earlier" (l.2062), and RUNTIME l.3226-3227 leaves "In-flight call
+  behavior, timeout policy, idle expiry, and retry policy" to the profile or implementation. No sentence
+  says which code a call returns when such a policy deadline ends it; that includes a synchronous `call`,
+  which takes no timeout.
+- TRANSPORT l.989 gives the outcome of "A new Request processed during termination". A Subscribe or an
+  Unsubscribe processed in the same window still needs its one SubscriptionResult (l.725), and what it
+  carries is left to the general rules: `NOT_AUTHORISED` for the Subscribe (l.735-736), and for an
+  Unsubscribe of a subscription that the termination has already ended, `INVALID_PARAMS` under l.748 ("An
+  Unsubscribe naming no active subscription"), which the caller cannot tell from a mistake of its own. A
+  sentence beside l.989 would settle both.
+- PM l.910 ("A manifest variant with no descendant entry MUST have an explicit variant-directory entry")
+  describes a variant directory without files. l.766 requires every variant to declare at least one
+  artifact, and l.965 says "Every declared artifact path MUST identify one regular file", so the case
+  cannot occur unless l.964-965 bind only the selected variant, as l.963 ("Artifact paths are relative to
+  the selected variant directory") and l.1100 ("a required artifact is missing from the selected variant
+  or realized output") suggest. If an archive may omit the files of variants it does not serve, saying so
+  would also answer part of NP-12; if not, l.910 has no case.
+- BCP §5.4 l.398-399 places two requirements on "the non-production mechanisms identified in
+  LOGOS-MODULE-SECURITY-CONSIDERATIONS Section 13". That identification is one bullet (SECURITY l.532) in
+  a document that says of itself "This document is informational" (l.18). Of the four mechanisms the
+  bullet names, only the transport test hooks are defined (TRANSPORT §8.5); "relaxed debugging
+  entitlements" and "unknown-artifact analysis" appear nowhere else, and a development trust anchor
+  enters "through the same protected trust-input path" as any other (PM l.443-444). When a deployment
+  owes the non-production designation of BCP l.399 is therefore left to its own judgement. Naming the
+  mechanisms in BCP §5.4 would fix both points.
+- RUNTIME l.1824: "Concurrent invocations from the same or different consumers MUST NOT share consumer
+  identity, authority decisions, or request-key scope." Two invocations by one consumer have the same
+  consumer identity, and a `create_module` request key is scoped "to this method, the authenticated
+  consumer, and the Runtime instance" (l.3627; l.3168 likewise for route operations), which l.3631
+  relies on ("Concurrent requests with the same key MUST NOT create multiple instances"). The sentence
+  presumably means that each invocation is authenticated and authorized on its own, which l.1823 says.
+- INTERFACE l.108 and COMMITMENT l.678 call the construction input "ordinary RFC 8610 CDDL documents",
+  and INTERFACE l.505-506 names RFC 8610 among what decides "whether source text is a valid Logos schema
+  document". The answer to CM-11 put the string-literal grammar of RFC 9682 Section 2 into cdCDDLe
+  l.127 only. INTERFACE and COMMITMENT do not cite RFC 9682, so which grammar decides the validity of a
+  string literal in a schema document depends on which specification is read.
+- INTERFACE l.3719-3726: `prepare_call` takes `const logos_async_options_t* options`. l.3906 and l.3911
+  cover a wrong version or extent and "Malformed callback or option input"; whether a null `options`
+  pointer is malformed or selects the defaults (no timeout) is not said.
 
 ---
 
