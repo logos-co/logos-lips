@@ -555,11 +555,14 @@ or with fewer than `N` valid observations, is covered in [Slashing](#slashing).
 Rounds are grouped into cycles of `C_cycle` rounds.
 Cycle `c` covers rounds `[c * C_cycle, (c + 1) * C_cycle)`, and `cycleStartRound = c * C_cycle`.
 
-`root_cycle` of cycle `c` is the membership root as it stands after the last registration of cycle `c - 1`.
-The LEZ registration contract records it the first time any TX touches the contract in cycle `c`,
-before applying that TX.
+The registration contract updates the membership tree on every registration, as usual.
+In addition, it keeps a snapshot of the root for each cycle: `root_cycle` of cycle `c`
+is the root as it stands at the end of cycle `c - 1`.
+The contract takes the snapshot the first time any TX touches it in cycle `c`, before applying that TX.
+No registrations are queued; only the snapshot is frozen.
 Registrations made during cycle `c - 1` therefore become active in cycle `c`,
 and registrations made during cycle `c` wait until cycle `c + 1`.
+The contract MUST keep `root_cycle` of a cycle until the dispute window of its last round has closed.
 `AOS_cycle` is the number of leaves under `root_cycle`.
 Indexers and the LEZ contract MUST use `root_cycle` of the observation's cycle,
 both to validate observations and to check disputes.
