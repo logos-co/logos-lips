@@ -38,7 +38,7 @@ appendices everything that is settled.
 | 1 | Earlier items answered, still needing discussion | 11 remarks covering 15 items |
 | 2.1 | Items of the second audit with no response | 10 |
 | 2.2 | Concerns of `human-spec-comments.md` that still need an answer | 4 |
-| 3.1 | New: contradictions and gaps in the spec text | 19 |
+| 3.1 | New: contradictions and gaps in the spec text | 23 |
 | 3.2 | New: the system contracts against their own rules | 10 |
 | 3.3 | New: the integrator documents against the specs | 8 |
 | 3.4 | New: porting the existing module catalog | 7 |
@@ -73,6 +73,9 @@ From the new findings (section 3):
   host binary.
 - TF-12: nothing says how an installed package's recorded dependency edges enter a new closure, so two
   Package Managers can resolve the same request differently.
+- TF-21: in direct mode an event must be delivered on the publishing thread, and a subscription's handler
+  must never run on two threads at once. Two modules that publish into each other's handlers cannot
+  satisfy both, and both threads stop.
 - TL-01: `logos_types.h` is said to declare every common-schema type, but only one of the eight has a
   specified declaration.
 - TL-02: the Credential Store specification and contract are cited and are not in the set.
@@ -788,6 +791,161 @@ other rules depend on is not stated.
 - **Suggested resolution:** state for each method the state at which the response is sent, or that both
   are permitted and the returned state tells which; and state that a `stop_module` whose target is the
   caller is answered without waiting for destruction, as `report_failure` is.
+
+#### TF-21 — Delivery on the publishing thread and one thread at a time per subscription cannot both be met when two publishers deliver into each other's handlers
+- **Specs:** INTERFACE l.1961-1965 ("In direct mode, a publish call MUST invoke every applicable direct
+  subscriber callback synchronously on the publishing thread before the publish call returns"; "An
+  implementation MUST NOT move a direct subscriber callback to another thread or return from publication
+  before that callback completes"), l.1435-1438 ("The binding MUST NOT begin a handler invocation on one
+  thread while an invocation for the same subscription remains active on another thread"; "Same-thread
+  handler re-entry is permitted only when an action during a callback synchronously causes nested direct
+  publication for the same subscription"), l.1958 ("The module MAY invoke its publish callback
+  concurrently from multiple threads while its context remains live"), l.1969-1973 ("Direct publication
+  is a re-entrancy boundary"; the publishing module "MUST synchronize its state without deadlocking such
+  conforming re-entry"), l.1463-1464 (when a route becomes terminal the binding "MUST deactivate every
+  subscription on that route and MUST NOT begin another handler invocation"); RUNTIME l.1181-1182
+  ("Runtime MUST preserve those semantics and MUST NOT substitute a Runtime event-delivery thread for
+  direct callback execution").
+- **Issue:** take two modules in direct mode, P and Q, each subscribed to an event of the other. On
+  thread 1, Q publishes; P's handler runs on thread 1 and publishes an event of P, which has to reach Q's
+  handler. On thread 2, P publishes; Q's handler runs on thread 2 and publishes an event of Q, which has
+  to reach P's handler. P's subscription is active on thread 1, so thread 2 may not begin its handler
+  (l.1435-1436), and may neither hand the callback to another thread nor return without it
+  (l.1964-1965). The same holds for thread 1 and Q's subscription. Each thread waits for the other, and
+  no step that would end the wait is permitted. Neither module has broken a rule: publishing from
+  several threads is allowed (l.1958), publication from inside a handler is contemplated (l.1437-1438),
+  and the re-entrancy rule of l.1969-1973 is about the module's own state. The wait is in the binding's
+  exclusion for each subscription, which a module cannot see.
+- **Impact:** two modules that keep each other informed, each republishing when it is told of a change,
+  can stop both of their publishing threads for good. The hang depends on timing, so it appears under
+  load and not in a test.
+- **Reading an implementation needs today:** wait, which is the only choice that breaks neither rule, and
+  end the wait when the awaited subscription is deactivated (l.1463-1464), so that closing either route
+  or stopping either module releases both threads.
+- **Overlap:** NE-02 (a handler that runs inside the consumer's own blocked call), NE-05 (a publisher
+  blocked behind a slow transported subscriber).
+- **Suggested resolution:** say which rule yields when the subscription is active on another thread.
+  Queuing the event behind the active invocation, to be run by the thread that holds the subscription,
+  keeps the order and the exclusion; `publish` then returns without that one callback. If neither rule
+  is to yield, state the hazard and say what a module must not do from a handler.
+
+#### TF-22 — On which thread, and when, the handler of a Runtime Control subscription runs is not defined
+- **Specs:** INTERFACE l.3837 ("The Runtime Control `subscribe` and `unsubscribe` operations apply the
+  subscription semantics in Section 2.5 to events selected from the Runtime Control contract"), l.1470
+  ("Direct delivery follows Section 2.8"), l.1961-1962 ("a publish call MUST invoke every applicable
+  direct subscriber callback synchronously on the publishing thread"), l.1434 ("handler invocations MUST
+  begin in direct publication order or in Event commitment order for Transport delivery"), l.1954-1955
+  ("Operations through one Runtime Control binding, except its release, MAY be initiated concurrently
+  from multiple module threads"); RUNTIME l.1181-1185 ("MUST NOT substitute a Runtime event-delivery
+  thread for direct callback execution"; "For transported subscribers, delivery scheduling is
+  Runtime-internal"), l.2603 and l.3509 (`permission_settings_changed_event` and
+  `execution_state_changed_event` report changes "in committed order"), l.3732-3733 ("Runtime MUST
+  deliver Runtime Control state events only while the authenticated subscriber remains authorized to
+  observe the referenced module, provider, or route").
+- **Issue:** a Runtime Control event is produced by the Runtime when it commits a change. No module makes
+  "a publish call", so there is no "publishing thread" for l.1961-1962 to name. The binding a module
+  receives at initialization is not a route and has no execution mode, so its subscriber is not plainly
+  a direct one, and l.1183-1185 leaves scheduling to the Runtime only "For transported subscribers". Two
+  placements remain open, and they behave differently:
+  1. Inline in the operation that commits the change, on its caller's thread. A handler then runs inside
+     another module's `start_module` or `close_route` call, or inside the subscriber's own call, and a
+     slow handler of any observer delays that operation. A handler may call Runtime Control (l.1954-1955
+     allows it from any module thread), and it would do so while the operation that is delivering to it
+     has not returned. Changes that no call causes (a detected failure, a deadline, an expiry) have no
+     such thread.
+  2. On a thread the Runtime keeps for delivery, after the change is committed. That is what l.1181-1182
+     forbids, if this delivery counts as "direct callback execution".
+- **Impact:** a module author cannot know whether a handler can run inside the module's own Runtime
+  Control call, and so which locks may be held across that call. An observing module can stall the
+  lifecycle operations of other modules on one Runtime and not on another.
+- **Reading an implementation needs today:** deliver each subscription's events in committed order on a
+  thread the Runtime owns, never inline in the operation that committed the change.
+- **Overlap:** NE-02, NE-05, TF-09 (the authority these events are checked against), TL-08, TF-21.
+- **Suggested resolution:** state in INTERFACE §2.8 or RUNTIME §6.3 that Runtime Control events reaching a
+  local binding are scheduled by the Runtime, in committed order for each subscription, and are not
+  delivered synchronously within the operation that caused the change. If synchronous delivery is
+  intended, name the thread and the re-entrancy that follows.
+
+#### TF-23 — A call that was admitted and is then ended by the end of its route has no assigned code
+- **Specs:** RUNTIME l.3226-3227 ("In-flight call behavior, timeout policy, idle expiry, and retry policy
+  are profile or implementation policy"), l.3459 ("In-flight call behavior follows the existing
+  route-revocation policy"), l.3490 ("In-flight call behavior is governed by runtime authority policy"),
+  l.1292-1293 ("Final Response commitment remains subject to the existing policy for work already in
+  flight"; "a prior authorization check MUST NOT permit a later commitment contrary to that policy"),
+  l.1349 (the codes of §7.5 "apply at the boundary deciding whether to admit a new operation; they do
+  not change in-flight call, timeout, or cancellation policy"), l.1737-1738 ("When authority policy
+  denies an operation, the runtime MUST NOT perform the operation and MUST report an authorization
+  failure"); CA l.823 ("Response commitment for work already admitted remains subject to the existing
+  in-flight policy"), l.917 ("An implementation SHOULD cancel in-flight work when safe and supported");
+  TRANSPORT l.988 ("In-flight work remains subject to the applicable policy in LOGOS-MODULE-RUNTIME
+  Section 9.3"), l.543 ("All in-flight requests receive a synthetic `TRANSPORT_ERROR` response"),
+  l.552-553 ("A synthetic `TRANSPORT_ERROR` does not prove that the callee did not execute an in-flight
+  request"); INTERFACE l.2065-2067 ("Runtime MUST serialize acceptance of a valid final result with
+  local cancellation, timeout and binding-failure outcomes for the call"; "Local cancellation produces
+  `CANCELLED`; expiration of the caller-selected duration produces `TIMEOUT`"), l.2076 ("A local timeout
+  does not prove that the provider observed cancellation"), l.1486-1487 (the handle retains a
+  termination code: "Known authority withdrawal or expiry uses `NOT_AUTHORISED`; otherwise explicit
+  route closure or known provider/readiness loss uses `NOT_READY`").
+- **Issue:** whether a call admitted before its route was closed, failed or revoked may still complete is
+  left to policy, deliberately. Six passages refer to that policy, under three names (a profile or
+  implementation policy, the runtime authority policy, the route-revocation policy), and none defines
+  it. What is missing is the result when the policy does not let the call complete.
+  1. The code. INTERFACE l.2065 counts "binding-failure outcomes" among the terminal decisions of an
+     asynchronous call, and l.2067 gives codes only for cancellation and timeout. The codes of RUNTIME
+     §7.5 are for new operations (l.1349). TRANSPORT l.543 covers the close of a connection. A
+     synchronous call on a direct route has no rule.
+  2. What the code says about execution. If the call ends with `NOT_AUTHORISED` after a revocation, the
+     provider may have run it to the end, while elsewhere that code reports an operation that was not
+     performed (l.1737-1738). The specs say "does not prove" only of `TRANSPORT_ERROR` (TRANSPORT
+     l.552-553) and of a local timeout (INTERFACE l.2076).
+- **Impact:** for a route that is revoked or closed during a call, one Runtime returns the result,
+  another `NOT_AUTHORISED` or `NOT_READY`, and a third `CANCELLED`. A consumer that takes
+  `NOT_AUTHORISED` to mean that nothing happened skips a compensation it owes, or repeats an operation
+  that was carried out.
+- **Reading an implementation needs today:** the code that the handle's terminal observer receives
+  (INTERFACE l.1486-1487): `NOT_AUTHORISED` after a withdrawal or expiry of authority, `NOT_READY` after
+  a closure or a loss of readiness. Treat either as `TRANSPORT_ERROR` is treated, as no proof that the
+  provider did not execute.
+- **Overlap:** TF-15 (a new operation after a lost connection), the `TIMEOUT` note in TF-06, EC-05, TL-03
+  (`draining`), TF-17 (a denied renewal).
+- **Suggested resolution:** add to INTERFACE §2.9.1 and RUNTIME §7.5 the code of a call that the end of
+  its route terminates before a result is accepted, for synchronous and asynchronous calls, with one
+  sentence saying that this code does not prove that the provider did not execute.
+
+#### TF-24 — Whether activating an event subscription needs an authority decision is not stated
+- **Specs:** RUNTIME l.1720-1730 (the list of operations that "require an allow decision from runtime
+  authority policy" has "invoking an ordinary provider method" and names no event operation),
+  l.1732-1733 ("Before dispatching an ordinary provider method, Runtime MUST authorize the authenticated
+  consumer's call on the selected route, provider, contract and method. Authority to establish or renew
+  the route does not itself authorize the call"), l.1018-1020 ("Before activating a subscription,
+  Runtime MUST resolve `event_name` under the route's selected contract and enforce its event
+  declaration root against `route_access.subscribe_events`"), l.1229 ("Runtime MUST authorize delivery
+  separately for each subscriber route using the publisher's authority and the subscriber's authority"),
+  l.1263 ("Invocation authority does not itself grant event-publication or event-subscription
+  authority"); CA l.239-240 ("The `actions` field distinguishes provider discovery, route establishment
+  or renewal, calls, event publication, and event subscription"), l.245 ("Event delivery also requires
+  the subscriber's `subscribe-event` authority and MUST satisfy both route event lists"), l.914 ("It
+  MUST terminate dependent provider sessions and subscriptions when their continued use would exceed
+  current authority"); INTERFACE l.1427 ("The route `subscribe` operation returns `LOGOS_OK` only after
+  the subscription is active"); TRANSPORT l.733-736 (a Subscribe is checked against "the route's
+  event-subscription access before activation", with `NOT_AUTHORISED` for an event outside it).
+- **Issue:** for a method call the text names the authorization point and says that authority for the
+  route is not enough (l.1732-1733). For events it names the delivery (l.1229, CA l.245) and, at
+  activation, only the comparison with the route's scope list (l.1018-1020). `subscribe-event` is an
+  action of its own, and nothing says whether a decision for it is required when a subscription is
+  activated or only when an event is delivered. The list at l.1720-1730 names neither point. Take a
+  consumer whose route scope admits the event and which has no `subscribe-event` authority. One Runtime
+  refuses `subscribe` with `NOT_AUTHORISED`. Another returns `LOGOS_OK` for a subscription that is
+  active (INTERFACE l.1427) and never delivers, and the consumer is not told.
+- **Impact:** on the second Runtime a consumer cannot tell "no event has occurred" from "not permitted",
+  and a conformance test cannot assert either answer to `subscribe`.
+- **Reading an implementation needs today:** evaluate `subscribe-event` when the subscription is
+  activated and again for each delivery.
+- **Overlap:** NA-07 (subscriptions after a policy change), NE-03, CA-03 (the meaning of
+  `publish-event`), TF-18.
+- **Suggested resolution:** add event subscription and event delivery to the list at l.1720-1730, and
+  state in RUNTIME §4.4 whether activation requires the subscriber's `subscribe-event` decision, with
+  `NOT_AUTHORISED` when it is denied.
 
 ### 3.2 The system contracts, checked against their own rules
 
@@ -1538,6 +1696,41 @@ holds keys. A and B stand for other modules and are local to one item.
 - INTERFACE l.3719-3726: `prepare_call` takes `const logos_async_options_t* options`. l.3906 and l.3911
   cover a wrong version or extent and "Malformed callback or option input"; whether a null `options`
   pointer is malformed or selects the defaults (no timeout) is not said.
+- INTERFACE l.1454-1457 defines self-unsubscription by the caller ("If a handler invokes the route
+  `unsubscribe` operation for its own subscription through the same route handle") and states its effect
+  by the stack ("MUST NOT wait for handler frames already active on the calling thread"). l.1504
+  likewise forbids release "from an event or terminal callback for that handle". Direct publication is a
+  re-entrancy boundary (l.1969), so a module can reach `unsubscribe` or `release` from code that is not
+  the handler, such as a provider method entered while the handler's frame is still on that thread's
+  stack. Read narrowly, that unsubscription is an external one and waits until "every active handler
+  invocation has returned" (l.1448), including the frame beneath it. Defining both rules by a handler
+  frame of that subscription, or of that handle, being active on the calling thread would remove the
+  doubt.
+- INTERFACE l.1428 has `subscribe` "write an identifier scoped to that route into
+  `*out_subscription_id`", while a subscription ends with the handle that made it ("Releasing those
+  handles deactivates their remaining route subscriptions", l.2005; "Release deactivates every remaining
+  subscription", l.3897). Whether an identifier obtained through one handle may be given to `unsubscribe`
+  through another handle of the same route is not said. If it may, a handler that follows l.1984-1985
+  ("Every other operation initiated by a handler MUST use a distinct route handle or wait until the
+  handler returns") and unsubscribes itself through a second handle makes an external unsubscription
+  that waits for its own frame. Saying that a subscription is operated only through the handle that
+  created it would settle it.
+- INTERFACE l.2193-2195, on the invocation context's `publish`: "A valid event outside the selected
+  contract or permitted event scope produces `NOT_AUTHORISED`" and "A known authority failure produces
+  `NOT_AUTHORISED`; otherwise a closed invocation destination produces `NOT_READY`". "permitted event
+  scope" is not a defined term, and a route has two event lists (RUNTIME l.3014-3015). Whose authority
+  failure is meant is not said either. Presumably the scope is the route's `publish_events` and the
+  failure is one of the publisher's own authority: a delivery refused because the subscriber lacks
+  authority, if reported, would tell the provider a fact about the consumer. The order between
+  `INVALID_PARAMS` for a malformed payload (l.2194) and `NOT_READY` for a closed destination is also
+  left open (see TF-18).
+- RUNTIME l.372 says what the absence of the provider's asynchronous descriptor selects ("Absence or a
+  null descriptor selects the synchronous provider ABI without removing consumer asynchronous-call
+  support"). No sentence says that a valid descriptor is used. A Runtime may "adapt that ABI using
+  implementation-owned scheduling" (INTERFACE l.2016), and whether it may do so for a provider that
+  exports `submit` is left to inference. Such a provider exports it to avoid holding a thread for each
+  call, or to receive `request_cancel` (INTERFACE l.2144), and gets neither from a Runtime that ignores
+  the descriptor.
 
 ---
 
