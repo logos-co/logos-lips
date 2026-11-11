@@ -403,7 +403,7 @@ syntax = "proto3";
 message PriceObservation {
   string feed_id           = 1;  // asset pair identifier, e.g. "BTC/USDT"
   int64  price             = 2;  // integer-encoded price, real value = price * 10^(-decimals)
-  int32  decimals          = 3;  // number of decimal places in `price`, fixed per feed
+  uint32  decimals          = 3;  // number of decimal places in `price`, fixed per feed
   int64  round             = 4;  // round identifier, in LBC block-height terms
   int64  timestamp         = 5;  // observation time (unix milliseconds), advisory only
   bytes  oracle_id         = 6;  // 32-byte BIP-340 x-only LEZ-Public key of the node, also its staking identity
@@ -478,7 +478,7 @@ message AttestationSubmission {
 message AttestedPrice {                    // stored by the LEZ contract
   string feed_id            = 1;  // asset pair identifier, e.g. "BTC/USDT"
   int64  price              = 2;  // attested median, replaced on CORRECTED
-  int32  decimals           = 3;  // number of decimal places in `price`
+  uint32  decimals           = 3;  // number of decimal places in `price`
   int64  round              = 4;  // round identifier
   int64  confidence         = 5;  // dispersion of the N observations, replaced if a dispute recomputes another value
   AttestationStatus status  = 6;  // set only by the contract; a new write is always PENDING
