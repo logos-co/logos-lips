@@ -175,6 +175,8 @@ It bonds stake and names its `channel id`.
 2. The contract checks that the account derived from `oracle id` authorized the TX.
 It verifies no additional signature.
 3. The contract inserts the leaf `H(oracle_id || channel_id)` into the membership tree and returns its index.
+Hashing the pair into one 32-byte leaf binds the `channel_id` to the `oracle_id`,
+so a single membership proof shows both that the node is registered and which channel it registered.
 4. The node becomes active from the next cycle, when `root_cycle` is frozen.
 
 Details are in [Oracle Set Membership](#oracle-set-membership).
