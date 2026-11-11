@@ -38,7 +38,7 @@ appendices everything that is settled.
 | 1 | Earlier items answered, still needing discussion | 11 remarks covering 15 items |
 | 2.1 | Items of the second audit with no response | 10 |
 | 2.2 | Concerns of `human-spec-comments.md` that still need an answer | 4 |
-| 3.1 | New: contradictions and gaps in the spec text | 10 |
+| 3.1 | New: contradictions and gaps in the spec text | 11 |
 | 3.2 | New: the system contracts against their own rules | 10 |
 | 3.3 | New: the integrator documents against the specs | 8 |
 | 3.4 | New: porting the existing module catalog | 7 |
@@ -71,6 +71,8 @@ From the new findings (section 3):
   under the new key.
 - TF-08: where modules are linked statically, nothing says whether an instance survives an update of the
   host binary.
+- TF-12: nothing says how an installed package's recorded dependency edges enter a new closure, so two
+  Package Managers can resolve the same request differently.
 - TL-01: `logos_types.h` is said to declare every common-schema type, but only one of the eight has a
   specified declaration.
 - TL-02: the Credential Store specification and contract are cited and are not in the set.
@@ -435,6 +437,53 @@ other rules depend on is not stated.
 - **Overlap:** CM-11 (which string-escape grammar applies), ND-10.
 - **Suggested resolution:** state in cdCDDLe §5 that a raw line break inside an unprefixed byte-string
   literal is rejected, or that it contributes exactly one LF.
+
+#### TF-12 — How an installed package's recorded dependency edges enter a new closure is not stated
+- **Specs:** PM l.1280-1281 ("A candidate is an installed package record or catalog package whose version
+  satisfies every accumulated requirement for its package name"), l.1292-1293 ("An installed candidate
+  with matching exact identity and manifest commitment MAY satisfy a dependency without being materialized
+  again"), l.1307-1309 (candidates in descending SemVer precedence; "It MUST select the first candidate
+  for which the complete transitive closure can be resolved, backtracking to lower candidates when a
+  candidate's dependencies make the closure unsatisfiable"), l.1288-1289 (the one conflict that may not be
+  resolved by backtracking is a manifest-commitment mismatch for an installed identity), l.1315 ("Source
+  selection MUST preserve the recorded dependency edges of installed packages"), l.1319-1326
+  (`resolved_dependencies` binds each selected dependency to an exact version and commitment; "Catalog
+  changes MUST NOT alter the recorded dependency edges of an installed package"; "Different installed
+  closures MAY contain different versions of one package name, but one closure MUST NOT select more than
+  one"), l.1660-1661 ("An already-installed package satisfies a selected dependency only when its package
+  name, version, and manifest commitment match the recorded resolution"), l.1672 (removal consults the
+  "recorded dependency closure"), l.1689-1690 (for the root of `update_package` only: when the target is
+  already installed, its recorded direct edges must equal the newly selected ones, or the update fails
+  with `dependency-unavailable`), l.1254-1265 and l.1270-1271 (candidate considerations and assignment
+  attempts are counted, and the counts may not depend on the implementation), l.1294 (material that
+  cannot be obtained fails the operation with `package-unavailable`).
+- **Issue:** package B at version 1.0.0 has a `compatible` requirement on package C at 1.0.0 and was
+  installed when C 1.0.0 was the newest version, so B's record holds the edge to C 1.0.0. The catalog then
+  gains C 1.1.0. A new root R requires B, and in a second case also requires C at 1.1.0 or later. When the
+  resolver reaches the installed B, no rule says what B contributes. Four readings are possible.
+  1. B's recorded edges are exact requirements. The first case selects C 1.0.0. In the second case B is
+     unsatisfiable and the resolver backtracks to other versions of B.
+  2. B's manifest requirements are resolved afresh, and a selection that differs from B's record fails
+     the root operation, as l.1689-1690 does for an update root. The first case then fails although a
+     complete closure exists, against l.1308-1309, and it stays failed, because no operation re-resolves
+     an installed package whose content has not changed.
+  3. B's requirements are resolved afresh and the record is ignored. In the second case R's installed
+     closure reaches C 1.0.0 through B's record and C 1.1.0 directly, against l.1326.
+  4. B's requirements are resolved afresh, and a selection that differs from B's record is treated as
+     unsatisfiable, so the resolver backtracks over C's versions. The closures equal those of the first
+     reading, but C 1.1.0 is considered and attempted, so the counters differ, and when its material
+     cannot be fetched the operation fails with `package-unavailable` where the first reading succeeds.
+- **Impact:** two Package Managers given the same installed state and catalog select different closures,
+  or the same closure with different limit exhaustion, although "Resolution MUST be deterministic for the
+  same installed state, catalog inputs, and protected policy" (l.1298-1299).
+- **Reading an implementation needs today:** the first reading is the conservative one. It never alters
+  or contradicts a recorded edge, keeps one version per name in every installed closure, and needs no
+  catalog material for packages that are already installed.
+- **Overlap:** PM-07 and PM-08 (source selection and unavailable material), TP-07.
+- **Suggested resolution:** state in PM §11 that an installed candidate contributes its recorded direct
+  dependency edges as exact requirements, transitively; that a candidate excluded by such an edge is
+  neither considered nor charged; and that a conflict with another accumulated requirement makes the
+  installed candidate unsatisfiable, so that resolution backtracks.
 
 ### 3.2 The system contracts, checked against their own rules
 
