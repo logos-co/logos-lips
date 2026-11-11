@@ -146,8 +146,8 @@ Concatenate each of the following, in order:
 3. For each shard, encode the shard as a varint and concatenate it to the previous
 4. Encode the `ranges`, according to ["Delta encoding for Ranges"](#delta-encoding-for-ranges).
 
-For an empty payload, step 4 encodes nothing.
-A payload MUST always carry the header; a zero-length message is malformed.
+An empty payload is therefore encoded as steps 1 to 3 alone: the cluster ID, the number of shards and the shards.
+It is never zero bytes: a message of zero length is malformed.
 
 ##### Varint encoding
 
