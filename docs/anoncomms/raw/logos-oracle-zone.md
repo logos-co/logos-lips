@@ -91,6 +91,16 @@ It orders and finalizes data but runs no general execution.
 - **Channel:** a zone's ordered log on LBC.
 It is opened with a key, and LBC accepts a message into the channel for ordering only if it is signed with that key.
 - **Inscription:** a message that LBC has accepted and ordered in a channel.
+- **`channel_id`:** the 32-byte identifier of a channel on LBC.
+In the current Zone SDK it equals the Zone-Public key that owns the channel.
+It is different from the `oracle_id`.
+- **`oracle_id`:** the 32-byte x-only LEZ-Public key (BIP-340) of an oracle node.
+It is the node's only identity on LEZ: it registers and stakes, signs the node's observations,
+and signs every LEZ TX the node sends.
+- **LEZ sequencer, LEZ indexer:** LEZ infrastructure that orders LEZ TXs and serves LEZ state.
+They are not part of LON; LON only sends TXs to LEZ and reads its state.
+- **`oracle_register`, `oracle_prices`:** the LEZ contracts that hold membership and stake,
+and attested prices and disputes, respectively.
 - **Round:** one price update, every `R_round`.
 - **Cycle:** `C_cycle` consecutive rounds that share one frozen membership root, `root_cycle`,
 and one proposer rotation. `cycleStartRound` is the first round of the cycle.
@@ -126,27 +136,38 @@ The roles used in the Oracle Zone are as follows:
 - `LBC`: The LBC ordering layer.
 It totally orders and finalizes the inscriptions,
 giving every indexer the same immutable input to aggregate over.
-- `oracle node`: An off-chain agent run by an oracle operator.
-It fetches prices from external sources, computes a local price observation,
-signs and publishes it as an inscription on LBC.
-Each `oracle node` holds two keys.
-Its zone key pair (Ed25519), the Zone-Private key and the Zone-Public key, owns its channel on LBC,
-and LBC checks it on every inscription the node writes.
-The LEZ Public key defines the `oracle id` used when registering the node (and staking).
-The LEZ Private key is also used for the signing field of PriceObservation (see [Price Fetching](#price-fetching))
-The `oracle id` is the 32-byte x-only LEZ-Public key,
-and the node signs its observations with this key.
-No third key is needed.
-- `indexer`: An `oracle node` in its second role.
-It reads the finalized inscription stream from LBC and computes the attested price
+- `oracle node`: An off-chain node run by an oracle operator, identified on LEZ by its `oracle_id`.
+It is the unit that stakes, earns rewards and is slashed.
+It runs two processes, a `LON sequencer` and a `LON indexer`, both part of the same oracle node.
+Each `oracle node` holds two key pairs:
+  - Zone key pair (Ed25519), the Zone-Private and Zone-Public keys.
+  It owns the node's channel on LBC, and LBC checks it on every inscription. Only the `LON sequencer` uses it.
+  - LEZ key pair (BIP-340), the LEZ-Private and LEZ-Public keys.
+  The x-only LEZ-Public key is the `oracle_id`.
+  The LEZ-Private key signs the node's observations (see [Price Fetching](#price-fetching))
+  and every LEZ TX the node sends, from either process.
+  Both processes MUST use the same LEZ key pair.
+
+No any other key is needed.
+A separate key for the `LON indexer` would require an on-chain delegation from the `oracle_id`
+and is out of scope of this document.
+- `LON sequencer`: The writer process of an `oracle node`.
+It fetches prices from external sources, computes and signs a local price observation,
+and inscribes it into the node's own channel on LBC.
+It also sends the node's registration TX to `oracle_register`.
+- `LON indexer`: The reader process of an `oracle node`.
+It reads the finalized inscriptions of all registered channels from LBC and computes the attested price
 as the median of the first `N` valid observations, each from a different oracle node.
 Because the input is immutable and the aggregation code is fixed and deterministic,
-every honest indexer MUST derive the same value.
-- `proposer`: The one indexer that, in a given round,
-writes the attested price to LEZ and opens the dispute window.
+every honest `LON indexer` MUST read the same value.
+Reading needs no key; the `LON indexer` uses the LEZ key only when it writes to LEZ as a `proposer` or `challenger`.
+In the rest of this document, "indexer" means the `LON indexer`.
+- `proposer`: The `LON indexer` that, in a given round,
+writes the attested price to `oracle_prices` and opens the dispute window.
 Only one proposer acts per round.
-- `challenger`: Any indexer that reads the proposed price from LEZ, recomputes it from the same finalized inscriptions,
-if the proposed value is wrong, disputes it before the window closes.
+- `challenger`: Any other `LON indexer` that reads the proposed price from LEZ,
+recomputes it from the same finalized inscriptions,
+and, if the proposed value is wrong, disputes it before the window closes.
 
 ## Flow
 
@@ -159,20 +180,19 @@ Each step points to the section that specifies it in detail.
 It owns the node's channel on LBC, and LBC checks it on every inscription.
 2. The `oracle node` generates its LEZ key pair (BIP-340): the LEZ-Private key and the LEZ-Public key.
 It is the node's LEZ account and staking identity.
-Its 32-byte x-only LEZ-Public key is the node's `oracle id`, and the node signs its observations with its LEZ-Private key.
+Its 32-byte x-only LEZ-Public key is the node's `oracle_id`, and the node signs its observations with its LEZ-Private key.
 
 No other key is needed.
 
 ### 2. Channel opening
 
-1. The `oracle node` opens its own channel on LBC with its Zone-Private key and pays the channel deposit.
+1. The `LON sequencer` opens the node's own channel on LBC with its Zone-Private key and pays the channel deposit.
 2. Only the holder of the Zone-Private key can write to this channel, which LBC enforces.
 
 ### 3. Registration in LEZ
 
-1. The `oracle node` sends a registration TX to the LEZ registration contract, signed with its LEZ-Private key.
-It bonds stake and names its `channel id`.
-2. The contract checks that the account derived from `oracle id` authorized the TX.
+1. The `oracle node` sends a registration TX to `oracle_register`, signed with its LEZ-Private key.
+2. The contract checks that the account derived from `oracle_id` authorized the TX.
 It verifies no additional signature.
 3. The contract inserts the leaf `H(oracle_id || channel_id)` into the membership tree and returns its index.
 Hashing the pair into one 32-byte leaf binds the `channel_id` to the `oracle_id`,
@@ -185,9 +205,9 @@ Details are in [Oracle Set Membership](#oracle-set-membership).
 
 In each round `r`:
 
-1. The `oracle node` fetches the feed price from its sources and computes a local median,
+1. The `LON sequencer` fetches the feed price from its sources and computes a local median,
 as in [Price Fetching](#price-fetching).
-2. It builds a `PriceObservation` that names the round, its `oracle id` and its `channel id`,
+2. It builds a `PriceObservation` that names the round, its `oracle_id` and its `channel_id`,
 and signs it with its LEZ-Private key.
 3. It inscribes the signed observation into its own channel.
 LBC checks the Zone-Private key signature, orders and finalizes the inscription.
@@ -244,7 +264,7 @@ sequenceDiagram
     participant O as Other oracle nodes
     participant P as Proposer (round r)
     participant LBC as Logos Blockchain (LBC)
-    participant LEZ as LEZ contracts
+    participant LEZ as LEZ (oracle_register, oracle_prices)
 
     rect rgba(66, 133, 244, 0.12)
     Note over A,LEZ: 1. Registration
@@ -459,7 +479,7 @@ This keeps the heavy per-signature cost off LEZ.
 Every honest indexer runs these steps over the same finalized inscriptions and,
 because the input is immutable and the code is deterministic, derives the same `attested price`.
 
-The proposer submits the attested price to the LEZ contract as an `AttestationSubmission`,
+The proposer submits the attested price to `oracle_prices` contract as an `AttestationSubmission`,
 and the contract stores it as an `AttestedPrice`.
 Fields that only the contract can know, the status, the proposer and the block that included the write,
 are set by the contract and never by the proposer.
@@ -483,7 +503,7 @@ message AttestationSubmission {
   bytes  proposer_membership_proof  = 8;  // Merkle proof of the writer's leaf under root_cycle
 }
 
-message AttestedPrice {                    // stored by the LEZ contract
+message AttestedPrice {                    // stored by the oracle_prices contract
   bytes  feed_id            = 1;  // asset pair identifier, 32-byte SHA-256 of the feed name, e.g. SHA-256("BTC/USDT")
   int64  price              = 2;  // attested median, replaced on CORRECTED
   uint32 decimals           = 3;  // number of decimal places in `price`
@@ -563,7 +583,7 @@ or with fewer than `N` valid observations, is covered in [Slashing](#slashing).
 Rounds are grouped into cycles of `C_cycle` rounds.
 Cycle `c` covers rounds `[c * C_cycle, (c + 1) * C_cycle)`, and `cycleStartRound = c * C_cycle`.
 
-The registration contract updates the membership tree on every registration, as usual.
+The `oracle_register` contract updates the membership tree on every registration, as usual.
 In addition, it keeps a snapshot of the root for each cycle: `root_cycle` of cycle `c`
 is the root as it stands at the end of cycle `c - 1`.
 The contract takes the snapshot the first time any TX touches it in cycle `c`, before applying that TX.
@@ -604,10 +624,10 @@ A round with fewer than `N` valid observations stays empty and nobody is slashed
 
 ## Oracle Set Membership
 
-Membership of the AOS determines which `oracle id`s submit observations that indexers will accept.
+Membership of the AOS determines which `oracle_id`s submit observations that indexers will accept.
 Membership is also the basis of incentivization.
 To join, an `oracle node` first opens its channel on LBC with its Zone-Private key, which requires a channel deposit.
-It then sends a registration TX to the LEZ registration contract, signed with its LEZ-Private key,
+It then sends a registration TX to the `oracle_register`, contract, signed with its LEZ-Private key,
 that bonds stake and names its `channel_id`.
 The LEZ runtime verifies the TX signature,
 and the contract checks only that the account derived from `oracle_id` authorized the TX.
@@ -620,7 +640,7 @@ Registration is a LEZ-only operation and does not require a cross-zone write int
 
 Each `oracle_id` MUST hold at most one leaf, so a node cannot register twice,
 and its `channel_id` cannot be changed after registration.
-The LEZ registration contract MUST enforce both rules.
+The `oracle_register` contract MUST enforce both rules.
 The LEZ account that must authorize a registration is the account derived from `oracle_id` by the LEZ rule,
 currently `SHA-256(prefix || oracle_id)` with a fixed 32-byte public-account prefix.
 A node leaves by sending a withdrawal TX.
@@ -639,10 +659,10 @@ An indexer does not query LEZ state live during aggregation, which would make ag
 Instead, each observation carries a `membership_proof`,
 a Merkle inclusion proof of its leaf against `root_cycle` of the observation's cycle,
 and the indexer verifies the proof against that root.
-The indexer reads `root_cycle` once per cycle from the LEZ registration contract.
+The indexer reads `root_cycle` once per cycle from the `oracle_register` contract.
 Indexers and LEZ use the same `root_cycle`, so a node that registers in the middle of a cycle
 is accepted by neither until the next cycle.
-Each leaf binds an `oracle id`, the node's 32-byte x-only LEZ-Public key,
+Each leaf binds an `oracle_id`, the node's 32-byte x-only LEZ-Public key,
 to the `channel_id` it registered.
 
 During aggregation, every indexer discards observations whose `membership_proof` does not verify,
@@ -828,7 +848,7 @@ so `oracle nodes` are not pushed to herd toward the median,
 while an ineligible observation earns nothing for that round but is not slashed.
 This soft band is distinct from, and much tighter than, the hard validity bound whose breach is a slashable out-of-bound fault.
 The band affects reward accounting only.
-Rewards are attributed to the `oracle id` that signed a valid observation, never to a channel.
+Rewards are attributed to the `oracle_id` that signed a valid observation, never to a channel.
 The attested median is always the plain median of the first `N` valid observations, unaffected by `D_reward`.
 
 ### Slashing
@@ -841,7 +861,7 @@ In this version only the two proposer faults, invalid committed set and wrong me
 since both are proven through the dispute path in [Raising a dispute](#raising-a-dispute).
 The evidence formats for equivocation, out-of-bound values and missed rounds are left to [Future Work](#future-work).
 
-1. **Equivocation.** An `oracle id` signs two observations for the same (`feed_id`, `round`)
+1. **Equivocation.** An `oracle_id` signs two observations for the same (`feed_id`, `round`)
 whose `canon` bytes differ.
 The two BIP-340 signatures are a self-contained fraud proof,
 verified in LEZ, and non-malleable signatures make this unambiguous.
