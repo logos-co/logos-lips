@@ -38,7 +38,7 @@ appendices everything that is settled.
 | 1 | Earlier items answered, still needing discussion | 11 remarks covering 15 items |
 | 2.1 | Items of the second audit with no response | 10 |
 | 2.2 | Concerns of `human-spec-comments.md` that still need an answer | 4 |
-| 3.1 | New: contradictions and gaps in the spec text | 14 |
+| 3.1 | New: contradictions and gaps in the spec text | 19 |
 | 3.2 | New: the system contracts against their own rules | 10 |
 | 3.3 | New: the integrator documents against the specs | 8 |
 | 3.4 | New: porting the existing module catalog | 7 |
@@ -615,6 +615,179 @@ other rules depend on is not stated.
   not have a usable path), TS-04.
 - **Suggested resolution:** add the case to RUNTIME l.1343-1347: when the handle's invocation path has
   ended and no authorization or readiness cause is known, a new operation returns `TRANSPORT_ERROR`.
+
+#### TF-16 — `establish_route` that can return nothing has no assigned code when the provider is allowed but not ready, or when an allowed discovery matches no provider
+- **Specs:** RUNTIME l.3145-3146 ("every returned route MUST be independently authorized and ready"; "If
+  neither a route nor a continuation can be returned, establishment fails"), l.1501-1502 ("If no
+  runtime-visible provider matches a `single` requirement, route establishment for that requirement
+  fails"), l.3109-3112 ("If listener validation, export validation, contract validation, or authority
+  checking fails, Runtime creates no usable route for that provider. For `single`, the request fails"),
+  l.3157-3159 ("A caller without matching provider-discovery or Runtime Control observation authority MUST
+  NOT be able to distinguish an unknown target from an existing but hidden or denied target. Runtime MUST
+  report `NOT_AUTHORISED` with a non-revealing diagnostic for those cases"), l.1908-1916 (the table of
+  precondition failures, with rows for lifecycle operations and for renewal and none for establishment),
+  l.660 ("Runtime MUST use `LOGOS_ERR_NOT_READY` only when Runtime-owned lifecycle, provider, or route
+  readiness prevents a valid contract response"), l.1485-1486 (a `discover` allow precedes disclosure of
+  the provider set), l.1500 ("The provider identity in a successful route record is disclosure necessary
+  to that authorized route").
+- **Issue:** a denied or unknown target has a code. Two other ways of returning nothing do not.
+  1. The selected provider exists, the consumer is authorized to route to it, and it is not ready
+     (stopped, starting or failed). `NOT_READY` fits l.660, but reporting readiness discloses that the
+     provider exists, and l.1500 covers only "a successful route record". Whether a route allow, without
+     discovery or observation authority, makes the provider's existence and state disclosable is not
+     said. If it does not, the answer has to be `NOT_AUTHORISED`.
+  2. An `all-runtime-visible` request whose `discover` decision allows, when no provider offers the
+     contract or none can be made ready. The caller may learn the provider set, the set is empty, and
+     "establishment fails" with no code. `NOT_AUTHORISED` would misreport an allowed request.
+- **Impact:** a consumer cannot tell "wait and retry" from "ask for authority", and two Runtimes answer
+  the same request with different codes.
+- **Reading an implementation needs today:** `NOT_READY` when the caller holds a route allow for that
+  provider or a `discover` allow for the contract, and `NOT_AUTHORISED` otherwise.
+- **Overlap:** NE-07 (an absent provider cannot be told from a denied one), EC-01 to EC-04, TL-03.
+- **Suggested resolution:** add rows for establishment to the table at l.1910-1916, and say which
+  authority makes a provider's readiness disclosable to the requesting consumer.
+
+#### TF-17 — Three route outcomes are stated two ways or not at all: the routes of a consumer that stops, closing a route that has failed, and a renewal that is denied
+- **Specs:** RUNTIME l.624-626 ("During an authorized stop, Runtime MUST close every route whose consumer
+  is that module instance. For an unexpected realization failure, Runtime MUST fail every such route"),
+  l.2508 (`consumer-unavailable`: "The route consumer has stopped or its realization has failed"), l.2520
+  ("a route record in `failed` or `revoked` state MUST include `failure`"), l.2524 ("Normal explicit
+  closure does not require a failure record"), l.3486-3491 ("If successful, Runtime MUST set the route
+  state to `closed` and prevent new ordinary calls through it"; "The response reports the resulting route
+  state"), l.1845-1846 ("Once `close_route`, failure, or revocation places a route in a terminal state, a
+  later renewal MUST fail and MUST NOT revive it"), l.3183-3184 (`renew_route` "performs a new authority
+  check and may extend `expires_at` and replace `decision_id`"), l.3188-3189 ("Renewal MUST fail if the
+  route is unknown, closed, failed, or revoked, or no longer satisfies provider and contract
+  validation"), l.2502 (`authority-denied`: "A policy decision denies the route access"); CA l.906-911
+  (after a policy-change notification Runtime "MUST make a dependent route unusable when the new decision
+  denies the route").
+- **Issue:**
+  1. A consumer that stops. l.624 closes its routes on an authorized stop, so their records are `closed`
+     and carry no failure. Yet `consumer-unavailable` is described as covering a consumer that "has
+     stopped", and a failure code is recorded only on `failed` or `revoked` records (l.2520). Either the
+     routes of a stopped consumer are `failed` with that code, against l.624, or the words "has stopped"
+     have no case.
+  2. Closing a route that has failed. A successful `close_route` sets the state to `closed` (l.3489).
+     For a route already `failed` or `revoked`, the text does not say whether the close succeeds and
+     moves it to `closed`, which drops the recorded failure, succeeds and reports the state unchanged,
+     or fails. l.1845-1846 only keeps renewal from reviving a terminal route.
+  3. A renewal that is denied. Renewal makes a new authority check (l.3184). When that check denies,
+     the request fails, and nothing says what becomes of the route: it stays `ready` under its earlier
+     decision, or it becomes unusable, as CA l.910 requires when a re-evaluation after a policy change
+     denies. `authority-denied` is a recorded cause, and no rule says when an established route gets it.
+- **Impact:** route records and `route_state_changed_event` differ between Runtimes for the same history,
+  and after a denied renewal one Runtime keeps serving calls that another refuses.
+- **Reading an implementation needs today:** close the routes of a stopped consumer with no failure; let
+  `close_route` on a terminal route succeed and report the state unchanged; make a route unusable when
+  its renewal is denied. The last is the conservative reading, because it never serves a call under a
+  decision that a later check withdrew.
+- **Overlap:** TL-03 (`draining` and expiry), EC-10 (the failure codes), NA-03.
+- **Suggested resolution:** drop "has stopped" from l.2508 or say which stop it means; state the result of
+  `close_route` on a terminal route; state whether a denied renewal revokes the route with
+  `authority-denied` or leaves it unchanged.
+
+#### TF-18 — Where the order of checks is not fixed, the same request gets different codes
+- **Specs:** INTERFACE l.3116-3124 (unknown method names give `METHOD_NOT_FOUND`, wrong parameter types
+  `INVALID_PARAMS`); RUNTIME l.1626 ("Runtime MUST authorize the consumer and requested method, target,
+  and observation scope according to active policy before executing an operation"), l.1823 ("before
+  applying a state mutation"), l.1907-1908 ("Runtime MUST preserve the method and target authorization
+  requirements and non-disclosure rules when classifying a failed request"; the listed failures apply
+  "For an authorized request whose target may be disclosed"), l.630-632 ("A new invocation rejected
+  solely because its provider is stopping or its Runtime Control binding has been logically invalidated
+  MUST return `NOT_READY`"; "Known authorization failures retain the precedence defined in Section 7.5"),
+  l.1347 ("When both authorization and readiness failures are known for the same operation,
+  `NOT_AUTHORISED` takes precedence"), l.1732 ("Before dispatching an ordinary provider method, Runtime
+  MUST authorize the authenticated consumer's call on the selected route, provider, contract and
+  method"), l.852-853 ("Failure to validate or compute a request commitment produces `INVALID_PARAMS` and
+  MUST occur before provider method code executes"); TRANSPORT l.657-658 ("For Requests,
+  selected-contract method resolution and route access checks under Section 8.1 precede these checks");
+  INTERFACE l.3888-3890 (for `materialize_route`: "After the ownership and non-disclosure checks, a
+  successfully reconstructed schema root that differs from `expected_contract_root`, or a recorded route
+  contract root that differs from it, MUST produce `VERSION_MISMATCH`"; "Route readiness and
+  authorization failures MUST follow LOGOS-MODULE-RUNTIME Section 7.5").
+- **Issue:** some orders are fixed: method resolution and the route's access scope come before payload
+  checks, and ownership comes before the root comparison. Four are not.
+  1. A malformed Runtime Control request from a caller without authority for the method. Validating
+     first gives `INVALID_PARAMS`, with detail; authorizing the method first gives `NOT_AUTHORISED`.
+     "before executing an operation" (l.1626) and "before applying a state mutation" (l.1823) bind
+     neither order. The target cannot be authorized before decoding, since it is in the payload.
+  2. An invalidated binding or a stopping provider, and a caller that policy would deny. `NOT_READY` is
+     for a rejection "solely" for that reason, and `NOT_AUTHORISED` takes precedence when both failures
+     are "known" (l.1347). Whether Runtime has to evaluate the authorization in order to know is not
+     said.
+  3. A route call that the per-call authorization would deny and whose payload is invalid:
+     `NOT_AUTHORISED` or `INVALID_PARAMS`. Both checks must come before provider code (l.1732, l.852-853),
+     and nothing orders them.
+  4. `materialize_route` for an owned route that is no longer ready, with a root that does not match: the
+     readiness code or `VERSION_MISMATCH`.
+- **Impact:** none of the four discloses anything about a hidden target. But two Runtimes answer the same
+  request with different codes, a consumer handles `NOT_AUTHORISED`, `INVALID_PARAMS` and `NOT_READY`
+  differently, and a conformance test cannot assert either answer.
+- **Reading an implementation needs today:** authorize what can be authorized without the payload, then
+  validate the payload, then authorize the target, then check readiness, then compare roots.
+- **Overlap:** EC-05 and EC-06 (the codes themselves), EC-01 to EC-04.
+- **Suggested resolution:** state one order of checks for a Runtime Control invocation, for a route call
+  and for `materialize_route`.
+
+#### TF-19 — Whether provider code may return the status codes that carry Runtime meanings, and what the caller does with them, is not stated
+- **Specs:** INTERFACE l.3315-3319 ("A nonzero value means that the invocation did not produce a valid
+  contract response. The registry is not a vocabulary for schema-defined domain or application
+  outcomes"), l.1802-1803 ("It MUST NOT use `LOGOS_ERR_NOT_READY` for application state.
+  `LOGOS_ERR_NOT_READY` is reserved for an invocation failure caused by Runtime-owned readiness"),
+  l.3178-3180 ("In direct mode, the per-method function returns `logos_result_t` directly. No encoding or
+  Transport message is involved. The invocation status passes through unchanged"), l.3329-3331 (a code
+  outside the allocated range is a module failure), l.3366-3367 ("An ABI caller MUST validate a native
+  provider result's status code, message and detail before forwarding them. A provider result violating
+  these rules MUST be treated as `LOGOS_ERR_MODULE`"); RUNTIME l.660 (`NOT_READY` only for Runtime-owned
+  readiness), l.1343-1347 (on a call through a handle, `NOT_AUTHORISED` and `NOT_READY` report the state
+  of the route's authority and readiness).
+- **Issue:** the validation an ABI caller must apply covers the range of the code and the form of the
+  message and detail. It does not say which allocated codes provider code may return. A method that
+  returns `NOT_READY`, `NOT_AUTHORISED`, `TRANSPORT_ERROR`, `VERSION_MISMATCH`, `TIMEOUT` or `CANCELLED`
+  is within the range, and the status "passes through unchanged". The consumer then reads a Runtime
+  meaning into a code the provider chose, because RUNTIME l.1343-1347 makes `NOT_AUTHORISED` and
+  `NOT_READY` on a route call statements about the route. l.1802-1803 forbids one such use to the
+  module, and nothing says whether the caller enforces it or what the other codes mean when they come
+  from provider code.
+- **Impact:** a consumer abandons or re-establishes a healthy route because a provider used one of these
+  codes for an application condition. One Runtime forwards such a code and another turns it into
+  `MODULE_ERROR`.
+- **Reading an implementation needs today:** forward the code unchanged, as l.3180 says; or treat every
+  code from provider code other than `METHOD_NOT_FOUND`, `INVALID_PARAMS` and `MODULE_ERROR` as a result
+  that violates the rules.
+- **Overlap:** EC-01 to EC-04 (Runtime Control's own outcomes), EC-05.
+- **Suggested resolution:** list the codes that provider code may return, including whether `CANCELLED`
+  is one after a cancellation the provider observed, and say that the ABI caller treats any other as
+  `LOGOS_ERR_MODULE`.
+
+#### TF-20 — When `start_module` and `stop_module` answer is not stated, and a module that stops itself cannot be answered after its own destruction
+- **Specs:** RUNTIME l.3649 ("success means Runtime has performed the lifecycle work needed to move the
+  selected module instance toward `ready`, including native artifact loading and lifecycle initialization
+  where applicable"), l.3687 ("success means Runtime has performed the lifecycle work needed to move the
+  selected module instance toward `stopping` or `unloaded`, including lifecycle destruction where
+  applicable"), l.3654 and l.3693 ("The response reports the resulting local runtime lifecycle state"),
+  l.620-621 (on stop the instance becomes `stopping`, and Runtime "prevents new outbound method calls and
+  new Runtime Control contract calls by that module instance"), l.3609 (for `report_failure`: "Failure
+  handling MUST allow the reporting invocation to return without waiting for cleanup"), l.3697 (for
+  `shutdown_runtime`: "A successful response acknowledges acceptance, not completed shutdown");
+  INTERFACE l.1994-2002 (before destruction begins the ABI caller must "wait for every in-flight call to
+  return"; "`_MODULE_destroy()` MUST NOT execute concurrently with another call using that context";
+  before it returns "the module MUST stop or join internal work").
+- **Issue:** "toward" leaves the point of the answer open. `start_module` may answer at `loaded` or at
+  `ready`, and `stop_module` at `stopping` or at `unloaded`. The reported state and the time the caller
+  is blocked both differ. For a module that stops itself, waiting for `unloaded` cannot complete:
+  destruction waits for the module's in-flight calls and joins its threads, and one of them is waiting
+  for this answer. `report_failure` and `shutdown_runtime` each say that the answer does not wait;
+  `stop_module` does not, and nothing says whether a module may name itself as the target.
+- **Impact:** orchestration written against a Runtime that answers `start_module` at `ready` misbehaves
+  on one that answers at `loaded`. On a Runtime that answers `stop_module` at `unloaded`, a module that
+  stops itself hangs until a drain deadline expires.
+- **Reading an implementation needs today:** answer `stop_module` at `stopping` at least when the caller
+  is the target or has a call in progress in it; for `start_module`, either point, documented.
+- **Overlap:** NL-06 (leaving `error`), TL-07 (the state diagram), TF-10.
+- **Suggested resolution:** state for each method the state at which the response is sent, or that both
+  are permitted and the returned state tells which; and state that a `stop_module` whose target is the
+  caller is answered without waiting for destruction, as `report_failure` is.
 
 ### 3.2 The system contracts, checked against their own rules
 
