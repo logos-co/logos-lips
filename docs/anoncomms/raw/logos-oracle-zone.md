@@ -358,21 +358,26 @@ A copy of another node's signed observation written to a different channel is th
 This stops a node from re-publishing other nodes' observations in its own channel
 to change which observations enter a round.
 
+`feed_id` is the 32-byte SHA-256 hash of the feed name in UTF-8,
+for example `feed_id` = SHA-256("BTC/USDT").
+The name itself is kept in the feed configuration.
+
 The protobuf encoding below is used only to carry an observation.
 Signatures and hashes are never computed over protobuf bytes,
 since protobuf serialization is not canonical across implementations
 and omits fields that hold their default value.
 They are computed over the canonical encoding `canon(obs)` of fields 1 to 7:
 
+
 ```text
-canon(obs) = u16(len(feed_id)) || feed_id   (UTF-8 bytes)
-          || i64(price) || i32(decimals) || i64(round) || i64(timestamp)
+canon(obs) = feed_id     (32 bytes)
+          || i64(price) || u32(decimals) || i64(round) || i64(timestamp)
           || oracle_id   (32 bytes)
           || channel_id  (32 bytes)
 ```
 
 All integers are big-endian, that is most significant byte first.
-`i32` and `i64` are signed in two's complement and `u16` is unsigned.
+`i64` is signed in two's complement and `u32` is unsigned.
 
 The `signature` field carries a [BIP-340](https://github.com/bitcoin/bips/blob/master/bip-0340.mediawiki) Schnorr signature,
 made with the node's LEZ-Private key, over the 32-byte message
@@ -393,7 +398,7 @@ The indexer verifies this signature off-chain during aggregation.
 On the optimistic path LEZ does not verify it.
 LEZ verifies it only when a dispute is raised, without depending on LBC,
 which is what lets the dispute be resolved inside LEZ.
-The `membership_proof` is a separate witness and is not covered by the signature.
+The `membership_proof` and `leaf_index` are separate witnesses and are not covered by the signature.
 
 The `PriceObservation` is specified using [protocol buffers v3](https://protobuf.dev/):
 
@@ -401,15 +406,16 @@ The `PriceObservation` is specified using [protocol buffers v3](https://protobuf
 syntax = "proto3";
 
 message PriceObservation {
-  string feed_id           = 1;  // asset pair identifier, e.g. "BTC/USDT"
+  bytes  feed_id           = 1;  // 32-byte SHA-256 of the feed name, e.g. SHA-256("BTC/USDT")
   int64  price             = 2;  // integer-encoded price, real value = price * 10^(-decimals)
-  uint32  decimals          = 3;  // number of decimal places in `price`, fixed per feed
+  uint32 decimals          = 3;  // number of decimal places in `price`, fixed per feed
   int64  round             = 4;  // round identifier, in LBC block-height terms
   int64  timestamp         = 5;  // observation time (unix milliseconds), advisory only
   bytes  oracle_id         = 6;  // 32-byte BIP-340 x-only LEZ-Public key of the node, also its staking identity
   bytes  channel_id        = 7;  // 32-byte id of LBC channel the node registered and publishes to
   bytes  signature         = 8;  // 64-byte BIP-340 signature over msg(obs), verified off-chain by the indexer and on-chain by LEZ only on dispute
   bytes  membership_proof  = 9;  // Merkle inclusion proof of (oracle_id, channel_id) under root_cycle of the observation's cycle (outside signature scope)
+  uint64 leaf_index        = 10; // index of (oracle_id, channel_id) leaf under root_cycle, needed to verify membership_proof (outside signature scope)
 }
 ```
 
@@ -476,9 +482,9 @@ message AttestationSubmission {
 }
 
 message AttestedPrice {                    // stored by the LEZ contract
-  string feed_id            = 1;  // asset pair identifier, e.g. "BTC/USDT"
+  bytes  feed_id            = 1;  // asset pair identifier, 32-byte SHA-256 of the feed name, e.g. SHA-256("BTC/USDT")
   int64  price              = 2;  // attested median, replaced on CORRECTED
-  uint32  decimals           = 3;  // number of decimal places in `price`
+  uint32 decimals           = 3;  // number of decimal places in `price`
   int64  round              = 4;  // round identifier
   int64  confidence         = 5;  // dispersion of the N observations, replaced if a dispute recomputes another value
   AttestationStatus status  = 6;  // set only by the contract; a new write is always PENDING
@@ -1037,9 +1043,10 @@ syntax = "proto3";
 message DisputeSubmission {
   int64 disputed_round                   = 1;  // the round whose AttestedPrice is disputed
   bytes sender_oracle_id                 = 2;  // the submitter's oracle_id; its LEZ account MUST authorize the TX
-  bytes sender_membership_proof          = 3;  // Merkle proof of sender_oracle_id in root_cycle of the disputed round's cycle
-  repeated PriceObservation observations = 4;  // signed observations from LBC, in LBC order
-
+  bytes sender_channel_id                = 3;  // the submitter's registered channel, needed to rebuild its leaf
+  uint64 sender_leaf_index               = 4;  // index of the submitter's leaf under root_cycle
+  bytes sender_membership_proof          = 5;  // Merkle proof of the submitter's leaf in root_cycle of the disputed round's cycle
+  repeated PriceObservation observations = 6;  // signed observations from LBC, in LBC order
 }
 ```
 
@@ -1047,7 +1054,7 @@ LEZ identifies each delivered set by its `set_hash`, which it always computes it
 For each observation, `obs_id = SHA-256(canon(obs) || signature)` as defined in [Price Fetching](#price-fetching).
 The `obs_id`s are sorted by `oracle_id` in ascending byte order, and
 `set_hash = SHA-256(disputed_round as 8-byte big-endian || obs_id_1 || ... || obs_id_k)`.
-The `membership_proof` is excluded, since it is a witness and not part of the observation.
+The `membership_proof` and `leaf_index` are excluded, since they are witnesses and not part of the observation.
 Two honest indexers that computed the same set therefore produce the same `set_hash`.
 
 The indexer sends the submission in a LEZ TX signed with its LEZ-Private key,
@@ -1088,8 +1095,10 @@ This saves re-delivering an identical set, about 32 bytes instead of `N` observa
 message DisputeVote {
   int64 disputed_round          = 1;  // the round whose AttestedPrice is disputed
   bytes sender_oracle_id        = 2;  // the voter's oracle_id; its LEZ account MUST authorize the TX
-  bytes sender_membership_proof = 3;  // Merkle proof of sender_oracle_id in root_cycle of the disputed round's cycle
-  bytes set_hash                = 4;  // a set already stored for disputed_round
+  bytes sender_channel_id       = 3;  // the voter's registered channel, needed to rebuild its leaf
+  uint64 sender_leaf_index      = 4;  // index of the voter's leaf under root_cycle
+  bytes sender_membership_proof = 5;  // Merkle proof of the voter's leaf in root_cycle of the disputed round's cycle
+  bytes set_hash                = 6;  // a set already stored for disputed_round
 }
 ```
 
