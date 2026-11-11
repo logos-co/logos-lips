@@ -284,3 +284,56 @@ vs "storage-cache"); everything outside the creating consumer must discover opaq
 **Assessment:** partly addressed: the spec supports deny-with-`approval-required`, then grant, then retry.
 It has no pending/held decision, no way to block a call while the user decides, and no defined human
 principal or administrative path for the approval (see `claude-spec-comments.md` SO-06).
+
+---
+
+# Status against the current specifications
+
+The concerns above were written against an earlier revision of the specifications and have no reply
+from the spec owner yet. They were checked again against the specifications at `6a4dfa28`. The current
+text settles nine of them (HC-01, HC-03, HC-05, HC-06, HC-08, HC-09, HC-11, HC-12 and HC-13): it either
+meets the need or places it outside Core, as listed in Appendix C of `claude-spec-comments-3.md`. The
+four below still need an answer. In this section `l.N` is a line of the specification file at
+`6a4dfa28`, and needs are stated with neutral roles.
+
+### HC-02 — Several hosted instances in one process, and a handler that a consumer registers with a provider
+- **Concern:** A module cannot be loaded into another module's process to share one in-process provider, and
+  a consumer cannot register a handler with a provider.
+- **In the current specs:** One Module Host serves one module instance (LOADER l.18-20, l.92); a direct
+  realization shares its ABI caller's process (RUNTIME l.3783). A Subscribe carries only an event name
+  (TRANSPORT l.198-202). Invocation-scoped events reach only the initiating path (RUNTIME l.1260), and
+  events must not carry request/reply flows (l.1250).
+- **What still needs an answer:** The reply to NF-24 leaves both open: a placement of several hosted
+  instances in one Module Host, and a pattern for a provider to call a consumer's registered handler.
+
+### HC-04 — Whether the evolution pattern of INTERFACE l.205-208 is the final answer
+- **Concern:** A caller is bound to an exact contract root, so even adding a method breaks every existing
+  caller; a contract cannot evolve compatibly.
+- **In the current specs:** Roots stay exact and no cross-root transformation is defined (INTERFACE
+  l.194-196). A provider may keep an existing interface contract and add interfaces; a changed primary
+  contract is a new identity; overlapping revisions need separate providers or adapters (l.205-208). Bare
+  method names stay unique per provider (l.339-340).
+- **What still needs an answer:** The replies to NF-23 and NO-04 call the broader evolution request
+  separate. Open: whether INTERFACE l.205-208 is the final answer, or a compatibility mechanism across roots
+  is still intended.
+
+### HC-07 — Three provider surfaces that must agree, with no rule deriving one from another
+- **Concern:** A provider must export generic dispatch and typed per-method functions, which must behave
+  identically and can drift; one should be derived from the other.
+- **In the current specs:** Both surfaces stay mandatory with the same semantics (INTERFACE l.1557-1563).
+  The optional asynchronous provider surface replaces neither (l.2115-2116); helpers may derive all from
+  shared logic (l.2118). A hand-written module must behave equivalently (l.1573). Derivation at run time is
+  not the interoperable path (RUNTIME l.4098-4100).
+- **What still needs an answer:** Whether one provider surface can be normative and the others derived by
+  the Runtime or a required generator. Equivalence of the three surfaces remains a per-module obligation.
+
+### HC-10 — The ordinary publish callback reports nothing
+- **Concern:** Publishing an event returns nothing: an event that fails validation is dropped, and the
+  publishing module gets no signal.
+- **In the current specs:** The init-time publish callback returns void (INTERFACE l.3618-3623); an invalid
+  event is dropped with an implementation diagnostic (RUNTIME l.1225-1227). An oversized event whose
+  boundary cannot report failure closes the affected connection (TRANSPORT l.388-389). Invocation-scoped
+  `publish` returns a result code (INTERFACE l.2191-2196).
+- **What still needs an answer:** Whether the ordinary publish callback gets a result or a defined
+  diagnostic. A publisher of an invalid broadcast event learns nothing, and an oversized one closes the
+  affected connection.

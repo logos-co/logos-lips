@@ -946,3 +946,170 @@ The following references address the nine unnumbered appendix entries.
 | Loader-to-Module-Host channel `[G108]` | [Module Loader §5.4](https://github.com/logos-co/logos-lips/blob/6a4dfa2846ab9f1f679ad285f8caa848ee8544ad/docs/logos-core/raw/spec-module-loader.md#54-trusted-transport-adapter-handoff) leaves setup and descriptor transfer of the private adapter channel to the implementation, subject to its isolation and credential requirements. |
 | Storage process placement | [Runtime §4.2](https://github.com/logos-co/logos-lips/blob/6a4dfa2846ab9f1f679ad285f8caa848ee8544ad/docs/logos-core/raw/spec-module-runtime.md#42-routing-selection) presents separate-process Storage as a routing example. Runtime owns routing selection, with policy supplied by Runtime, host, deployment or configured policy; the example does not require Storage to run out of process. |
 | Storage examples as an API | [Interface §1.1](https://github.com/logos-co/logos-lips/blob/6a4dfa2846ab9f1f679ad285f8caa848ee8544ad/docs/logos-core/raw/spec-module-interface.md#11-schema-file) and [§1.8](https://github.com/logos-co/logos-lips/blob/6a4dfa2846ab9f1f679ad285f8caa848ee8544ad/docs/logos-core/raw/spec-module-interface.md#18-complete-example) identify the Storage schemas as illustrative. [Runtime Appendix B](https://github.com/logos-co/logos-lips/blob/6a4dfa2846ab9f1f679ad285f8caa848ee8544ad/docs/logos-core/raw/spec-module-runtime.md#appendix-b-runtime-control-record-examples) contains informative record examples. These examples do not define the Storage API. |
+
+---
+
+# Remarks on the response
+
+The response above was checked against the specifications at `6a4dfa28`. For most items the current
+text settles what was asked, or the owner keeps the boundary where it was; those outcomes are listed
+item by item in the appendices of `claude-spec-comments-3.md`. The entries below are the ones that still
+need discussion. In this section `l.N` is a line of the specification file at `6a4dfa28`, not of the
+revision the audit above was written against, and needs that come from existing modules are stated with
+neutral roles.
+
+## Items where the current text still has a problem
+
+### C-10 — The Loader request has no field for the provider endpoint it must use
+- **Asked:** the Module Loader may run in another process, but the descriptor and the private handoffs of
+  `realize` (a static binding, an open listening socket) cannot cross a process boundary through the
+  Loader's contract.
+- **Response and current text:** the owner keeps the handoffs private and implementation-defined: "The
+  composition also supplies the private realization handoffs required by LOGOS-MODULE-LOADER through
+  implementation-defined mechanisms" (RUNTIME l.30). That settles the part that cannot be serialized.
+- **What remains:** the part that can be serialized is missing as well. For a hosted provider, Runtime
+  "creates the protected endpoint and supplies its address and open listening socket as a private
+  realization handoff" (LOADER l.318-319), but `realize_request` carries only `module_instance`,
+  `descriptor`, `? state` and `? configuration` (l.340-345). The request cannot say that a provider
+  endpoint is expected or what its address is, so a call cannot be matched to its listener through the
+  contract. The idempotency rule compares "the same descriptor and private handoffs" (l.368-370; l.474),
+  which is data that is not in the request.
+- **Suggested resolution:** add `? provider_endpoint` (address only) to `realize_request`, and define
+  idempotency over the request fields.
+
+### C-11 — Informative text now falls under a BCP 14 declaration, and two of its uppercase keywords restate no normative rule
+- **Asked:** INTERFACE Appendix A.3, a section titled informative, and SECURITY, an informational document,
+  contain uppercase MUST and MUST NOT. The item asked to move those requirements into normative sections
+  or to lower-case the keywords.
+- **Response and current text:** No change was made on this point. The response says that the Appendix A.3
+  obligations are already stated in INTERFACE §§1.2, 2.6, 5.1 and 5.2, that SECURITY defers to the owning
+  specifications, that its passage on post-install loading describes platform availability, and that
+  these passages create no additional Core conformance requirement. The first part holds. INTERFACE
+  l.4020, l.4059-4061 and l.4066-4068 restate l.1573, l.3279 with l.3302, and l.1577-1581. SECURITY l.240
+  and l.403 restate LOADER l.666-667 and INTERFACE l.395. Every document also carries the statement
+  "Uppercase requirement keywords in this specification follow BCP 14" (INTERFACE l.74, SECURITY l.24, BCP
+  l.27).
+- **What remains:** The statement has no exemption for informative text. By its letter the uppercase
+  keywords in INTERFACE Appendix A (l.3980), in SECURITY and in BCP §8 are BCP 14 requirements, while the
+  section labels and the response say they create none. Where a normative section states the same rule the
+  difference has no effect. Two sentences have no such counterpart.
+  - SECURITY l.475: "A deployment conforming to these specifications MUST NOT assume that arbitrary
+    post-install native module loading is available." SECURITY is category Informational (l.8) and says
+    "Normative behavior remains in the specification that owns the relevant interface or enforcement
+    boundary" (l.20). No other specification states this prohibition.
+  - BCP l.552: "Failure of optional logging MUST NOT waive required audit or enforcement." The sentence
+    follows §8, which is marked informative (l.534) and says "This section defines no observer contract or
+    additional Core conformance requirement" (l.546). A horizontal rule at l.548 separates the paragraph
+    from the section body without giving it a heading, so it is not clear whether it belongs to §8. No
+    other specification mentions optional logging.
+
+  A reader who applies the BCP 14 statement counts both sentences as requirements. A reader who applies
+  the section labels does not.
+- **Suggested resolution:** Lower-case the keywords at SECURITY l.475 and BCP l.552, or move each sentence
+  into a normative section of the specification that owns the rule. Add to the Requirements Language
+  statement that an uppercase keyword in informative text restates a requirement of a normative section.
+
+### EC-01 to EC-04 (and NC-03 of the second audit) — Runtime Control's expected outcomes use the shared error channel that INTERFACE reserves for invocation failures
+- **Asked:** which error code applies to a reused `request_key` with different fields, a stale expected
+  revision, a lifecycle operation that the current state prohibits, an `apply_configuration` that the
+  module rejects, and a configuration value that fails validation; none was assigned.
+- **Response and current text:** the codes are now assigned on the shared invocation-error channel. RUNTIME
+  has a table "Invocation precondition errors" (l.1907-1919): key reuse and a stale expected revision are
+  `INVALID_PARAMS`, a lifecycle state that prohibits the operation is `NOT_READY`. CONFIG l.190-198 and
+  l.290-299 do the same for configuration, and l.315-317 maps a module's rejection of a configuration to
+  `MODULE_ERROR`. The "which code" question is answered.
+- **What remains:** the answer contradicts INTERFACE §1.4: "A method with an expected domain or application
+  failure MUST represent that outcome in its response schema. It MUST NOT use a nonzero shared
+  `logos.error_code` for that contract outcome" (l.365-366). Runtime Control is "an ordinary Logos module
+  contract at the schema layer" with the same "error semantics used for module contracts" (RUNTIME
+  l.76-77, l.3737-3738), and RUNTIME states the same rule for providers (l.649-652). A compare-and-set miss
+  and a module-rejected reconfiguration are designed outcomes of the contract. Of the 28 Runtime Control
+  responses, 27 are success-only maps (`get_execution_permissions_response`, l.2355-2360, is the one typed
+  variant), while the Package Manager, Loader and Capability Authority responses are typed success/error
+  variants. The codes are also coarse. A stale revision and a reused key are both `INVALID_PARAMS` with no
+  detail. For `apply_configuration`, a module's rejection (state unchanged, the caller may retry with
+  another value) and a failure to obtain any valid hook result (the instance may be in `error`, CONFIG
+  l.312) are both `MODULE_ERROR` (l.315-317), so the caller has to read the module state to tell them
+  apart.
+- **Suggested resolution:** either one sentence in INTERFACE §1.4 or RUNTIME §9.3 exempting Runtime
+  Control's precondition failures from l.365-366, so that the tables are consistent with the rule; or a
+  typed rejected arm on the responses where the caller must branch, `apply_configuration` first.
+
+### RT-05 — No criterion separates a Module Loader that is briefly unavailable from one that has failed
+- **Asked:** what happens to the realizations owned by a Module Loader provider that fails, and whether a
+  replacement Loader adopts them. A correction in the second audit (NF-18) added that a replacement
+  Loader's idempotent `release` of an identifier it never issued would hide them.
+- **Response and current text:** RUNTIME l.3820-3825. Loader loss "MUST NOT be treated as successful
+  release"; Runtime keeps cleanup ownership until the protected realization or deployment mechanism
+  confirms that the old execution envelope and its access to assigned state have ended; a replacement
+  Loader's empty registry or successful release of an unknown identifier is not that confirmation. "When
+  the owning Loader has failed and continued realization control cannot be maintained, Runtime MUST mark
+  affected instances as `error`, fail their routes, preserve execution intent, and arrange termination
+  through protected host or deployment supervision" (l.3823). No replacement is realized while cleanup is
+  unresolved, and rebinding transfers nothing (l.3824-3825; l.977; LOADER l.476-477). That settles both
+  questions.
+- **What remains:** the rule sits beside an older one with the opposite outcome. While a required system
+  service is unavailable, that "alone MUST NOT change the lifecycle state of an otherwise healthy module
+  realization" (l.3816-3818), and "Temporary service unavailability alone remains subject to the
+  independent-realization rule above" (l.3827). No text says how a Runtime tells the two cases apart. A
+  Loader process that has exited, one that is restarting under supervision and one that is unreachable for
+  a while all make every Loader operation fail in the same way. Two Runtimes will draw the line
+  differently, and one of the two outcomes terminates every hosted module.
+- **Suggested resolution:** name the deciding fact, for example that the Loader's provider realization has
+  ended (as opposed to its route having failed), or a deployment-supplied period after which
+  unavailability counts as failure.
+
+### PM-11 — Locating package files: the Loader reference points at nothing, and dependent libraries are mapped unverified
+- **Asked:** packages declare and verify `resource` and `data` artifacts and sibling native libraries,
+  but a module is never told where they are.
+- **Response and current text:** declined by design. "`local_path` is an installation location, not a
+  guaranteed module-visible path"; the access convention "is implementation-defined and MUST be
+  documented"; "a module may receive resource locations through its schema-typed configuration"; "The
+  Runtime handoff and Interface initialization input do not provide a package-root directory or artifact
+  lookup table" (PM l.1189-1193). The decision is clear.
+- **What remains:** three points in the text that carries it.
+  - PM l.1192 says "Native library dependencies are resolved through the deployment-selected
+    dynamic-linker integration defined by LOGOS-MODULE-LOADER". LOADER does not define one. It lists "a
+    concrete dynamic linker" among the things it does not define (l.67-71) and leaves the integration to
+    deployment configuration (l.107-110).
+  - The Loader verifies "dynamic-library bytes before mapping them" (LOADER l.659) for the one
+    implementation artifact of the descriptor (PM l.1377). Libraries that the dynamic linker pulls in
+    afterwards are mapped without that check, although they are signed artifacts of the same package, and
+    the installed layout that would let the linker find them is a deployment choice (PM l.929-930).
+  - The Package Manager returns host paths to any authorized caller (`installed_artifact.local_path`, PM
+    l.1163-1168), while Runtime Control and the Loader keep artifact paths out of their responses and
+    records (RUNTIME l.3535; LOADER l.679-681). No text says why the one contract may disclose them.
+- **Suggested resolution:** change PM l.1192 to say that the integration is deployment-selected and not
+  defined by LOADER, or define its minimum there (which artifacts the linker may resolve); state whether a
+  dependent library must be a declared artifact that is verified before it is mapped, and by whom; state
+  that returning `local_path` to an authorized Package Manager consumer is intended.
+
+### SO-10 — The CDDL mirror files are said to be present and are not; one contract cannot be extracted in document order
+- **Asked:** the specs name extracted machine-readable CDDL mirrors and a conformance corpus that were not
+  published with them.
+- **Response and current text:** "The named extracted CDDL mirrors and the existing Core conformance corpus
+  are present."
+- **What remains:**
+  - The tree at `6a4dfa28` contains `docs/logos-core/README.md` and the twelve specification files, and no
+    `.cddl` file. Nine mirrors are named in the specs (for example RUNTIME l.1877, l.1894; PM l.45, l.324;
+    COMMITMENT l.734). If they are published elsewhere, the specs or the README should say where.
+  - Until they are, a reader has to extract them, and one cannot be extracted as written. "Every concrete
+    module `.cddl` file MUST begin with a metadata block" (INTERFACE l.130), and the Package Manager mirror
+    is "extracted" from its blocks (PM l.43-45), but the first contract rule is at PM l.494 and `_module`
+    is in the last block, at l.1518. The Capability Authority, Loader and Runtime Control blocks have it
+    first (CA l.143; LOADER l.42; RUNTIME l.1936).
+  - RUNTIME Appendix B fences five blocks as `cddl` that hold example values, not rules (l.4164, l.4181,
+    l.4194, l.4220, l.4258), so an extractor that follows the fences ingests them. One of them is also
+    wrong as an example: "For a local module instance, `module_record` and `get_readiness_response` MUST
+    include `execution` and `instance`" (l.3494), and B.3 (l.4195-4210) shows a local record with
+    `instance` and no `execution`.
+- **Suggested resolution:** publish the mirrors with the set or say where they are; move the Package
+  Manager `_module` line to the first block; fence Appendix B as `cbor-diag` and add `execution` to B.3.
+
+## A note that needs no change to the specifications
+
+- PM-03: the response says "The generic provider ABI is unchanged and does not supply this context." The
+  current ABI does supply the authenticated invocation origin (INTERFACE l.2181-2183), and PM l.1623 says
+  so: "The generic invocation context identifies the protected invocation origin but does not define
+  Package Manager record-visibility policy." The text is consistent; only the sentence in the response no
+  longer matches it.

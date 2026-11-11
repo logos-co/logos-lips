@@ -2430,3 +2430,415 @@ Only the item IDs listed in the table are answered here.
 | Fable/NO-07 | Reduced module-execution actions to start and stop and mapped them explicitly. Start includes local realization/loading, initialization, readiness and continued execution; recovery and renewal use the retained origin. Explicit stop of a local instance requires the controller's stop and Runtime Control authority and includes teardown/release. Facade-only control uses local Runtime Control authorization without inventing local execution or remote lifecycle authority. Mandatory enforcement and shutdown/failed-attempt cleanup cannot depend on fresh ordinary stop consent. Creation, retirement and settings/configuration administration remain separately authorized management operations. Historical Authority records retain their original contract attribution; replacement does not silently reinterpret old actions or issuance provenance. |
 | Fable/NC-03 | Completed configuration pre-acceptance mappings while preserving the accepted stale-revision and live-application classifications. Added optional configuration-schema-mismatch detail rooted at the decoded configuration value, distinct from the selected outer request schema. Malformed embedded bytes, missing bindings and semantic permission constraints use INVALID_PARAMS without invented validation detail; expected schema-commitment mismatch uses VERSION_MISMATCH. Updated the normative common roots and dependent Hash Profile vectors. The changed fixed common C choice discriminants require C mapping generation 3; initialization and vtable versions remain unchanged. The common import also changes the assigned Package Manifest schema root; dependent value commitments and signing fixtures require coordinated regeneration. |
 | Fable/NP-08 | Existing deferred Responses remove the native blocking premise. Added a Package Manager CDDL watch for invocation-scoped installed-state hints and opt-in caller-correlated progress on install/remove/update. Per-observer visibility uses protected retained observation integration at publication admission, including retained facts for removals; ordinary broadcasts cannot implement that filtering. Runtime still checks destination/event commitment authority. Final Responses remain authoritative, and cancellation or lost observation does not imply rollback. Watches and progress have no initial-snapshot, replay or job-recovery promise. Runtime membership hints are covered separately by the inventory changes. Retained watches and publication work are bounded and cannot consume capacity reserved for required engine service progress; the final Response ends the watch. |
+
+---
+
+# Remarks on the responses
+
+The response above was checked against the specifications at `6a4dfa28`. For most items the current
+text settles what was asked, or the owner keeps the boundary where it was; those outcomes are listed
+item by item in the appendices of `claude-spec-comments-3.md`. The entries below are the ones that still
+need discussion. In this section `l.N` is a line of the specification file at `6a4dfa28`, not of the
+revision the audit above was written against, and needs that come from existing modules are stated with
+neutral roles.
+
+## Items where the current text still has a problem
+
+### NL-07 — Facade records lack classifications for known remote states, and their `state` value is unassigned
+- **Asked:** Lifecycle failures were reported as free text. The item asked for a typed failure code on
+  module records, readiness results and state events, with the Loader's code carried through, and for a
+  defined way to report a remote-module facade whose target is unreachable, not ready, stopped, failed or
+  contract-incompatible, where one Runtime reported `error` and another `loaded`.
+- **Response and current text:** The owner added machine-readable classifications under the open
+  failure-code rules. `module_record`, `get_execution_summary_response`, `get_readiness_response` and
+  `module_state_changed_event` carry an optional `failure` (RUNTIME l.2059, l.2324, l.2339, l.2470). Its
+  values are listed at l.3753, a Loader error becomes `loader-` followed by its code (l.3754), and a
+  local instance in `error` must include `failure` (l.3758). For facades, "A facade unavailable because
+  current remote state cannot be established MUST use `remote-state-unknown` rather than infer a remote
+  crash" (l.3759). The local-instance half of the item is settled.
+- **What remains:** RUNTIME l.3329-3332 still requires seven distinctions for facades: "local facade
+  failure, remote runtime unreachable, remote module not ready, remote module stopped or unloaded, remote
+  module failed, authority failure, and module contract mismatch". The module-level list at l.3753 covers
+  two of them: authority failure through the `authority-` codes, and an unreachable Runtime through
+  `remote-state-unknown`. The codes `facade-failed`, `remote-not-ready`, `remote-stopped`, `remote-failed`
+  and `contract-mismatch` exist, but as values of `route_failure.code` (l.2498, l.2510-2515). A facade
+  whose target is known to be stopped, failed, not ready or contract-incompatible therefore has no defined
+  `failure` on its module record, readiness result or state event: a producer can use `other`, an
+  implementation-specific string, or omit the field, since l.3761 requires omission when the
+  unavailability is not caused by a failure. Two sentences still name free text as the carrier. The
+  classifications are reported "through readiness state, route state, reason strings, and runtime-control
+  events" (l.3333-3334), and uncertainty is reported "through `state` and `reason` rather than reporting
+  the provider as `ready`" (l.3710-3711), while "Diagnostic messages remain human-readable text without
+  machine-readable semantics" (l.2496). No sentence assigns the `state` value of an unavailable facade:
+  l.3762 rules out a new state, l.3325 excludes `ready`, and the choice among `unloaded`, `loaded` and
+  `error` is open. The difference between two Runtimes that the item reported remains for `state`.
+- **Suggested resolution:** State that the facade codes of `route_failure.code` are also defined values
+  of the module-level `failure` for a facade record, and name the `state` a facade reports in each of
+  the seven cases. Replace "reason strings" at l.3334 and "`reason`" at l.3711 by a reference to
+  `failure`.
+
+### NA-04 — An idempotent `establish_route` replay returns "the retained operation result"; whether that includes the one-time ticket is not said
+- **Asked:** what an idempotency key retains: whether a denied or failed attempt is retained, and what a
+  replay returns.
+- **Response and current text:** RUNTIME l.3169-3176. "Idempotent replay retains successful
+  route-operation results"; a failed attempt does not block a later attempt with the same key; "A replay
+  returns the retained operation result and does not assert current route readiness. Replay MUST NOT renew
+  authority or revive a route". That settles what a replay is.
+- **What remains:** the ticket. `invocation` "MUST be present when a ready transported route is returned
+  to its consumer by `establish_route` or `renew_route`" (RUNTIME l.3004), and it holds a `ticket: bstr
+  .size 32` (l.2078, l.2085). TRANSPORT says the issuer stores only a digest, that "The raw ticket may
+  exist transiently only where needed to return the invocation descriptor, establish the connection, and
+  redeem the ticket" (l.1034-1039), and that it lives at most 60 seconds and "the same ticket is never
+  reissued" (l.1042-1047). If the retained result includes `invocation`, Runtime keeps a raw bearer ticket
+  for as long as it keeps the result, and a replay after 60 seconds returns a dead one. If it does not,
+  the replayed record is a ready transported route without `invocation`. A consumer that lost the first
+  response gets one or the other, depending on the implementation.
+- **Suggested resolution:** state that the retained result is the route record without `invocation`, as
+  an exception to l.3004, and that a consumer holding a replayed record obtains a ticket through
+  `renew_route`, which already issues a fresh one (l.3478).
+
+### NR-04 — Continuations: one sentence now contradicts the rule, and `partial` has two meanings between Runtimes
+- **Asked:** a route response to a module can contain a continuation to another Runtime, and nothing said
+  who must follow it.
+- **Response and current text:** the consumer's Runtime resolves continuations. "When handling acquisition
+  for a local module consumer, Runtime MUST resolve selected continuations internally before returning its
+  result. The module-facing response MUST contain an empty `continuations` array and only independently
+  authorized ready routes" (RUNTIME l.3124-3125). That settles the item.
+- **What remains:** three leftovers around it.
+  - The next sentences read: "Inter-Runtime responses retain the continuation mechanism defined by this
+    section. Runtime exposes them to modules only through the typed Runtime Control `establish_route` and
+    `renew_route` methods" (l.3128-3129). "Them" refers back to route establishment and renewal (l.3122),
+    but after the inserted sentences it reads as continuations, which contradicts l.3125.
+  - Between Runtimes the mechanism remains, and there `partial` has two definitions. Section 8: it "is
+    `false` only when every provider visible through that discovery decision has a returned ready route"
+    (l.1489-1490). Section 9.3: "each selected provider yields at most one route or continuation;
+    `partial` MUST be `true` if any selected provider is omitted and `false` otherwise" (l.3143-3144). A
+    provider answered with a continuation has no ready route and is not omitted.
+  - A module can open a control binding to another Runtime with `connect_remote` and call
+    `establish_route` there. Whether that response may carry continuations, or is module-facing in the
+    sense of l.3125, is not said.
+- **Suggested resolution:** make the subject of l.3129 explicit; amend section 8 to "a returned ready
+  route or continuation", or say that it describes the module-facing response only; say which rule a
+  `connect_remote` binding follows.
+
+### NC-03 — The answer uses the shared error channel
+- The configuration classifications that answer NC-03 (CONFIG l.190-198, l.290-299, l.315-317) are
+  assigned on the shared invocation-error channel. The remaining problem is the same as for EC-01 to
+  EC-04 of the first audit and is stated once, under "Remarks on the response" in
+  `claude-spec-comments.md`.
+
+### ND-04 — The specs' own contracts state off-schema list constraints without a failure outcome
+- **Asked:** A list in a contract cannot be given a length bound in its schema, so every bound lives in
+  prose. The item asked for bounded occurrences, and noted that the specs bound their own lists in prose
+  with no error code for a violation.
+- **Response and current text:** The owner declined declarative bounds. cdCDDLe l.178 rejects occurrence
+  indicators with explicit numeric bounds, and INTERFACE l.480 keeps `[* T]` as the only variable-length
+  form. The response says the obligation to enforce a prose bound and to state its failure outcome is
+  explicit instead. INTERFACE l.3141-3142 reads: "Contract-defined value constraints that are not expressed
+  in the schema remain requirements of that contract. The contract MUST define their enforcement and
+  failure outcomes consistently with Section 4.6."
+- **What remains:** The specs' own system contracts do not meet that rule for four list constraints.
+  - RUNTIME l.2537: "Permission names MUST be unique and ordered by their UTF-8 bytes." The array is
+    `[* logos.runtime_control.permission_setting]` (l.2381). The line before it assigns `INVALID_PARAMS`
+    only to "unknown definitions and invalid constraints" (l.2536). No outcome is given for a duplicate or
+    unordered array, and nothing forbids Runtime from sorting it silently.
+  - RUNTIME l.3024-3025: the `route_access` lists (l.2094-2096) must be ordered and free of duplicates,
+    and "Runtime MUST reject an unordered or duplicate list". No error code is named.
+  - CA l.130-131: the listed arrays "MUST be non-empty", while their schemas are `[* ...]` (for example
+    l.167 and l.197). No rejection rule or outcome follows.
+  - CA l.138: "A receiver MUST reject an unordered or duplicate set-valued array". None of the values of
+    `error_code` (l.767-776) is assigned to this case; `invalid-request` is assigned only at l.714 and
+    l.1132. TL-04 in `claude-spec-comments-3.md` covers the Capability Authority codes in general.
+
+  Two implementations can return different codes for the same invalid value, and one may accept a
+  permission array that another rejects.
+- **Suggested resolution:** State the outcome at each place: `INVALID_PARAMS` without validation detail for
+  the two Runtime Control cases, with the prohibition on silent sorting repeated at RUNTIME l.2537, and one
+  named `error_code` value for the two Capability Authority cases.
+
+### NF-06 (on C-09) — A grant target owned by another Runtime: nothing says what it means for its address to resolve
+- **Asked:** C-09 read "Runtime-known" as locally owned and concluded that a target Runtime could neither
+  record a decision nor issue a grant for a consumer forwarded by an enrolled source Runtime. NF-06 corrected
+  the premise: the address model already admits such a consumer, and only the word "resolve" had no meaning
+  for an address owned by another Runtime. It asked for one sentence that defines it.
+- **Response and current text:** The response says that Runtime-known does not mean locally owned, that the
+  enrolled owning Runtime authenticates the forwarded consumer, and that this needs neither a universal
+  remote lookup nor a reading of the consumer-forwarding checks as proof of arbitrary grant targets. The
+  consumer side is settled by the text. An address names its owning Runtime (CA l.84). The target verifies
+  that the consumer reference's `runtime_instance_id` "matches the authenticated source Runtime identity and
+  that active policy permits that Runtime to forward operations for consumers it owns" (RUNTIME
+  l.1788-1790), then authorizes the operation for that consumer (l.1791), and "Acceptance trusts the enrolled
+  source Runtime to authenticate module instances it owns" (l.1794).
+- **What remains:** CA l.77 covers three uses of an address: "An address used to authenticate a consumer,
+  issue a grant to a target, or apply authority MUST resolve to the exact Runtime-known module instance
+  concerned." For the first and third uses, RUNTIME l.1786-1794 gives the procedure for a forwarded
+  consumer. For the second use nothing does. The Capability Authority is a local module (CA l.23) that
+  "does not receive unrestricted Runtime Control visibility by virtue of its role" (CA l.104), no rule gives
+  it or its Runtime a way to confirm an instance in another Runtime's inventory, and the response excludes
+  the forwarding checks as evidence for a grant target. CA l.691-692 require only that active policy allow
+  the issuer "to issue the requested scopes to that target". Whether `issue_grant` may name a target owned
+  by another Runtime is therefore open. One implementation accepts the target when its
+  `runtime_instance_id` names an enrolled Runtime. Another rejects every target it does not own. Under the
+  second reading a forwarded consumer can never hold a grant, so `evaluate` for it can be allowed only by
+  policy outside the grant contract, and a management module written against one Capability Authority
+  fails against the other.
+- **Suggested resolution:** State in CA §2 what resolving means for a grant target whose
+  `runtime_instance_id` is not the issuing Runtime's, for example that the owning Runtime must be enrolled,
+  that the instance's existence is not verified, and that the grant supports authority only for a consumer
+  accepted under RUNTIME §9. Otherwise state that such a target is rejected and how a forwarded consumer is
+  authorized instead.
+
+## Items without a response, restated against the current specifications
+
+Thirteen items of this audit have no reply: NE-07, NL-12, NA-12, ND-10 to ND-14 and NP-11 to NP-15. The
+current text settles three of them without one:
+- ND-11: "An empty path always uses the named declaration's schema subtree root, including when its body
+  is a primitive, literal or reference node" (COMMITMENT l.569).
+- ND-13: "The generator MUST also emit a forward typedef whenever an aggregate type name is used before
+  its complete definition, including uses through variable-length lists" (INTERFACE l.1077).
+- ND-14: there is no tie rule for type definitions, and the placement of independent declarations "is not
+  part of the canonical mapping" (INTERFACE l.893).
+
+The other ten are restated below against the current text, so that the originals above need not be read
+against the old line numbers. Three statements in the originals did not hold and are corrected here:
+NA-12 said a module-held choice of provider could not reach Runtime, NP-12 said the specs never
+contemplate several manifests for one package identity, and ND-10 implied that a Logos schema identity
+could differ.
+
+### NE-07 — A consumer learns that an optional provider has appeared only through Runtime Control observation authority keyed by module name
+- **Specs:** PM l.118 (optional dependencies are not defined), l.283-286 (`provider_requirement` has no
+  optional form), l.1712 (`watch_installed_packages` reports package records, not providers); RUNTIME
+  l.753-754 (`requires` creates no dependency and no ordering), l.1501-1502 (a `single` request with no
+  matching provider fails), l.3157-3159 (without discovery or observation authority an unknown target is
+  indistinguishable from a hidden or denied one), l.3416-3419 (`inventory_changed` is a hint, sent only to
+  a subscriber that "may observe at least one affected record"), l.3732-3733 (state events only for what
+  the subscriber may observe); CA l.180-190 (`runtime_control_scope` is narrowed by `events`, `modules`,
+  `instances`, `providers` and `routes`).
+- **Issue:** consumer C uses provider P when P is installed and running and works without it otherwise (a
+  local service preferred over a remote one, a device module present on some hosts only). While P is
+  absent, C's `establish_route` fails in a way C cannot tell apart from a denial. To react when P is
+  installed or started later, C needs Runtime Control observation authority over P's record, for
+  `module_state_changed_event` or for the `"modules"` hint followed by `list_modules`. No constraint of
+  that scope names a provider contract, so the deployment must know C's optional providers by module name
+  although C knows them by contract; otherwise C retries `establish_route` on a timer.
+- **Impact:** optional providers become hard requirements, deployment-specific grants, or polling.
+- **Suggested resolution:** an `optional` flag on `provider_requirement`, so that install-time diagnostics
+  do not report the absence as a defect, and a provider-availability event keyed by contract, delivered
+  under a `discover` allow for that contract and disclosing no more than that decision does.
+
+### NL-12 — Core knows only runtime-ready: no common application-readiness or health surface, and ordering constraints cannot wait for one
+- **Specs:** RUNTIME l.636 (runtime-ready versus application-ready), l.645-652 (each "expected unavailable
+  outcome MUST be represented in the applicable method's response schema"), l.661-662 (application-level
+  readiness belongs to the module's own contract or a selected profile), l.749-750 (an ordering constraint
+  waits only for the prerequisite to be ready), l.3702-3703 and l.3712-3713 (`get_readiness` reports the
+  Runtime lifecycle state); INTERFACE l.3207-3267 (no readiness or health type in the common surface).
+- **Issue:** provider P needs seconds to minutes after `_MODULE_init` before it can serve (a network
+  bootstrap, a database migration, a chain synchronization) and is `ready` at once by design. A dependent
+  started behind an ordering constraint then meets P's own "not yet" outcome on its first calls; host
+  application H can show "running" but not "usable"; an orchestrator or a command-line tool cannot tell a
+  starting, degraded or failed service from a working one without knowing each contract's own status
+  method and event. The response to NL-08 says optional health contracts may supplement readiness; the
+  specs define none.
+- **Impact:** every contract invents its own status surface, dependents poll, and generic tooling cannot
+  show whether a module is usable.
+- **Suggested resolution:** a reserved common interface contract (for example `logos.health`: `get_health`
+  returning `starting` / `usable` / `degraded` / `failed` with an optional reason, plus a `health_changed`
+  event) that modules MAY implement, and an optional form of lifecycle-ordering constraint that waits,
+  with a bound, for the prerequisite to report `usable`.
+
+### NA-12 — A provider picked by a person: a requester that does not ask the chooser cannot be steered, and the chosen application cannot be brought forward
+- **Specs:** RUNTIME l.2122 and l.3141 (`establish_route_request.provider`: "Runtime MUST select that
+  provider or fail"), l.3093-3094 (otherwise `single` selects by "routing-selection state or deployment
+  configuration"), l.910-912 (that policy "MAY be internal to Runtime or supplied through runtime-host,
+  deployment, or configured policy inputs"; no shape or operation carries it), l.1484-1487
+  (`all-runtime-visible` needs a `discover` decision and establishes a route per visible provider),
+  l.2161-2166 (`list_modules` has no contract filter); CA l.284 (Runtime selects; the Authority decides for
+  that provider); PM l.875-878 (display metadata belongs to application catalog contracts); BCP l.341
+  (presentation: no profile assigned), l.384-390 (external activation is protected deployment input with
+  "no interoperable activation encoding").
+- **Issue:** requester R asks for a capability by contract, several installed providers implement it, and
+  the person picks one in a chooser drawn by host application H or by a chooser module. R can pin the
+  pick through `provider`, so a chooser module can hand its choice to R through its own contract. Three
+  things remain. A requester that sends `single` without asking the chooser gets Runtime's pick, which
+  only the Runtime host or the deployment can influence, through an input the specs do not define. To
+  list the candidates the chooser needs either routes of its own to every provider (`all-runtime-visible`)
+  or Runtime Control observation authority over every module record, and neither yields a display name or
+  an icon. Once a provider is chosen, nothing in Core lets H activate or bring forward that provider's
+  presentation module.
+- **Impact:** letting a person pick the application that handles a request works portably only for
+  requesters written to ask a chooser; the candidate list and the activation are implementation-private.
+- **Suggested resolution:** state in RUNTIME §4.2 that a module-held choice reaches Runtime only as
+  `establish_route_request.provider`, or define the routing-selection input as a Runtime Control record
+  (consumer, contract, chosen provider, lifetime) settable under its own action; add a discovery method
+  that returns the visible provider addresses for a contract under a `discover` allow without
+  establishing routes; and give a presentation profile an activation operation addressed to the chosen
+  provider's presentation module, carrying an opaque request reference.
+
+### ND-10 — `.size` on a named target is inside the supported cdCDDLe subset but has no schema-as-data node
+- **Specs:** cdCDDLe l.166 (the `.size` control is supported; only its controller is restricted), l.134-137
+  (only constructs outside §5.1 are rejected, and none may get "an implementation-local representation"),
+  l.220-223 (references are preserved, not expanded), l.238 ("Every resolved rule graph within the
+  supported subset MUST have a corresponding canonical model representation"), l.329 (a named reference
+  maps to a type-reference node), l.538-543 (field `2` of `size-control-application` is a `primitive`),
+  l.548 ("The target of a `.size` control MUST be `uint`, `tstr`, or `bstr`"); INTERFACE l.479; COMMITMENT
+  l.398-401, l.419, l.519-522.
+- **Issue:** `b = tstr` with `a = b .size 3` uses only constructs that §5.1 lists, so l.238 requires a
+  canonical representation and l.134-137 gives no ground to reject it. §8 has none: field `2` holds only a
+  `primitive`, `b` may not be expanded to `tstr` (l.220-223, l.329), and a `type-reference` in field `2`
+  would be an implementation-local representation. Literal and choice targets (`"x" .size 1`,
+  `(tstr / bstr) .size 3`) fall into the same hole; `bool .size 1` is excluded, but only by l.548 in §8.
+  The defect is one of stand-alone cdCDDLe conformance. A Logos schema document admits `.size` only on
+  `tstr` and `bstr` written directly (INTERFACE l.479; COMMITMENT l.398-401), every other construct is
+  invalid (COMMITMENT l.419), and schema identity is not a hash over cdCDDLe bytes (COMMITMENT l.519-522).
+- **Impact:** no Logos schema identity can differ. A stand-alone cdCDDLe implementation has no conforming
+  outcome for such a rule graph, so two of them can split: one rejects it, another expands `b` and emits
+  bytes without the bound name.
+- **Reading an implementation needs today:** reject every `.size` target other than `uint`, `tstr` or
+  `bstr` written directly (parentheses removed) before canonicalization, or expand a named target to its
+  primitive. Rejection is the conservative reading: it falls short of l.238 only and emits no bytes, while
+  expansion breaks l.220-223 and emits bytes that lose the bound name.
+- **Suggested resolution:** restrict the target at l.166 to `uint`, `tstr` or `bstr` written directly, so
+  that the l.134-137 gate rejects every other target; or, if named targets are wanted
+  (`short_id = id .size 8`), admit `type-reference` in field `2` with the rule that it resolves to `uint`,
+  `tstr` or `bstr`, and say whether l.576-578 then requires a new canonical-model identifier.
+
+### ND-12 — A cycle of local aliases is accepted and has a schema root, but no value and no C form
+- **Specs:** INTERFACE l.640 ("Every accepted schema set MUST be representable by one of the two forms"),
+  l.644 (the mapping "is total"), l.1024-1031 (every named type keeps its declaration identity in C),
+  l.3952-3953 (cyclic references only bound the work), l.3963-3969 (the rejection list); cdCDDLe l.157
+  (recursive and mutually recursive references are in the subset), l.238, l.308-310 (the rule graph MAY
+  contain cycles); COMMITMENT l.241-243 (cycles "are valid only through `reference-schema` nodes"),
+  l.428-431, l.483-486, l.511 and l.514 (the same cycle is invalid, but only as the arms of a choice),
+  l.1114 (a chain of local references is followed "until it reaches a declaration whose body is not a
+  local reference").
+- **Issue:** `demo.a = demo.b` with `demo.b = demo.a` (or `demo.a = demo.a`) is inside the subset and
+  canonicalizes: each body is a finite reference node (l.428-431), and a cycle made only of reference nodes
+  is the kind l.241-243 calls valid, so the set gets a schema root. No rule rejects it: l.3952-3953 bounds
+  the traversal and l.3963-3969 names no cycle. Yet it has no value, since the normalization of l.1114
+  never reaches a declaration whose body is not a local reference, and no C form: l.1024-1031 gives a C
+  form to scalar, map, byte-string, list, tuple and choice declarations and the cycle resolves to none of
+  them, while `typedef logos_demo_B_t logos_demo_A_t;` and `typedef logos_demo_A_t logos_demo_B_t;` compile
+  in neither order. COMMITMENT already treats this cycle as invalid at l.511 and l.514, but only for choice
+  plans.
+- **Impact:** implementations can split: one reads l.640 as an acceptance rule and rejects the set, another
+  accepts it, publishes its schema root and fails later, in the mapping that l.644 calls total or at the
+  first value. No schema in the specs has such a cycle. Minor.
+- **Reading an implementation needs today:** accept the set because no rule rejects it, or reject at
+  acceptance every chain of local aliases that reaches no map, tuple, list, choice, primitive, literal or
+  imported reference. Rejection is the conservative reading: it publishes no schema root for a set without
+  values, and it rejects no set that has a C form, because a cycle through a map, tuple, list or choice is
+  recursion (INTERFACE l.1067-1077) and stays accepted.
+- **Suggested resolution:** add local reference chains that reach no map, tuple, list, choice, primitive,
+  literal or imported reference to the INTERFACE §5.3 list (l.3963-3969), or state the rule in COMMITMENT
+  §3 beside l.241-243 so that l.511 becomes one case of it; add a rejection vector.
+
+### NP-11 — Files common to all variants have no place in an LGX: each variant carries its own copy
+- **Specs:** PM l.906-908 (only `manifest.cbor`, `manifest.cose` and `variants/` at the archive root;
+  `variants/` holds no files directly), l.963-964 (artifact paths are relative to the variant directory;
+  every file there is declared in that variant), l.972 and l.1180 (only the selected variant's artifacts
+  are extracted and installed), l.1177-1178 (an artifact id "may occur once in each variant, with a
+  different path and hash for that variant"), l.334 and l.1085 (a module's schema and default must be
+  present in every variant holding its implementation artifact), l.1195 and l.1202 (`resource` and `data`
+  artifacts, licence texts included), l.948-951 (deployment limits on compressed and decompressed size).
+- **Issue:** platform-independent material (interface descriptions, configuration schemas and defaults,
+  presentation files, icons, licence texts, large data files) must be stored once per variant. DEFLATE
+  cannot refer back more than 32 KiB, so copies of a large file are not removed by compression: a package
+  with N variants carries N copies in both its compressed and decompressed forms, and all of them count
+  against the deployment's archive limits. Installed size is unaffected (l.1180). The specs neither say
+  the duplication is intended nor offer a way to declare one artifact shared by several variants.
+- **Impact:** download size grows with the number of platforms for content that does not depend on the
+  platform; one large data file can push a multi-platform package past a deployment's limits.
+- **Suggested resolution:** a root `common/` directory whose artifacts are declared once in a
+  manifest-level `common_artifacts` array, referenced by id from any variant and added to the selected
+  variant's installed artifact list; or a statement that duplication is intended, with limits applied per
+  variant.
+
+### NP-12 — Every host downloads every variant, and a catalog entry does not say which platform a source serves
+- **Specs:** PM l.843-846 (`package_catalog_entry = {identity, source}`), l.856-857 (an LGX source names
+  one Storage object holding the archive), l.868-870 (catalog entries hold an exact version and "location
+  data only"), l.895 (a gzip-compressed USTAR archive, which has no index for reading one member),
+  l.678-686 (the provenance subject is the digest of the complete compressed archive, computed before
+  decompression), l.1282-1283 (a candidate must satisfy the platform-variant rules), l.1294 (material
+  needed to decide a candidate's eligibility must be obtained, or the operation fails), l.1310-1312
+  (several acceptable manifests for one name and version: protected catalog policy selects one
+  commitment), l.1481 (`incompatible-platform` "permits selection of another package version or source
+  with a compatible variant").
+- **Issue:** a multi-variant package is one Storage object, so a host fetches every variant to install
+  one, and under the provenance profile it must, because the subject is the whole archive. The specs
+  allow the alternative, one manifest per platform under one identity: each host keeps the manifest whose
+  variant matches it (l.1282-1283, l.1310-1312). Catalog entries carry no platform data, however, so a
+  resolver learns which source suits the host only by fetching and verifying each candidate in turn, and
+  under l.1294 an archive it cannot fetch can fail the operation even when it serves another platform.
+- **Impact:** either every download grows with the number of platforms, or per-platform publishing costs a
+  fetch-and-verify pass over the other platforms' archives.
+- **Suggested resolution:** allow catalog entries an unsigned platform hint (`os`/`architecture`/`abi` per
+  source) used only to order or skip fetches and rechecked against the signed manifest; or define a split
+  distribution form (the signed manifest plus one Storage object per variant, each bound by the manifest's
+  artifact hashes, with one provenance subject per object).
+
+### NP-13 — Building variants on separate machines is not described, and provenance then attests only the assembly
+- **Specs:** PM l.149 (producers own building and assembling), l.378-381 (the package signature binds the
+  manifest commitment, which covers every variant's artifact hashes), l.644-645 (an accepted signer must be
+  authorized for the Statement's exact `builder.id`), l.678-686 (the subject that counts is the whole
+  archive), l.694-705 (build provenance binds the subject to one source descriptor; a repository
+  "appearing only as another resolved dependency does not satisfy source binding"), l.728-730 (source
+  binding shows only what source the accepted provenance claims the builder used).
+- **Issue:** native binaries for different operating systems are normally built on different machines,
+  yet a package has one manifest, one signature and, under the provenance profile, one subject: the
+  archive after assembly. Per-platform outputs cannot carry a package signature into the combined
+  package, so an assembly step signs, and the Statement the Package Manager checks is the assembler's.
+  The builders that produced the binaries appear at most as inputs the profile never verifies. The specs
+  describe neither the assembly step nor this consequence.
+- **Impact:** unless one builder produces every variant, "provenance verified" on a multi-platform package
+  means that an accepted assembler combined some inputs from source X, not that each binary came from an
+  accepted builder; a deployment cannot require per-platform builder identities.
+- **Suggested resolution:** either state that the assembling builder is the attested builder and is
+  responsible for verifying its inputs, or allow per-variant provenance: one subject per variant (for
+  example the digest of its declared artifact list) with each signer-builder pair checked against policy,
+  which also fits the split distribution form suggested in NP-12.
+
+### NP-14 — A module cannot declare that it needs one instance per Runtime or a process of its own
+- **Specs:** INTERFACE l.1597-1599 (one binding MAY be initialized more than once, each time as a distinct
+  instance); RUNTIME l.3613 and l.3623 (`create_module` creates a record "with a fresh instance identity";
+  nothing limits the count per module), l.1467 (process-global environment is not per-instance state),
+  l.1038 (placement is chosen by Runtime or deployment policy), l.1099-1100 (at most one instance per name
+  only in an optional direct-mode convenience mode), l.1457-1458 (a required state facility has a
+  deployment-defined request carrier, and start is refused when it cannot be met); CA l.192-203
+  (`module_execution_scope` `modes` and `placements`), l.394-404 (process and placement permissions are
+  profile-defined; no profile exists); LOADER l.428 (fail closed); SECURITY l.473 (the iOS baseline is
+  direct mode inside one application); PM l.265-273 (`module_declaration` has no such field).
+- **Issue:** some native implementations cannot honour INTERFACE l.1597-1599: a library that installs a
+  process-wide logger or tracing subscriber, holds one engine per process, or reports the whole process's
+  memory as its own breaks when a second instance, or another such module, shares its process. Other
+  modules need exactly one instance per Runtime because they own a resource that two instances would
+  corrupt (sequence numbers assigned for one account, one key-store directory). The signed declaration can
+  state neither. A deployment can confine `create_module` and pin placements through CA scopes, but only if
+  it already knows, and nothing makes Runtime or the Loader refuse the unsafe arrangement.
+- **Impact:** a hard constraint of the module lives in documentation; a deployment that misses it gets a
+  crash or lost data instead of a clear refusal, and such a module cannot state that it does not fit the
+  single-process iOS baseline.
+- **Suggested resolution:** optional `module_declaration` fields such as `instances: "one-per-runtime"` and
+  `process: "exclusive"`, enforced by Runtime at `create_module` (a second instance fails with a named
+  error) and by the Loader at `realize` (fail closed under LOADER l.428 when the placement cannot give the
+  module a process of its own), with platform profiles saying where `exclusive` cannot be met.
+
+### NP-15 — One manifest defect, two mandated codes: an artifact without its hash, and an artifact of the wrong kind
+- **Specs:** PM l.316-321 (`manifest_artifact` requires `kind` and `hash`), l.1077 (a manifest that "does
+  not validate against `logos.package_manifest.manifest`" is `invalid-package`), l.1102 ("an artifact
+  omits its required hash" is `artifact-integrity-failed`), l.361 ("A missing artifact, incorrect artifact
+  kind, or hash mismatch MUST fail with `artifact-integrity-failed`"), l.345-346 (a module's artifact "MUST
+  have kind `module-binary` wherever it occurs", with no code), l.1084 (the sibling manifest-only defect is
+  `invalid-package`), l.1484 (the code "means required artifact bytes were absent, escaped their
+  realization root, or did not match the signed digest"), l.1070 (first detected failure).
+- **Issue:** the only place an artifact can omit its hash is the manifest, and there the CDDL requires the
+  field, so such a manifest fails l.1077 before any artifact is read; l.1102 is reachable only by reading
+  it as the winner. A wrong `kind` has the same shape: it is a signed manifest field decidable without
+  touching bytes, l.361 gives it a code whose definition at l.1484 covers only bytes, and l.345-346 names
+  none. l.1070 covers a package with several defects, not one defect with two codes.
+- **Impact:** implementations can return different codes for one malformed manifest, and a conformance
+  test written from one rule fails an implementation written from the other. No bytes change. Minor.
+- **Reading an implementation needs today:** for a missing hash, `invalid-package` (the manifest is
+  validated before any artifact is examined) or `artifact-integrity-failed` (l.1102 as the more specific
+  rule); the first is the conservative one. For a wrong kind, follow l.361, the only rule naming a code.
+- **Suggested resolution:** delete the l.1102 bullet, since the CDDL already makes the hash mandatory, and
+  assign `invalid-package` to a kind mismatch at l.361 and at l.346.
