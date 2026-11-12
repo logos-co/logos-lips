@@ -28,6 +28,7 @@
 | 1.1.0 | Remove the protection against adaptive adversary from PoL removing a non-enforced feature, simplifying work for engineers, improving UX and performances of PoL and PoQ. Update the performance according to the new circuit. Remove the notion of NOMOS in DSTs | 2026-01-29 |
 | 1.1.1 | Introduced a discussion for when the value of a participating note is way higher than the total estimated stake | 2026-06-24 |
 | 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, its block ID, replacing the leader key, and derives the commitment of the leader reward note from the public reward value and a private key and nonce. The commitment, nullifier and eligible tree paths have depth 40 | 2026-11-06 |
+| 1.2.1 | The note commitment takes the staking key, the `program` and the `data` of the note, and the proof derives the public key from the nullifier key and the staking key from the staking secret key, never taking the spending secret key, so program notes lead unless their staking key is `0`, and the leader reward note is a user note with `reward_public_key` as both keys | 2026-11-06 |
 
 # Introduction
 
@@ -133,9 +134,12 @@ The prover knows a witness:
 
 ```python
 class ProofOfLeadershipWitness:
-    sk: ZkSecretKey                           # secret key of the note
+    nf_sk: ZkSecretKey                        # nullifier key of the note
+    staking_sk: ZkSecretKey                   # staking secret key of the note
     value: TokenValue                         # value of the note
     nonce: NoteNonce                          # nonce of the note
+    program: ProgramId                        # program of the note, 0 for a user note
+    data: zkhash                              # data of the note, 0 for a user note
     set_selectors: list[boolean]              # position of the note set in the eligible tree (len = ELIGIBLE_DEPTH)
     commitment_aged_path: list[zkhash]        # path of the note commitment in the commitment MMR of its set (len = NOTE_SET_DEPTH)
     commitment_aged_selectors: list[boolean]  # selectors of commitment_aged_path
@@ -151,7 +155,7 @@ class ProofOfLeadershipWitness:
     reward_nonce: NoteNonce                   # nonce of the leader reward note
 ```
 
-`ZkSecretKey`, `ZkPublicKey`, `TokenValue`, `NoteNonce`, `NoteCommitment` and `NoteNullifier` are the types of [Notes](bedrock-v1.1-mantle-specification.md#notes) in Mantle.
+`ZkSecretKey`, `ZkPublicKey`, `TokenValue`, `NoteNonce`, `ProgramId`, `NoteCommitment` and `NoteNullifier` are the types of [Notes](bedrock-v1.1-mantle-specification.md#notes) in Mantle.
 
 Every path and its selectors follow the Merkle path convention of [Mantle](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range): from the leaf level up, a selector being the bit of the leaf index at its level. `path_root`, defined there, computes the root of a path, and the proof checks that every selector is a bit, `s * (1 - s) == 0`.
 
@@ -159,15 +163,18 @@ Every `<` between field elements compares their canonical integer representative
 
 Such that the following constraints hold:
 
-- The public key is derived from the secret key.
+- The public key is derived from the nullifier key, and the staking key from the staking secret key ([Keys](bedrock-v1.1-mantle-specification.md#keys)).
   ```python
-  pk = zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), sk)
+  pk = zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), nf_sk)
+  stake_pk = zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), staking_sk)
   ```
 
-- The note commitment is derived from the value, the nonce and the public key.
+- The note commitment is derived from the value, the nonce, the public key, the staking key, the program and the data of the note, so a program note leads like a user note.
   ```python
-  commitment = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), value, nonce, pk)
+  commitment = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), value, nonce, pk, stake_pk, program, data)
   ```
+
+  Deriving the public key from the nullifier key binds the nullifier proven unspent below to the note, without the spending secret key, so a node given the nullifier key alone, a wallet's staking secret key by default, leads with the note but cannot spend it. The staking secret key derives the lottery ticket and the entropy contribution, which stay private even when the nullifier key is public, as for a program note open to everyone. No secret key is known whose public key is `0`, so a note whose staking key is `0` never leads: a [program](bedrock-v1.1-mantle-specification.md#programs) keeps its notes out of Proof of Stake that way.
 
 - The note commitment was in the commitment MMR of its note set when the stake distribution was frozen.
   ```python
@@ -181,7 +188,7 @@ Such that the following constraints hold:
 
 - The note is unspent: its nullifier is not in the latest [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of the same note set, the same `set_selectors` placing both leaves at the position of that set.
   ```python
-  nullifier = zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), commitment, sk)
+  nullifier = zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), commitment, nf_sk)
   low_leaf = zkhash(FiniteField(b"NULLIFIER_IMT_LEAF_V1", byte_order="little", modulus= p),
       low_leaf_nullifier,
       low_leaf_next_nullifier)
@@ -197,19 +204,19 @@ Such that the following constraints hold:
 
 - The note wins the lottery.
   ```python
-  ticket = zkhash(FiniteField(b"LEAD_V1", byte_order="little", modulus= p), epoch_nonce, slot, commitment, sk)
+  ticket = zkhash(FiniteField(b"LEAD_V1", byte_order="little", modulus= p), epoch_nonce, slot, commitment, staking_sk)
   threshold = value * (t0 + t1 * value)
   assert ticket < threshold
   ```
 
 - The entropy contribution is derived from the slot and the note.
   ```python
-  assert entropy_contribution == zkhash(FiniteField(b"NONCE_CONTRIB_V1", byte_order="little", modulus= p), slot, commitment, sk)
+  assert entropy_contribution == zkhash(FiniteField(b"NONCE_CONTRIB_V1", byte_order="little", modulus= p), slot, commitment, staking_sk)
   ```
 
-- The commitment of the leader reward note is derived from the reward value, the reward nonce and the reward public key.
+- The commitment of the leader reward note is derived from the reward value, the reward nonce and the reward public key, as both the public key and the staking key of the note, with `program` and `data` set to `0`, so a reward is a user note.
   ```python
-  assert reward_commitment == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), reward_value, reward_nonce, reward_public_key)
+  assert reward_commitment == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), reward_value, reward_nonce, reward_public_key, reward_public_key, 0, 0)
   ```
 
 - The proof is bound to `msg`.
@@ -234,7 +241,7 @@ The leader reward of a block is paid as a note the proof derives the commitment 
 - `reward_public_key` and `reward_nonce` are not revealed. As long as the nonce is private and unpredictable, the commitment hides the key, so the chain shows neither the key a reward is paid to nor whether two blocks pay the same key. Given the public value and a nonce they can guess, anyone holding a public key can test it against the commitment.
 - `reward_value` is in the header so that the proof verifies from the header alone, before the block is reconstructed and in a batch with other proofs of leadership. It is compared with the computed reward once the transactions have run ([Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation)), and a block whose value differs from its reward is invalid whatever its proof says.
 - `reward_value` needs no range check in the circuit. It is read from 8 bytes of the header, so it is below $`2^{64}`$, and a note enters the ledger only with the value of the computed reward.
-- The circuit does not constrain `reward_public_key` and `reward_nonce`, which the leader chooses freely. A key can be reused for any number of blocks. Two rewards of the same value under the same key and nonce are identical notes, of which only one can be spent, which is the risk of the leader alone. The [Wallet Technical Standard](wallet-technical-standard.md#leader-reward-notes) recommends a nonce that avoids it.
+- The circuit does not constrain `reward_public_key` and `reward_nonce`, which the leader chooses freely, whatever note leads, a program note included. `reward_public_key` is both the public key and the staking key of the reward note. A key can be reused for any number of blocks. Two rewards of the same value under the same key and nonce are identical notes, of which only one can be spent, which is the risk of the leader alone. The [Wallet Technical Standard](wallet-technical-standard.md#leader-reward-notes) recommends a nonce that avoids it.
 
 # Appendix
 
@@ -367,7 +374,7 @@ The material used for the benchmarks is the following:
 - CPU       : 13th Gen Intel(R) Core(TM) i9-13980HX (24 cores / 32 threads)
 - RAM       : 32GB - Speed: 5600 MT/s
 - Motherboard: Micro-Star International Co., Ltd. MS-17S1
-- OS        : Ubuntu 22.04.5 LTS
-- Kernel    : 6.8.0-59-generic
+- OS        : Ubuntu 24.04.5 LTS
+- Kernel    : 6.8.0-138-generic
 
 ![Diagram](cryptarchia-proof-of-leadership/assets/2e9261aa-09df-80b0-b368-d153e4199f56.png)

@@ -29,6 +29,7 @@
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection; benchmark the three branch circuit | 2026-09-08 |
 | 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen, and its nullifier absent from the nullifier IMT of that set at that time. Paths and selectors follow the Merkle path convention of Mantle, from the leaf level up, the commitment path and the path in the eligible tree having depth 40. `pol_epoch_nonce`, `pol_t0` and `pol_t1` are field elements, as in the Proof of Leadership, and `core_sk` is the Non-ephemeral Quota Key | 2026-11-06 |
+| 1.3.1 | The note commitment of the leader branch takes the staking key, the `program` and the `data` of the note, the branch proving the public key from the nullifier key and the staking key from the staking secret key, from which it derives the key nullifier, which changes the verification key | 2026-11-06 |
 
 
 # Introduction
@@ -91,9 +92,12 @@ class ProofOfQuotaWitness:
     core_path_selectors: list[bool]            # Indicates how to read the core_path (if Merkle nodes are left or right in the path)
     # This part is filled randomly by core nodes and by proof of work provers
     pol_sl: int                                # PoL slot
-    pol_secret_key: int                        # PoL note secret key
+    pol_nullifier_key: zkhash                  # PoL note nullifier key
+    pol_staking_secret_key: zkhash             # PoL note staking secret key
     pol_note_value: int                        # PoL note value
     pol_note_nonce: zkhash                     # PoL note nonce
+    pol_note_program: zkhash                   # PoL note program, 0 for a user note
+    pol_note_data: zkhash                      # PoL note data, 0 for a user note
     pol_commitment_aged_path: list[zkhash]     # PoL Merkle path proving the note commitment membership in the commitment Merkle Mountain Range (MMR) of its note set (len = NOTE_SET_DEPTH)
     pol_commitment_aged_selectors: list[bool]  # Indicates how to read the pol_commitment_aged_path (if Merkle nodes are left or right in the path)
     pol_low_leaf_nullifier: zkhash             # PoL nullifier of the leaf of the nullifier Indexed Merkle Tree (IMT) of the note set, when the stake distribution was frozen, holding the greatest nullifier lower than the nullifier of the note
@@ -121,7 +125,7 @@ Such that the following constraints hold:
 
 **Step 3:** If the prover indicated that the node is a potential leader node for the proof, the proof checks that:
 
-  1. The leader node possesses a note that would win a slot in the consensus lottery. Unlike leadership conditions, the proof of quota doesn't verify that the note is still unspent; it verifies that the note was unspent when the stake distribution was frozen: the nullifier of the note is not in the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of its note set at that time. This enables potential provers to generate the PoQ well in advance, and since commitments are never removed from a note set, it keeps a holder from multiplying its leader quota by re-creating its note before the freeze. All other lottery constraints, including the membership of the note commitment in its note set under the eligible root of the time the stake distribution was frozen, are the same as in [Zero-knowledge Proof Statement](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement).
+  1. The leader node possesses a note that would win a slot in the consensus lottery. Unlike leadership conditions, the proof of quota doesn't verify that the note is still unspent; it verifies that the note was unspent when the stake distribution was frozen: the nullifier of the note is not in the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of its note set at that time. This enables potential provers to generate the PoQ well in advance, and since commitments are never removed from a note set, it keeps a holder from multiplying its leader quota by re-creating its note before the freeze. All other lottery constraints, including the derivation of the public key from the nullifier key and of the staking key from the staking secret key, the commitment over the staking key, the `program` and the `data` of the note, so that a program note qualifies unless its staking key is `0`, and the membership of the note commitment in its note set under the eligible root of the time the stake distribution was frozen, are the same as in [Zero-knowledge Proof Statement](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement).
   2. The index is valid: `index < leader_quota`.
 
 **Step 4:** If the prover indicated that the proof is backed by proof of work, the proof checks that:
@@ -139,7 +143,7 @@ key_nullifier = zkhash(b"KEY_NULLIFIER_V1", selection_randomness)
   Where `sk` is:
 
   - The `core_sk`, the [Non-ephemeral Quota Key](key-types-and-generation.md#non-ephemeral-quota-key) of the node, if the node is a core node.
-  - The secret key of the PoL note if it’s a leader node.
+  - The staking secret key of the PoL note if it’s a leader node, which stays private even when the nullifier key of the note is public, as for a program note open to everyone.
   - The `pow_nonce` if the proof is backed by proof of work.
 
   and `period_nonce` is:
@@ -180,9 +184,12 @@ is_leader = would_win_leadership(pol_epoch_nonce,
         pol_t1,
         pol_eligible_aged,
         pol_sl,
-        pol_secret_key,
+        pol_nullifier_key,
+        pol_staking_secret_key,
         pol_note_value,
         pol_note_nonce,
+        pol_note_program,
+        pol_note_data,
         pol_commitment_aged_path,
         pol_commitment_aged_selectors,
         pol_low_leaf_nullifier,
@@ -209,7 +216,7 @@ assert( is_registered
 # branch reuses pol_epoch_nonce, so that term would be zero by construction.
 selection_randomness = zkhash(
         b"SELECTION_RANDOMNESS_V1",
-        core_sk + (pol_secret_key - core_sk) * L1 + (pow_nonce - core_sk) * L2,
+        core_sk + (pol_staking_secret_key - core_sk) * L1 + (pow_nonce - core_sk) * L2,
         index,
         pol_epoch_nonce + (pol_sl - pol_epoch_nonce) * L1)
 key_nullifier = zkhash(b"KEY_NULLIFIER_V1", selection_randomness)
@@ -228,7 +235,7 @@ class UncompressedProof:
 
 ## Proof Serialization
 
-The `ProofOfQuota` structure contains `key_nullifier` and the compressed `proof` transformed in bytes according [**Use in the Logos Blockchain:**](common-cryptographic-components.md). The `key_nullifier` must be transformed into bytes. The bytes of the compressed proof are then concatenated together with the bytes representing the `key_nullifier`, with the encoded `key_nullifier` preceding the encoded compressed `proof`. Reconstruction of a serialized `ProofOfQuota` interpreting the bytes as the concatenation of the `key_nullifier` and of the compressed `proof` following the same rule of conversion.
+The `ProofOfQuota` structure contains `key_nullifier` and the compressed `proof`, encoded as a `Groth16Proof` of [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures). The `key_nullifier` must be transformed into bytes. The bytes of the compressed proof are then concatenated together with the bytes representing the `key_nullifier`, with the encoded `key_nullifier` preceding the encoded compressed `proof`. Reconstruction of a serialized `ProofOfQuota` interpreting the bytes as the concatenation of the `key_nullifier` and of the compressed `proof` following the same rule of conversion.
 
 ```python
 class ProofOfQuota:
@@ -245,8 +252,8 @@ The material used for the benchmarks is the following:
 - CPU: 13th Gen Intel(R) Core(TM) i9-13980HX (24 cores / 32 threads)
 - RAM: 32GB - Speed: 5600 MT/s
 - Motherboard: Micro-Star International Co., Ltd. MS-17S1
-- OS: Ubuntu 22.04.5 LTS
-- Kernel: 6.8.0-59-generic
+- OS: Ubuntu 24.04.5 LTS
+- Kernel: 6.8.0-138-generic
 
 ![Median proving time of the three branch circuit against the number of threads, ten runs](proof-of-quota/assets/proving-time-three-branch.png)
 

@@ -28,6 +28,7 @@
 | 1.0.1 | Updated project references to Logos Blockchain | 2026-04-17 |
 | 1.1.0 | Fixed the master key generation personalization string to a valid 16-byte value; aligned the public key derivation with the [Mantle specification](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature) (`KDF` DST, compression mode, applied to the Logos key); specified the final Poseidon2 step as hash mode with the `WALLET_ZK_SK_V1` DST; clarified that extended public keys derive no children | 2026-09-03 |
 | 1.2.0 | Added the note tracking a wallet keeps to spend its notes and to participate in the leadership lottery, over the note sets of depth 40, the root a wallet proves against, a fixed number of blocks below its tip, and the leader reward notes, which it keeps with their private nonce, recovery from the seed alone not finding them | 2026-10-07 |
+| 1.2.1 | The public key derives from a nullifier key derived from the spending secret key, and a note has a staking key, the wallet using the nullifier key as staking secret key and the public key of the recipient of a payment by default, and keeping the keys of a service declaration cold | 2026-11-06 |
 
 # Introduction
 
@@ -116,13 +117,14 @@ k_logos = zkhash(
 )  # Poseidon2 hash mode, a single field element
 ```
 
-$`k_{\text{logos}}`$ is the `ZkSecretKey` used on the network. The corresponding public key is derived exactly as the [Mantle specification](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) prescribes, with Poseidon2 in compression mode and the `KDF` DST:
+$`k_{\text{logos}}`$ is the `ZkSecretKey` used on the network, the spending secret key `spending_sk` of the notes under its public key. The nullifier key and the public key are derived exactly as the [Mantle specification](bedrock-v1.1-mantle-specification.md#keys) prescribes, with Poseidon2 in compression mode and the `NF_KDF_V1` and `KDF` DSTs:
 
 ```python
-public_key = zkhash(FiniteField(b"KDF", byte_order="little", modulus=p), k_logos)  # compression mode
+nf_sk = zkhash(FiniteField(b"NF_KDF_V1", byte_order="little", modulus=p), k_logos)  # compression mode
+public_key = zkhash(FiniteField(b"KDF", byte_order="little", modulus=p), nf_sk)   # compression mode
 ```
 
-This wallet-side step is not part of any circuit, so the DST costs nothing in proving time while preventing $`k_{\text{logos}}`$ from colliding with any other Poseidon2 output computed over the same field elements. Only the `KDF` derivation of the public key is evaluated inside proofs, and it hashes a single field element thanks to this compression.
+This wallet-side step is not part of any circuit, so the DST costs nothing in proving time while preventing $`k_{\text{logos}}`$ from colliding with any other Poseidon2 output computed over the same field elements. Only the `NF_KDF_V1` and `KDF` derivations are evaluated inside proofs, each hashing a single field element thanks to this compression.
 
   **Why not use Poseidon2 for the full derivation?** While Poseidon2 is optimized for ZK circuits, its long-term stability and parameterization are still evolving. General-purpose hash functions like Blake2b offer a more stable and audited base layer. By introducing Poseidon2 only at the last compression step we isolate ZK-dependencies from the rest of the key derivation path. This ensures the wallet hierarchy remains valid even if Poseidon2 parameters are updated.
 
@@ -132,11 +134,11 @@ The [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger) only holds note
 
 To spend a note with a [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer), the wallet keeps:
 
-- The note `(value, nonce, public_key)`, its note set, and its `commitment = derive_note_commitment(note)`, derived as in [Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier).
+- The note `(value, nonce, public_key, stake_public_key)`, its note set, and its `commitment = derive_note_commitment(note)`, derived as in [Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier).
 - The Merkle path of `commitment` to the root of the MMR peak holding it. With the other peaks of the MMR, which are public and served by any node, this path proves `commitment` in the MMR root. A ZkTransfer is proven against the commitment root of the note set at one of the last [`ROOT_WINDOW`](bedrock-v1.1-mantle-specification.md#ledger) blocks, so the wallet keeps the path up to date with the commitments appended to the MMR of the set. The root a proof names is public, and every block makes the root at its height specific to its fork, so a proof against the tip root is lost with that block. A wallet should prove against the root a fixed number of blocks below its tip, the same number for every wallet, for example 4, or the root of the latest immutable block if that is shallower, so that the root points at none of its notes and the proof survives a fork up to that depth. A note of a block younger than that one is not under this root, and the wallet should not spend it until it is, since a root younger than the fixed depth would reveal when the note was created. The cost is that a note waits, change included. A note created earlier in the same Mantle Transaction does not wait, since it reaches the proof through the commitment buffer on that same root: when an earlier Operation of the transaction adds commitments to the set, such as a proof of work claim followed by the Transfer spending its note, the proof is against that root extended with the commitment buffer of the set ([Validation](bedrock-v1.1-mantle-specification.md#validation)), and the wallet appends the buffered commitments with `append_commitment`, defined below, to copies of its peaks and of the paths of its notes in that set before proving, and keeps its own peaks and paths unchanged. A proof in a mini-block of an inscription is against that root extended with the buffer before the mini-block, whose commitments the sequencer provides.
-- The `nullifier = derive_note_nullifier(commitment, sk)`, where `sk` is the `ZkSecretKey` of the note. The note is spent once `nullifier` is in the nullifier set of its note set, whichever wallet instance spent it. Two identical notes share their nullifier and only one of them can be spent, so a wallet should count a received note only at the first occurrence of its commitment in its note set.
+- The `nullifier = derive_note_nullifier(commitment, nf_sk)`, where `nf_sk` is the nullifier key of the note. The note is spent once `nullifier` is in the nullifier set of its note set, whichever wallet instance spent it. Two identical notes share their nullifier and only one of them can be spent, so a wallet should count a received note only at the first occurrence of its commitment in its note set.
 
-To prove its leadership with a note ([Proof of Leadership](cryptarchia-proof-of-leadership.md#eligible-sets)), the wallet also keeps:
+To prove its leadership with a note ([Proof of Leadership](cryptarchia-proof-of-leadership.md#eligible-sets)), the wallet, or the node it stakes through, needs the nullifier key and the staking secret key of the note, and also keeps:
 
 - The Merkle path of `commitment` to the commitment root of its note set at the epoch snapshot, fixed for the epoch, and the path of the leaf of the set in the eligible tree of the snapshot. For the [Proof of Quota](proof-of-quota.md), it also keeps the leaf of the nullifier IMT of its note set at the snapshot holding the greatest nullifier lower than `nullifier`, and its Merkle path, fixed for the epoch.
 - The leaf of the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of its note set holding the greatest nullifier lower than `nullifier`, and its Merkle path to the latest root of that IMT, with the path of the leaf of the set in the latest eligible tree. This leaf and its path change whenever a nullifier is inserted in the set. A wallet should update them at every block, whether or not one of its notes wins: the data must be fresh at the winning slot, so requests made only when a note wins tell the serving node when the wallet wins.
@@ -223,9 +225,15 @@ def on_nullifier_inserted(tracked: TrackedLowLeaf, inserted_nullifier: NoteNulli
         update_path(tracked, new_index, new_leaf, new_path)
 ```
 
+### Staking Keys
+
+Every [note](bedrock-v1.1-mantle-specification.md#keys) has a public key `pk` and a staking key `stake_pk`. The ZkTransfer enforces `nf_sk = zkhash(NF_KDF_V1, spending_sk)` and `pk = zkhash(KDF, nf_sk)`, and leading with the note takes `nf_sk` and the staking secret key `staking_sk`. The recommended default, which the ledger does not enforce, is that a wallet uses `staking_sk = nf_sk`, so that `stake_pk = pk` and its notes keep one key, and creates transfer outputs with the `pk` of the recipient as staking key unless the recipient asks for another. With this default, giving a node `nf_sk` lets it lead with the notes of the wallet without being able to spend them, the spending secret key staying offline, and the node learns when they are spent: this is cold staking.
+
+A service declaration is made cold the same way. Its `note_pk` and `note_stake_pk` ([Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage)) should be keys of a cold wallet, which alone spends the service note at withdrawal and the service rewards, paid to the same two keys. The node keeps online only what it needs: the secret key of its `zk_id` for the Proof of Quota, its `provider_id` key, and, to lead with the service note and its rewards, the `nf_sk` of `note_pk` and the `staking_sk` of `note_stake_pk`, none of which spends them.
+
 ### Leader Reward Notes
 
-The leader of a block chooses the public key and the nonce of its reward note ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)). The key can be any key of the wallet and can be reused for any number of blocks. The nonce has to be private and unpredictable, since a guessable nonce with a known key links its blocks: given the public value of a reward, anyone holding the key can test the nonce against the commitment. Two rewards of the same value under the same key and nonce are identical notes, of which only one can be spent. A wallet should therefore draw the nonce of each reward at random.
+The leader of a block chooses the public key and the nonce of its reward note ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), the public key being also the staking key of the note. The key can be any key of the wallet and can be reused for any number of blocks. The nonce has to be private and unpredictable, since a guessable nonce with a known key links its blocks: given the public value of a reward, anyone holding the key can test the nonce against the commitment. Two rewards of the same value under the same key and nonce are identical notes, of which only one can be spent. A wallet should therefore draw the nonce of each reward at random.
 
 The wallet keeps the note it created, with its nonce, and tracks it in the ledger note set, as it keeps any note. The header holds only the value and the commitment of the note, so recovery from the seed alone does not find a reward note: it depends on the wallet's backup of its notes. A reward note of value `0` can pay nothing, so a wallet has no need to keep it.
 

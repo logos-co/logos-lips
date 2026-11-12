@@ -37,6 +37,7 @@
 | 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
 | 1.11.0 | [RFC] `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-10-27 |
 | 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CommitmentRoot` and `Value`, user steps, tagged by their kind and with their own `Inscription`, in the `MiniBlocks` of `ChannelInscribe`, holder withdrawals, the `Inscription` of `ChannelDeposit`, the SDP payloads over notes with `NotePk` in `SDPDeclare` and no `Nonce` in `SDPWithdraw`, `PowNonce` and no `EpochNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-11-06 |
+| 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user steps, program deposits and program steps in the `MiniBlocks` of `ChannelInscribe`, tagged by their kind, with their proofs and the openings of the program notes with their `NoteStakePk`, each step with its own `Inscription` and each program step with its `ProgramOutputs` before its `Outputs`, `NoteStakePk` in `SDPDeclare`, the `Groth16` terminal renamed `Groth16Proof`, and the format of compressed points | 2026-11-06 |
 
 # Introduction
 
@@ -80,7 +81,8 @@ OpPayload = Transfer /
             SDPDeclare /
             SDPWithdraw /
             SDPActive /
-            ClaimPowReward
+            ClaimPowReward /
+            ProgramRegister
 ```
 
 ### Channel Operations
@@ -93,9 +95,18 @@ MiniBlocks      = MiniBlockCount *MiniBlock
 MiniBlockCount  = UINT16
 MiniBlock       = StepCount *Step ; StepCount at least 1, a decoder MUST reject 0
 StepCount       = UINT16
-Step            = UserStepKind UserStep
-UserStepKind    = %x00
-UserStep        = Inputs Outputs CommitmentRoot Inscription
+Step               = (UserStepKind UserStep) / (ProgramDepositKind ProgramDeposit)
+                     / (ProgramStepKind ProgramStep)
+UserStepKind       = %x00
+ProgramDepositKind = %x01
+ProgramStepKind    = %x02
+UserStep           = Inputs Outputs CommitmentRoot Inscription
+ProgramDeposit     = ProgramId Inputs Outputs CommitmentRoot Value Intent Inscription
+ProgramStep        = ProgramId Inputs ProgramOutputs Outputs CommitmentRoot ProgramStepId Inscription
+Intent             = FieldElement
+ProgramOutputs     = Outputs ; the notes of the program the step creates, its Outputs being
+                             ; the user notes it pays
+ProgramStepId      = FieldElement
 
 ChannelConfig     = ChannelId Parent KeyCount *Signer PostingTimeframe PostingTimeout ConfigThreshold
 KeyCount                   = UINT16
@@ -112,14 +123,14 @@ Parent            = Hash32
 Signer            = Ed25519PublicKey
 ```
 
-A `UserStep` moves channel notes with the inscription of its holder, and a `MiniBlock` groups the steps proven against the same state of the transaction buffer, as [CHANNEL_INSCRIBE](bedrock-v1.1-mantle-specification.md#channel_inscribe) defines them. A `Step` starts with the byte of its kind; a decoder MUST reject an unknown kind.
+A `UserStep` moves the user notes of its holder, with the inscription its holder signs, a `ProgramDeposit` pays a program with its `Intent`, the hash of what its user expects, and a `ProgramStep` executes a program, consuming the program deposits after the previous program step of its mini-block, `ProgramStepId` being the hash of the notes of its program spend. A `MiniBlock` groups the steps whose user steps and program deposits cover the same transaction buffer. [CHANNEL_INSCRIBE](bedrock-v1.1-mantle-specification.md#channel_inscribe) defines them. A `Step` starts with the byte of its kind; a decoder MUST reject an unknown kind.
 
 `MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of the `Inscription` of a `ChannelInscribe` and of the `Inscription` of each of its steps MUST together be at most `MAX_OPERATION_DATA_SIZE` bytes, and the payload of the `Inscription` of a `ChannelDeposit` MUST be at most `MAX_OPERATION_DATA_SIZE` bytes, each excluding its `UINT32` length prefix. A decoder MUST reject a `ChannelInscribe` when the declared or decoded payload lengths of its inscriptions sum to more than the limit, and a `ChannelDeposit` when the declared or decoded payload length of its inscription exceeds it.
 
 ### SDP Operations
 
 ```schema
-SDPDeclare    = ServiceType Locators ProviderId ZkId NotePk Inputs CommitmentRoot Value
+SDPDeclare    = ServiceType Locators ProviderId ZkId NotePk NoteStakePk Inputs CommitmentRoot Value
 ServiceType   = Byte          ; 0 = BN
 Locators      = LocatorCount *Locator
 LocatorCount  = Byte          ; Max 8
@@ -127,6 +138,7 @@ Locator       = 2Byte *BYTE   ; Max 329 bytes, multiaddr binary form
 ProviderId    = Ed25519PublicKey
 ZkId          = ZkPublicKey
 NotePk        = ZkPublicKey
+NoteStakePk   = ZkPublicKey
 
 SDPWithdraw   = DeclarationId NoteNullifier Outputs Value
 DeclarationId = Hash32
@@ -148,6 +160,19 @@ The current Blend variant occupies 229 bytes including its discriminant. Its enc
 ClaimPowReward = BlockHash ZkPublicKey PowNonce
 BlockHash      = Hash32       ; recent canonical block the solution is anchored to
 PowNonce       = FieldElement ; value searched for a ticket satisfying the reward threshold
+```
+
+### Program Operations
+
+```schema
+ProgramRegister       = Groth16VerificationKey
+Groth16VerificationKey = Alpha Beta Gamma Delta IC
+Alpha                 = G1Point
+Beta                  = G2Point
+Gamma                 = G2Point
+Delta                 = G2Point
+IC                    = 4G1Point ; one point per public input of a program proof, plus one
+ProgramId             = FieldElement
 ```
 
 ### Transfer Operations
@@ -188,7 +213,16 @@ OpProof   = Ed25519SigProof /
 Ed25519SigProof              = Ed25519Signature
 ZkTransferProof              = ZkTransfer
 ZkTransferAndEd25519SigProof = ZkTransfer Ed25519Signature
-ChannelInscribeOpProof       = Ed25519Signature *ZkTransfer ; one ZkTransfer per step of the inscription
+ChannelInscribeOpProof       = Ed25519Signature *StepProof ; one StepProof per step of the inscription
+StepProof                    = ZkTransfer / ProgramStepProof ; ZkTransfer for a user step or a program
+                                                             ; deposit, ProgramStepProof for a program step
+ProgramStepProof             = ZkProgramSpend Groth16Proof *ProgramNoteOpening
+                                                       ; the program spend, the program proof, then
+                                                       ; one opening per commitment of the
+                                                       ; ProgramOutputs of the step
+ProgramNoteOpening           = Value NoteNonce NoteStakePk ProgramNoteData
+NoteNonce                    = FieldElement
+ProgramNoteData              = FieldElement
 ChannelConfigOpProof         = ChannelMultiSigProof
 EmptyProof                   = 0Byte ; no bytes
 
@@ -202,11 +236,14 @@ SignerIndex    = UINT16
 ## Common Structures
 
 ```schema
-; Zero-knowledge transfer proof
-ZkTransfer = Groth16
+; Zero-knowledge transfer proofs
+ZkTransfer     = Groth16Proof
+ZkProgramSpend = Groth16Proof
 
 ; Cryptographic primitives
-Groth16          = 128BYTE      ; pi_a (32) + pi_b (64) + pi_c (32)
+Groth16Proof     = 128BYTE      ; pi_a (G1Point) + pi_b (G2Point) + pi_c (G1Point)
+G1Point          = 32BYTE       ; compressed BN254 G1 point
+G2Point          = 64BYTE       ; compressed BN254 G2 point
 ZkPublicKey      = FieldElement
 Ed25519PublicKey = 32BYTE
 Ed25519Signature = 64BYTE
@@ -219,3 +256,12 @@ UINT32 = 4BYTE ; 32-bit unsigned integer, little-endian
 UINT16 = 2BYTE ; 16-bit unsigned integer, little-endian
 Byte   = OCTET
 ```
+
+A `G1Point` holds the coordinate `x` of the point as 32 little-endian bytes. A `G2Point` holds `x = c0 + c1 * u` as `c0` then `c1`, each as 32 little-endian bytes. The two top bits of the last byte are flags, not part of the coordinate:
+
+- Bit 7 is set when `y` is the larger of `y` and `-y`. Elements of the base field compare as integers, and elements of its quadratic extension by `c1`, then by `c0`.
+- Bit 6 flags the point at infinity, which has no encoding: a decoder MUST reject a point with bit 6 set.
+
+A decoder MUST also reject a coordinate not less than the modulus $`q`$ of the base field of BN254, so that a point has a single encoding.
+
+A `Groth16Proof` is decompressed only when it is verified. The null proof of the [Genesis Block](bedrock-genesis-block.md#block-header-fields), never verified, is 128 zero bytes, which encode no point.

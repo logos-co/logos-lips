@@ -33,6 +33,7 @@
 | 1.3.3 | One reward note per `zk_id`, and none for a zero reward, matching the implementation | 2026-09-01 |
 | 1.3.4 | Adopted "active message" as the single name for the message | 2026-09-02 |
 | 1.4.0 | Reward notes are private notes whose commitments are appended to the commitment MMR of the ledger note set, their nonce derived from `hash(ServiceType \|\| epoch_number)` and their output number. The Blend reward is paid from `blend_rewards_pending`, what it does not distribute returning to `rewards_pool` | 2026-10-07 |
+| 1.4.1 | A reward note is created under the `note_pk` and the `note_stake_pk` of the declaration, its nonce derived over the `note_pk` | 2026-11-06 |
 
 # Introduction
 
@@ -57,7 +58,7 @@ The protocol unfolds over three key phases, aligned with validator epochs:
 
 **Core Properties:**
 
-- Service rewards are distributed to the `zk_id` from validator [SDP declarations](bedrock-service-declaration-protocol.md).
+- Service rewards are distributed to the keys of the service note of each validator [SDP declaration](bedrock-service-declaration-protocol.md), `note_pk` and `note_stake_pk`, counted per `zk_id`.
 - Minimal Block Overhead: rewards are directly added to the ledger without involving Mantle Transactions.
 
 # Protocol
@@ -82,12 +83,12 @@ Where $`Rewards\_Epoch`$ are the total rewards of epoch **N**. The $`Rewards\_Ep
 
 ## Service Reward Distribution
 
-Starting immediately after epoch **N+1**, service rewards are distributed in the first block of epoch **N+2.** The rewards are inserted directly in the ledger without triggering any Mantle validation: the commitment of each reward note is appended to the commitment MMR of the ledger note set of the [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger). The nonce of each note is `derive_note_nonce(op_id, output_number, value, zk_id)` ([Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)), using the result of `hash(`[`ServiceType`](bedrock-service-declaration-protocol.md)`|| epoch_number)` as the `op_id`, where `ServiceType` is serialized as its canonical one-byte discriminant ([Service Types](bedrock-service-declaration-protocol.md#service-types)) and `epoch_number` as the 4 bytes of an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch). A `zk_id` whose reward amount is zero receives no note. The output number is the position of the `zk_id` among the rewarded `zk_id`s, sorted in ascending order.
+Starting immediately after epoch **N+1**, service rewards are distributed in the first block of epoch **N+2.** The rewards are inserted directly in the ledger without triggering any Mantle validation: the commitment of each reward note is appended to the commitment MMR of the ledger note set of the [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger). The nonce of each note is `derive_note_nonce(op_id, output_number, value, note_pk)`, over the public key of the note as for every note the ledger creates ([Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)), its uniqueness coming from `(op_id, output_number)`, using the result of `hash(`[`ServiceType`](bedrock-service-declaration-protocol.md)`|| epoch_number)` as the `op_id`, where `ServiceType` is serialized as its canonical one-byte discriminant ([Service Types](bedrock-service-declaration-protocol.md#service-types)) and `epoch_number` as the 4 bytes of an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch). A `zk_id` whose reward amount is zero receives no note. The output number is the position of the `zk_id` among the rewarded `zk_id`s, sorted in ascending order.
 
 The reward must:
 
   - Transfer the correct reward amount according to [Service Reward Calculation](#service-reward-calculation).2
-  - Be sent to the public key `zk_id` of the validator registered during [declaration of the service](bedrock-service-declaration-protocol.md).
+  - Be sent to the keys of the service note of the declaration of the `zk_id` ([Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage)): `note_pk` as the public key of the note and `note_stake_pk` as its [staking key](bedrock-v1.1-mantle-specification.md#keys).
   - Be distributed as exactly one note per rewarded `zk_id`. Rewards are never summed or merged into a shared note.
   - Be executed identically by every node processing the first block of epoch N+2. This happens by inserting notes in the ledger in ascending order of `zk_id`.
   - Be paid, for the Blend service, from `blend_rewards_closed` ([Block Rewards](block-rewards.md#deterministic-implementation)): the total of the reward notes is debited from it, and the part of the Blend reward of epoch N that the notes do not use, when no reward is calculated or as the remainder of the division among the nodes, moves from it to `rewards_reserve`.
