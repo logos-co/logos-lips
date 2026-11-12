@@ -148,22 +148,21 @@ Each `oracle node` holds two key pairs:
   and every LEZ TX the node sends, from either process.
   Both processes MUST use the same LEZ key pair.
 
-No any other key is needed.
+No other key is needed.
 A separate key for the `LON indexer` would require an on-chain delegation from the `oracle_id`
 and is out of scope of this document.
 - `LON sequencer`: The writer process of an `oracle node`.
 It fetches prices from external sources, computes and signs a local price observation,
 and inscribes it into the node's own channel on LBC.
-It also sends the node's registration TX to `oracle_register`.
 - `LON indexer`: The reader process of an `oracle node`.
 It reads the finalized inscriptions of all registered channels from LBC and computes the attested price
 as the median of the first `N` valid observations, each from a different oracle node.
 Because the input is immutable and the aggregation code is fixed and deterministic,
-every honest `LON indexer` MUST read the same value.
+every honest `LON indexer` MUST derive the same value.
 Reading needs no key; the `LON indexer` uses the LEZ key only when it writes to LEZ as a `proposer` or `challenger`.
 In the rest of this document, "indexer" means the `LON indexer`.
 - `proposer`: The `LON indexer` that, in a given round,
-writes the attested price to `oracle_prices` and opens the dispute window.
+writes the attested price to the `oracle_prices` contract and opens the dispute window.
 Only one proposer acts per round.
 - `challenger`: Any other `LON indexer` that reads the proposed price from LEZ,
 recomputes it from the same finalized inscriptions,
@@ -182,8 +181,6 @@ It owns the node's channel on LBC, and LBC checks it on every inscription.
 It is the node's LEZ account and staking identity.
 Its 32-byte x-only LEZ-Public key is the node's `oracle_id`, and the node signs its observations with its LEZ-Private key.
 
-No other key is needed.
-
 ### 2. Channel opening
 
 1. The `LON sequencer` opens the node's own channel on LBC with its Zone-Private key and pays the channel deposit.
@@ -191,7 +188,8 @@ No other key is needed.
 
 ### 3. Registration in LEZ
 
-1. The `oracle node` sends a registration TX to `oracle_register`, signed with its LEZ-Private key.
+1. The `oracle node` sends a registration TX to the `oracle_register` contract, signed with its LEZ-Private key.
+It bonds stake and names its `channel_id`.
 2. The contract checks that the account derived from `oracle_id` authorized the TX.
 It verifies no additional signature.
 3. The contract inserts the leaf `H(oracle_id || channel_id)` into the membership tree and returns its index.
@@ -479,7 +477,7 @@ This keeps the heavy per-signature cost off LEZ.
 Every honest indexer runs these steps over the same finalized inscriptions and,
 because the input is immutable and the code is deterministic, derives the same `attested price`.
 
-The proposer submits the attested price to `oracle_prices` contract as an `AttestationSubmission`,
+The proposer submits the attested price to the `oracle_prices` contract as an `AttestationSubmission`,
 and the contract stores it as an `AttestedPrice`.
 Fields that only the contract can know, the status, the proposer and the block that included the write,
 are set by the contract and never by the proposer.
