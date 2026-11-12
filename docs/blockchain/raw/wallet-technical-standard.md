@@ -29,6 +29,7 @@
 | 1.1.0 | Fixed the master key generation personalization string to a valid 16-byte value; aligned the public key derivation with the [Mantle specification](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature) (`KDF` DST, compression mode, applied to the Logos key); specified the final Poseidon2 step as hash mode with the `WALLET_ZK_SK_V1` DST; clarified that extended public keys derive no children | 2026-09-03 |
 | 1.2.0 | Added the note tracking a wallet keeps to spend its notes and to participate in the leadership lottery, over the note sets of depth 40, the root a wallet proves against, a fixed number of blocks below its tip, and the leader reward notes, which it keeps with their private nonce, recovery from the seed alone not finding them | 2026-10-07 |
 | 1.2.1 | The public key derives from a nullifier key derived from the spending secret key, and a note has a staking key, the wallet using the nullifier key as staking secret key and the public key of the recipient of a payment by default, and keeping the keys of a service declaration cold | 2026-11-06 |
+| 1.3.0 | Added the note encryption key derived next to the ZK key, the address a sender needs, and the discovery of notes by trial decryption of the note ciphertexts delivered off chain, with what the recovery from the seed covers. A delivered note has the public key of its recipient as staking key unless the recipient asked for another, and a sender keeps the notes it creates | 2026-11-02 |
 
 # Introduction
 
@@ -127,6 +128,35 @@ public_key = zkhash(FiniteField(b"KDF", byte_order="little", modulus=p), nf_sk) 
 This wallet-side step is not part of any circuit, so the DST costs nothing in proving time while preventing $`k_{\text{logos}}`$ from colliding with any other Poseidon2 output computed over the same field elements. Only the `NF_KDF_V1` and `KDF` derivations are evaluated inside proofs, each hashing a single field element thanks to this compression.
 
   **Why not use Poseidon2 for the full derivation?** While Poseidon2 is optimized for ZK circuits, its long-term stability and parameterization are still evolving. General-purpose hash functions like Blake2b offer a more stable and audited base layer. By introducing Poseidon2 only at the last compression step we isolate ZK-dependencies from the rest of the key derivation path. This ensures the wallet hierarchy remains valid even if Poseidon2 parameters are updated.
+
+## Note Encryption Key and Address
+
+Next to its ZK key, a wallet derives from the same $`k_i`$ the key under which senders encrypt the contents of the notes they pay it ([Note Encryption](common-cryptographic-components.md#note-encryption-construction)). The decapsulation key is the 32-byte X-Wing seed
+
+```python
+sk_enc = blake2b_256(b"WALLET_ENC_SK_V1" + k_i)   # the X-Wing decapsulation key, 32 bytes
+pk_enc = xwing_encapsulation_key(sk_enc)         # 1216 bytes
+```
+
+so that it is recovered from the seed exactly as the ZK key is. The domain separation keeps $`sk_{\text{enc}}`$ apart from $`k_{\text{logos}}`$, which is derived from the same bytes.
+
+The **address** a sender needs is the pair `(public_key, pk_enc)`: the `ZkPublicKey` the notes are committed to and the encryption key their ciphertexts are encapsulated to. A wallet MAY hand out `public_key` alone; a sender holding only that gives the recipient `value` and `nonce` by other means. A sender MUST NOT fall back to another encryption when it holds `pk_enc`.
+
+$`sk_{\text{enc}}`$ is a viewing key: it opens every note ciphertext addressed to the wallet, past and future, and derives no nullifier, so it reveals what the wallet received, not what it spent or what it may spend.
+
+## Note Discovery and Recovery
+
+The ledger holds the commitment of a note and nothing of its contents ([Mantle - Note Delivery](bedrock-v1.1-mantle-specification.md#note-delivery)). A wallet learns the user notes it receives in one of three ways, and keeps every note it learns, with its set, as [Note Tracking](#note-tracking) describes:
+
+1. From a note ciphertext, received over a direct channel from the sender or read from a data availability layer the wallet follows. The delivery message carries the commitment and the ciphertext ([Note Encryption](common-cryptographic-components.md#note-encryption-construction)). The wallet first looks the commitment up: a message whose commitment is in no note set yet is kept, not decapsulated, until the commitment appears, since a sender hands the message over when it posts its Operation, at least a block before the note is in a set, and the outputs of a withdrawal wait in `pending_withdrawals` for longer. Once the commitment is in a set, the wallet decapsulates with $`sk_{\text{enc}}`$ and opens the sealed part with the commitment as associated data. If it opens, the wallet recomputes `derive_note_commitment(Note(value, nonce, public_key, stake_public_key))` with the decrypted `value` and `nonce`, its own `public_key`, and that same `public_key` as `stake_public_key`, the staking key of a delivered note unless the wallet named another key to the sender ([Staking Keys](#staking-keys), [Mantle - Note Delivery](bedrock-v1.1-mantle-specification.md#note-delivery)), which it then tries as well; the note is its own only if the result is the commitment and the commitment is in a note set the wallet may receive notes in. A ciphertext that fails to open, or opens to another commitment, is not the wallet's and is discarded.
+2. From the Operation alone, for the notes the ledger creates and the user notes a program pays in a step consuming a note of the program, whose nonce the wallet derives from the Operation or the inscription and whose value it knows. A leader reward note comes from no Operation: the wallet creates it and keeps it with its nonce ([Leader Reward Notes](#leader-reward-notes)). A service reward note comes from no Operation either: the wallet derives its value and nonce as in [Service Reward Distribution](bedrock-service-reward-distribution.md), and reads its keys, `note_pk` and `note_stake_pk`, from the declaration.
+3. In the clear, when the sender gives the recipient `value` and `nonce` by other means; the wallet records the note when it receives them.
+
+A sender SHOULD keep the `value`, `nonce`, `public_key` and `stake_public_key` of each note it creates for a recipient among its records, and deliver the note again when the recipient asks. The ledger holds only the commitment, so the sender and the recipient alone know the note: the sender's copy is all that remains of a delivery that was lost or wrongly encrypted, and given the four fields anyone recomputes the commitment and finds its first occurrence in its note set, which answers a claim of non-payment.
+
+Recovery from the seed re-derives $`k_{\text{logos}}`$ and $`sk_{\text{enc}}`$ and replays 2 over the chain, for the public keys and values it can re-derive. It does not find a leader reward note, whose nonce is private, and which depends on the wallet's backup of its notes ([Leader Reward Notes](#leader-reward-notes)). A program payout should go to a one-time public key ([Mantle - ZkProgramSpend](bedrock-v1.1-mantle-specification.md#zero-knowledge-program-spend-proof-zkprogramspend)), and the key and value of such a note belong to the wallet's records when the seed does not give them. A note delivered under a staking key other than the wallet's public key is recovered only with that key, which the seed does not give and the ciphertext does not carry: it belongs to the wallet's records. It recovers the notes of 1 only from the ciphertexts still available to it: a wallet that reads its ciphertexts from a data availability layer reads that layer again, a wallet that received them over a direct channel has nothing to read again. The notes of 3 exist nowhere but in the wallet's own records. A wallet MUST therefore keep a backup of its records that survives the loss of the device, or receive its notes through a layer it can read again from the seed alone. Publishing an encryption of those records under a key derived from the seed, as an inscription on a channel the wallet controls, is one way to tie that backup to the chain, and is not specified here.
+
+Trial decryption costs one decapsulation per ciphertext the wallet reads, per leaf whose $`sk_{\text{enc}}`$ it holds, and only for the ciphertexts whose commitment is in a note set. A wallet following a data availability layer decrypts each new ciphertext once; a wallet recovering from its seed decrypts every ciphertext the layer holds since the first one it may have received a note in.
 
 ## Note Tracking
 
