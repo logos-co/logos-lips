@@ -1950,7 +1950,7 @@ def empty_note_set() -> NoteSet:
     return NoteSet(
         commitments=[],                       # an empty MMR has no peak
         nullifiers={0},                       # the nullifier of the sentinel leaf
-        nullifier_leaves=[NullifierLeaf(0, 0, 0)],  # an IMT holding only its sentinel leaf
+        nullifier_leaves=[NullifierLeaf(0, 0)],  # an IMT holding only its sentinel leaf
         current_commitment_root=mmr_root([]),  # the root of the empty MMR
         recent_commitment_roots={mmr_root([]): RecentRoot([], None)},
         tx_commitment_buffer=[]
@@ -2025,36 +2025,30 @@ def mmr_root(peaks: list[(MerkleRoot, int)]) -> MerkleRoot:
 
 ### Nullifier Indexed Merkle Tree
 
-The nullifiers of each note set are maintained in an indexed Merkle tree (IMT) of depth `NOTE_SET_DEPTH`, whose leaves are appended in insertion order. Each leaf points to the leaf holding the next greater nullifier, so the leaves form a sorted linked list. The first leaf is the sentinel `(0, 0, 0)`, and a `next_nullifier` of `0` means there is no greater nullifier.
+The nullifiers of each note set are maintained in an indexed Merkle tree (IMT) of depth `NOTE_SET_DEPTH`, whose leaves are appended in insertion order. Each leaf holds the next greater nullifier of the set, so the leaves form a sorted linked list. The first leaf is the sentinel `(0, 0)`, and a `next_nullifier` of `0` means there is no greater nullifier.
 
 ```python
 class NullifierLeaf:
     nullifier: NoteNullifier       # the nullifier this leaf holds
     next_nullifier: NoteNullifier  # the next greater nullifier of the set, 0 if none
-    next_index: int                # the index of the leaf holding next_nullifier, 0 if none
 
 def nullifier_leaf_hash(leaf: NullifierLeaf) -> zkhash:
     return zkhash(
         FiniteField(b"NULLIFIER_IMT_LEAF_V1", byte_order="little", modulus= p),
         leaf.nullifier,
-        leaf.next_nullifier,
-        FiniteField(leaf.next_index, byte_order="little", modulus= p)
+        leaf.next_nullifier
     )
 
 def insert_nullifier(leaves: list[NullifierLeaf], nullifier: NoteNullifier):
     assert len(leaves) < 2**NOTE_SET_DEPTH  # the number of leaves of the IMT, the sentinel included
-    # walk the sorted list to the leaf of the greatest nullifier lower than nullifier
-    low_index = 0
-    while leaves[low_index].next_nullifier != 0 and leaves[low_index].next_nullifier < nullifier:
-        low_index = leaves[low_index].next_index
-    low = leaves[low_index]
+    # the leaf of the greatest nullifier lower than nullifier
+    low = max((leaf for leaf in leaves if leaf.nullifier < nullifier), key=lambda leaf: leaf.nullifier)
 
-    leaves.append(NullifierLeaf(nullifier=nullifier, next_nullifier=low.next_nullifier, next_index=low.next_index))
+    leaves.append(NullifierLeaf(nullifier=nullifier, next_nullifier=low.next_nullifier))
     low.next_nullifier = nullifier
-    low.next_index = len(leaves) - 1
 ```
 
-A `nullifier` is not in the set if and only if there is a leaf `low` with `low.nullifier < nullifier` and either `nullifier < low.next_nullifier` or `low.next_nullifier == 0`. The root of the IMT is the Merkle root of depth `NOTE_SET_DEPTH` over the hashes of its leaves, where every position past the last appended leaf holds the value $`0`$. An empty position is therefore distinct from the sentinel, whose position holds `nullifier_leaf_hash(NullifierLeaf(0, 0, 0))`.
+A `nullifier` is not in the set if and only if there is a leaf `low` with `low.nullifier < nullifier` and either `nullifier < low.next_nullifier` or `low.next_nullifier == 0`. The root of the IMT is the Merkle root of depth `NOTE_SET_DEPTH` over the hashes of its leaves, where every position past the last appended leaf holds the value $`0`$. An empty position is therefore distinct from the sentinel, whose position holds `nullifier_leaf_hash(NullifierLeaf(0, 0))`.
 
 For a note set, the method `commitment_root()` is `mmr_root(self.commitments)`, the root of its commitment MMR as it stands, and `nullifier_root()` is the root of its nullifier IMT, over the hashes of `self.nullifier_leaves`. The `commitment_root` field of an Operation is one of the roots the set recorded.
 
