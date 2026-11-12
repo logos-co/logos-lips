@@ -38,7 +38,7 @@ appendices everything that is settled.
 | 1 | Earlier items answered, still needing discussion | 11 remarks covering 15 items |
 | 2.1 | Items of the second audit with no response | 10 |
 | 2.2 | Concerns of `human-spec-comments.md` that still need an answer | 4 |
-| 3.1 | New: contradictions and gaps in the spec text | 27 |
+| 3.1 | New: contradictions and gaps in the spec text | 35 |
 | 3.2 | New: the system contracts against their own rules | 10 |
 | 3.3 | New: the integrator documents against the specs | 8 |
 | 3.4 | New: porting the existing module catalog | 7 |
@@ -415,7 +415,11 @@ other rules depend on is not stated.
   specific cause is established"), l.3537-3538 (`recover_module` requests one attempt for retained
   intent, with the instance `unloaded` or `error`), l.3803 ("orchestration MUST request resumption of
   that intent through `recover_module`, including deployment intent initially blocked by missing
-  permissions").
+  permissions"), l.3761 ("An observation with no current failure or failure-caused unavailability,
+  including a ready local instance, MUST omit `failure`"), l.3801 ("A stop caused by permission-settings
+  reconciliation, permission withdrawal, or loss of execution authorization MUST preserve execution intent
+  and its authenticated origin"); CA l.854 ("When an execution authorization ends, Runtime MUST withdraw
+  the dependent execution access and initiate required termination").
 - **Issue:** two causes can stop an accepted start before a realization exists, and for neither is the
   resulting state given.
   1. Missing configuration. The attempt returns `NOT_READY` and leaves intent `requested`. Whether the
@@ -431,7 +435,15 @@ other rules depend on is not stated.
      was denied is therefore either `unloaded` and carrying a `failure`, which no rule allows or
      forbids, or in `error` although nothing was realized.
 
-  Both outcomes are observable through the module record, the readiness result and the state events.
+  The second question returns for an instance that was running. When its execution authorization ends,
+  Runtime stops it (CA l.854) and keeps its intent (l.3801). That is a stop, so the instance passes
+  through `stopping` to `unloaded`. It is not an explicit stop, so l.3757 clears nothing, and
+  `authority-expired`, `authority-revoked` and `permission-enforcement-failed` are classifications for
+  exactly these causes. Whether the `unloaded` record then carries that `failure`, or the instance is put
+  in `error` although its stop and cleanup succeeded, is not said: l.3761 requires `failure` to be omitted
+  only where there is "no current failure or failure-caused unavailability".
+
+  Each outcome is observable through the module record, the readiness result and the state events.
 - **Impact:** an orchestrator or a presentation module cannot tell "waiting for configuration" or
   "waiting for permission" from "not started" or from a failure, two Runtimes report different states for
   the same event, and whether the module starts by itself when the value arrives differs as well.
@@ -439,12 +451,13 @@ other rules depend on is not stated.
   cases, with no failure for missing configuration and with `failure` set to `authority-denied` or
   `authority-evaluation-failed` after a refused authorization, and leave the retry to orchestration; or
   enter `error`, with `other` for missing configuration. The first is the conservative reading, because
-  it reports no failure of something that never ran.
+  it reports no failure of something that never ran. For a running instance that enforcement stops, report
+  `unloaded` with the intent kept and a `failure` that names the cause.
 - **Overlap:** NC-02 (missing configuration gives `NOT_READY` and preserves intent), NL-07, TL-07.
 - **Suggested resolution:** state the lifecycle state for both causes and whether an `unloaded` instance
-  may carry a `failure`; add a classification such as `configuration-missing` if one is intended for the
-  first cause; and say that acting on the retained intent after a configuration mutation is
-  orchestration's task, as l.3803 says for permissions.
+  may carry a `failure`, including after a stop that enforcement caused; add a classification such as
+  `configuration-missing` if one is intended for the first cause; and say that acting on the retained
+  intent after a configuration mutation is orchestration's task, as l.3803 says for permissions.
 
 #### TF-11 — A line break inside an unprefixed byte-string literal: which bytes it contributes is not defined
 - **Specs:** cdCDDLe l.127 ("For text-string and byte-string literals, the grammar and escape rules MUST
@@ -661,15 +674,18 @@ other rules depend on is not stated.
   later renewal MUST fail and MUST NOT revive it"), l.3183-3184 (`renew_route` "performs a new authority
   check and may extend `expires_at` and replace `decision_id`"), l.3188-3189 ("Renewal MUST fail if the
   route is unknown, closed, failed, or revoked, or no longer satisfies provider and contract
-  validation"), l.2502 (`authority-denied`: "A policy decision denies the route access"); CA l.906-911
-  (after a policy-change notification Runtime "MUST make a dependent route unusable when the new decision
-  denies the route").
+  validation"), l.2502 (`authority-denied`: "A policy decision denies the route access"), l.3801 (a stop
+  "caused by permission-settings reconciliation, permission withdrawal, or loss of execution
+  authorization"); CA l.906-911 (after a policy-change notification Runtime "MUST make a dependent route
+  unusable when the new decision denies the route").
 - **Issue:**
   1. A consumer that stops. l.624 closes its routes on an authorized stop, so their records are `closed`
      and carry no failure. Yet `consumer-unavailable` is described as covering a consumer that "has
      stopped", and a failure code is recorded only on `failed` or `revoked` records (l.2520). Either the
      routes of a stopped consumer are `failed` with that code, against l.624, or the words "has stopped"
-     have no case.
+     have no case. A stop that enforcement causes (l.3801) is not plainly an authorized stop and is not a
+     realization failure, so which of the two rules of l.624-626 the routes of that consumer follow is
+     open as well.
   2. Closing a route that has failed. A successful `close_route` sets the state to `closed` (l.3489).
      For a route already `failed` or `revoked`, the text does not say whether the close succeeds and
      moves it to `closed`, which drops the recorded failure, succeeds and reports the state unchanged,
@@ -684,7 +700,8 @@ other rules depend on is not stated.
   `close_route` on a terminal route succeed and report the state unchanged; make a route unusable when
   its renewal is denied. The last is the conservative reading, because it never serves a call under a
   decision that a later check withdrew.
-- **Overlap:** TL-03 (`draining` and expiry), EC-10 (the failure codes), NA-03.
+- **Overlap:** TL-03 (`draining` and expiry), EC-10 (the failure codes), NA-03, TF-33 (a re-authorization
+  that Runtime starts after a policy change).
 - **Suggested resolution:** drop "has stopped" from l.2508 or say which stop it means; state the result of
   `close_route` on a terminal route; state whether a denied renewal revokes the route with
   `authority-denied` or leaves it unchanged.
@@ -707,9 +724,11 @@ other rules depend on is not stated.
   INTERFACE l.3888-3890 (for `materialize_route`: "After the ownership and non-disclosure checks, a
   successfully reconstructed schema root that differs from `expected_contract_root`, or a recorded route
   contract root that differs from it, MUST produce `VERSION_MISMATCH`"; "Route readiness and
-  authorization failures MUST follow LOGOS-MODULE-RUNTIME Section 7.5").
+  authorization failures MUST follow LOGOS-MODULE-RUNTIME Section 7.5"); CONFIG l.190 ("After ordinary
+  target authorization and non-disclosure checks, configuration operations use these pre-acceptance
+  classifications"), l.192-198 and l.292-296 (the two tables of failed preconditions).
 - **Issue:** some orders are fixed: method resolution and the route's access scope come before payload
-  checks, and ownership comes before the root comparison. Four are not.
+  checks, and ownership comes before the root comparison. Five are not.
   1. A malformed Runtime Control request from a caller without authority for the method. Validating
      first gives `INVALID_PARAMS`, with detail; authorizing the method first gives `NOT_AUTHORISED`.
      "before executing an operation" (l.1626) and "before applying a state mutation" (l.1823) bind
@@ -723,14 +742,22 @@ other rules depend on is not stated.
      and nothing orders them.
   4. `materialize_route` for an owned route that is no longer ready, with a root that does not match: the
      readiness code or `VERSION_MISMATCH`.
-- **Impact:** none of the four discloses anything about a hidden target. But two Runtimes answer the same
+  5. A configuration request that meets two rows of a CONFIG table. `update_configuration` with a stale
+     revision and a schema commitment that does not match gives `INVALID_PARAMS` or `VERSION_MISMATCH`
+     (CONFIG l.195-196). `apply_configuration` for an instance that is not `ready`, with a stale revision
+     or a differing commitment, gives `NOT_READY`, `INVALID_PARAMS` or `VERSION_MISMATCH` (CONFIG
+     l.294-296). Authorization comes first (CONFIG l.190), and nothing says that the order of the rows is
+     an order of precedence.
+- **Impact:** none of the five discloses anything about a hidden target. But two Runtimes answer the same
   request with different codes, a consumer handles `NOT_AUTHORISED`, `INVALID_PARAMS` and `NOT_READY`
   differently, and a conformance test cannot assert either answer.
 - **Reading an implementation needs today:** authorize what can be authorized without the payload, then
-  validate the payload, then authorize the target, then check readiness, then compare roots.
+  validate the payload, then authorize the target, then check readiness, then compare roots. For a
+  configuration request, take the rows of each CONFIG table in the order written.
 - **Overlap:** EC-05 and EC-06 (the codes themselves), EC-01 to EC-04.
 - **Suggested resolution:** state one order of checks for a Runtime Control invocation, for a route call
-  and for `materialize_route`.
+  and for `materialize_route`, and say whether the rows of the two CONFIG tables are in order of
+  precedence.
 
 #### TF-19 — Whether provider code may return the status codes that carry Runtime meanings, and what the caller does with them, is not stated
 - **Specs:** INTERFACE l.3315-3319 ("A nonzero value means that the invocation did not produce a valid
@@ -924,11 +951,14 @@ other rules depend on is not stated.
   l.1263 ("Invocation authority does not itself grant event-publication or event-subscription
   authority"); CA l.239-240 ("The `actions` field distinguishes provider discovery, route establishment
   or renewal, calls, event publication, and event subscription"), l.245 ("Event delivery also requires
-  the subscriber's `subscribe-event` authority and MUST satisfy both route event lists"), l.914 ("It
-  MUST terminate dependent provider sessions and subscriptions when their continued use would exceed
-  current authority"); INTERFACE l.1427 ("The route `subscribe` operation returns `LOGOS_OK` only after
-  the subscription is active"); TRANSPORT l.733-736 (a Subscribe is checked against "the route's
-  event-subscription access before activation", with `NOT_AUTHORISED` for an event outside it).
+  the subscriber's `subscribe-event` authority and MUST satisfy both route event lists"), l.906-911 (after
+  a policy change the re-evaluated operations include "new event-delivery commitments", and a denied or
+  narrowed route becomes unusable), l.914 ("It MUST terminate dependent provider sessions and
+  subscriptions when their continued use would exceed current authority"); INTERFACE l.1427 ("The route
+  `subscribe` operation returns `LOGOS_OK` only after the subscription is active"), l.1474-1475
+  (`observe_end` reports "loss of the handle's invocation path"); TRANSPORT l.733-736 (a Subscribe is
+  checked against "the route's event-subscription access before activation", with `NOT_AUTHORISED` for an
+  event outside it).
 - **Issue:** for a method call the text names the authorization point and says that authority for the
   route is not enough (l.1732-1733). For events it names the delivery (l.1229, CA l.245) and, at
   activation, only the comparison with the route's scope list (l.1018-1020). `subscribe-event` is an
@@ -937,38 +967,50 @@ other rules depend on is not stated.
   consumer whose route scope admits the event and which has no `subscribe-event` authority. One Runtime
   refuses `subscribe` with `NOT_AUTHORISED`. Another returns `LOGOS_OK` for a subscription that is
   active (INTERFACE l.1427) and never delivers, and the consumer is not told.
+
+  The end of a subscription is open in the same way. After a grant is revoked or expires, Runtime
+  terminates the subscriptions whose continued use "would exceed current authority" (CA l.914). After a
+  policy change the text names "new event-delivery commitments" and routes (CA l.906-911), and not
+  subscriptions. When the `subscribe-event` decision for an active subscription turns into a deny and the
+  route stays usable, the subscription is either terminated or left active and silent. In neither case is
+  the subscriber told: the route is still `ready`, so `observe_end` does not fire (INTERFACE l.1474-1475),
+  and no operation reports the end of one subscription.
 - **Impact:** on the second Runtime a consumer cannot tell "no event has occurred" from "not permitted",
   and a conformance test cannot assert either answer to `subscribe`.
 - **Reading an implementation needs today:** evaluate `subscribe-event` when the subscription is
   activated and again for each delivery.
 - **Overlap:** NA-07 (subscriptions after a policy change), NE-03, CA-03 (the meaning of
-  `publish-event`), TF-18.
+  `publish-event`), TF-18, TF-35.
 - **Suggested resolution:** add event subscription and event delivery to the list at l.1720-1730, and
   state in RUNTIME §4.4 whether activation requires the subscriber's `subscribe-event` decision, with
-  `NOT_AUTHORISED` when it is denied.
+  `NOT_AUTHORISED` when it is denied. Say also whether a subscription whose `subscribe-event` authority is
+  withdrawn is terminated, and how the subscriber learns of it.
 
 #### TF-25 — Where bootstrap ends is not defined, so what `logos_runtime_start` waits for and the code of an expired startup deadline are open
 - **Specs:** RUNTIME §13.2 l.3967 (Start: "Complete bootstrap, then return while the Runtime continues
   execution in the background"), l.3973-3974 ("Successful startup MUST establish the initial
   system-service bindings required by Section 9"; "It does not require every ordinary module in the
-  deployment to be ready"), §13.4 l.4073 ("If shutdown is requested through Runtime Control during
-  bootstrap, startup MUST return `LOGOS_ERR_CANCELLED` unless it has already completed"), l.4088 ("Other
-  failures MUST use the applicable shared error code, or `LOGOS_ERR_MODULE` when no more specific shared
-  code applies"); §9 l.1640 ("Runtime startup MUST establish the initial orchestration realization under
+  deployment to be ready"), §13.4 l.4072 ("Invalid registration or startup ordering MUST return
+  `LOGOS_ERR_NOT_READY`"), l.4073 ("If shutdown is requested through Runtime Control during bootstrap,
+  startup MUST return `LOGOS_ERR_CANCELLED` unless it has already completed"), l.4088 ("Other failures
+  MUST use the applicable shared error code, or `LOGOS_ERR_MODULE` when no more specific shared code
+  applies"); §9 l.1640 ("Runtime startup MUST establish the initial orchestration realization under
   bootstrap policy"), l.1643 ("Orchestration MUST establish that binding before starting the remaining
   deployment under active authority policy"), l.1648 (a provider is used as a system service only when
   "the module instance is ready under its selected execution mode"), l.1675 ("If an external Capability
   Authority is unavailable, Runtime MUST deny operations that depend on it"), l.1685 ("Protected
-  construction and deployment inputs may establish bootstrap policy and initial system-service
-  bindings"); §3.4 l.566 (`loaded`: "Runtime has acquired or attached the selected realization and is
-  performing the applicable initialization and readiness checks"), l.664 ("The Runtime host or
-  deployment supplies a finite logical startup deadline"); §10.2 l.3876-3877 (a module that "fails
-  during startup before it reaches `ready`" is a "partially realized implementation", which Runtime
-  releases); §9.3 l.3753 (`startup-timeout` is a failure classification of the instance); INTERFACE
-  l.2067 ("expiration of the caller-selected duration produces `TIMEOUT`").
+  construction and deployment inputs may establish bootstrap policy and initial system-service bindings");
+  §3.4 l.566 (`loaded`: "Runtime has acquired or attached the selected realization and is performing the
+  applicable initialization and readiness checks"), l.664 ("The Runtime host or deployment supplies a
+  finite logical startup deadline"); §10.2 l.3876-3877 (a module that "fails during startup before it
+  reaches `ready`" is a "partially realized implementation", which Runtime releases); §9.3 l.3753
+  (`startup-timeout` is a failure classification of the instance); INTERFACE l.2067 ("expiration of the
+  caller-selected duration produces `TIMEOUT`"); CONFIG l.123-125 ("Runtime MUST NOT start a module whose
+  declaration contains a configuration-schema binding"; "Missing eligible configuration MUST prevent
+  initialization and produce `NOT_READY` for an otherwise authorized startup attempt").
 - **Issue:** §13 ends `start` at "bootstrap" and never says what bootstrap contains. §9 gives startup two
   obligations, the orchestration realization (l.1640) and the initial system-service bindings (l.3973).
-  Three things about the end point are not stated.
+  Four things about the end point are not stated.
   1. The state the orchestration instance must reach. A realization exists from `loaded` on (l.566), so
      on one reading the obligation of l.1640 is met there. On the other it is met at `ready`: a
      realization that fails before `ready` is only partial and is released (l.3876-3877), and `ready` is
@@ -983,6 +1025,12 @@ other rules depend on is not stated.
      `TIMEOUT` has one assigned producer, a prepared call's own duration (INTERFACE l.2067). The startup
      deadline is also a duration the host supplies (l.664), and the instance's record then says
      `startup-timeout` (l.3753). `TIMEOUT` and `LOGOS_ERR_MODULE` can both be argued.
+  4. The code when the orchestration instance has no configuration value. Its declaration may bind a
+     configuration schema, and without a value the startup attempt is refused with `NOT_READY` (CONFIG
+     l.125). For `logos_runtime_start`, `LOGOS_ERR_NOT_READY` is the code of an ordering mistake by the
+     host (l.4072), and other failures take the applicable shared code or `LOGOS_ERR_MODULE` (l.4088).
+     Whether the host receives `NOT_READY`, which it cannot tell from a call made out of order, or
+     `LOGOS_ERR_MODULE`, is not said.
 
   That a startup which cannot establish orchestration has failed, and that the Runtime then stays up
   until the host shuts it down, follows from l.1640, l.3989 and l.4075 and is not in question.
@@ -997,13 +1045,15 @@ other rules depend on is not stated.
   system-service bindings that protected input establishes itself (l.1685); the first authority binding
   is orchestration's task after `start` has returned, and until it exists the operations that depend on
   it are denied (l.1675). Report an expired startup deadline as `LOGOS_ERR_MODULE`, with the
-  classification in the diagnostic message.
+  classification in the diagnostic message. Report an orchestration instance that has no configuration
+  value as `LOGOS_ERR_MODULE` too.
 - **Overlap:** TF-20 (when `start_module` answers), the `TIMEOUT` note in TF-06, TS-01 (what the host
   cannot observe), NA-11 (bootstrap policy once an authority is bound).
 - **Suggested resolution:** define in §13.2 when bootstrap is complete, for example when every
   system-service binding established from protected input has passed the checks of §9 and the
   orchestration instance is `ready`; say whether the first authority binding of l.1643 belongs to it;
-  and assign the code that `start` returns when the startup deadline expires.
+  and assign the codes that `start` returns when the startup deadline expires and when the orchestration
+  instance cannot start for want of a configuration value.
 
 #### TF-26 — The execution intent of an instance that startup realizes is not stated
 - **Specs:** RUNTIME §9 l.1640-1641 ("Runtime startup MUST establish the initial orchestration
@@ -1105,7 +1155,9 @@ other rules depend on is not stated.
   realization ownership and native resources until their actual uses end"; a shared-process native
   realization "MUST NOT be force-released by destroying referenced state or unloading code that can
   still execute"), l.3860-3861 (shutdown continues once each realization is released "or its cleanup
-  failure has been recorded according to shutdown policy").
+  failure has been recorded according to shutdown policy"); CONFIG l.272 ("MUST NOT destroy the native
+  context while the hook can still use it"), l.312 ("If the application outcome is indeterminate, Runtime
+  MUST place the module instance in `error`").
 - **Issue:** for a native realization in the Runtime's own process nothing can be forced (l.3838). When
   the drain deadline of an explicit stop expires and destruction has not returned, the Runtime can only
   keep waiting. Three points are then open.
@@ -1122,6 +1174,13 @@ other rules depend on is not stated.
      l.1837 covers `stopping` and `unloaded` only, and l.1835 excludes a second destruction. Whether
      the request is answered with the current state, or is itself the explicit stop that completes
      when the pending cleanup ends, is not said.
+
+  The doubt of point 2 also arises with no overrun. A live reconfiguration is pending when an explicit
+  stop arrives, and the stop must not destroy the context while the hook can still use it (CONFIG l.272).
+  If the application deadline expires first, the outcome is indeterminate and the instance is placed in
+  `error` (CONFIG l.312). The hook then returns, and the destruction of the stop completes within the
+  stop's own deadline. l.612 and the last clause of l.3757 give `unloaded` with the failure cleared; l.611
+  keeps `error` with `configuration-indeterminate`.
 - **Impact:** for one history, one Runtime reports `stopping` and then `unloaded`, another reports
   `stopping`, `error` and `unloaded`, and a third stays in `error` until a second stop. The sequence of
   `module_state_changed_event`, the presence of `failure` and what an operator must do after a slow
@@ -1132,14 +1191,410 @@ other rules depend on is not stated.
   cleanup ends, keep `error` and the classification (l.611). A later `stop_module` then completes at
   once and gives `unloaded` with the failure cleared; a new accepted start also leaves `error`. A
   `stop_module` received while the cleanup is unresolved starts no second destruction and reports the
-  current state.
+  current state. Where the stop itself completed in time, after a live reconfiguration became
+  indeterminate, report `unloaded` with the failure cleared.
 - **Overlap:** TL-07 (the diagram has no edge from stopping to error), TL-08 (cleanup completion
   produces no event), TF-20 (when `stop_module` answers), NL-06 (answered: cleanup alone never leaves
   `error`).
 - **Suggested resolution:** state what the expiry of a stop's drain deadline does to the lifecycle state
   and where `cleanup-timeout` is reported; state whether the later return of that destruction is a
-  completed explicit stop or cleanup after a failure; and say what `stop_module` does for an instance in
-  `error` whose cleanup is unresolved.
+  completed explicit stop or cleanup after a failure; say what `stop_module` does for an instance in
+  `error` whose cleanup is unresolved; and say which rule applies to an explicit stop that completes after
+  a live reconfiguration became indeterminate.
+
+#### TF-29 — What a preserved instance reports after the Runtime ended without completing shutdown is not stated
+- **Specs:** RUNTIME §3.4 l.562 (apart from a stop, the diagram leaves `ready` only by an "unexpected
+  realization failure", to `error`), l.565 (`unloaded`: "The module instance is known to Runtime but has
+  no active local realization or attached facade binding"), l.627 ("Runtime transitions to `unloaded` only
+  after the required cleanup or detachment is complete"); l.2634 ("These rules do not require every
+  deployment to preserve logical instances across Runtime restart"); §9.3 l.3505-3506 ("Runtime MUST
+  persist the revision with the corresponding state before exposing the change or performing a newly
+  accepted execution attempt"; "Before accepting lifecycle requests after restart or state reconstruction,
+  Runtime MUST advance each preserved instance's execution revision beyond every value previously exposed
+  for that identity"), l.3534 ("Retained selection MUST NOT be reported as a current realization merely
+  because it survived a stop, failure, or Runtime restart"), l.3753 (the classifications include
+  `host-terminated` and `other`), l.3757 (Runtime clears the classification "when a new execution attempt
+  is accepted or an explicit stop completes successfully"), l.3758 ("A local instance in `error` MUST
+  include `failure`, using `other` when no more specific cause is established"); §10.1 l.3774-3776 ("it
+  MUST reconcile retained requested execution intents, including after Runtime restart"; "Deployment
+  documentation MUST distinguish resumption after Runtime restart from retries after execution failure";
+  "Reconciliation MUST preserve retained origin, retry accounting, lifecycle ordering, current authority,
+  and unresolved cleanup obligations"), l.3783 ("containment of faults that corrupt or terminate that
+  process is not guaranteed"); §10.2 l.3842 ("Shutdown MUST preserve retained execution intent and its
+  origin"); LOADER l.497-499 ("Unexpected Module Host termination, loss of a required direct binding, or
+  an indeterminate live-configuration outcome changes an active realization to failed").
+- **Issue:** a Runtime that keeps its instances across a restart writes each lifecycle state before it
+  shows it (l.3505). Its store can therefore hold an instance as `loaded`, `ready` or `stopping` when the
+  Runtime's process ends with no shutdown: a crash, a kill by the operating system, a power loss. After a
+  completed shutdown the answer is given: every instance was stopped and released, so it is `unloaded`
+  with its intent kept (l.627, l.3842). For the other case no rule says what the next Runtime reports. Two
+  readings are open.
+  1. `unloaded`, with no `failure`. The definition fits, since the realization ended with the process
+     (l.565). But the transition is allowed "only after the required cleanup or detachment is complete"
+     (l.627), and no stop ran: `_MODULE_destroy` was never called. An observer then cannot tell this
+     instance from one that was stopped in order.
+  2. `error`. The realization was lost unexpectedly, which is the diagram's edge out of `ready` (l.562)
+     and LOADER's "loss of a required direct binding" (l.498). A `failure` is then required (l.3758), and
+     its classification is open. `host-terminated` is in the list (l.3753) and is defined nowhere; the
+     nearest cause in the text is the unexpected end of a Module Host (LOADER l.497), which is not the end
+     of the Runtime's own process. Otherwise the classification is `other`.
+
+  The choice also decides how the restart is counted. Deployment documentation has to "distinguish
+  resumption after Runtime restart from retries after execution failure" (l.3775), and an instance in
+  `error` reads as an execution failure. On a platform that ends the host process routinely, each such end
+  would then be charged to the module's retry limit.
+- **Impact:** for the same crash one Runtime reports `unloaded` and another `error`, with `other` or with
+  `host-terminated`. The first state event after the restart, the readiness result and the execution
+  summary differ, and an orchestration module's restart policy treats the same module as resumed on one
+  Runtime and as failed on the other.
+- **Reading an implementation needs today:** report `error` with `other` for an instance stored as
+  `loaded`, `ready` or `stopping`, keep its intent, and document that orchestration counts this state
+  after a restart as a resumption and charges no retry; or report `unloaded` with no failure. The first is
+  the conservative reading, because it does not report an orderly stop that never took place.
+- **Overlap:** NL-10 (who resumes retained intent after a restart; answered), TF-08 (a statically linked
+  module across an update of the host binary), TF-26, TF-28, TL-07.
+- **Suggested resolution:** state in §9.3 or §10.1 the lifecycle state of a preserved instance when the
+  Runtime starts after ending without a completed shutdown; define `host-terminated` and say whether it
+  covers the end of the Runtime's own process; and say whether orchestration counts such an instance as a
+  resumption under l.3775.
+
+#### TF-30 — Four required refusals have no assigned code: a target owned by another Runtime, `create_module` with no selected declaration, a configuration state too large for a frame, and a revision that cannot advance
+- **Specs:** RUNTIME l.3558 ("The target's `runtime_instance_id` MUST identify the Runtime exposing this
+  contract"), l.3515 ("Runtime MUST reject a target owned by another Runtime without forwarding the query
+  or substituting a facade"), l.2611-2612 ("Runtime MUST reject a target owned by another Runtime rather
+  than forwarding the operation or substituting a local facade instance"), l.2579
+  ("`get_permission_settings` and `update_permission_settings` MUST target a local module instance owned
+  by the Runtime exposing the contract"); against l.449 ("An explicit `runtime_instance_id` MUST identify
+  the addressed Runtime; otherwise Runtime MUST return `INVALID_PARAMS`"), l.3659 ("otherwise Runtime MUST
+  return `INVALID_PARAMS` without structured detail") and l.3662 ("An unknown or undisclosable selected
+  record MUST produce non-revealing `NOT_AUTHORISED`"); l.3614-3619 ("Runtime MUST select one accepted
+  declaration for `module` under active policy or fail the request"; "An unavailable or unacceptable exact
+  selection MUST fail without substituting another package or version"; "If active policy does not select
+  one accepted declaration, the request MUST fail without creating an instance"); l.3507 ("Revision
+  exhaustion or persistence failure MUST prevent new execution attempts"), l.3442-3443 (in the rules for
+  listeners and exports: "Other resource, persistence, or internal failures MUST use the applicable more
+  specific shared error code, or `MODULE_ERROR` when none applies"; "Resource exhaustion alone MUST NOT be
+  classified as Runtime readiness failure"), l.3383 ("If a disclosable record cannot fit in a permitted
+  response, Runtime MUST fail with `MODULE_ERROR`"), l.1910-1916 (the table of precondition failures);
+  CONFIG l.100-101 ("Runtime MUST reject a state mutation that would advance it beyond the maximum
+  `uint64` value"; "MUST reject the attempt without invoking that behavior when it cannot"), l.111
+  ("Runtime MUST reject without mutation any source or state transition whose resulting complete state
+  would violate this limit"), l.192-198 and l.292-296 (the two tables of configuration failures);
+  TRANSPORT l.385 ("An oversized ordinary Request MUST NOT be sent and MUST fail its local invocation with
+  `MODULE_ERROR`").
+- **Issue:** each of these rules tells Runtime to refuse a request and names no code for the refusal.
+  1. A target owned by another Runtime. `retire_module`, `get_execution_summary`, the five configuration
+     methods and the two permission-settings methods take a complete module-instance address, and each
+     must refuse one that names another Runtime (l.3558, l.3515, l.2612, l.2579). Where the same check is
+     made on a provider address the code is `INVALID_PARAMS` (l.449, l.3659). Here none is given.
+     `INVALID_PARAMS` follows by analogy. But the address also names no record this Runtime knows, and an
+     unknown record is answered with a non-revealing `NOT_AUTHORISED` (l.3662).
+  2. `create_module` when active policy selects no accepted declaration, or when the exact selection is
+     unavailable (l.3614-3619). The request must fail. `NOT_AUTHORISED`, `INVALID_PARAMS` and `NOT_READY`
+     can each be argued, and they differ in what the caller learns about the modules this deployment can
+     create.
+  3. A configuration value or transition whose resulting state would not fit a frame (CONFIG l.111).
+     Neither CONFIG table has a row for it. The rows about the value give `INVALID_PARAMS` (CONFIG
+     l.197-198); the size rules elsewhere give `MODULE_ERROR` (TRANSPORT l.385, RUNTIME l.3383).
+  4. A revision that cannot advance, or state that cannot be written. CONFIG l.100-101 refuses the
+     mutation or the attempt, and RUNTIME l.3507 prevents new execution attempts. The refused
+     `update_configuration`, `apply_configuration`, `start_module` or `recover_module` has no code.
+     `MODULE_ERROR` follows from l.3442, which is written for listener and export requests; `NOT_READY`
+     follows from the lifecycle row at l.1914, against l.3443.
+- **Impact:** a caller reads `INVALID_PARAMS` as its own mistake, `NOT_AUTHORISED` as missing authority,
+  `NOT_READY` as a reason to retry and `MODULE_ERROR` as a fault. Two Runtimes answer the same request
+  with different codes, and a conformance test can assert none of the four.
+- **Reading an implementation needs today:** `INVALID_PARAMS` without detail for a target on another
+  Runtime; a non-revealing `NOT_AUTHORISED` when no declaration is selected; `MODULE_ERROR` for a state
+  that would not fit, and for a revision or a store that cannot take the change.
+- **Overlap:** EC-01 to EC-04 (the codes of Runtime Control's own outcomes), TF-16 (route establishment
+  that can return nothing), TF-18 (the order of checks), TL-09.
+- **Suggested resolution:** add the four cases to the table at RUNTIME l.1910-1916 and to the CONFIG
+  tables at l.192-198 and l.292-296.
+
+#### TF-31 — An authority request from an ordinary caller that names another consumer, or carries `execution_renewal`, must be refused, and neither the code nor the record of the refusal is stated
+- **Specs:** CA l.87-91 ("Runtime MUST supply Capability Authority with authenticated context for the
+  consumer"; "Runtime MUST populate or validate the request's `consumer` against that context before
+  dispatching a Capability Authority method"; "For other methods, the consumer is the module instance
+  authenticated at the Capability Authority invocation boundary"), §5.1 l.578-580 ("Runtime MUST set it
+  only while that authorization remains valid under Section 8"; "Runtime MUST reject this field on
+  evaluation requests supplied by ordinary callers, including routed calls"; "Capability Authority MUST
+  receive the indication through the Runtime-enforced invocation boundary required by Section 2");
+  l.1167-1170 (an audit record is required "for each evaluation result or failure", and a rejection before
+  evaluation begins "is an admission failure and does not require an audit record"), l.1373-1376
+  ("`evaluate` is the Runtime-facing policy-decision method"; "Ordinary consumers MUST NOT gain direct
+  authority to call `evaluate` merely because they can request a provider route or invoke another
+  Capability Authority method"); RUNTIME l.1665-1668 ("For Capability Authority `evaluate`, the request's
+  `consumer` remains the authenticated module whose attempted operation is evaluated"; "An ordinary module
+  invoking a system service still requires its own consumer-bound route and provider-access authority"),
+  l.1745-1748 ("An authorization denial is an explicit deny result from runtime authority policy"; "An
+  authority-evaluation failure occurs when Runtime cannot obtain or validate a required authority
+  decision"; "retained observation or audit material MUST distinguish denial from evaluation failure"),
+  l.2559 (for `get_self`: "Runtime MUST reject a call without an authenticated module-consumer association
+  with `NOT_AUTHORISED`").
+- **Issue:** the Capability Authority is a module provider, so a module that policy allows holds a route
+  to it and calls its methods (RUNTIME l.1668). Two checks on such a call belong to Runtime, at the
+  invocation boundary and before the provider sees the request: the request's `consumer` has to be the
+  authenticated caller (CA l.88), and `execution_renewal` has to be absent (CA l.579). The result of a
+  failed check is not given.
+  1. The code. The call itself was authorized: the route exists and the method is within its scope.
+     `NOT_AUTHORISED` reports a refusal that policy did not make, and `INVALID_PARAMS` reports a value
+     that the schema allows. For `consumer`, CA l.88 also lets Runtime populate the field, so on one
+     reading a wrong value is overwritten and the call proceeds for the caller itself.
+  2. The record. The refusal is neither a policy denial nor an evaluation failure (RUNTIME l.1745-1746),
+     the two kinds that retained material has to tell apart (l.1748). It also comes before the authority's
+     own audit begins (CA l.1170). Whether anything is recorded, and as what, is not said.
+
+  CA l.579 presupposes that an ordinary caller can reach `evaluate` on a route. CA l.1375-1376 says only
+  that a route or another method does not give that authority by itself. Whether a grant can give it, and
+  for which consumers the caller may then ask, is not stated either.
+- **Impact:** a management module that asks whether an operation would be allowed for another module gets
+  `NOT_AUTHORISED` on one Runtime, `INVALID_PARAMS` on another, and on a third a decision about itself,
+  with nothing to show that the question was changed. An audit trail shows the attempt on one deployment
+  and not on another.
+- **Reading an implementation needs today:** refuse both with `NOT_AUTHORISED` and without dispatch, never
+  replace a supplied `consumer` that differs from the caller, and keep the refusal in retained material as
+  a kind of its own, neither a denial nor an evaluation failure.
+- **Overlap:** TL-04 (the authority's own codes), RT-02 (the calls the engine makes for no module), TF-18.
+- **Suggested resolution:** assign the code for both refusals, in CA §5.1 and beside l.88; say that a
+  `consumer` supplied on a routed call is validated and never replaced; say whether the refusal is
+  audited; and state whether an ordinary caller can be authorized to call `evaluate` at all.
+
+#### TF-32 — Which permission scopes an execution decision must cover is not stated
+- **Specs:** CA §3.3 l.344-345 ("Runtime MUST obtain an allow decision before asking Module Loader to
+  realize a direct native implementation"; "The decision MUST cover the module execution operation and
+  every required permission scope"), l.351-353 (for a hosted realization, "the module execution operation,
+  selected hosted placement, and required permission scopes"), l.369-372 ("A package or module manifest's
+  requested permissions are policy inputs"; "Capability Authority maps each declared permission into one
+  or more authority scopes according to the permission's defining specification or profile"); l.392
+  ("Capability Authority MUST reject an unknown permission or invalid constraints"), l.484-485 ("A request
+  may carry more than one scope when the operation requires multiple simultaneous constraints, such as
+  module execution plus network and persistent-state permissions"), l.563 ("For every requested scope, an
+  allow decision MUST contain at least one equal or narrower allowed scope"); LOADER l.426 ("Runtime MUST
+  obtain authorization for module execution and every required permission before invoking `realize`");
+  RUNTIME l.1439-1442 ("`requested_permissions` contains module-declared policy inputs"; "The declarations
+  do not grant authority, approve execution, or prove that the selected execution path can enforce the
+  requested constraints"), l.2538-2539 ("Omitted permissions are denied, including when the array is
+  empty; declarations and grants MUST NOT bypass these limits"; "Settings do not modify accepted module
+  declarations or independently authorize execution"), l.2541 (a new instance starts with "an empty
+  permission array, status `applied`, and no failure"), l.2543 ("module declarations and
+  `requested_permissions` alone MUST NOT supply those settings"), l.2596 ("Before widening effective
+  access, Runtime MUST establish current execution and permission authority covering that access"), l.3803
+  ("including deployment intent initially blocked by missing permissions").
+- **Issue:** the execution decision has to cover "every required permission scope" (CA l.345), and nothing
+  defines which permissions are required. Runtime builds the evaluation request, so it has to choose
+  between two sets.
+  1. The permissions the module declares in `requested_permissions`. The request then carries a scope for
+     each of them, and an allow has to cover each (CA l.563). A new instance has empty settings (RUNTIME
+     l.2541), under which every permission is denied (l.2538), and a declaration cannot supply settings
+     (l.2543). So either the authority is asked to allow what the settings deny, or a module that declares
+     any permission cannot start until an administrator has saved settings that name all of them. The
+     words "initially blocked by missing permissions" (l.3803) fit this reading.
+  2. The permissions in the instance's saved settings. A module with empty settings then needs the
+     execution scope only, and starts with every declared permission denied. The declaration is input for
+     whoever writes the settings and the policy (CA l.369), and whether the module can work without a
+     permission is its own affair.
+
+  Under the first reading a further case follows. The authority "MUST reject an unknown permission" (CA
+  l.392), so a module that declares a permission of a profile the deployment has not selected cannot be
+  started there at all.
+- **Impact:** a module with a declared permission and no saved settings starts on one Runtime and is
+  refused on another. A policy author cannot tell whether a grant for execution has to name the declared
+  permissions. A package that declares a permission it can do without is portable only under the second
+  reading.
+- **Reading an implementation needs today:** request the execution scope together with one scope for each
+  permission of the saved settings, so that an instance with empty settings needs the execution scope
+  alone.
+- **Overlap:** TF-10 (the state after a start that authorization refuses), TL-04 (the rejection of an
+  unknown permission has no assigned code).
+- **Suggested resolution:** define in CA §3.3 which permission scopes an execution decision requires,
+  those of the instance's saved settings or those of its declaration, and say whether a declared
+  permission that the settings omit prevents the start.
+
+#### TF-33 — How an established route is re-authorized after a policy change is not stated: the request, its timing, the new expiry, a failed evaluation and the recorded cause
+- **Specs:** CA l.290-292 ("An allow decision permits Runtime to create or renew a route within the
+  allowed scope; it does not create the route"; "An allow decision used to keep a route or provider
+  session usable MUST contain `valid_until`"), l.869-872 (after loss of the notification path, "Runtime
+  MAY retain allocated routes or sessions while obtaining a fresh decision, but they MUST remain unusable
+  for protected operations until reauthorized"), l.894 ("On `policy_changed`, Runtime MUST invalidate
+  every cached decision from that Capability Authority"), l.906-911 ("After processing a policy-change
+  notification, Runtime MUST re-evaluate dependent operations before admitting another protected
+  operation"; "It MUST make a dependent route unusable when the new decision denies the route or narrows
+  its scope below the route's bound scope"); RUNTIME l.1732-1733 ("Authority to establish or renew the
+  route does not itself authorize the call"), l.2502-2505 (among the failure codes, `authority-denied` is
+  "A policy decision denies the route access" and `authority-revoked` is "The route authority has been
+  explicitly withdrawn"), l.2520 ("a route record in `failed` or `revoked` state MUST include `failure`"),
+  l.3164-3165 ("An allow decision used for an established route MUST have a validity end, and `expires_at`
+  MUST NOT be later than that end"), l.3183-3184 ("`renew_route` preserves the route identity, consumer,
+  selected provider, contract, and access scope"; "It performs a new authority check and may extend
+  `expires_at` and replace `decision_id`").
+- **Issue:** after a policy change an established route depends on a new decision (CA l.910). The text
+  gives the result of a deny and of a narrowing allow, and leaves open how and when that decision is
+  obtained and what else it changes.
+  1. The request. Two kinds of decision stand behind a route: the one that established or last renewed it,
+     and one for each call (RUNTIME l.1732-1733). The new decision for the route is presumably a renewal
+     that Runtime evaluates by itself, with no `renew_route` from the consumer. Whether that is meant, or
+     whether the next call's decision is enough, is not said.
+  2. The timing. "before admitting another protected operation" (CA l.906) allows the evaluation when the
+     notification is processed, for every dependent route, or at each route's next use. Under the second,
+     the route of an idle consumer stays `ready` in every record and list although policy now denies it,
+     and `route_state_changed_event` is produced only when the consumer next calls.
+  3. The expiry and the decision id. A consumer's renewal "may extend `expires_at` and replace
+     `decision_id`" (RUNTIME l.3184). For a re-authorization that Runtime starts, nothing says whether the
+     record takes the new decision's id, or whether `expires_at` may move later. That it must move earlier
+     when the new validity end is earlier follows from l.3165.
+  4. An evaluation that fails. If the authority cannot be reached, the route is neither denied nor
+     allowed. After loss of the notification path a route stays allocated and "unusable for protected
+     operations until reauthorized" (CA l.872). For a policy change the text names only the deny and the
+     narrowing. Whether the route stays `ready` and refuses operations, or becomes `failed` with
+     `authority-evaluation-failed`, and whether a later allow restores it, is not said.
+  5. The recorded cause. For a deny, `authority-denied` and `authority-revoked` both fit their definitions
+     (RUNTIME l.2502, l.2505). For an allow narrower than the bound scope neither fits plainly. The state,
+     `revoked` or `failed`, is given for neither case.
+- **Impact:** after the same policy change, routes stop working at different times on two Runtimes, and
+  their records show different states, failure codes, decision ids and expiry times. An observer of route
+  state sees a denied route as `ready` on one of them for as long as its consumer is idle.
+- **Reading an implementation needs today:** when the notification is processed, evaluate each dependent
+  route as a renewal. On an allow that covers the bound scope keep the route, record the new decision id,
+  and set `expires_at` to the earlier of its old value and the new validity end. On a deny or a narrowing
+  allow, revoke the route with `authority-denied`. On a failed evaluation treat the route as CA l.872
+  treats loss of the notification path: keep it, refuse protected operations, and evaluate again at its
+  next use.
+- **Overlap:** TF-17 (a renewal that the consumer requests and policy denies), NA-07 (event deliveries
+  after a policy change; answered), NA-03, TL-03, TF-24.
+- **Suggested resolution:** say beside CA l.906-911 that re-evaluating a dependent route is a renewal
+  evaluated by Runtime, when it has to happen, and what it does to `expires_at` and `decision_id`; and
+  give the route state and failure code for a deny, for a narrowing allow and for a failed evaluation.
+
+#### TF-34 — Which fields of a record the selectors of a Runtime Control scope are compared with is not stated
+- **Specs:** CA l.180-190 (`runtime_control_scope` has the optional selectors `modules`, `instances`,
+  `providers` and `routes`), §3.2 l.306-309 ("The remaining optional fields constrain the module, module
+  instance, provider, or route records that may be observed or targeted"; "Every present constraint MUST
+  match the attempted operation or returned observation"); l.565-567 ("For Runtime Control scopes that
+  differ only in their subject selectors, those selectors are alternatives"; "Runtime MUST NOT combine
+  selector fields from different alternatives to admit a subject that no individual alternative permits");
+  RUNTIME l.2103-2108 (`route_record` has the required fields `route`, `consumer`, `target_provider` and
+  `module`, and an optional `instance`), l.2952 ("The `consumer` field on a `route_record` identifies the
+  consumer whose authority the route represents"), l.3373-3375 ("Runtime MUST apply method authorization,
+  scope constraints, record visibility, and optional-field redaction before creating that snapshot"; "A
+  record whose required fields or identity key cannot be disclosed MUST be omitted"), l.3496-3498 (a
+  module event about a local instance "MUST include its exact `instance` and omit `provider`"; "Event
+  observation authority MUST be checked for that exact instance or provider before delivery commitment"),
+  l.3663 (in a lifecycle request, "a provider selector naming a local module implementation MUST produce
+  `INVALID_PARAMS`"), l.3732-3735 ("Runtime MUST deliver Runtime Control state events only while the
+  authenticated subscriber remains authorized to observe the referenced module, provider, or route"; "A
+  Runtime Control subscription MUST NOT reveal unrelated provider inventory, route state, event
+  publishers, or subscribers").
+- **Issue:** every present selector "MUST match the attempted operation or returned observation" (CA
+  l.308), and a record can hold more than one value of the kind a selector names, or none. Which value is
+  compared is not said.
+  1. A route record names two parties: the consumer, which is a module instance, and the provider, with
+     the provider's module name and its optional instance. An `instances` selector can be compared with
+     the consumer's instance, with the provider's, with either, or with both. A scope written to let a
+     module watch the routes into its provider, and one written to let it watch the routes it consumes,
+     look the same.
+  2. A selector for a fact the record does not carry. A module event about a local instance carries no
+     provider (RUNTIME l.3496), and a listener record carries no instance. The selector is present, and
+     whether it then fails to match, which hides the record, or does not apply, is not said. A `providers`
+     selector that names the provider of a local instance is the common case.
+  3. The consumer of a route. `consumer` is a required field of the record, so a record whose consumer may
+     not be disclosed is omitted whole (RUNTIME l.3374). No selector says that an observer may learn who
+     consumes a provider. If a scope that selects the provider is enough to show the record, every
+     observer of a provider learns its consumers, which sits badly with l.3734-3735.
+- **Impact:** the same grant shows different route records and delivers different state events on two
+  Runtimes. A policy author cannot write a scope for the routes into one provider, or for the routes of
+  one consumer, and know what it admits. Under one reading, authority to observe a provider discloses the
+  address of each of its consumers.
+- **Reading an implementation needs today:** compare each selector with the subject's own facts and never
+  with the consumer of a route: for a route record, `routes` with the route id, `providers` with
+  `target_provider`, and `modules` and `instances` with the provider's. A selector that names a fact the
+  subject does not carry does not match.
+- **Overlap:** TF-09 (which scope counts as observation authority), NO-01.
+- **Suggested resolution:** state in CA §3.2 or RUNTIME §9, for each kind of record and event, the field
+  each selector is compared with, what a selector means for a record without that field, and which
+  authority discloses the consumer of a route.
+
+#### TF-35 — A Runtime Control subscription that the Runtime stops serving gives its subscriber no signal
+- **Specs:** INTERFACE l.1461-1464 ("A subscription exists only while its route is ready"; "the binding
+  MUST deactivate every subscription on that route and MUST NOT begin another handler invocation"),
+  l.1474-1476 ("The route handle also provides `observe_end` for local termination notification"; "It
+  requires no additional observation authority and MUST be supported in every invocation mode"), l.3837
+  (the Runtime Control `subscribe` and `unsubscribe` operations "apply the subscription semantics in
+  Section 2.5"); TRANSPORT l.801 ("A callee MUST NOT silently discard an Event committed to an active
+  subscription"), l.812-813 ("Connection closure is the observable failure boundary and terminates every
+  subscription on that connection"), l.815 ("An implementation MUST document which overflow actions may
+  occur for transported event output and the conditions selecting them"); RUNTIME l.3426-3428 ("Connection
+  or subscription loss requires resubscription and a fresh query"; "Observers requiring a refreshed
+  inventory MUST query it, including periodic resynchronization when uninterrupted hint delivery or
+  continued visibility cannot be established"), l.3511 ("Queries can resynchronize observation after
+  missed events or uncertain request outcomes"), l.3732-3733 ("Runtime MUST deliver Runtime Control state
+  events only while the authenticated subscriber remains authorized to observe the referenced module,
+  provider, or route").
+- **Issue:** a module subscribes to Runtime Control events through the binding it receives at
+  initialization. That binding is not a route: it has no route state and no `observe_end`. Runtime can
+  nevertheless stop serving such a subscription. The subscriber's authority to observe can end (RUNTIME
+  l.3732-3733), and events can be committed faster than the handler returns, until the bound that Runtime
+  keeps for them is reached. For a transported subscriber the second case ends in backpressure or in a
+  closed connection, which the subscriber sees (TRANSPORT l.812-813). For the local binding two things are
+  not said.
+  1. What Runtime may do at its bound: end the subscription, drop events from it, or hold up the operation
+     that commits the change (see TF-22).
+  2. How the subscriber learns of it. RUNTIME l.3426 tells an observer what to do after subscription loss,
+     and no operation, result or event reports that loss on a Runtime Control binding. A subscriber that
+     was cut off holds a subscription that looks active and receives nothing.
+
+  The inventory hint has a fallback, periodic resynchronization (RUNTIME l.3428). The state events have
+  l.3511 only, and it helps an observer that knows events were missed.
+- **Impact:** an orchestration module that drives recovery from state events cannot tell a quiet
+  deployment from a lost subscription, and has to poll at an interval of its own choosing to be correct.
+  Under load one Runtime delays lifecycle operations, another drops events and a third ends the
+  subscription, and the subscriber cannot tell which.
+- **Reading an implementation needs today:** bound the pending events of each subscription; when the bound
+  is reached end the subscription, never drop single events from it, and record a diagnostic. Subscribers
+  that act on state events resynchronize periodically.
+- **Overlap:** TF-22 (the thread and the time of delivery), NE-05 (a slow transported subscriber), TF-09,
+  TF-24.
+- **Suggested resolution:** give the Runtime Control binding a way to report the end of a subscription, as
+  a route handle has `observe_end`; or state that Runtime never ends or thins a local Runtime Control
+  subscription and holds up the committing operation instead.
+
+#### TF-36 — Whether a realization mechanism that is not the Module Loader may report LOADER's strategy names and error codes is not stated
+- **Specs:** RUNTIME l.27 ("An implementation may conform to this specification without implementing
+  Module Loader"), l.38 ("An implementation conforming only to this specification MAY use
+  implementation-local mechanisms for those concerns"), l.212 ("An implementation-local realization
+  mechanism or a bound Module Loader provider may realize accepted implementations"), l.2309-2316 (the
+  `implementation` record is `direct_static`, `direct_dynamic`, `hosted_dynamic` with a placement, or
+  `implementation-specific`), l.3527-3528 ("The implementation record reports the selected realization
+  strategy and, for `hosted_dynamic`, its concrete placement as defined by LOGOS-MODULE-LOADER"; "Other
+  realization mechanisms MUST use `implementation-specific`; transport mode alone does not establish a
+  concrete placement"), l.3754 ("When the cause is a typed Module Loader error and no more specific
+  Runtime classification applies, the classification MUST be `loader-` followed by that error's defined
+  code"); LOADER l.23-26 ("Every Module Loader provider MUST be a local module provider backed by a local
+  module instance"; "An implementation MAY co-locate or statically link Module Loader code, but Runtime
+  MUST represent that code as a direct local module instance"), l.120-122 (a realization strategy is "one
+  of the three ways Module Loader applies the canonical module ABI").
+- **Issue:** a Runtime with no Module Loader instance realizes modules through a mechanism of its own
+  (RUNTIME l.212). That is a Runtime which claims RUNTIME alone, since a complete system realizes every
+  local module through the bound Module Loader (BCP l.289). Such a mechanism commonly does what LOADER's
+  direct strategies describe: it binds a statically linked module, or loads a library and applies the
+  native ABI. "Other realization mechanisms MUST use `implementation-specific`" (RUNTIME l.3528), and
+  other than what is not said. On one reading it means other than the three strategies, so a local
+  mechanism that performs a static binding reports `direct_static`. On the other it means other than the
+  Module Loader, so a Runtime without a Loader instance reports `implementation-specific` for every
+  module, and an observer cannot tell a static binding from a loaded library. LOADER defines a strategy as
+  a way the Module Loader applies the ABI (l.121), which supports the second reading. Failures raise the
+  same question: RUNTIME l.3754 ties the `loader-` classifications to "a typed Module Loader error", so a
+  local mechanism that fails for a cause LOADER's codes name reports either that `loader-` code or
+  `other`.
+- **Impact:** small. The execution summary and the failure classification of the same module differ
+  between a Runtime that has a Loader instance and one that does not, and a tool that shows the strategy
+  or keys on `loader-` codes loses both on the second.
+- **Reading an implementation needs today:** report `implementation-specific`, and no `loader-`
+  classification, unless a Module Loader instance performed the realization.
+- **Overlap:** TF-08 (statically linked modules), TF-29.
+- **Suggested resolution:** one sentence at RUNTIME l.3528 and one at l.3754 saying whether an
+  implementation-local mechanism that follows a LOADER strategy may report that strategy's name and
+  LOADER's error codes.
 
 ### 3.2 The system contracts, checked against their own rules
 
@@ -1217,16 +1672,29 @@ What came back clean is listed in Appendix F. The items below are what did not.
   `invalid-request` (l.714, l.1132), `grant-not-active` (l.745), `grant-not-found` (l.1390),
   `authority-unavailable` (l.1345). MUST-reject rules with no code: l.138 (unordered or duplicate
   set-valued array), l.392 (unknown permission or invalid constraints). By contrast LOADER l.620-631 and
-  PM l.1474-1485 define every value.
+  PM l.1474-1485 define every value. Related rules: l.484-486 (a request may carry several scopes "when
+  the operation requires multiple simultaneous constraints"; "An evaluation request MUST NOT combine
+  independent operations"), l.744 ("Revoking an already revoked grant is idempotent and returns its
+  current record"), l.1167-1168 ("Capability Authority MUST produce an audit record for each evaluation
+  result or failure, grant issuance, grant revocation, grant expiry, and policy change"), l.1389-1390
+  ("After method authorization, an unknown grant and a grant hidden from the consumer both produce
+  `grant-not-found`").
 - **Issue:** no sentence says when a CA returns `scope-denied` rather than `not-granted`, which denial
   codes apply to `evaluate` and which to `issue_grant`, or what `not-authorised` is for: a policy refusal
   is by definition not an `error`, yet `revoke_grant_response` has no `denial` arm (l.662-664) and its
-  audit outcomes are only `success` and `failure` (l.1150).
+  audit outcomes are only `success` and `failure` (l.1150). Three further points have no rule. The order
+  among the outcomes: the one fixed step is that hiding a grant comes after method authorization
+  (l.1389-1390), and an authority that resolves a named grant or target before it has found a rule that
+  lets the caller act on it shows, through the code, whether that grant or target exists. A repeated
+  revocation is idempotent (l.744), and whether it writes a second audit record under l.1167-1168 is not
+  said. Which scope kinds one request may combine as a single operation, beyond execution with permissions
+  (l.484-486), and the code for a request that combines two operations, are not given.
 - **Impact:** two CA providers pick different codes for one condition; Runtime's mapping to its own
   channels and the audit trail differ; no conformance test can assert a value.
 - **Overlap:** the EC group lists codes the specs need and do not assign; this is the converse.
-- **Suggested resolution:** a one-line definition per value in CA §5 and §7, as LOADER §10 has, and a
-  `denial` arm (or a stated code) for a refused revocation.
+- **Suggested resolution:** a one-line definition per value in CA §5 and §7, as LOADER §10 has, a `denial`
+  arm (or a stated code) for a refused revocation, the order of the checks, whether a repeated revocation
+  is audited, and the scope combinations that one evaluation request may carry.
 
 #### TL-05 — "Consume by schema reference" is promised for types that the schema rules make unreferenceable
 - **Specs:** LOADER §3 l.142-144 ("`logos.module_loader.realization_descriptor` is the canonical
@@ -1300,15 +1768,22 @@ What came back clean is listed in Appendix F. The items below are what did not.
   intent, attempt and lifecycle-state changes only), l.611 (cleanup completion is not a lifecycle
   transition), l.613 (`start_module` is refused while cleanup is unresolved), l.3538 (`recover_module`
   requires that "cleanup of any previous realization is complete"), l.3563 (`retire_module` requires
-  the same).
+  the same), l.2052-2056 (`execution_state` has `revision`, `intent` and an optional `intent_revision`),
+  l.3511 ("Queries can resynchronize observation after missed events or uncertain request outcomes"),
+  l.3789 ("retry accounting MUST survive orchestration restart and lost responses").
 - **Issue:** a change of `realization` (cleanup completing while the state stays `error`) or of
   `selection` produces no event and no revision. The `inventory_changed` hints do not cover it:
-  `module_record` has neither field.
+  `module_record` has neither field. The state also carries no mark of an accepted attempt (l.2052-2056).
+  After a lost `recover_module` response, orchestration has only the revision to compare (l.3511), and the
+  revision advances for intent and state changes as well as for attempts (l.3504). A changed revision
+  therefore does not show that the attempt was accepted, and the retry accounting that l.3789 requires
+  across lost responses has nothing certain to count.
 - **Impact:** cleanup completion is a precondition of three operations, so orchestration has to poll
   `get_execution_summary` to learn when it may start, recover or retire.
 - **Overlap:** NO-02 (answered by inventory hints), NL-06.
 - **Suggested resolution:** advance the execution revision and emit the event on `realization` and
-  `selection` changes, and carry both in the event.
+  `selection` changes, and carry both in the event. Add to `execution_state` the revision at which the
+  last execution attempt was accepted, so that a lost response can be settled.
 
 #### TL-09 — Configuration summary for an instance without a binding: `state_revision` is required and undefined
 - **Specs:** CONFIG §1 l.50 (`get_configuration_summary` is the only operation allowed without a
@@ -1925,6 +2400,39 @@ holds keys. A and B stand for other modules and are local to one item.
   exports `submit` is left to inference. Such a provider exports it to avoid holding a thread for each
   call, or to receive `request_cancel` (INTERFACE l.2144), and gets neither from a Runtime that ignores
   the descriptor.
+- RUNTIME l.2541 gives a new instance "an empty permission array, status `applied`, and no failure", and
+  l.2549 says "`applied` means the saved settings are enforced". With empty settings every permission is
+  denied (l.2538). For a direct native realization nothing can enforce that denial: "Runtime MUST NOT
+  claim containment against code that can access Runtime memory or unrestricted process resources" (CA
+  l.366). l.2545 says that the initial `applied` state "does not grant execution or operating-system
+  access", which is less than saying it is enforced. A sentence saying what `applied` asserts for a
+  realization with no containment mechanism would remove the doubt.
+- TRANSPORT l.418-419: an endpoint that has not completed its part of the Hello exchange accepts only
+  Hello or ProtocolError, and "A wrong-direction message or an ordinary message received before that point
+  MUST produce ProtocolError `INVALID_PARAMS`". A peer may write its Hello and its first Request back to
+  back. The Request is then received before the receiver has finished the Hello and is processed after it,
+  since "Messages on a single stream connection are processed in order" (l.397). Whether "received before
+  that point" is judged by arrival or by processing order is left to inference. Saying that it is
+  processing order would settle it.
+- INTERFACE l.397: "If active policy requires retaining a marked payload's value commitment, Runtime MUST
+  reject the invocation before dispatch rather than retain it or omit the policy requirement". The
+  rejection has no code.
+- CA l.1192-1194: a `call` audit record uses the `failure` outcome when "a required value was not produced
+  or could not be committed", and "A successful call record MUST contain non-empty `commitments`". When
+  every required value was committed and the provider then returns an error, for example when only the
+  request commitment is required, whether the outcome is `success` or `failure` is not said.
+- A Runtime instance is "composed of a Runtime engine and an orchestration module" (RUNTIME l.72), and the
+  orchestration module is an ordinary module that the deployment binds ("Deployment MUST bind the
+  orchestration role to a local module instance owned by that Runtime", l.187). RUNTIME places
+  requirements on each, for example l.3786 ("The orchestration module MUST evaluate the active restart
+  policy and schedule permitted recovery through `recover_module`") and l.3795 ("The Runtime engine MUST
+  detect realization failure, mark the instance as `error`, fail its routes, and arrange cleanup through
+  the mechanism that established the realization"). BCP §5.1 knows two claims: conformance "to an
+  individual Core specification" (l.280) and conformance to the BCP as a complete system (l.287). An
+  implementation that supplies the engine and leaves the orchestration module to the deployment fits
+  neither, and the specs name no claim for the engine alone. Saying which requirements of RUNTIME bind the
+  engine and which bind the orchestration module, and that the first set can be claimed by itself, would
+  settle it.
 
 ---
 
