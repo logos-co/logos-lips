@@ -147,7 +147,6 @@ class ProofOfLeadershipWitness:
     set_aged_path: list[zkhash]               # path of the leaf of the set to eligible_aged (len = ELIGIBLE_DEPTH)
     low_leaf_nullifier: NoteNullifier         # greatest nullifier of the set lower than the note nullifier
     low_leaf_next_nullifier: NoteNullifier    # next greater nullifier of the set, 0 if none
-    low_leaf_next_index: int                  # index of the IMT leaf holding low_leaf_next_nullifier, 0 if none
     low_leaf_path: list[zkhash]               # path of the IMT leaf of low_leaf_nullifier (len = NOTE_SET_DEPTH)
     low_leaf_selectors: list[boolean]         # selectors of low_leaf_path
     commitment_root_latest: MerkleRoot        # latest commitment MMR root of the set
@@ -192,8 +191,7 @@ Such that the following constraints hold:
   nullifier = zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), commitment, nf_sk)
   low_leaf = zkhash(FiniteField(b"NULLIFIER_IMT_LEAF_V1", byte_order="little", modulus= p),
       low_leaf_nullifier,
-      low_leaf_next_nullifier,
-      FiniteField(low_leaf_next_index, byte_order="little", modulus= p))
+      low_leaf_next_nullifier)
   nullifier_root_latest = path_root(leaf=low_leaf,
       path=low_leaf_path,
       selectors=low_leaf_selectors)
