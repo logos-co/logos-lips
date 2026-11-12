@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-05 |
 | 1.0.1 | Updated project references to Logos Blockchain | 2026-04-17 |
 | 1.1.0 | Fixed the master key generation personalization string to a valid 16-byte value; aligned the public key derivation with the [Mantle specification](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature) (`KDF` DST, compression mode, applied to the Logos key); specified the final Poseidon2 step as hash mode with the `WALLET_ZK_SK_V1` DST; clarified that extended public keys derive no children | 2026-09-03 |
+| 1.2.0 | Added the note tracking a wallet keeps to spend its notes and to participate in the leadership lottery, over the note sets of depth 40, the root a wallet proves against, a fixed number of blocks below its tip, and the leader reward notes, which it keeps with their private nonce, recovery from the seed alone not finding them | 2026-10-07 |
 
 # Introduction
 
@@ -115,7 +116,7 @@ k_logos = zkhash(
 )  # Poseidon2 hash mode, a single field element
 ```
 
-$`k_{\text{logos}}`$ is the `ZkSecretKey` used on the network. The corresponding public key is derived exactly as the [Mantle specification](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature) prescribes, with Poseidon2 in compression mode and the `KDF` DST:
+$`k_{\text{logos}}`$ is the `ZkSecretKey` used on the network. The corresponding public key is derived exactly as the [Mantle specification](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) prescribes, with Poseidon2 in compression mode and the `KDF` DST:
 
 ```python
 public_key = zkhash(FiniteField(b"KDF", byte_order="little", modulus=p), k_logos)  # compression mode
@@ -124,6 +125,109 @@ public_key = zkhash(FiniteField(b"KDF", byte_order="little", modulus=p), k_logos
 This wallet-side step is not part of any circuit, so the DST costs nothing in proving time while preventing $`k_{\text{logos}}`$ from colliding with any other Poseidon2 output computed over the same field elements. Only the `KDF` derivation of the public key is evaluated inside proofs, and it hashes a single field element thanks to this compression.
 
   **Why not use Poseidon2 for the full derivation?** While Poseidon2 is optimized for ZK circuits, its long-term stability and parameterization are still evolving. General-purpose hash functions like Blake2b offer a more stable and audited base layer. By introducing Poseidon2 only at the last compression step we isolate ZK-dependencies from the rest of the key derivation path. This ensures the wallet hierarchy remains valid even if Poseidon2 parameters are updated.
+
+## Note Tracking
+
+The [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger) only holds note commitments and nullifiers, in note sets: the ledger note set, the SDP note set and one note set per channel but the null channel, each with its own commitment [Merkle Mountain Range](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) (MMR) and [nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) (IMT). To spend its notes and to participate in the leadership lottery, a wallet keeps the data its proofs need for every note it owns, in the note set the note belongs to.
+
+To spend a note with a [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer), the wallet keeps:
+
+- The note `(value, nonce, public_key)`, its note set, and its `commitment = derive_note_commitment(note)`, derived as in [Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier).
+- The Merkle path of `commitment` to the root of the MMR peak holding it. With the other peaks of the MMR, which are public and served by any node, this path proves `commitment` in the MMR root. A ZkTransfer is proven against the commitment root of the note set at one of the last [`ROOT_WINDOW`](bedrock-v1.1-mantle-specification.md#ledger) blocks, so the wallet keeps the path up to date with the commitments appended to the MMR of the set. The root a proof names is public, and every block makes the root at its height specific to its fork, so a proof against the tip root is lost with that block. A wallet should prove against the root a fixed number of blocks below its tip, the same number for every wallet, for example 4, or the root of the latest immutable block if that is shallower, so that the root points at none of its notes and the proof survives a fork up to that depth. A note of a block younger than that one is not under this root, and the wallet should not spend it until it is, since a root younger than the fixed depth would reveal when the note was created. The cost is that a note waits, change included. A note created earlier in the same Mantle Transaction does not wait, since it reaches the proof through the commitment buffer on that same root: when an earlier Operation of the transaction adds commitments to the set, such as a proof of work claim followed by the Transfer spending its note, the proof is against that root extended with the commitment buffer of the set ([Validation](bedrock-v1.1-mantle-specification.md#validation)), and the wallet appends the buffered commitments with `append_commitment`, defined below, to copies of its peaks and of the paths of its notes in that set before proving, and keeps its own peaks and paths unchanged. A proof in a mini-block of an inscription is against that root extended with the buffer before the mini-block, whose commitments the sequencer provides.
+- The `nullifier = derive_note_nullifier(commitment, sk)`, where `sk` is the `ZkSecretKey` of the note. The note is spent once `nullifier` is in the nullifier set of its note set, whichever wallet instance spent it. Two identical notes share their nullifier and only one of them can be spent, so a wallet should count a received note only at the first occurrence of its commitment in its note set.
+
+To prove its leadership with a note ([Proof of Leadership](cryptarchia-proof-of-leadership.md#eligible-sets)), the wallet also keeps:
+
+- The Merkle path of `commitment` to the commitment root of its note set at the epoch snapshot, fixed for the epoch, and the path of the leaf of the set in the eligible tree of the snapshot. For the [Proof of Quota](proof-of-quota.md), it also keeps the leaf of the nullifier IMT of its note set at the snapshot holding the greatest nullifier lower than `nullifier`, and its Merkle path, fixed for the epoch.
+- The leaf of the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of its note set holding the greatest nullifier lower than `nullifier`, and its Merkle path to the latest root of that IMT, with the path of the leaf of the set in the latest eligible tree. This leaf and its path change whenever a nullifier is inserted in the set. A wallet should update them at every block, whether or not one of its notes wins: the data must be fresh at the winning slot, so requests made only when a note wins tell the serving node when the wallet wins.
+
+Requesting these paths from a third party reveals which commitments and nullifiers the wallet owns. A wallet that follows every commitment appended to the MMR and every nullifier inserted in the IMT of the note sets it holds notes in computes its paths locally. Following only some note sets still reveals, to the node serving them, which sets the wallet holds notes in and since when; a wallet that follows every set reveals nothing. The roots of the other note sets, which the paths in the eligible tree need, are public. A service provider could also serve the paths through private information retrieval, without learning which ones the wallet requests, once the wallet knows the index to request. The first low leaf of a note is the predecessor of `nullifier` among all the nullifiers of its set, and its index depends on `nullifier`, so a wallet finds it locally only if it holds all the nullifiers of the set.
+
+The wallet should keep its peaks, the paths of its notes and their low leaves as of every block that is not yet immutable. On a reorganization, it restores those of the fork block, then applies the new branch.
+
+A peak of the MMR is a perfect Merkle tree, which never changes once built: appending a commitment only adds a peak of height 0, and merges the last two peaks while they have the same height. The path of `commitment` inside its peak therefore only grows, by one node each time its peak is merged, which happens at most [`NOTE_SET_DEPTH`](bedrock-v1.1-mantle-specification.md#ledger) times. The wallet keeps a copy of the peaks, with their heights given by the binary decomposition of the number of commitments, and updates the paths of its notes while appending the commitments of each block:
+
+```python
+class OwnedNote:
+    note: Note
+    commitment: NoteCommitment
+    nullifier: NoteNullifier
+    peak: int                   # index of the peak holding commitment
+    path: list[zkhash]          # Merkle path of commitment to the root of its peak, from the leaf up
+    selectors: list[bool]       # at each level, 1 when the path node is on the left, as in Mantle
+
+def append_commitment(peaks: list[(zkhash, int)], notes: list[OwnedNote], commitment: NoteCommitment,
+                      owned: OwnedNote | None = None):
+    # peaks holds the (root, height) of every peak, from left to right
+    # owned is the note of commitment, with an empty path, when the wallet owns it
+    peaks.append((commitment, 0))
+    if owned is not None:
+        owned.peak = len(peaks) - 1
+        notes.append(owned)
+    while len(peaks) > 1 and peaks[-1][1] == peaks[-2][1]:
+        (left, height), (right, _) = peaks[-2], peaks[-1]
+        for note in notes:
+            if note.peak == len(peaks) - 2:
+                # commitment is in the left peak, its new complementary node is the right peak
+                note.path.append(right)
+                note.selectors.append(0)
+            elif note.peak == len(peaks) - 1:
+                # commitment is in the right peak, its new complementary node is the left peak
+                note.path.append(left)
+                note.selectors.append(1)
+                note.peak -= 1
+        peaks[-2:] = [(zkhash(left, right), height + 1)]
+```
+
+A note the wallet owns is passed as `owned` with an empty path, and joins `notes` right after `peaks.append((commitment, 0))`, before the merges of its own append. Only the notes whose peak is merged are updated, so following a block costs one hash per merge. The path of a note to the commitment root of its note set at the epoch snapshot is the path it holds at the snapshot, completed with the peaks of the snapshot.
+
+Inserting a nullifier changes exactly two leaves of the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree): the appended leaf and the leaf of the greatest nullifier lower than the inserted one. Every insertion is public, so a wallet fetching the leaves and Merkle paths of these two positions, as they stand after each insertion, reveals nothing about the notes it owns when it fetches them at every block. From them, it updates the low leaf of each of its notes in that set and its path with at most `NOTE_SET_DEPTH` hashes per changed leaf:
+
+```python
+class TrackedLowLeaf:
+    nullifier: NoteNullifier    # nullifier of the owned note
+    index: int                  # index of the IMT leaf holding the greatest nullifier lower than nullifier
+    leaf: NullifierLeaf         # that leaf, as Mantle defines it
+    path: list[zkhash]          # Merkle path of the leaf to the IMT root (len = NOTE_SET_DEPTH)
+
+def branch_nodes(leaf_hash: zkhash, index: int, path: list[zkhash]) -> list[zkhash]:
+    # nodes of the branch of index, from the leaf up to the root
+    nodes = [leaf_hash]
+    for height in range(NOTE_SET_DEPTH):
+        if (index >> height) & 1:
+            nodes.append(zkhash(path[height], nodes[-1]))
+        else:
+            nodes.append(zkhash(nodes[-1], path[height]))
+    return nodes
+
+def update_path(tracked: TrackedLowLeaf, index: int, leaf: NullifierLeaf, path: list[zkhash]):
+    # replace the nodes of tracked.path that lie on the branch of the changed leaf
+    nodes = branch_nodes(nullifier_leaf_hash(leaf), index, path)
+    for height in range(NOTE_SET_DEPTH):
+        if (index >> height) == ((tracked.index >> height) ^ 1):
+            tracked.path[height] = nodes[height]
+
+def on_nullifier_inserted(tracked: TrackedLowLeaf, inserted_nullifier: NoteNullifier,
+                          low_index: int, low_leaf: NullifierLeaf, low_path: list[zkhash],
+                          new_index: int, new_leaf: NullifierLeaf, new_path: list[zkhash]):
+    # low_ is the leaf of the greatest nullifier lower than the inserted one and new_ the appended
+    # leaf, each with its index and its path after the insertion
+    if low_index == tracked.index and inserted_nullifier < tracked.nullifier:
+        # the inserted nullifier is now the greatest one lower than tracked.nullifier
+        tracked.index, tracked.leaf, tracked.path = new_index, new_leaf, new_path
+    elif low_index == tracked.index:
+        # only the pointer of the tracked leaf moved to the inserted nullifier
+        tracked.leaf, tracked.path = low_leaf, low_path
+    else:
+        update_path(tracked, low_index, low_leaf, low_path)
+        update_path(tracked, new_index, new_leaf, new_path)
+```
+
+### Leader Reward Notes
+
+The leader of a block chooses the public key and the nonce of its reward note ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)). The key can be any key of the wallet and can be reused for any number of blocks. The nonce has to be private and unpredictable, since a guessable nonce with a known key links its blocks: given the public value of a reward, anyone holding the key can test the nonce against the commitment. Two rewards of the same value under the same key and nonce are identical notes, of which only one can be spent. A wallet should therefore draw the nonce of each reward at random.
+
+The wallet keeps the note it created, with its nonce, and tracks it in the ledger note set, as it keeps any note. The header holds only the value and the commitment of the note, so recovery from the seed alone does not find a reward note: it depends on the wallet's backup of its notes. A reward note of value `0` can pay nothing, so a wallet has no need to keep it.
 
 # References
 

@@ -49,6 +49,7 @@
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
 | 1.18.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, `SDP_WITHDRAW` no longer names the note, and a `nonce` carries the `created` epoch of its declaration | 2026-10-27 |
 | 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
+| 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each with its own inscription, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and independent of the epoch nonce, and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A declaration names in `note_pk` the key of its service note, and `SDP_WITHDRAW` carries no nonce, consumes the service note, and releases its outputs with the channel withdrawals when its declaration is removed. A channel deposit carries an `inscription`. The commitment MMR and the nullifier IMT of a note set have depth `NOTE_SET_DEPTH` = 40, and a commitment root stays recent for `ROOT_WINDOW` = 1024 blocks | 2026-11-06 |
 
 # Introduction
 
@@ -56,21 +57,21 @@ Mantle is a foundational element of Bedrock, designed to provide a minimal and e
 
 Mantle Transactions provide Operations for Zones and blockchain Services to interact with Bedrock. For example, a Zone sequencer posting an update to Bedrock, or a node operator declaring its participation in the Blend Network, would be done through the corresponding Operations within a Mantle Transaction.
 
-Mantle manages assets using a note-based ledger that follows an UTXO model. Each Mantle Transaction can include Transfer Operation, and any excess balance serves as the fee payment.
+Mantle manages assets using a private note-based ledger that follows an UTXO model. Each Mantle Transaction can include Transfer Operation, and any excess balance serves as the fee payment.
 
 # Overview
 
 ## Mantle Transaction
 
-The features of the Logos Blockchain are exposed through Mantle Transactions. Each transaction can contain zero or more **Operations**. Mantle Transactions enable users to execute multiple Operations atomically: the Operations are applied one after the other in the order they appear, and either all of them take effect or none does.
+The features of the Logos Blockchain are exposed through Mantle Transactions. Each transaction can contain one or more **Operations**. Mantle Transactions enable users to execute multiple Operations atomically: the Operations are applied one after the other in the order they appear, and either all of them take effect or none does.
 
 ## Mantle Operations
 
-Logos Blockchain features are exposed through Mantle Operations, which can be combined in a single Mantle Transaction and executed atomically. These Operations enable transfers and functions such as on-chain data posting, Cross-Zone interactions, SDP interaction, and leader reward claims.
+Logos Blockchain features are exposed through Mantle Operations, which can be combined in a single Mantle Transaction and validated atomically. These Operations enable transfers and functions such as on-chain data posting, Cross-Zone interactions and SDP interaction.
 
 ## Mantle Ledger
 
-The Mantle Ledger enables asset transfers using a transparent UTXO model. While a Transfer Operation can consume more tokens than it creates, the Mantle Transaction excess balance must exactly pay for the fees. The ledger tracks three kinds of notes: regular notes, service notes (collateral for service declarations) and channel notes (channel bridge funds eligible for PoS participation only).
+The Mantle Ledger enables asset transfers using a private note-based ledger. The ledger tracks three kinds of notes, each in note sets of its own: regular notes, service notes (collateral for service declarations) and channel notes (channel bridge funds). All of them participate in Proof of Stake. Each note set has a commitment Merkle Mountain Range (MMR) and a nullifier Indexed Merkle Tree (IMT).
 
 ## Transaction Fees
 
@@ -78,12 +79,12 @@ Mantle Transaction fees are derived from a gas model. The Logos Blockchain has t
 
 | Gas Market | Charged On | Pricing Basis |
 | --- | --- | --- |
-| Execution Gas | Operations | Fixed per Operation |
+| Execution Gas | Operations | Operation dependent |
 | Permanent Storage Gas | Signed Mantle Transaction | Proportional to encoded size |
 
 # Mantle Transaction
 
-Mantle Transactions form the core of Mantle, enabling users to combine multiple Operations to access different functions. Each transaction contains zero or more Operations. The system executes the Operations atomically, while using the Mantle Transaction's excess balance, calculated as the difference between the consumed and created value, as the fee payment.
+Mantle Transactions form the core of Mantle, enabling users to combine multiple Operations to access different functions. Each transaction contains a list of Operations. The system validates the Operations atomically and executes them in the order they appear.
 
 ```python
 class MantleTx:
@@ -103,11 +104,11 @@ def mantle_txhash(tx: MantleTx) -> Hash:
     return h.digest()
 ```
 
-The [hash function used](common-cryptographic-components.md), as well as other cryptographic primitives like ZK proofs and signature schemes, are described in [Common Cryptographic Components](common-cryptographic-components.md).
+The [hash function used](common-cryptographic-components.md), as well as other cryptographic primitives like ZK proof generation protocol and signature schemes, are described in [Common Cryptographic Components](common-cryptographic-components.md).
 
 ## Mantle Transaction Hash
 
-A Mantle Transaction must include all relevant signatures and proofs for each Operation.
+A Mantle Transaction must include all relevant proofs for each Operation.
 
 ```python
 class SignedMantleTx:
@@ -115,7 +116,7 @@ class SignedMantleTx:
     op_proofs: list[OpProof] # each Op has exactly 1 associated proof
 ```
 
-Each proof (op proof and signature) must be cryptographically bound to the `MantleTx` through the `mantle_txhash` to prevent replay attacks. This binding is achieved by including the `MantleTx` hash reduced modulo $`p`$ as a public input in every ZK proof.
+Every Operation proof (zk proofs or signatures) must be cryptographically bound to the `MantleTx` through the `mantle_txhash` to prevent replay attacks. This binding is achieved by signing the 32-byte `mantle_txhash` digest with every Ed25519 signature, and by including it reduced modulo $`p`$ as a public input in every ZK proof. The exceptions are the [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) of a channel step, signed before the Mantle Transaction exists, which is bound to the step itself ([CHANNEL_INSCRIBE](#channel_inscribe)), and the empty proof of [CLAIM_POW_REWARD](#claim_pow_reward), whose ticket is bound to the public key it pays: a claim copied into another Mantle Transaction pays the same key, but invalidates the transaction it was copied from.
 
 ```python
 mantle_txhash_fr = FiniteField(mantle_txhash, byte_order="little", modulus = p)
@@ -125,21 +126,15 @@ mantle_txhash_fr = FiniteField(mantle_txhash, byte_order="little", modulus = p)
 
 ## Arithmetic
 
-All arithmetic in this specification is checked. Every addition, subtraction, and multiplication over token values, balances, gas amounts, and fees is performed on the stated integer type, and a Mantle Transaction is invalid if any intermediate or final result cannot be represented in that type; results must never silently wrap around or saturate. Token value computations use the precision of `TokenValue` (see the [Notes](#notes) section). The transaction balance uses a signed 128-bit integer: it can be legitimately negative before the fee check.
+All arithmetic in this specification is checked. Every addition, subtraction, and multiplication over transaction balance, gas amounts, and fees is performed on the stated integer type, and a Mantle Transaction is invalid if any intermediate or final result cannot be represented in that type; results must never silently wrap around or saturate. A `TokenValue` counts [LEPTA](overview-cryptoeconomics.md#token-units-and-precision). No token is minted after [Genesis](bedrock-genesis-block.md), so no token value exceeds the maximum supply of $`10^{19}`$ LEPTA ([Block Rewards](block-rewards.md)), which a `TokenValue` holds.
 
 The pseudocode expresses these checks with the following helpers; a failed check makes the Mantle Transaction invalid:
 
 ```python
 UINT64_MAX = 2**64 - 1
-INT128_MIN = -2**127
-INT128_MAX = 2**127 - 1
 
 def checked_uint64(value: int) -> TokenValue:
         assert 0 <= value <= UINT64_MAX
-        return value
-
-def checked_int128(value: int) -> int:
-        assert INT128_MIN <= value <= INT128_MAX
         return value
 ```
 
@@ -151,19 +146,10 @@ The transaction mandatory fee is a sum of two components: the multiplication of 
 
 ```python
 def mandatory_fees(signed_tx: SignedMantleTx,
-                   ledger: Ledger,
-                   channels: dict[ChannelId, ChannelState],
+                   tx_execution_gas: uint64,  # total Execution Gas of the Operations
                    permanent_storage_gas_price: TokenValue, # Given by Storage Market
                    execution_gas_base_price: TokenValue) -> uint64:  # Given by Execution Market
-    mantle_tx = signed_tx.tx
     permanent_storage_fees = checked_uint64(len(encode(signed_tx)) * permanent_storage_gas_price)
-    tx_execution_gas = 0
-
-    for op in mantle_tx.ops:
-        # Compute how much execution gas of this operation as defined
-        # in the gas determination Appendix, against the state this
-        # Operation is validated against
-        tx_execution_gas += execution_gas(op, ledger, channels)
     execution_base_fees = checked_uint64(tx_execution_gas * execution_gas_base_price)
 
     return checked_uint64(execution_base_fees + permanent_storage_fees)
@@ -185,9 +171,14 @@ signed_tx = SignedMantleTx(
 
 permanent_storage_gas_price: TokenValue # Given by Storage Market
 execution_gas_base_price: TokenValue    # Given by Execution Market
+
+ledger: Ledger
+channels: dict[ChannelId, ChannelState]
 ```
 
-The state validation reads is not a fixed snapshot: it advances as the block is processed. A Mantle Transaction is validated against the state left by the Mantle Transactions preceding it in the block, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), and validation and execution then follow one another Operation by Operation, in the order the Operations appear: the Operation at index `i` is validated against the state the Operations at indices `0` to `i-1` left, then executed to produce the state the Operation at index `i+1` is validated against. This is what the `ledger`, `channels`, `service_notes`, `declarations` and `voucher_nullifier_set` given to each Operation below denote.
+The state validation reads is not a fixed snapshot: it advances as the block is processed. A Mantle Transaction is validated against the state left by the Mantle Transactions preceding it in the block, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), and validation and execution then follow one another Operation by Operation, in the order the Operations appear: the Operation at index `i` is validated against the state the Operations at indices `0` to `i-1` left, then executed to produce the state the Operation at index `i+1` is validated against. This is what the `ledger`, `channels` and `declarations` given to each Operation below denote.
+
+The commitment MMRs of the [note sets](#ledger) that some Operations are proven against follow the same Operation by Operation progression, but locally to the Mantle Transaction. Every Operation adding notes to the ledger note set or to a channel note set appends their commitments to the buffer of that set for the Mantle Transaction, its `tx_commitment_buffer`, when validated, and every Operation referencing a commitment MMR root of a set references the root of that set at one of the last [`ROOT_WINDOW`](#ledger) blocks, against which it is verified once the buffer of the set is appended to it. A channel step, proven before the Mantle Transaction exists, is verified against its root extended with the buffer as it stands when its mini-block starts, so that its proof depends on what precedes its mini-block and not on its position inside it ([CHANNEL_INSCRIBE](#channel_inscribe)). `SDP_WITHDRAW` references no root: its proof is verified against the root of an MMR holding only the service note of its declaration ([SDP_WITHDRAW](#sdp_withdraw)). An Operation can therefore consume the outputs of a previous Operation of the same Mantle Transaction without waiting for a block to include them.
 
 Atomicity is what a failed check means, not simultaneity. If any of the checks below fails, the whole Mantle Transaction is invalid: none of its Operations takes effect, whether or not it was reached. An invalid Mantle Transaction is never skipped over either, the block including it being invalid and nothing of that block being executed.
 
@@ -198,18 +189,20 @@ Mantle validators will ensure the following:
     assert len(op_proofs) == len(ops)
     ```
 
-2. Each Operation is valid, and takes effect before the next one is validated. The transaction balance is accumulated over the same pass, so a `TRANSFER` consuming a note an earlier Operation created contributes that note's value like any other.
+2. Each Operation is valid, and takes effect before the next one is validated.
     ```python
-    tx_balance = 0   # Signed 128-bit accumulator: the balance can be legitimately negative
+    tx_balance = 0
+    tx_execution_gas = 0
     for op, op_proof in zip(ops, op_proofs):
         assert op.opcode in MANTLE_OPCODES
         validate_mantle_op(mantle_txhash(tx), op.opcode, op.payload, op_proof)
-        if op.opcode == TRANSFER:
-            for inp in op.inputs:
-                tx_balance = checked_int128(tx_balance + get_value_from_note_id(inp))
-            for out in op.outputs:
-                tx_balance = checked_int128(tx_balance - out.value)
+        tx_execution_gas = checked_uint64(tx_execution_gas + execution_gas(op, ledger, channels))
+        # the excess of the ZkTransfer of these Operations pays the fees
+        if op.opcode in (TRANSFER, CHANNEL_DEPOSIT, SDP_WITHDRAW):
+            tx_balance = checked_uint64(tx_balance + op.payload.excess_value)
         execute_mantle_op(op.opcode, op.payload)
+    for note_set in note_sets_appended_to(tx):  # the note sets the transaction appended a commitment to
+        note_set.tx_commitment_buffer = []  # the buffers start empty with every Mantle Transaction
 
     def validate_mantle_op(txhash, opcode, payload, op_proof):
         if opcode == CHANNEL_INSCRIBE:
@@ -227,6 +220,7 @@ Mantle validators will ensure the following:
 3. The Mantle Transaction excess balance pays at least the mandatory fees.
     ```python
     tx_mandatory_fee = mandatory_fees(signed_tx,                        # uint64
+                                      tx_execution_gas,
                                       permanent_storage_gas_price,
                                       execution_gas_base_price)
     assert tx_mandatory_fee <= tx_balance
@@ -256,30 +250,27 @@ Mantle Validators execute each Operation in `ops` according to its opcode, in th
 | *RESERVED* | *0x01 - 0x0F* |  |
 | CHANNEL_CONFIG | 0x10 | Configure a channel |
 | CHANNEL_INSCRIBE | 0x11 | Write a message permanently onto Mantle. |
-| CHANNEL_DEPOSIT | 0x12 | Deposit assets into a channel |
-| CHANNEL_WITHDRAW | 0x13 | Withdraw assets from a channel |
-| CHANNEL_TRANSFER | 0x14 | Consume and create notes belonging to a channel |
-| *RESERVED* | *0x15 - 0x1F* |  |
+| CHANNEL_DEPOSIT | 0x12 | Deposit notes into a channel |
+| CHANNEL_WITHDRAW | 0x13 | Withdraw notes from a channel |
+| *RESERVED* | *0x14 - 0x1F* |  |
 | SDP_DECLARE | 0x20 | Declare intention to participate as a node in a Bedrock Service, locking funds as collateral. |
-| SDP_WITHDRAW | 0x21 | Withdraw participation from a Bedrock Service, releasing the service note in the process. |
+| SDP_WITHDRAW | 0x21 | Withdraw participation from a Bedrock Service, consuming its service note in the process. |
 | SDP_ACTIVE | 0x22 | Signal that you are still an active participant of a Bedrock Service. |
 | *RESERVED* | *0x23 - 0x2F* |  |
-| LEADER_CLAIM | 0x30 | Claim leader reward anonymously. |
-| *RESERVED* | *0x31 - 0x3F* |  |
-| CLAIM_POW_REWARD | 0x40 | Claim a reward from the pow reward pool. |
-| *RESERVED* | *0x41 - 0xFF* |  |
+| CLAIM_POW_REWARD | 0x30 | Claim a reward from the pow reward pool. |
+| *RESERVED* | *0x31 - 0xFF* |  |
 
 ## Channel Operations
 
-Channels allow Zones to post their updates on chain. Channels form virtual chains that overlay on top of the Cryptarchia blockchain. Clients and Followers of a Zone can watch its channel to learn the state of that Zone. Each channel has an associated balance, enabling bridging between Zones and Bedrock.
+Channels allow Zones to post their updates on chain. Channels form virtual chains that overlay on top of the Cryptarchia blockchain. Clients and Followers of a Zone can watch its channel to learn the state of that Zone. Each channel has its own [note set](#ledger), enabling bridging between Zones and Bedrock.
 
 ### Message Ordering
 
-Channels form virtual chains by having each message reference its parent message. The order of messages in these channels is enforced by the sequencer by building a hash chain of messages, i.e. new messages reference the previous messages through a parent hash. Given that Cryptarchia has long finality times, these message parent references allow Zone sequencers to continue to post new updates to channels without having to wait for finality. No matter how Cryptarchia forks and reorgs, the channel messages from honest sequencers will eventually be re-included in a way that satisfies the virtual chain order.
+Channels form virtual chains by having each message reference its parent message. The order of messages in these channels is enforced by the sequencer by building a hash chain of messages, i.e. new messages reference the previous messages through a parent hash. Given that Cryptarchia has long finality times, these message parent references allow Zone sequencers to continue to post new updates to channels without having to wait for finality. No matter how Cryptarchia forks and reorgs, the channel messages from honest sequencers will eventually be re-included in a way that satisfies the virtual chain order, with one limit: a step is valid only against a commitment root recorded in the last [`ROOT_WINDOW`](#ledger) blocks of the fork it lands on. A reorg that moves the channel deposits or the steps a step builds on into other blocks can leave its root absent from the winning fork, which invalidates the inscription carrying the step and the inscriptions chained after it, and the sequencer, who cannot prove the step again for its holder, re-publishes the chain without it.
 
 Configurations form a second hash chain within the channel: each configuration names the configuration it supersedes, so a pending reconfiguration stays valid while the sequencer keeps posting inscriptions.
 
-The first time a message is sent to an unclaimed channel, the key that signs the initial message becomes the only accredited key in the list (Note that this key may correspond to a threshold signature key). Accredited keys of a channel forms a committee that can configure the channel, withdraw funds and take turns to write messages to that channel following a round-robin algorithm. Configuring a channel includes modifying the list of accredited keys, the round-robin parameters and the required number of signatures to withdraw funds or establish a new configuration.
+The first time a message is sent to an unclaimed channel, the key that signs the initial message becomes the only accredited key in the list (Note that this key may correspond to a threshold signature key). Accredited keys of a channel forms a committee that can configure the channel and take turns to write messages to that channel following a round-robin algorithm. Configuring a channel includes modifying the list of accredited keys, the round-robin parameters and the required number of signatures to establish a new configuration.
 
 Validators must maintain the following state to process channel Operations:
 
@@ -305,10 +296,10 @@ class ChannelState:
     posting_timeout: u32    # number of slots (0 = no timeout)
 
     # Bridging
-    transfer_threshold: u16  # indicating how many keys are
-                             # required to transfer or withdraw funds from the channel
+    note_set: int | None    # index of the note set of the channel in ledger.sets,
+                            # None for the null channel
 
-def default_channel(block_slot: Slot, keys: list[Ed25519PublicKey]) -> ChannelState:
+def default_channel(block_slot: Slot, keys: list[Ed25519PublicKey], note_set: int | None) -> ChannelState:
     return ChannelState(
         tip_hash = ZERO,
         config_tip_hash = ZERO,
@@ -319,8 +310,19 @@ def default_channel(block_slot: Slot, keys: list[Ed25519PublicKey]) -> ChannelSt
         posting_timeframe = 0,
         posting_timeout = 0,
         configuration_threshold = 1,
-        transfer_threshold = 1)
+        note_set = note_set)
+
+def create_channel(channel_id: ChannelId, block_slot: Slot, keys: list[Ed25519PublicKey]):
+    if channel_id == ZERO:
+        # the null channel only receives the Genesis inscriptions and holds no note
+        channels[channel_id] = default_channel(block_slot, keys, None)
+    else:
+        # a new channel appends a new note set, so note sets of channels are ordered by creation
+        ledger.sets.append(empty_note_set())
+        channels[channel_id] = default_channel(block_slot, keys, len(ledger.sets) - 1)
 ```
+
+The null channel, whose `ChannelId` is 32 zero bytes, carries the inscriptions of the [Genesis block](bedrock-genesis-block.md) and nothing after them, since it is signed by a key no one holds. It has no note set: no Operation can deposit to it, withdraw from it or publish a step in it.
 
 Note that the user chooses the ChannelId mapping to the ChannelState (but it’s restricted to 32 bytes). We don't currently impose restrictions on it, but we may do so in the future to prevent undesirable behaviors.
 
@@ -344,6 +346,10 @@ def round_robin(block_slot: Slot, channel: ChannelState) -> (u16, u64):
             channel.tip_slot
             + sequencers_timed_out * channel.posting_timeout
         )
+    elif channel.posting_timeframe == 0:
+        # An infinite timeframe never rotates: the tip sequencer keeps its turn
+        index = channel.tip_sequencer
+        starting_slot = channel.tip_sequencer_starting_slot
     else:
         # Get the number of timeframes elapsed to get who is the sequencer
         tip_sequencer_duration = block_slot - channel.tip_sequencer_starting_slot
@@ -360,54 +366,89 @@ def round_robin(block_slot: Slot, channel: ChannelState) -> (u16, u64):
 
 ### Bridging
 
-Channels let their bridged funds keep participating in Proof of Stake. When a user deposits funds into a channel, the deposited notes stay on the ledger and are not turned into inert collateral. They are consumed and immediately re-created as channel notes that continue to count toward Proof of Stake and can still be used to create PoLs (see [Channel Notes](#channel-notes)). Two goals motivate this design:
+Channels let their bridged notes keep participating in Proof of Stake. When a user deposits notes into a channel, they are not turned into inert collateral. They are consumed and re-created as notes of the channel's note set, which continue to count toward Proof of Stake and can still be used to create PoLs (see [Ledger](#ledger)). Two goals motivate this design:
 
 - **More PoS participation, stronger security.** Funds deposited into a channel would otherwise leave the staking set. Keeping them as channel notes means the capital backing the application layer also backs consensus security, so bridging does not shrink the stake that secures the chain.
 - **No split between security and application.** A user no longer has to choose between staking funds or using them in a channel. The same funds do both at once. They stay usable inside the channel while still earning Proof of Leadership rewards, so capital is never fragmented between the two.
 
-**Ownership vs. staking power.** A `CHANNEL_DEPOSIT` separates the two rights that a normal note bundles together:
+**Holders keep their notes.** A channel note is a note of the channel's note set, owned by the holder of its `ZkPublicKey`. Only that holder can spend it, in one of two ways:
 
-- *Ownership* moves to the channel. The note is registered in the ledger's `channel_notes` set with the channel as its owner, and the channel keeps full control over it. The deposited notes are consumed and re-created identically: they keep their value and `ZkPublicKey`, receive a new `NoteId` derived from the deposit's `OpId`, and are registered as channel-owned. The channel is now the party responsible for the note.
-- *Staking power* stays with the `ZkPublicKey` carried by the note. That key does not confer ownership. It only delegates the note's value for PoL creation. Whoever controls the key is the one allowed to turn the note into a PoL and collect the resulting rewards. On deposit this key is still the depositor's, so the user keeps the PoS participation power they had before bridging.
+- *Inside the channel*, the holder signs a step off-chain: a ZkTransfer that consumes its channel notes and creates channel notes of the same total value, together with the inscription of the step, its zone message. The sequencers of the channel collect the steps of their users and publish them in a [`CHANNEL_INSCRIBE`](#channel_inscribe), grouping them in mini-blocks and ordering each mini-block as they choose, since a step holds at any position in its mini-block. The ledger verifies every step, so a sequencer orders the moves of a channel but never makes one.
+- *Out of the channel*, the holder posts a [`CHANNEL_WITHDRAW`](#channel_withdraw) alone, its fee paid by a ledger note in the same Mantle Transaction. It takes effect `WITHDRAW_DELAY` slots later, unless an inscription of the channel consumes its notes with a valid step in the meantime. The withdrawal is the forced exit of a holder whose steps the sequencers do not publish. It also settles a holder who signs both a step and a withdrawal of the same notes optimistically: the step wins if an inscription publishes it before the withdrawal is due, and the holder has then paid the fees of the withdrawal for nothing.
 
-Because the channel owns the note but does not hold the delegated key, the note earns rewards for the key holder, never for the channel itself.
-
-**Ageing.** Because the deposit re-creates the notes under a new `NoteId`, a deposited note restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across the deposit.
+**Ageing.** Because a channel deposit and a step consume notes and create new ones, a channel note restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across these moves.
 
 **What each party can do.**
 
 | Party | Can | Cannot |
 |---|---|---|
-| Holder of the note's `ZkPublicKey` (by default, the depositor) | Use the note to create a PoL and earn its leader rewards | Spend the note, withdraw it, reassign it, or use it as service stake |
-| Channel sequencers (owner of the note) | Reassign the note to a different `ZkPublicKey` (`CHANNEL_TRANSFER`) and spend it to fund withdrawals (`CHANNEL_WITHDRAW`), both without `ZkSignature` verification | Use the note as service stake, or earn PoL rewards without first assigning the note to their own key |
-
-This makes delegated staking explicit. Sequencers can assign a channel note to their own `ZkPublicKey` and earn the Proof of Leadership rewards it produces, but those rewards always follow the assigned key, so the channel earns nothing merely by owning the note. Conversely, ownership never leaving the channel is exactly what lets sequencers redelegate value or cover withdrawals at any time without a user signature.
-
-**Warning: a deposit is a transfer of custody.** Depositors must understand that channel note handling is fully defined by the channel. Once a `CHANNEL_DEPOSIT` is executed the note belongs to the channel, and its sequencers can reassign it to any `ZkPublicKey` with `CHANNEL_TRANSFER` or release it to whoever they choose with `CHANNEL_WITHDRAW`, at any time and without any signature from the depositor. The ledger enforces no return path to the original depositor. Holding the note's `ZkPublicKey` grants PoS participation power only and never a claim on the value, so it confers no ability to recover the funds. A user who deposits into a dishonest or faulty channel has no on-chain recourse. Deposit only into channels you trust to honour their own withdrawal policy.
+| Holder of the note's `ZkPublicKey` | Create a PoL with the note and earn its rewards. Sign a step moving the note inside the channel. Withdraw the note alone, paying the fee with a ledger note | Spend the note in any other Operation |
+| Channel sequencers | Collect the steps of their users and publish them in the inscriptions of the channel, grouped in mini-blocks in the order they choose, a step consuming an output of the inscription coming in a later mini-block | Move a note without its holder's step |
 
 ### CHANNEL_INSCRIBE
 
-Write a message to a channel with the message data being permanently stored on the Logos Blockchain.
+Write a message to a channel with the message data being permanently stored on the Logos Blockchain, and apply the steps the sequencer collected from the users of the channel. The list of mini-blocks can be empty, in which case the inscription only writes its message.
 
 #### Payload
 
 ```python
+class UserStep:
+    inputs: list[NoteNullifier]    # nullifiers of the consumed channel notes
+    outputs: list[NoteCommitment]  # commitments of the created channel notes
+    commitment_root: MerkleRoot    # the MMR root of the channel note set at the end of one of the last ROOT_WINDOW blocks
+    inscription: bytes             # the zone message of this step, signed by its holder
+
 class Inscribe:
     channel: ChannelId       # 32 bytes Channel being written to
     inscription : bytes      # Message to be written on the blockchain
     parent: hash             # Previous message in the channel
     signer: Ed25519PublicKey # Identity of message sender
+    mini_blocks: list[list[UserStep]]  # Moves of channel notes, in the order they apply, possibly
+                                       # empty. A mini-block holds at least one step
+```
+
+The steps of an inscription are user steps, and the [encoding](mantle-transaction-encoding.md#channel-operations) tags each step with its kind.
+
+A `NoteNullifier` is the nullifier of a note and a `NoteCommitment` its commitment, as [Note Commitment and Nullifier](#note-commitment-and-nullifier) defines them, and a `MerkleRoot` the root of a Merkle tree.
+
+A step is signed by the holder of the notes it consumes, off-chain and before the Mantle Transaction carrying it exists. Its ZkTransfer is therefore bound to the step itself rather than to the `mantle_txhash`, and it balances exactly, with an `excess_value` of `0`.
+
+The `inscription` of the `Inscribe` is the message of the sequencer, and the `inscription` of a step the zone message of the holder of the step. The ZkTransfer of the step binds its inscription together with its inputs and outputs, so a sequencer publishes the message a holder signed with the move it signed, or drops the step whole. The inscription of the `Inscribe` and the inscriptions of its steps count together against `MAX_OPERATION_DATA_SIZE`.
+
+The steps of an inscription are grouped in mini-blocks. The proof of a step is verified, by the [`verify_transfer`](#input-notes-spendability-validation) method of the note set, against its referenced root extended with the buffer of the channel note set as it stands when the mini-block of the step starts: the commitments the earlier Operations of the Mantle Transaction and the earlier mini-blocks of the inscription added. A step can therefore consume the notes of earlier blocks and the outputs of the earlier mini-blocks, but not the outputs of its own mini-block. Its proof depends on what precedes its mini-block and not on its position inside it, and the holders prove their steps independently of one another:
+
+- The steps of the first mini-block, when no earlier Operation of the Mantle Transaction added to the channel note set, are proven against their recent root alone, so a sequencer collects the steps of many users and publishes them in the order it chooses. A sequencer should place an Operation adding to that note set after the inscription: if it comes first, every step of the first mini-block covers what it adds.
+- If the first mini-block adds 400 commitments to the buffer, every step of the second mini-block covers these 400: it can consume the outputs of the first mini-block, and the steps of the second mini-block are again ordered freely among themselves. The same holds for the next mini-blocks.
+
+Extending every proof with the whole buffer would instead tie each proof to its position: each holder would have to wait for the sequencer to fix every step before its own, and the steps would be proven one after another.
+
+The mini-block of a step is public, so a step of a later mini-block reveals that its inputs are among the notes under its root and the commitments it covers. Covering the whole of the previous mini-blocks keeps a step from pointing at the notes it consumes.
+
+The ZkTransfer of a step is bound to `user_step_id`, a BLAKE2b-256 hash of the channel and of the encoded step, its kind tag, inputs, outputs, root and inscription included, reduced modulo $`p`$ as `op_id` is. It is a classic hash because it is only the public `msg` of the ZkTransfer of the holder, which no circuit recomputes.
+
+```python
+def step_id(dst: bytes, channel: ChannelId, step: UserStep) -> zkhash:
+    h = Hasher() # /!\ This is a classic hash not a zkhash /!\
+    h.update(dst)
+    h.update(channel)
+    h.update(encode(step))  # the Step of the encoding, its kind tag included
+    return FiniteField(h.digest(), byte_order="little", modulus= p)
+
+def user_step_id(channel: ChannelId, step: UserStep) -> zkhash:
+    return step_id(b"USER_STEP_V1", channel, step)
 ```
 
 #### Proof
 
 ```python
-Ed25519Signature
+class ChannelInscribeOpProof:
+    signature: Ed25519Signature    # by the signer, over the mantle_txhash
+    step_proofs: list[ZkTransfer]  # one per step, in the order of the steps
 ```
 
 #### Execution Gas
 
-  Channel Inscribe Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS`. See [Gas Determination](#gas-determination) for the Execution Gas values.
+  Channel Inscribe Operations have an Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_TRANSFER_GAS * len(steps)`. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -416,16 +457,19 @@ Ed25519Signature
 ```python
 txhash: hash
 msg: Inscribe
-sig: Ed25519Signature
+proof: ChannelInscribeOpProof
 
 channels: dict[ChannelId, ChannelState]
+ledger: Ledger
 block_slot: Slot
 ```
  
   *Validate*
 
 ```python
-assert len(msg.inscription) <= MAX_OPERATION_DATA_SIZE
+# The inscription and the inscriptions of the steps count together
+steps = [step for mini_block in msg.mini_blocks for step in mini_block]
+assert len(msg.inscription) + sum(len(step.inscription) for step in steps) <= MAX_OPERATION_DATA_SIZE
 
 if msg.channel in channels:
     chan = channels[msg.channel]
@@ -436,13 +480,46 @@ if msg.channel in channels:
 
     # Ensure message is continuing the channel sequence
     assert msg.parent == chan.tip_hash
+
+    note_set = ledger.sets[chan.note_set] if chan.note_set is not None else None
 else:
     # Channel will be created automatically upon execution
     # Ensure that this message is the genesis message (parent == ZERO)
     assert msg.parent == ZERO
 
+    note_set = None
+
 # Ensure the msg signer signature
-assert Ed25519_verify(txhash, msg.signer, sig)
+assert Ed25519_verify(txhash, msg.signer, proof.signature)
+
+# Ensure a channel being created, which holds no note, and the null channel, which has no
+# note set, receive no step
+assert note_set is not None or len(msg.mini_blocks) == 0
+
+# Ensure every step is spendable in the channel note set and signed by its holder.
+# A step can consume a note created by an earlier Operation or mini-block, never one consumed by
+# an earlier step.
+assert all(len(mini_block) > 0 for mini_block in msg.mini_blocks)
+assert len(proof.step_proofs) == sum(len(mini_block) for mini_block in msg.mini_blocks)
+step_proofs = iter(proof.step_proofs)
+step_nullifiers = set()    # the nullifiers of the previous steps
+for mini_block in msg.mini_blocks:
+    # the steps of the mini-block cover the buffer as it stands now
+    covered = len(note_set.tx_commitment_buffer)
+    for step in mini_block:
+        note_set.assert_spendable(step.inputs)
+        for note_nullifier in step.inputs:
+            assert note_nullifier not in step_nullifiers
+            step_nullifiers.add(note_nullifier)
+        assert note_set.verify_transfer(step.inputs,
+                                        step.outputs,
+                                        0,  # a step balances exactly
+                                        step.commitment_root,
+                                        user_step_id(msg.channel, step),
+                                        next(step_proofs),
+                                        covered)
+        # the next mini-blocks cover the outputs of this step
+        note_set.tx_commitment_buffer.extend(step.outputs)
 ```
 
 #### Execution
@@ -451,9 +528,9 @@ assert Ed25519_verify(txhash, msg.signer, sig)
 
 ```python
 msg: Inscribe
-sig: Ed25519Signature
 
 channels: dict[ChannelId, ChannelState]
+ledger: Ledger
 block_slot: Slot
 ```
 
@@ -462,10 +539,18 @@ block_slot: Slot
   1. If the channel does not exist, create it just-in-time.
       ```python
       if msg.channel not in channels:
-          channels[msg.channel] = default_channel(block_slot, [msg.signer])
+          create_channel(msg.channel, block_slot, [msg.signer])
       ```
 
-  2. Update the channel sequencer.
+  2. Apply the steps, in their order.
+      ```python
+      for step in [step for mini_block in msg.mini_blocks for step in mini_block]:
+          note_set = ledger.sets[channels[msg.channel].note_set]
+          note_set.execute_spending(step.inputs)
+          note_set.execute_adding(step.outputs)
+      ```
+
+  3. Update the channel sequencer.
       ```python
       chan = channels[msg.channel]
       (new_sequencer_index, new_sequencer_starting_slot) = round_robin(block_slot, chan)
@@ -474,43 +559,12 @@ block_slot: Slot
       chan.tip_sequencer = new_sequencer_index
       ```
 
-  3. Update the channel tip.
+  4. Update the channel tip.
       ```python
       chan = channels[msg.channel]
       chan.tip_hash = hash(encode(msg))
       chan.tip_slot = block_slot
       ```
-
-#### Example
-
-```python
-# Build the inscription
-greeting = Inscription(
-    channel=CHANNEL_EARTH,
-    inscription=b"Live long and prosper",
-    parent=ZERO
-    signer=spock_pk
-)
-
-# Build the transfer operation to pay the fees
-transfer = Transfer(inputs=[<spocks_note_id>], outputs=[<change_note>])
-
-# Wrap it in a transaction
-tx = MantleTx(
-    ops=[Op(opcode=CHANNEL_INSCRIBE, payload=encode(greeting)),
-         Op(opcode=TRANSFER, payload=encode(transfer))],
-)
-
-# Sign the transaction
-signed_tx = SignedMantleTx(
-    tx=tx,
-    op_proofs=[Ed25519_sign(mantle_txhash(tx), spock_sk),
-               transfer.prove(spock_sk)]
-)
-
-# Send the transaction to the mempool
-mempool.push(signed_tx)
-```
 
 ### CHANNEL_CONFIG
 
@@ -526,7 +580,6 @@ class ChannelConfig:
     posting_timeframe: u32
     posting_timeout: u32
     configuration_threshold: u16
-    transfer_threshold: u16
 ```
 
 #### Proof
@@ -550,7 +603,7 @@ class ChannelConfigOpProof:
   *Given*
 
 ```python
-txhash: zkhash
+txhash: hash
 config: ChannelConfig
 proof: ChannelConfigOpProof
 channels: dict[ChannelId, ChannelState]
@@ -560,9 +613,8 @@ channels: dict[ChannelId, ChannelState]
 
 ```python
 assert config.configuration_threshold > 0
-assert config.transfer_threshold > 0
 assert len(config.keys) > 0
-assert len(config.keys) < 2^16
+assert len(config.keys) < 2**16
 # The configuration threshold must be reachable with the accredited keys,
 # otherwise the channel would be locked out of any future reconfiguration
 assert config.configuration_threshold <= len(config.keys)
@@ -602,6 +654,7 @@ else:
 config: ChannelConfig
 
 channels: dict[ChannelId, ChannelState]
+ledger: Ledger
 block_slot: Slot
 ```
 
@@ -611,7 +664,7 @@ block_slot: Slot
 
       ```python
       if config.channel not in channels:
-          channels[config.channel] = default_channel(block_slot, config.keys)
+          create_channel(config.channel, block_slot, config.keys)
       ```
 
   2. Update the configuration.
@@ -629,9 +682,6 @@ block_slot: Slot
       chan.tip_sequencer_starting_slot = block_slot
       chan.posting_timeframe = config.posting_timeframe
       chan.posting_timeout = config.posting_timeout
-
-      # Update Bridging Parameters
-      chan.transfer_threshold = config.transfer_threshold
       ```
 
   3. Update the configuration tip.
@@ -641,60 +691,35 @@ block_slot: Slot
       chan.config_tip_hash = hash(encode(config))
       ```
 
-#### Example
-
-  Suppose the unique sequencer of Zone A wants to add a key to the list of accredited keys:
-
-```python
-# Given a key to add and the current configuration tip of the channel
-new_sequencer_pk: Ed25519PublicKey
-zone_a_config_tip: hash
-
-# The unique sequencer encodes the update and builds the payload
-config = ChannelConfig(
-    channel=ZONE_A,
-    parent=zone_a_config_tip,
-    keys=[old_sequencer_pk, new_sequencer_pk],
-    posting_timeframe = 5000,
-    posting_timeout = 500,
-    configuration_threshold = 2,
-    transfer_threshold = 1
-)
-
-# Build the transfer operation to pay the fees
-transfer = Transfer(inputs=[old_sequencer_funds], outputs=[<change_note>])
-
-tx = MantleTx(
-    ops=[Op(opcode=CHANNEL_CONFIG, payload=encode(config)),
-         Op(opcode=TRANSFER, payload=encode(transfer))],
-)
-
-signed_tx = SignedMantleTx(
-    tx=tx,
-    op_proofs=[[[Ed25519_sign(mantle_txhash(tx), old_sequencer_sk)], [0]],
-               transfer.prove(old_sequencer_sk)]
-)
-```
-
 ### CHANNEL_DEPOSIT
 
-Deposit notes to a channel. The inputs are consumed and re-created as channel notes under a new `NoteId`, which resets their ageing and prevents the deposit from being replayed after a withdrawal.
+Deposit notes to a channel. The deposit consumes notes of the ledger note set and creates notes of the channel note set, which resets their ageing.
+
+A deposit creates its outputs under the keys its depositor chooses, and the holder of each output withdraws it alone. A Zone should therefore credit in its own state only deposit outputs under a key it holds: a withdrawal shows a nullifier, which the Zone cannot link to a commitment without the key of the holder.
+
+A Zone that credits a deposit in its own state must be sure the deposit really lands on-chain. If the Zone reflects the deposit through a `CHANNEL_INSCRIBE` posted in a separate Mantle Transaction, a reorganization can reorder the two so that the inscription is included while the deposit is not, leaving the Zone crediting funds it never received. Two options avoid this:
+
+- Wait for the deposit to be finalized before interpreting it, at the cost of the finalization delay.
+- Include the deposit in the same Mantle Transaction as the inscription. Mantle Transactions validate atomically, so the inscription is included only if the deposit is. This removes the waiting period entirely.
 
 #### Payload
 
 ```python
 class ChannelDeposit:
     channel: ChannelId
-    inputs: list[NoteId]  # the notes to be consumed and re-created as channel notes
-    metadata: bytes
+    inputs: list[NoteNullifier]    # nullifiers of the consumed notes of the ledger note set
+    outputs: list[NoteCommitment]  # commitments of the created notes of the channel note set
+    commitment_root: MerkleRoot    # the MMR root of the ledger note set at the end of one of the last ROOT_WINDOW blocks
+    excess_value: TokenValue       # the excess to pay the fees
+    inscription: bytes             # the zone message of the deposit
 ```
 
 #### Proof
 
-  A Channel Deposit proves the ownership of the notes being consumed using a [Zero Knowledge Signature Scheme (ZkSignature)](#zero-knowledge-signature-scheme-zksignature).
+  A Channel Deposit proves the ownership of the notes being consumed, the created notes and the excess value using a [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer).
 
 ```python
-ZkSignature
+ZkTransfer
 ```
 
 #### Execution Gas
@@ -706,9 +731,9 @@ ZkSignature
   *Given*
 
 ```python
-mantle_txhash: zkhash # zkhash of mantle tx containing this ledger tx
+mantle_txhash_fr: zkhash # mantle_txhash of the tx containing this Operation, reduced modulo p
 deposit: ChannelDeposit
-deposit_proof: ZkSignature
+deposit_proof: ZkTransfer
 
 channels: dict[ChannelId, ChannelState]
 
@@ -717,26 +742,35 @@ ledger: Ledger
 
   *Validate*
 
-  1. Ensure the metadata does not exceed `MAX_OPERATION_DATA_SIZE`.
+  1. Ensure the inscription does not exceed `MAX_OPERATION_DATA_SIZE`.
       ```python
-      assert len(deposit.metadata) <= MAX_OPERATION_DATA_SIZE
+      assert len(deposit.inscription) <= MAX_OPERATION_DATA_SIZE
       ```
 
-  2. Verify that the channel exist
+  2. Verify that the channel exist and has a note set, which the null channel has not.
       ```python
       assert deposit.channel in channels
+      assert channels[deposit.channel].note_set is not None
       ```
 
-  3. Ensure all inputs are spendable and not already channel notes.
+  3. Ensure all inputs are spendable in the [ledger note set](#ledger), `LEDGER_SET`.
       ```python
-      ledger.assert_spendable(deposit.inputs)
+      ledger.sets[LEDGER_SET].assert_spendable(deposit.inputs)
       ```
 
-  4. Validate ownership over deposited notes.
+  4. Validate ownership over deposited notes and balance.
       ```python
-      input_notes = [ledger[input_note_id] for input_note_id in deposit.inputs]
-      input_pks = [note.public_key for note in input_notes]
-      assert ZkSignature_verify(mantle_txhash, deposit_proof, input_pks)
+      assert ledger.sets[LEDGER_SET].verify_transfer(deposit.inputs,
+                                                     deposit.outputs,
+                                                     deposit.excess_value,
+                                                     deposit.commitment_root,
+                                                     mantle_txhash_fr,
+                                                     deposit_proof)
+      ```
+
+  5. Add the outputs to the buffer of the channel note set.
+      ```python
+      ledger.sets[channels[deposit.channel].note_set].tx_commitment_buffer.extend(deposit.outputs)
       ```
 
 #### Execution
@@ -753,90 +787,55 @@ ledger: Ledger
 
   *Execute*
 
-Consume the inputs and create the same Note with new NoteId as channel notes owned by the channel.
+Consume the inputs in the ledger note set and create the outputs in the channel note set.
 
 ```python
-# read the notes that are being moved into the channel
-notes_to_add = [ledger[input_note_id] for input_note_id in deposit.inputs]
-
-# consume the inputs, which are regular notes and not registered in channel_notes
-ledger.execute_spending(deposit.inputs)
-
-# re-create them as channel notes under a new NoteId
-deposit_id = derive_op_id(deposit)
-ledger.execute_adding(deposit_id, notes_to_add, deposit.channel)
+ledger.sets[LEDGER_SET].execute_spending(deposit.inputs)
+ledger.sets[channels[deposit.channel].note_set].execute_adding(deposit.outputs)
 ```
-
-#### Example
-
-  Suppose Alice wants to make a deposit of 50 tokens on Zone A.
-
-```python
-# Alice encodes her deposit
-deposit = ChannelDeposit(
-    channel=ZONE_A,
-    inputs=[alice_deposit_note_id]    # This is a note of 50 tokens
-    metadata=b"deposit to address: 0x..."
-)
-
-# Build the transfer operation to pay the fees
-transfer = Transfer(inputs=[Alice_funds], outputs=[<change_note>])
-
-
-tx = MantleTx(
-    ops=[Op(opcode=CHANNEL_DEPOSIT, payload=encode(deposit)),
-         Op(opcode=TRANSFER, payload=encode(transfer))],
-)
-
-signed_tx = SignedMantleTx(
-    tx=tx,
-    op_proofs=[deposit.prove(Alice_sk), transfer.prove(Alice_sk)],
-)
-```
-
-A Zone that credits a deposit in its own state must be sure the deposit really lands on-chain. If the Zone reflects the deposit through a `CHANNEL_INSCRIBE` posted in a separate Mantle Transaction, a reorganization can reorder the two so that the inscription is included while the deposit is not, leaving the Zone crediting funds it never received. Two options avoid this:
-
-- Wait for the deposit to be finalized before interpreting it, at the cost of the finalization delay.
-- Make the inscription conditional on the deposit, by including a `CHANNEL_TRANSFER` that consumes the deposited note in the same Mantle Transaction as the inscription. Mantle Transactions execute atomically, so the inscription is included only if the deposited note exists and is consumed. This removes the waiting period entirely.
-
-The second option resets the ageing of the value. A `CHANNEL_TRANSFER` consumes its inputs and creates new notes, so the resulting note starts the ageing process again and must age before it can create a PoL. A `CHANNEL_DEPOSIT` resets ageing for the same reason, since it consumes its inputs and re-creates them under a new `NoteId`. A `CHANNEL_WITHDRAW` keeps the `NoteId` of the notes it releases and therefore never resets ageing.
 
 ### CHANNEL_WITHDRAW
 
-Withdraw notes from a channel.
+Withdraw notes from a channel. The holder of the notes posts the withdrawal alone, and it takes effect `WITHDRAW_DELAY` slots later: its inputs are then consumed in the channel note set and its outputs created in the ledger note set, if none of its inputs was consumed in the meantime. Until then, an inscription of the channel can consume these notes with a valid step, which cancels the withdrawal. A holder therefore cannot invalidate an inscription carrying one of its steps by withdrawing the same note, as long as the inscription lands before the withdrawal is due. A due withdrawal is executed at the start of its block, before the transactions ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), and a later step consuming its notes is invalid, and so is the transaction carrying it. The nullifiers and due slots of pending withdrawals are public in the ledger state: a sequencer should not accept a step whose inputs a pending withdrawal may release before its inscription lands, nor a step whose inputs another accredited key of the channel may consume first, since removing the step afterwards also invalidates the steps of the later mini-blocks, whose proofs cover its outputs. The sequencers of a channel should share the nullifiers of the steps they hold before a later mini-block covers them.
+
+```python
+WITHDRAW_DELAY: Slot = 86_400  # 1 day
+```
+
+`WITHDRAW_DELAY` leaves the sequencers of the channel time to include the steps they accepted before a forced exit takes their notes, so that a withdrawal does not bypass a step its holder authorized. A sequencer checks the `pending_withdrawals` of the channel when it publishes a step, not only when it accepts it, since a step stays valid as long as its root is recent, which on a quiet channel can outlast the delay.
 
 #### Payload
 
 ```python
 class ChannelWithdraw:
     channel: ChannelId
-    inputs: list[NoteId]
+    inputs: list[NoteNullifier]    # nullifiers of the consumed notes of the channel note set
+    outputs: list[NoteCommitment]  # commitments of the notes created in the ledger note set
+    commitment_root: MerkleRoot    # the MMR root of the channel note set at the end of one of the last ROOT_WINDOW blocks
 ```
+
+A withdrawal balances exactly and carries no fee: another Operation of its Mantle Transaction, such as a Transfer, pays the fees. A holder whose funds are all in channels therefore needs a ledger note, of its own or added by a third party, to post its withdrawal. An excess paid when the withdrawal is posted would stay paid even if the withdrawal is dropped later, which would create tokens.
 
 #### Proof
 
-A Channel Withdraw is authorized by a threshold of the channel's accredited keys using [Multiple Ed25519 Signatures Verification](#multiple-ed25519-signatures-verification).
+  A Channel Withdraw proves the ownership of the notes being consumed and the created notes, with an excess value of `0`, using a [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer).
 
 ```python
-class ChannelWithdrawOpProof:
-    signatures: list[Ed25519Signature] # exactly transfer_threshold signatures
-    indexes: list[int]    # signatures of accredited keys with their index
-                          # indexes must be ordered from smallest to
-                          # biggest without duplication
+ZkTransfer
 ```
 
 #### Execution Gas
 
-  Channel Withdraw Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_WITHDRAW_GAS * transfer_threshold`, where `transfer_threshold` is the one held in the channel state. See [Gas Determination](#gas-determination) for the Execution Gas values.
+  Channel Withdraw Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_WITHDRAW_GAS`. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
 #### Validation
 
   *Given*
 
 ```python
-txhash: zkhash
+mantle_txhash_fr: zkhash # mantle_txhash of the tx containing this Operation, reduced modulo p
 withdrawal: ChannelWithdraw
-proof: ChannelWithdrawOpProof
+proof: ZkTransfer
 
 channels: dict[ChannelId, ChannelState]
 ledger: Ledger
@@ -844,23 +843,26 @@ ledger: Ledger
 
   *Validate*
 
-  1. Check that the channel exists
+  1. Check that the channel exists and has a note set, which the null channel has not.
       ```python
       assert withdrawal.channel in channels
+      chan = channels[withdrawal.channel]
+      assert chan.note_set is not None
       ```
 
-  2. Check that the inputs are valid and belongs to the channel
+  2. Ensure all inputs are spendable in the channel note set.
       ```python
-      ledger.assert_spendable(withdrawal.inputs, withdrawal.channel)
+      ledger.sets[chan.note_set].assert_spendable(withdrawal.inputs)
       ```
 
-  3. Check the signatures (see [Multiple Ed25519 Signatures Verification](#multiple-ed25519-signatures-verification))
+  3. Validate ownership over the withdrawn notes and balance.
       ```python
-      MultiEd25519_verify(txhash,
-                          proof.signatures,
-                          proof.indexes,
-                          channels[withdrawal.channel].accredited_keys,
-                          channels[withdrawal.channel].transfer_treshold)
+      assert ledger.sets[chan.note_set].verify_transfer(withdrawal.inputs,
+                                                        withdrawal.outputs,
+                                                        0,  # a withdrawal balances exactly
+                                                        withdrawal.commitment_root,
+                                                        mantle_txhash_fr,
+                                                        proof)
       ```
 
 #### Execution
@@ -872,168 +874,37 @@ withdrawal: ChannelWithdraw
 
 channels: dict[ChannelId, ChannelState]
 ledger: Ledger
+block_slot: Slot
 ```
 
   *Execute*
 
-Remove the inputs from channel notes owned by the channel. The notes are neither consumed nor re-created: they keep their NoteId, value and ZkPublicKey, and are simply unregistered in the channel_notes set.
-```python
-for note_id in withdrawal.inputs:
-    ledger.channel_notes.pop(note_id)
-```
-#### Example
-
-  Suppose the unique sequencer of Zone A wants to withdraw 50 tokens.
+Keep the withdrawal in the [`pending_withdrawals`](#ledger) of the ledger until its due slot.
 
 ```python
-# Sequencer encodes his withdrawal
-withdrawal = ChannelWithdraw(
-    channel=ZONE_A,
-    inputs  = [Channel_note_id]
-)
-
-# Build the transfer operation to pay the fees
-transfer = Transfer(inputs=[Sequencer_funds], outputs=[<change_note>])
-
-tx = MantleTx(
-    ops=[Op(opcode=CHANNEL_WITHDRAW, payload=encode(withdrawal)),
-         Op(opcode=TRANSFER, payload=encode(transfer))],
-)
-
-signed_tx = SignedMantleTx(
-    tx=tx,
-    op_proofs=[[[Ed25519_sign(mantle_txhash(tx), sequencer_sk)],[0]],
-               transfer.prove(Sequencer_node_sk)],
-)
+ledger.pending_withdrawals.append((block_slot + WITHDRAW_DELAY,
+                                   channels[withdrawal.channel].note_set,
+                                   withdrawal.inputs,
+                                   withdrawal.outputs))
 ```
 
-### CHANNEL_TRANSFER
-
-Assign funds from a channel to new `ZkPublicKey`. This funds are only usable to participate in PoS and to withdraw from the channel.
-
-#### Payload
+At the start of every block, before its transactions, every pending withdrawal whose due slot is reached is applied if its inputs are still unspent, and dropped otherwise, in the order the withdrawals were posted (see [Block Execution](bedrock-v1.1-block-construction.md#block-execution)). That order is not the order of the due slots, since an SDP withdrawal can fall due after a channel withdrawal posted later, and it sets the order in which the outputs are appended to the ledger note set:
 
 ```python
-class ChannelTransfer:
-    channel: ChannelId
-    inputs: list[NoteId]
-    outputs: list[Note]
-```
-
-#### Proof
-
-```python
-class ChannelTransferOpProof:
-    signatures: list[Ed25519Signature] # signature from transfer_threshold keys
-    indexes: list[int]    # signatures of accredited keys with their index.
-                          # indexes must be ordered from smallest to biggest without duplication
-```
-
-#### Execution Gas
-
-`CHANNEL_TRANSFER` Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_TRANSFER_GAS * transfer_threshold`, where `transfer_threshold` is the one held in the channel state. See [Gas Determination](#gas-determination) for the Execution Gas values.
-
-#### Validation
-
-*Given*
-
-```python
-txhash: zkhash
-chan_transfer: ChannelTransfer
-proof: ChannelTransferOpProof
-
-channels: dict[ChannelId, ChannelState]
-ledger: Ledger
-```
-
-*Validate*
-
-1. Check that the outputs are valid
-
-```python
-ledger.assert_valid_output(chan_transfer.outputs)
-```
-
-2. Check that the channel exists
-
-```python
-assert chan_transfer.channel in channels
-```
-
-3. Check that the inputs are valid and belongs to the channel
-
-```python
-ledger.assert_spendable(chan_transfer.inputs, chan_transfer.channel)
-```
-
-4. Check the balance
-
-```python
-input_amount = checked_uint64(sum(ledger.get_note(input).value for input in chan_transfer.inputs))
-output_amount = checked_uint64(sum(output.value for output in chan_transfer.outputs))
-assert input_amount == output_amount
-```
-
-5. Check the signatures (see [Multiple Ed25519 Signatures Verification](#multiple-ed25519-signatures-verification))
-```python
-MultiEd25519_verify(txhash,
-					proof.signatures,
-                    proof.indexes,
-                    channels[chan_transfer.channel].accredited_keys,
-                    channels[chan_transfer.channel].transfer_treshold)
-```
-
-#### Execution
-
-*Given*
-
-```python
-chan_transfer: ChannelTransfer
-
-channels: dict[ChannelId, ChannelState]
-ledger: Ledger
-```
-
-*Execute*
-
-1. Remove inputs from the ledger
-
-```python
-ledger.execute_spending(chan_transfer.inputs, chan_transfer.channel)
-```
-
-2. Add outputs to the ledger.
-
-```python
-chan_transfer_id = derive_op_id(chan_transfer)
-ledger.execute_adding(chan_transfer_id, chan_transfer.outputs, chan_transfer.channel)
-```
-
-#### Example
-
-Suppose the unique sequencer of Zone A wants to attribute 50 tokens to themself.
-
-```python
-# Sequencer encodes their assignation
-chan_transfer = ChannelTransfer(
-    channel=ZONE_A,
-    inputs = [Channel_note_id]
-    outputs = [Note(pk=alice, value=50)]
-)
-
-# Build the transfer operation to pay the fees
-transfer = Transfer(inputs=[Sequencer_funds], outputs=[<change_note>])
-
-tx = MantleTx(
-    ops=[Op(opcode=CHANNEL_TRANSFER, payload=encode(chan_transfer)),
-         Op(opcode=TRANSFER, payload=encode(transfer))],
-)
-
-signed_tx = SignedMantleTx(
-    tx=tx,
-    op_proofs=[[[Ed25519_sign(mantle_txhash(tx), sequencer_sk)],[0]],
-                              transfer.prove(Sequencer_node_sk)],
-)
+def release_withdrawals(block_slot: Slot):
+    pending = []
+    for (due, note_set, inputs, outputs) in ledger.pending_withdrawals:
+        if due > block_slot:
+            pending.append((due, note_set, inputs, outputs))
+            continue
+        unspent = True
+        for note_nullifier in inputs:
+            if note_nullifier in ledger.sets[note_set].nullifiers:
+                unspent = False
+        if unspent:
+            ledger.sets[note_set].execute_spending(inputs)
+            ledger.sets[LEDGER_SET].execute_adding(outputs)
+    ledger.pending_withdrawals = pending
 ```
 
 ## Service Declaration Protocol (SDP) Operations
@@ -1043,13 +914,11 @@ These Operations implement the [Service Declaration Protocol](bedrock-service-de
 Validators must keep the following state when implementing SDP Operations:
 
 ```python
-service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
 providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
 declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
 `declarations` holds one map per `ServiceType`, keyed by `declaration_id`.
-`service_notes` maps a note to the declaration holding it in each service, and
 `providers` maps a provider identity to its declaration in each service.
 `find_declaration` returns the service and the entry of a `declaration_id`, or
 `None` when no service holds it:
@@ -1077,7 +946,7 @@ class Locator(bytes):
 
 class MinStake:
     threshold: TokenValue # stake value
-    timestamp: BlockNumber # see SDP: Minimum Stake
+    timestamp: BlockHeight # see SDP: Minimum Stake
 
 class ServiceParameters:
     inactivity_period: NumberOfEpochs # number of epochs
@@ -1086,7 +955,7 @@ class ServiceParameters:
 class DeclarationInfo:
     service: ServiceType
     provider_id: Ed25519PublicKey
-    service_note_id: NoteId
+    service_note: NoteCommitment            # the note of the SDP note set staked by the declaration
     locators: list[Locator]
     zk_id: ZkPublicKey
     created: EpochNumber
@@ -1108,8 +977,13 @@ class DeclarationMessage:
     locators: list[Locator]
     provider_id: Ed25519PublicKey
     zk_id: ZkPublicKey
-    service_note_id: NoteId
+    note_pk: ZkPublicKey
+    inputs: list[NoteNullifier]
+    commitment_root: MerkleRoot
+    amount: TokenValue
 ```
+
+`note_pk` is the key the service note is created under. No check reads it and no proof covers its secret, so getting it right is the wallet's responsibility, as for the outputs of a Transfer: a `note_pk` whose secret nobody holds locks the stake for good, and a declarer who keeps the secret offline can keep the stake under a cold key.
 
 Service notes are introduced in [Service notes](#service-notes) and serve as Service collaterals. They cannot be spent before the owner withdraws its participation from the declared service.
 
@@ -1117,12 +991,11 @@ Service notes are introduced in [Service notes](#service-notes) and serve as Ser
 
 ```python
 class DeclarationProof:
-    zk_sig: ZkSignature             # signature proving ownership over
-                                    # service note and zk_id
+    zk_proof: ZkTransfer             # proving spendability over inputs
     provider_sig: Ed25519Signature  # signature proving ownership of provider key
 ```
 
-  see: [Zero Knowledge Signature Scheme (ZkSignature)](#zero-knowledge-signature-scheme-zksignature).
+  see: [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer).
 
 #### Execution Gas
 
@@ -1133,13 +1006,12 @@ class DeclarationProof:
   *Given*
 
 ```python
-txhash: zkhash                  # the txhash of the transaction we are validating
+txhash: hash                    # the txhash of the transaction we are validating
 declaration: DeclarationMessage # the declaration we are validating
 proof: DeclarationProof
 
 min_stake: MinStake      # the (global) minimum stake setting
-ledger: Ledger           # the set of unspent notes
-service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
+ledger: Ledger           # the note sets
 providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
 declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
@@ -1148,35 +1020,36 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
   The declaration is verified according to [Declare](bedrock-service-declaration-protocol.md#declare).
 
-  1. Ensure ownership over the service note, `zk_id` and `provider_id`.
-      ```python
-      assert ZkSignature_verify(
-          txhash, proof.zk_sig, [note.public_key, declaration.zk_id]
-      )
-      assert Ed25519_verify(txhash, proof.provider_sig, provider_id)
-      ```
-
-  2. Ensure no identifier is already taken
+  1. Ensure no identifier is already taken
      ([Identifier Uniqueness](bedrock-service-declaration-protocol.md#identifier-uniqueness)),
      the `declaration_id` being derived as in [Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage).
       ```python
       declare_id = declaration_id(declaration)
       assert declare_id not in declarations[declaration.service_type]
-      assert declaration.service_type not in service_notes.get(declaration.service_note_id, {})
       assert declaration.provider_id not in providers[declaration.service_type]
       ```
 
-  3. Ensure the locators list is non-empty and has no more than 8 entries.
+  2. Ensure the locators list is non-empty and has no more than 8 entries.
       ```python
       assert len(declaration.locators) >= 1
       assert len(declaration.locators) <= 8
       ```
 
-  4. Ensure the service note exists and its value is sufficient for joining the service.
+  3. Ensure the inputs are spendable and the value is sufficient for joining the service.
       ```python
-      assert ledger.is_unspent(declaration.service_note_id)
-      note = ledger.get_note(declaration.service_note_id)
-      assert note.value >= min_stake.threshold
+      ledger.sets[LEDGER_SET].assert_spendable(declaration.inputs)
+      assert declaration.amount >= min_stake.threshold
+      ```
+
+  4. Ensure ownership over the inputs and `provider_id`.
+      ```python
+      assert ledger.sets[LEDGER_SET].verify_transfer(declaration.inputs,
+                                                     [], # no outputs
+                                                     declaration.amount,
+                                                     declaration.commitment_root,
+                                                     FiniteField(txhash, byte_order="little", modulus = p),
+                                                     proof.zk_proof)
+      assert Ed25519_verify(txhash, declaration.provider_id, proof.provider_sig)
       ```
 
 #### Execution
@@ -1186,25 +1059,41 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```python
 declaration: DeclarationMessage # the declaration we are executing
 current_epoch: EpochNumber
-service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
+ledger: Ledger
 providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Execute*
 
-  1. Index the note and the provider identity by this declaration.
+  1. Consume the inputs in the ledger note set.
+      ```python
+      ledger.sets[LEDGER_SET].execute_spending(declaration.inputs)
+      ```
+
+  2. Create the service note under the `note_pk` in the [SDP note set](#ledger), `SDP_SET`, its nonce and commitment derived as in [Note Commitment and Nullifier](#note-commitment-and-nullifier).
+      ```python
+      declaration_op_id = derive_op_id(declaration)
+      service_note = Note(
+          value=declaration.amount,
+          nonce=derive_note_nonce(declaration_op_id, 0, declaration.amount, declaration.note_pk),
+          public_key=declaration.note_pk
+      )
+      ledger.sets[SDP_SET].execute_adding([derive_note_commitment(service_note)])
+      ```
+
+  3. Index the provider identity by this declaration.
       ```python
       declare_id = declaration_id(declaration)
-      service_notes.setdefault(declaration.service_note_id, {})[declaration.service_type] = declare_id
       providers[declaration.service_type][declaration.provider_id] = declare_id
       ```
 
-  2. Store the declaration as explained in [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage).
+  4. Store the declaration as explained in [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage).
       ```python
       declarations[declaration.service_type][declare_id] = DeclarationInfo(
           service=declaration.service_type,
           provider_id=declaration.provider_id,
-          service_note_id=declaration.service_note_id,
+          service_note=derive_note_commitment(service_note),
           locators=declaration.locators,
           zk_id=declaration.zk_id,
           created=current_epoch,
@@ -1213,48 +1102,6 @@ providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
           nonce=current_epoch << 32,  # lifecycle_epoch = created, sequence = 0
       )
       ```
-
-#### Example
-
-```python
-# Assume `alice_note` is in the ledger:
-alice_note = Utxo(
-    txhash=0x2948904F2F0F479B8F8197694B30184B0D2ED1C1CD2A1EC0FB85D299A192A447,
-    output_number=3,
-    note=Note(value=500, public_key=alice_pk_1),
-)
-
-# Alice wishes to lock it to join the Blend network
-declaration=DeclarationMessage(
-    service_type=ServiceType.BN,
-    locators=["/ip4/203.0.113.10/tcp/4001/p2p"],
-    provider_id=alice_provider_pk,
-    zk_id=alice_pk_2,
-    service_note_id=alice_note.id()
-)
-
-# Build the transfer operation to pay the fees
-transfer = Transfer(inputs=[fee_note_id], outputs=[])
-
-
-tx = MantleTx(
-    ops=[Op(opcode=SDP_DECLARE, payload=encode(declaration)),
-         Op(opcode=TRANSFER, payload=encode(transfer))],
-)
-txhash = mantle_txhash(tx)
-
-declaration_proof = DeclarationProof(
-    # proof of ownership of the staked note and zk_id
-    zk_sig=ZkSignature([alice_sk_1, alice_sk_2], txhash),
-    # proof of ownership of the provider id
-    provider_sig=Ed25519Signature(alice_provider_sk, txhash),
-)
-
-SignedMantleTx(
-    tx=tx,
-    op_proofs=[declaration_proof, transfer.prove(alice_sk_1)],
-)
-```
 
 ### SDP_WITHDRAW
 
@@ -1265,15 +1112,23 @@ The service withdrawal follows the definition given in [Withdraw Message](bedroc
 ```python
 class WithdrawMessage:
     declaration: DeclarationId
-    nonce: int
+    service_note_nullifier: NoteNullifier  # nullifier of the service note of the declaration
+    outputs: list[NoteCommitment]          # commitments of the notes created in the ledger note set
+    excess_value: TokenValue               # the excess to pay the fees
 ```
+
+The withdrawal consumes the service note of the declaration and creates the notes that return its value. Its ZkTransfer is proven against the root of an empty MMR to which only the service note is appended. That root is computed from the commitment held in the declaration, so the nullifier is the one of this service note and of no other note. A withdrawal carries no nonce: it is valid only while the declaration has no withdrawal scheduled, and that single nullifier is consumed once, so it cannot be replayed.
+
+The service note is consumed when the withdrawal is posted, so the stake leaves Proof of Stake at once and its excess pays the fees. The outputs wait in the [`pending_withdrawals`](#ledger) of the ledger, as an entry with no input, until the declaration is removed at the first slot of epoch `withdraw_at + 1`, where [`release_withdrawals`](#channel_withdraw) creates them in the ledger note set. Having no input to check, the entry is always released, so the value of the service note is counted once.
 
 #### Proof
 
-  A signature from the `zk_id` and the service note `pk` attached to the declaration is required for withdrawing from a service, (see [Zero Knowledge Signature Scheme (ZkSignature)](#zero-knowledge-signature-scheme-zksignature)).
+  A signature from the `provider_id` attached to the declaration and a [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer) by the holder of the service note, who has the secret of the `note_pk`, are required for withdrawing from a service.
 
 ```python
-ZkSignature
+class WithdrawProof:
+    zk_proof: ZkTransfer             # consuming the service note
+    provider_sig: Ed25519Signature   # signature proving ownership of provider key
 ```
 
 #### Execution Gas
@@ -1285,45 +1140,42 @@ ZkSignature
   *Given*
 
 ```python
-txhash: zkhash # Mantle transaction hash of the tx containing this operation
+txhash: hash # Mantle transaction hash of the tx containing this operation
 withdraw: WithdrawMessage
-signature: ZkSignature
+proof: WithdrawProof
 
 ledger: Ledger
-service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
 declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
   *Validate*
 
-  1. Ensure the declaration exists, and take the note it locked.
+  Validate SDP withdrawal according to [**Withdraw**](bedrock-service-declaration-protocol.md#withdraw).
+
+  1. Ensure declaration exists.
       ```python
       found = find_declaration(declarations, withdraw.declaration)
       assert found is not None
-      service, declare_info = found
-      service_note_id = declare_info.service_note_id
+      _, declare_info = found
       ```
-
-  2. Validate SDP withdrawal according to [**Withdraw**](bedrock-service-declaration-protocol.md#withdraw).
-      1. Ensure that note is still present and locked to this declaration.
-          ```python
-          assert ledger.is_unspent(service_note_id)
-          assert service_notes[service_note_id][service] == withdraw.declaration
-          ```
-      2. Ensure the declaration is not already scheduled for withdrawal.
-          ```python
-          assert declare_info.withdraw_at is None
-          ```
-      3. Ensure service note `pk` and the `zk_id` of this declaration authorized this Operation.
-          ```python
-          service_note = ledger[service_note_id]
-          assert ZkSignature_verify(txhash, signature, [service_note.pk, declare_info.zk_id])
-          ```
-      4. Ensure that the nonce belongs to this declaration and that its sequence is greater than the previous one.
-          ```python
-          assert withdraw.nonce >> 32 == declare_info.created
-          assert withdraw.nonce & 0xFFFFFFFF > declare_info.nonce & 0xFFFFFFFF
-          ```
+  2. Ensure the declaration is not already scheduled for withdrawal.
+      ```python
+      assert declare_info.withdraw_at is None
+      ```
+  3. Ensure the `provider_id` attached to this declaration authorized this Operation.
+      ```python
+      assert Ed25519_verify(txhash, declare_info.provider_id, proof.provider_sig)
+      ```
+  4. Ensure the service note of the declaration is unspent, consumed by its holder and balances the outputs, with [`ZkTransfer_verify`](#zero-knowledge-transfer-proof-zktransfer) against the [`mmr_root`](#commitment-merkle-mountain-range) of the single peak holding the service note.
+      ```python
+      ledger.sets[SDP_SET].assert_spendable([withdraw.service_note_nullifier])
+      assert ZkTransfer_verify([withdraw.service_note_nullifier],
+                               withdraw.outputs,
+                               withdraw.excess_value,
+                               mmr_root([(declare_info.service_note, 0)]),  # one peak, the service note
+                               FiniteField(txhash, byte_order="little", modulus = p),
+                               proof.zk_proof)
+      ```
 
 #### Execution
 
@@ -1331,11 +1183,9 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
 ```python
 withdraw: WithdrawMessage
-signature: ZkSignature
 
 current_epoch: EpochNumber # current epoch
 ledger: Ledger
-service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
 declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
 
@@ -1343,37 +1193,24 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
   Executes the withdrawal protocol [**Withdraw**](bedrock-service-declaration-protocol.md#withdraw).
 
-  1. Update the declaration info with the nonce and the withdrawal epoch.
+  1. Update the declaration info with the withdrawal epoch.
       ```python
       _, declare_info = find_declaration(declarations, withdraw.declaration)
-      declare_info.nonce = withdraw.nonce
       declare_info.withdraw_at = current_epoch + 2
       ```
 
-#### Example
+  2. Consume the service note in the SDP note set.
+      ```python
+      ledger.sets[SDP_SET].execute_spending([withdraw.service_note_nullifier])
+      ```
 
-```python
-withdraw=Withdraw(
-    declaration=alice_declaration_id,
-    nonce=alice_declaration_created << 32 | 1579532  # lifecycle_epoch, sequence
-)
-
-# Build the transfer operation to pay the fees
-transfer = Transfer(inputs=[alices_fee_note_id],
-                    outputs=[Note(100, alice_note_pk)])
-
-tx = MantleTx(
-    ops=[Op(opcode=SDP_WITHDRAW, payload=encode(withdraw)),
-         Op(opcode=TRANSFER, payload=encode(transfer))],
-)
-
-SignedMantleTx(
-    tx=tx,
-    # proof ownership of the withdrawn note and zk id
-    op_proofs=[ZkSignature_sign([alice_note_sk, alice_sk], mantle_txhash(tx)),
-               transfer.prove(alice_sk)]
-)
-```
+  3. Keep the outputs in the [`pending_withdrawals`](#ledger) of the ledger, with no input, until the first slot of epoch `withdraw_at + 1`, `EPOCH_LENGTH` being the number of slots of an epoch ([Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule)).
+      ```python
+      ledger.pending_withdrawals.append(((declare_info.withdraw_at + 1) * EPOCH_LENGTH,
+                                         SDP_SET,
+                                         [],
+                                         withdraw.outputs))
+      ```
 
 ### SDP Epoch Finalization
 
@@ -1383,7 +1220,8 @@ not when the `WithdrawMessage` is processed. The rewards of epoch
 are distributed in the first block of epoch `withdraw_at + 1` (see
 [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)).
 In that same block, after the rewards have been distributed, every declaration
-with `withdraw_at + 1 <= current_epoch` is removed and its service note released.
+with `withdraw_at + 1 <= current_epoch` is removed and the outputs of its withdrawal
+released, through its [pending withdrawal](#sdp_withdraw).
 Declarations that withdrew without earning a final reward are removed by the
 same step.
 
@@ -1391,7 +1229,6 @@ same step.
 
 ```python
 current_epoch: EpochNumber
-service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
 providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
 declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
@@ -1401,12 +1238,8 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
   For every `service`, `declare_id`, `declare_info` in `declarations` where
   `declare_info.withdraw_at is not None and declare_info.withdraw_at + 1 <= current_epoch`:
 
-  1. Release the note and the provider identity the declaration held. The note
-     becomes spendable once no service holds it.
+  1. Release the provider identity the declaration held.
       ```python
-      del service_notes[declare_info.service_note_id][service]
-      if not service_notes[declare_info.service_note_id]:
-          del service_notes[declare_info.service_note_id]
       del providers[service][declare_info.provider_id]
       ```
 
@@ -1430,8 +1263,10 @@ class Active:
 
 #### Proof
 
+  A signature from the `provider_id` attached to the declaration.
+
 ```python
-ZkSignature
+Ed25519Signature
 ```
 
 #### Execution Gas
@@ -1443,9 +1278,9 @@ ZkSignature
   *Given*
 
 ```python
-txhash: zkhash # Mantle transaction hash of the tx containing this operation
+txhash: hash # Mantle transaction hash of the tx containing this operation
 active: Active
-signature: ZkSignature
+signature: Ed25519Signature
 
 declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 ```
@@ -1462,7 +1297,7 @@ _, declaration_info = found
 assert active.nonce >> 32 == declaration_info.created
 assert active.nonce & 0xFFFFFFFF > declaration_info.nonce & 0xFFFFFFFF
 
-assert ZkSignature_verify(txhash, signature, declaration_info.zk_id)
+assert Ed25519_verify(txhash, declaration_info.provider_id, signature)
 ```
 
 #### Execution
@@ -1487,136 +1322,6 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       declaration_info.active = current_epoch
       ```
 
-#### Example
-
-`blend_activity_proof` is an [Activity Proof](blend-protocol.md#activity-proof) for the attested epoch.
-
-```python
-active=Active(
-    declaration=alice_declaration_id,
-    nonce=alice_declaration_created << 32 | 1579532,  # lifecycle_epoch, sequence
-    metadata=ActivityMetadata.Blend(blend_activity_proof)
-)
-
-# Build the transfer operation to pay the fees
-transfer = Transfer(inputs=[fee_note_id], outputs=[])
-
-tx = MantleTx(
-    ops=[Op(opcode=SDP_ACTIVE, payload=encode(active))],
-)
-txhash = mantle_txhash(tx)
-
-SignedMantleTx(
-    tx=tx,
-    op_proofs=[Ed25519_sign(txhash, validator_sk), transfer.prove(fee_note_sk)]
-)
-```
-
-## Leader Operations
-
-### LEADER_CLAIM
-
-This Operation claims the leader's block reward anonymously.
-
-#### Payload
-
-```python
-class ClaimRequest:
-    rewards_root: zkhash # Merkle root used in the proof for voucher membership
-    voucher_nf: zkhash
-    public_key: ZkPublicKey
-```
-
-#### Proof
-
-  The provider proves that they have won a proof of Leadership before the start of the current epoch, i.e., their reward voucher is indeed in the voucher set: [Proof of Claim](#proof-of-claim).
-
-#### Execution gas
-
-  Leader Claim Operations have a fixed Execution Gas cost of `EXECUTION_LEADER_CLAIM_GAS`. See [Gas Determination](#gas-determination) for the Execution Gas values.
-
-#### Validation
-
-  *Given*
-
-```python
-mantle_txhash: zkhash
-claim : ClaimRequest
-last_voucher_root: zkhash # The last root of the voucher Merkle tree
-                          # at the start of the epoch
-voucher_nullifier_set: set[zkhash]
-proof: ProofOfClaim
-```
-
-  *Validate*
-
-```python
-assert claim.voucher_nf not in voucher_nullifier_set
-assert claim.rewards_root == last_voucher_root
-validate_proof(claim, proof, mantle_txhash)
-```
-
-#### Execution
-
-  *Given*
-
-```python
-claim: ClaimRequest
-
-ledger: Ledger
-voucher_nullifier_set: set[zkhash]
-leaders_rewards: TokenValue   # The pool of tokens to be claim by leaders
-leader_reward: TokenValue     # The amount one leader can claim
-```
-
-  *Execution*
-
-  1. Add `claim.voucher_nf` to the `voucher_nullifier_set`.
-  2. Denoting by `leader_reward` the amount defined for leader rewards in [Leaders Reward](bedrock-anonymous-leaders-reward.md#leaders-reward), construct a single output note with value leader_reward under the public key defined in the payload, and insert it into the Ledger:
-      ```python
-      output_note=Note(
-          value = leader_reward
-          public_key = claim.public_key,
-      )
-      claim_id = derive_op_id(claim)
-      ledger.execute_adding(claim_id, [output_note])
-      ```
-
-  3. Reduce the leader’s reward `leaders_rewards` value by the same amount (without ZK proof).
-
-#### Example
-
-```python
-secret_voucher = 0xDEADBEAF;
-reward_voucher = leader_claim_voucher(secret_voucher)
-voucher_nullifier = leader_claim_nullifier(secret_voucher)
-
-claim=ClaimRequest(
-    rewards_root=REWARDS_MERKLE_TREE.root(),
-    voucher_nf=voucher_nullifier,
-    public_key=leader_one_time_key
-)
-
-# Build the transfer operation to pay the fees
-transfer = Transfer(inputs=[<fee_note>], outputs=[<change_note>])
-
-tx = MantleTx(
-    ops=[Op(opcode=LEADER_CLAIM, payload=encode(claim)),
-         Op(opcode=TRANSFER, payload=encode(transfer))],
-)
-
-claim_proof = claim.prove(
-    secret_voucher,
-    REWARDS_MERKLE_TREE.path(leaf=reward_voucher),
-    mantle_txhash(tx)
-)
-
-SignedMantleTx(
-    tx=tx,
-    op_proofs=[claim_proof, transfer.prove(fee_note_sk)]
-)
-```
-
 ## Proof of Work Operations
 
 Validators must maintain the following state to process proof of work Operations:
@@ -1639,14 +1344,16 @@ This Operation claims a reward from the proof of work [reward pool](proof-of-wor
 
 ```python
 class ClaimPowRewardOp:
-    epoch_nonce: zkhash        # Epoch nonce the solution was found against
-    block_hash: hash           # Recent canonical block the solution is anchored to
+    block_hash: hash           # Block ID of a recent canonical block the solution is anchored to
     public_key: ZkPublicKey    # Key the reward note is paid to
+    nonce: zkhash              # Value searched for a ticket satisfying the reward threshold
 ```
+
+`block_hash` is the [Block ID](cryptarchia-v1-protocol.md#block-id) of that block.
 
 #### Proof
 
-  A [ZkSignature](#zero-knowledge-signature-scheme-zksignature) by the secret key corresponding to `public_key`, over the transaction's `mantle_txhash`. The signature proves knowledge of that secret key, so a solution cannot be found by searching over public keys directly.
+  The proof is empty.
 
 #### Execution gas
 
@@ -1657,13 +1364,10 @@ class ClaimPowRewardOp:
   *Given*
 
 ```python
-mantle_txhash: zkhash
 claim: ClaimPowRewardOp            # the CLAIM_POW_REWARD payload
-claim_proof: ZkSignature           # the op_proofs entry for this Operation
+ledger: Ledger
 
 current_slot: SlotNumber           # slot of the block including this claim
-epoch_nonce_current: zkhash        # Cryptarchia epoch nonce of the current epoch
-epoch_nonce_previous: zkhash       # and of the epoch before it
 WINDOW: SlotNumber                 # the acceptance window, in slots
 difficulty_reward: PowTarget       # retargeted every block
 pow_nullifiers: set[zkhash]        # spent solutions, retained for WINDOW
@@ -1671,7 +1375,7 @@ pow_reward_pool: TokenValue
 epoch_pow_reward: TokenValue
 ```
 
-  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), and `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window).
+  `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window). The ticket hashes no epoch nonce: the referenced block is at most `WINDOW` slots old, so its hash already binds the claim to the chain and makes the ticket unpredictable before that block exists.
 
   *Validate*
 
@@ -1685,20 +1389,25 @@ block = get_block_from_hash(claim.block_hash)   # None if unknown or not canonic
 assert block is not None
 assert 0 <= current_slot - block.slot <= WINDOW
 
-# 3. The solution must have been found against the current or the previous epoch.
-assert claim.epoch_nonce in (epoch_nonce_current, epoch_nonce_previous)
-
-# 4. The ticket must satisfy the reward threshold.
-puzzle_ticket = zkhash(claim.public_key,
-                       FiniteField(claim.block_hash, byte_order="little", modulus=p),
-                       claim.epoch_nonce)
+# 3. The ticket must satisfy the reward threshold.
+puzzle_ticket = zkhash(FiniteField(b"POW_CLAIM_V1", byte_order="little", modulus=p),
+                       claim.public_key,
+                       claim.nonce,
+                       FiniteField(claim.block_hash, byte_order="little", modulus=p))
 assert puzzle_ticket < difficulty_reward
 
-# 5. The solution must not have been claimed before. The nullifier is the ticket.
+# 4. The solution must not have been claimed before. The nullifier is the ticket.
 assert puzzle_ticket not in pow_nullifiers
 
-# 6. The claim must be signed by the key the reward is paid to.
-assert ZkSignature_verify(mantle_txhash, claim_proof, [claim.public_key])
+# 5. Construct a single output note of value epoch_pow_reward under the public key
+#    given in the payload, and add it to the buffer of the ledger note set.
+claim_id = derive_op_id(claim)
+output_note = Note(
+    value = epoch_pow_reward,
+    nonce = derive_note_nonce(claim_id, 0, epoch_pow_reward, claim.public_key),
+    public_key = claim.public_key,
+)
+ledger.sets[LEDGER_SET].tx_commitment_buffer.append(derive_note_commitment(output_note))
 ```
 
 #### Execution
@@ -1707,7 +1416,8 @@ assert ZkSignature_verify(mantle_txhash, claim_proof, [claim.public_key])
 
 ```python
 claim: ClaimPowRewardOp
-puzzle_ticket: zkhash              # computed in validation step 4
+puzzle_ticket: zkhash              # computed in validation step 3
+output_note: Note                  # constructed in validation step 5
 
 ledger: Ledger
 pow_reward_pool: TokenValue
@@ -1718,14 +1428,9 @@ pow_nullifiers: set[zkhash]
   *Execution*
 
   1. Add `puzzle_ticket` to the `pow_nullifiers` set. The entry is retained until the claim's referenced block leaves the [acceptance window](proof-of-work.md#acceptance-window).
-  2. Construct a single output note of value `epoch_pow_reward` under the public key given in the payload, and insert it into the Ledger:
+  2. Insert the output note into the ledger note set:
       ```python
-      output_note = Note(
-          value = epoch_pow_reward,
-          public_key = claim.public_key,
-      )
-      claim_id = derive_op_id(claim)
-      ledger.execute_adding(claim_id, [output_note])
+      ledger.sets[LEDGER_SET].execute_adding([derive_note_commitment(output_note)])
       ```
 
   3. Reduce the `pow_reward_pool` by the same amount:
@@ -1733,52 +1438,29 @@ pow_nullifiers: set[zkhash]
       pow_reward_pool = checked_uint64(pow_reward_pool - epoch_pow_reward)
       ```
 
-#### Example
-
-```python
-claim = ClaimPowRewardOp(
-    epoch_nonce=get_current_epoch_nonce(),
-    block_hash=recent_canonical_block_hash(),
-    public_key=reward_pk,          # a key whose ticket satisfies difficulty_reward
-)
-
-# The reward note is spendable by the following Operation, so it pays the fee
-reward_note_id = derive_note_id(derive_op_id(claim), 0,
-                                Note(value=epoch_pow_reward, public_key=reward_pk))
-transfer = Transfer(inputs=[reward_note_id], outputs=[<change_note>])
-
-tx = MantleTx(
-    ops=[Op(opcode=CLAIM_POW_REWARD, payload=encode(claim)),
-         Op(opcode=TRANSFER, payload=encode(transfer))],
-)
-
-SignedMantleTx(
-    tx=tx,
-    op_proofs=[ZkSignature(reward_sk, mantle_txhash(tx)), transfer.prove(reward_sk)]
-)
-```
-
 ## TRANSFER
 
-Transactions must prove the ownership of spent notes. In classical blockchains, this is done through a signature. To stay compatible with our architecture, the signature is done by a ZK proof (see [Zero Knowledge Signature Scheme (ZkSignature)](#zero-knowledge-signature-scheme-zksignature)), proving the knowledge of the secret key associated with the public key.
+Transfer prove the correct consumption and creation of notes. Because notes aren't transparent, this is done by a ZK proof (see [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer)), proving the correctness of the transfer and outputting the excess value of the transfer balance to pay for the fees.
 
-Transactions allow complete transaction linkability and the public key spending the note is not hidden.
+A Transfer hides which commitments its nullifiers spend, and the values and public keys of its notes. It reveals its nullifiers, its commitments, their numbers, the root it names and its `excess_value`.
 
 ### Payload
 
 ```python
 class Transfer:
-    inputs: list[NoteId]  # the list of consumed note identifiers
-                          # must be non-empty
-    outputs: list[Note]
+    inputs: list[NoteNullifier]    # the list of consumed note nullifiers
+                                   # must be non-empty
+    outputs: list[NoteCommitment]  # the list of created note commitments
+    commitment_root: MerkleRoot    # the MMR root of the ledger note set at the end of one of the last ROOT_WINDOW blocks
+    excess_value: TokenValue       # the excess to pay the fees
 ```
 
 ### Proof
 
-  A Transfer proves the ownership of the consumed notes using a [Zero Knowledge Signature Scheme (ZkSignature)](#zero-knowledge-signature-scheme-zksignature).
+  A Transfer proves the inputs, outputs and excess balance with a [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer).
 
 ```python
-ZkSignature
+ZkTransfer
 ```
 
 ### Execution Gas
@@ -1790,30 +1472,33 @@ ZkSignature
   *Given*
 
 ```python
-mantle_txhash: zkhash # zkhash of mantle tx containing this ledger tx
+mantle_txhash_fr: zkhash # mantle_txhash of the tx containing this Operation, reduced modulo p
 transfer: Transfer
-transfer_proof: ZkSignature
+transfer_proof: ZkTransfer
 
 ledger: Ledger
 ```
 
   *Validate*
 
-  1. Ensure all inputs are spendable and not in a channel.
+  1. Ensure all inputs are spendable.
       ```python
-      ledger.assert_spendable(transfer.inputs)
+      ledger.sets[LEDGER_SET].assert_spendable(transfer.inputs)
       ```
 
-  2. Validate transfer proof to show ownership over input notes.
+  2. Validate transfer proof.
       ```python
-      input_notes = [ledger[input_note_id] for input_note_id in transfer.inputs]
-      input_pks = [note.public_key for note in input_notes]
-      assert ZkSignature_verify(mantle_txhash, transfer_proof, input_pks)
+      assert ledger.sets[LEDGER_SET].verify_transfer(transfer.inputs,
+                                                     transfer.outputs,
+                                                     transfer.excess_value,
+                                                     transfer.commitment_root,
+                                                     mantle_txhash_fr,
+                                                     transfer_proof)
       ```
 
-  3. Ensure outputs are valid.
+  3. Add the outputs to the buffer of the ledger note set.
       ```python
-      ledger.assert_valid_output(transfer.output)
+      ledger.sets[LEDGER_SET].tx_commitment_buffer.extend(transfer.outputs)
       ```
 
 ### Execution
@@ -1822,7 +1507,6 @@ ledger: Ledger
 
 ```python
 transfer: Transfer
-transfer_proof: ZkSignature
 
 ledger: Ledger
 ```
@@ -1831,150 +1515,280 @@ ledger: Ledger
 
   1. Remove inputs from the ledger.
       ```python
-      ledger.execute_spending(transfer.inputs)
+      ledger.sets[LEDGER_SET].execute_spending(transfer.inputs)
       ```
 
   2. Add outputs to the ledger.
       ```python
-      transfer_id = derive_operation_id(transfer)
-      ledger.execute_adding(transfer_id, transfer.outputs)
+      ledger.sets[LEDGER_SET].execute_adding(transfer.outputs)
       ```
-
-### Example
-
-```python
-alice_note_id = ... # assume Alice holds a note worth 501 tokens
-bob_note=Note(
-    value=500
-    public_key=bob_pk,
-)
-
-transfer = Transfer(
-    inputs=[alice_note_id],
-    outputs=[bob_note],
-)
-```
 
 # Mantle Ledger
 
 ## Notes
 
-Notes are composed of two fields representing their value and their owner:
+Notes are composed of three fields representing their value and their owner:
 
 ```python
 class Note:
     value: TokenValue   # uint64
+    nonce: NoteNonce	# to avoid two notes having the same commitment
     public_key: ZkPublicKey # 32 bytes
 ```
 
-### Note Id
+`MerkleRoot`, `NoteCommitment`, `NoteNullifier` and `NoteNonce` are `zkhash` values, elements of $`\mathbb{F}_p`$. A `NoteCommitment` hashes the fields of a note and identifies it without revealing them, and a `NoteNullifier` hashes the commitment and the secret key of the holder and is published when the note is spent.
 
-A note can be uniquely identified by the Operation that created it and its output number: `(op_id, output_number)` if each Operation are uniquely identifiable. For this reason, every Operation that output notes have a unique payload that is used to derive the Operation identifier. Because it is often useful to have a commitment to the note fields for use in ZK proofs (e.g., for PoL), we included the note in the note identifier derivation.
+### Note Commitment and Nullifier
+
+A note can be uniquely identified by its fields. Any two notes with the same fields share a commitment and a nullifier, so only one of them can be spent: value can be lost this way, never created. For notes the ledger creates itself, such as rewards and service notes, the nonce can be derived from the Operation that created it and its output number: `(op_id, output_number)` if each Operation are uniquely identifiable. For this reason, every Operation that output notes have a unique payload that is used to derive the Operation identifier.
 
 ```python
-def derive_op_id(operation: Op) -> Hash:
-    op_bytes = encode(op)
+def derive_op_id(payload) -> Hash:
+    op_bytes = encode(payload)
     h = Hasher() # /!\ This is a classic hash not a zkhash /!\
     h.update(b"OPERATION_ID_V1")
     h.update(op_bytes)
     return h.digest()
 
-def derive_note_id(op_id: Hash, output_number: int, note: Note) -> NoteId:
+def derive_note_nonce(op_id: Hash, output_number: int, value: TokenValue, public_key: ZkPublicKey) -> NoteNonce:
     return zkhash(
-        FiniteField(b"NOTE_ID_V1", byte_order="little", modulus= p),
+        FiniteField(b"NOTE_NONCE_V1", byte_order="little", modulus= p),
         FiniteField(op_id, byte_order="little", modulus= p),
         FiniteField(output_number, byte_order="little", modulus= p),
+        FiniteField(value, byte_order="little", modulus= p),
+        public_key
+    )
+    
+def derive_note_commitment(note: Note) -> NoteCommitment:
+    return zkhash(
+        FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p),
         FiniteField(note.value, byte_order="little", modulus= p),
+        note.nonce,
         note.public_key
+    )
+	
+def derive_note_nullifier(note_commitment: NoteCommitment, secret_key: ZkSecretKey) -> NoteNullifier:
+    return zkhash(
+        FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p),
+        note_commitment,
+        secret_key
     )
 ```
 
-`op_id` is a classical 256-bit hash digest and must be reduced to a field element before being passed to the ZkHasher. We apply a direct modular reduction mod `p` (via `FiniteField(..., modulus=p)`). Since $`p \approx2^{-254}`$, the reduction is slightly non-uniform, values in $`[0, 2^{256} \mod p)`$ appear one extra time, but this is inconsequential in practice: the collision probability remains around $`2^{-254}`$, and `NoteId` uniqueness is not derived from uniformity of `op_id` over $`𝔽_p`$ but from the collision-resistance of the underlying hash and per-operation payload uniqueness.
+`op_id` is a classical 256-bit hash digest and must be reduced to a field element before being passed to the ZkHasher. We apply a direct modular reduction mod `p` (via `FiniteField(..., modulus=p)`). Since $`p \approx 2^{254}`$, the reduction is slightly non-uniform, values in $`[0, 2^{256} \mod p)`$ appear one extra time, but this is inconsequential in practice: the collision probability remains around $`2^{-254}`$, and `NoteNonce` uniqueness is not derived from uniformity of `op_id` over $`𝔽_p`$ but from the collision-resistance of the underlying hash and per-operation payload uniqueness.
 
-These note identifiers uniquely define notes in the system and cannot be chosen by the user. Nodes maintain the set of notes through a dictionary mapping the NoteId to the note.
+These note commitments and nullifiers uniquely define notes in the system. Nodes maintain each [note set](#ledger) through an MMR for note commitments and an indexed merkle tree for note nullifiers.
 
 ### Service notes
 
-Service notes are special notes in Mantle that serve as collateral for Service Declarations. A note can become a service note after being locked by executing a Declare Operation, preventing it from being spent until explicitly released through a Withdraw Operation. A note backs at most one declaration per service, so the system maintains a mapping of each service note ID to the declaration it supports in each service. Though locked, these notes remain in the Ledger and can still participate in Proof of Stake. When a service provider withdraws its declaration, the note it held is released for that service, and is available for spending again once no service holds it.
-
-### Channel Notes
-
-Channel notes are on-ledger notes minted to represent channel funds. They are distinct from Service Notes as they can’t be used to declare a service. However, they follow the same ageing rule as ordinary notes since they are part of the ledger and can be used for PoL creation once aged enough.
-
-The system maintains a `channel_notes` set in the Ledger tracking all active channel `NoteId` and their respective `ChannelId`.
+Service notes are special notes in Mantle that serve as collateral for Service Declarations. Executing a Declare Operation consumes notes of the ledger note set and creates one service note under the declaration's `note_pk` in the SDP note set, its commitment kept with the declaration. A note of the SDP note set is spent only by the Withdraw Operation of its declaration, and the notes that withdrawal creates enter the ledger note set when the declaration is removed. Service notes participate in Proof of Stake.
 
 ## Ledger
 
+The notes live in note sets, each with its own commitment MMR and nullifier IMT. A note belongs to one set from its creation until it is consumed, and is spent only by the Operations of that set:
+
+| Note set | Index | Notes | Spent by |
+| --- | --- | --- | --- |
+| Ledger | `LEDGER_SET = 0` | the notes of transfers, rewards and withdrawals | Transfers, deposits and declarations |
+| SDP | `SDP_SET = 1` | service notes | the Withdraw Operation of their declaration |
+| Channel | `2` onward, in the order the channels were created, the null channel having none | channel notes | the steps of the channel's inscriptions, and withdrawals |
+
+Two parameters fix the trees of a note set and how long their roots can be proven against:
+
 ```python
-class Ledger:
-    notes: list[Note]
-    service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
-    channel_notes: dict[NoteId, ChannelId]
+NOTE_SET_DEPTH = 40  # depth of the commitment MMR and of the nullifier IMT of every note set
+ROOT_WINDOW = 1024   # number of blocks a commitment MMR root stays recent for the Operations
 ```
+
+```python
+class NoteSet:
+    commitments: list[(MerkleRoot, int)]        # the peaks of the commitment MMR
+    nullifiers: set[NoteNullifier]              # the set of nullifiers
+    nullifier_leaves: list[NullifierLeaf]       # the leaves of the nullifier IMT, in insertion order
+    current_commitment_root: MerkleRoot         # the commitment MMR root at the end of the previous block
+    recent_commitment_roots: dict[MerkleRoot, RecentRoot]  # the current root and the roots of the last ROOT_WINDOW blocks
+    tx_commitment_buffer: list[NoteCommitment]  # the commitments added by the previous Operations
+                                                # of the Mantle Transaction, empty at its start
+
+class RecentRoot:
+    peaks: list[(MerkleRoot, int)]  # the peaks of the commitment MMR at this root
+    last_block: BlockHeight | None  # the height of the last block at whose end this was the root
+                                    # of the set, None for the current root
+
+class Ledger:
+    sets: list[NoteSet]  # indexed as in the table above
+    # the channel and SDP withdrawals waiting for their due slot: (due slot, note set, inputs, outputs)
+    pending_withdrawals: list[(Slot, int, list[NoteNullifier], list[NoteCommitment])]
+
+def empty_note_set() -> NoteSet:
+    return NoteSet(
+        commitments=[],                       # an empty MMR has no peak
+        nullifiers={0},                       # the nullifier of the sentinel leaf
+        nullifier_leaves=[NullifierLeaf(0, 0)],  # an IMT holding only its sentinel leaf
+        current_commitment_root=mmr_root([]),  # the root of the empty MMR
+        recent_commitment_roots={mmr_root([]): RecentRoot([], None)},
+        tx_commitment_buffer=[]
+    )
+```
+
+At the end of a block at height `block_height`, after its transactions and its leader reward, every note set a commitment was appended to in the block records its commitment MMR root and forgets the roots that have left the window of the last `ROOT_WINDOW` blocks ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), `note_sets_appended_to` giving the note sets a block or a Mantle Transaction appended a commitment to. The work of a block thus follows the note sets it changes, and a note set no block changes costs the later blocks nothing:
+
+```python
+class NoteSet:
+    def record_commitment_root(self, block_height: BlockHeight):
+        self.recent_commitment_roots[self.current_commitment_root].last_block = block_height - 1
+        self.current_commitment_root = mmr_root(self.commitments)
+        self.recent_commitment_roots[self.current_commitment_root] = RecentRoot(list(self.commitments), None)
+        for root, recent in list(self.recent_commitment_roots.items()):
+            if recent.last_block is not None and recent.last_block < block_height - ROOT_WINDOW + 1:
+                del self.recent_commitment_roots[root]
+```
+
+A root is recent for a block at height `block_height` if it is the current root of the set, or if its `last_block` is at least `block_height - ROOT_WINDOW`: a root is the root of the set at the end of each block from the one that recorded it until the block before the one that replaces it.
+
+The note sets are what the [Proof of Leadership](cryptarchia-proof-of-leadership.md#eligible-sets) proves a note against.
+
+### Commitment Merkle Mountain Range
+
+The commitments of each note set are appended, in insertion order, to the leaves of a Merkle tree of depth `NOTE_SET_DEPTH` whose every leaf past the last appended one holds $`0`$. The root of that tree is the commitment MMR root of the set, and a commitment is proven in it by a Merkle path of length `NOTE_SET_DEPTH`. A note set therefore holds at most `2**NOTE_SET_DEPTH` commitments and, its [IMT](#nullifier-indexed-merkle-tree) giving a leaf to the sentinel, `2**NOTE_SET_DEPTH - 1` nullifiers, a capacity that transfers of 8 outputs at the Execution Gas target take about 50 years to fill. An Operation adding a commitment or a nullifier to a full set is invalid.
+
+A Merkle path, in this tree and in every Merkle tree the circuits prove membership in, lists its nodes from the leaf level up to the root, and its selectors in the same order: the selector of a level is the bit of the leaf index at that level, starting from the least significant, `1` when the node computed at that level from the leaf is the right child, so that the path node is on the left. The root of a path is computed as follows:
+
+```python
+def path_root(leaf: zkhash, path: list[zkhash], selectors: list[boolean]) -> MerkleRoot:
+    node = leaf
+    for (sibling, selector) in zip(path, selectors):
+        node = zkhash(sibling, node) if selector == 1 else zkhash(node, sibling)
+    return node
+```
+
+The ledger keeps only the peaks of the tree: the roots of its largest perfect subtrees holding appended commitments, with their heights, from left to right. Appending a commitment adds a peak of height $`0`$ and merges the last two peaks while they have the same height, and the root is computed from the peaks and the roots of the empty subtrees:
+
+```python
+def mmr_append(peaks: list[(MerkleRoot, int)], note_commitment: NoteCommitment):
+    assert sum(2**height for (_, height) in peaks) < 2**NOTE_SET_DEPTH  # the number of leaves of the tree
+    peaks.append((note_commitment, 0))
+    while len(peaks) > 1 and peaks[-1][1] == peaks[-2][1]:
+        (left, height), (right, _) = peaks[-2], peaks[-1]
+        peaks[-2:] = [(zkhash(left, right), height + 1)]
+
+def empty_root(height: int) -> MerkleRoot:
+    # the root of a perfect subtree of the given height whose leaves all hold 0
+    root = 0
+    for _ in range(height):
+        root = zkhash(root, root)
+    return root
+
+def mmr_root(peaks: list[(MerkleRoot, int)]) -> MerkleRoot:
+    if len(peaks) == 1 and peaks[0][1] == NOTE_SET_DEPTH:
+        return peaks[0][0]  # a full tree is its single peak
+    # fold the peaks from the right, each peak being the left sibling of what lies after it
+    root = 0
+    height = 0
+    for (peak, peak_height) in reversed(peaks):
+        while height < peak_height:
+            root = zkhash(root, empty_root(height))
+            height += 1
+        root = zkhash(peak, root)
+        height += 1
+    while height < NOTE_SET_DEPTH:
+        root = zkhash(root, empty_root(height))
+        height += 1
+    return root
+```
+
+### Nullifier Indexed Merkle Tree
+
+The nullifiers of each note set are maintained in an indexed Merkle tree (IMT) of depth `NOTE_SET_DEPTH`, whose leaves are appended in insertion order. Each leaf holds the next greater nullifier of the set, so the leaves form a sorted linked list. The first leaf is the sentinel `(0, 0)`, and a `next_nullifier` of `0` means there is no greater nullifier.
+
+```python
+class NullifierLeaf:
+    nullifier: NoteNullifier       # the nullifier this leaf holds
+    next_nullifier: NoteNullifier  # the next greater nullifier of the set, 0 if none
+
+def nullifier_leaf_hash(leaf: NullifierLeaf) -> zkhash:
+    return zkhash(
+        FiniteField(b"NULLIFIER_IMT_LEAF_V1", byte_order="little", modulus= p),
+        leaf.nullifier,
+        leaf.next_nullifier
+    )
+
+def insert_nullifier(leaves: list[NullifierLeaf], nullifier: NoteNullifier):
+    assert len(leaves) < 2**NOTE_SET_DEPTH  # the number of leaves of the IMT, the sentinel included
+    # the leaf of the greatest nullifier lower than nullifier
+    low = max((leaf for leaf in leaves if leaf.nullifier < nullifier), key=lambda leaf: leaf.nullifier)
+
+    leaves.append(NullifierLeaf(nullifier=nullifier, next_nullifier=low.next_nullifier))
+    low.next_nullifier = nullifier
+```
+
+A `nullifier` is not in the set if and only if there is a leaf `low` with `low.nullifier < nullifier` and either `nullifier < low.next_nullifier` or `low.next_nullifier == 0`. The root of the IMT is the Merkle root of depth `NOTE_SET_DEPTH` over the hashes of its leaves, where every position past the last appended leaf holds the value $`0`$. An empty position is therefore distinct from the sentinel, whose position holds `nullifier_leaf_hash(NullifierLeaf(0, 0))`.
+
+For a note set, the method `commitment_root()` is `mmr_root(self.commitments)`, the root of its commitment MMR as it stands, and `nullifier_root()` is the root of its nullifier IMT, over the hashes of `self.nullifier_leaves`. The `commitment_root` field of an Operation is one of the roots the set recorded.
 
 ### Input Notes Spendability Validation
 
-A note is spendable if and only if it exists, it is not spent or a service note. The following function validates that an input of notes can be consumed:
+The following method validates that an input of notes of a note set can be consumed:
 
 ```python
-class Ledger:
-    def assert_spendable(inputs: list[NoteId], channel_id: ChannelId | None):
-		# Assert inputs are empty
-		assert len(inputs) > 0
+class NoteSet:
+    def assert_spendable(self, inputs: list[NoteNullifier]):
+        # Assert inputs are not empty
+        assert len(inputs) > 0
 
         ## Check there is no duplicate
         assert len(inputs) == len(set(inputs))
 
-            # Check that each note is individualy not a service note, for the correct channel and unspent
-            for note_id in inputs:
-                assert ledger.is_unspent(note_id)
-                assert note_id not in service_notes
-                if channel_id is None:
-                	assert note_id not in ledger.channel_notes
-                else:
-                	assert note_id in ledger.channel_notes
-                    assert ledger.channel_notes[note_id] == channel_id
+        # Check that each note is unspent
+        for note_nullifier in inputs:
+            assert note_nullifier not in self.nullifiers
 ```
 
-### Output Notes Validation
-
-Before an output of notes can be inserted into the Ledger, every note field must satisfy the following constraints:
+The [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) spending notes of a note set is verified against the root referenced by the Operation, which must be recent, once the commitments of the `tx_commitment_buffer` of the set are appended to it, all of them, or only those before its mini-block for a [channel step](#channel_inscribe). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction:
 
 ```python
-class Ledger:
-    def assert_valid_output(outputs: list[Note]):
-        for note in outputs:
-            assert note.value > 0
-            assert note.value <= 2**64-1
+class NoteSet:
+    def tx_commitment_root(self, commitment_root: MerkleRoot, covered: int | None = None) -> MerkleRoot:
+        # Check the root is the commitment MMR root of the set at the end of one of the last
+        # ROOT_WINDOW blocks, block_height being the height of the block validated
+        assert commitment_root in self.recent_commitment_roots
+        last_block = self.recent_commitment_roots[commitment_root].last_block
+        assert last_block is None or last_block >= block_height - ROOT_WINDOW
+        # append the first covered commitments of tx_commitment_buffer, all of them by default,
+        # to a copy of the peaks of the MMR of root commitment_root
+        peaks = list(self.recent_commitment_roots[commitment_root].peaks)
+        for note_commitment in self.tx_commitment_buffer[:covered]:
+            mmr_append(peaks, note_commitment)
+        return mmr_root(peaks)
+
+    def verify_transfer(self, inputs: list[NoteNullifier], outputs: list[NoteCommitment], excess_value: TokenValue,
+                        commitment_root: MerkleRoot, msg: zkhash, proof: ZkTransfer,
+                        covered: int | None = None) -> bool:
+        return ZkTransfer_verify(inputs, outputs, excess_value,
+                                 self.tx_commitment_root(commitment_root, covered), msg, proof)
 ```
 
 ### Consuming Input Notes Execution
 
-Consuming a set of notes removes them from the Ledger’s Merkle tree and recycles their leaf indices:
+Consuming notes of a note set inserts their nullifiers in the nullifier IMT of the set:
 
 ```python
-class Ledger:
-    def execute_spending(inputs: list[NoteId], channel_id: ChannelId | None):
-        for note_id in inputs:
-            # updates the merkle tree to zero out the leaf for this entry
-            # and adds that leaf index to the list of unused leaves
-            ledger.remove(note_id)
-            if channel_id is not None:
-                ledger.channel_notes.pop(note_id)
+class NoteSet:
+    def execute_spending(self, inputs: list[NoteNullifier]):
+        for note_nullifier in inputs:
+            self.nullifiers.add(note_nullifier)
+            insert_nullifier(self.nullifier_leaves, note_nullifier)
 ```
 
 ### Creating Output Notes Execution
 
-Creating notes derives their `NoteId` from the Operation’s `OpId` and insert them in the Ledger:
+Creating notes of a note set appends their commitments to the commitment MMR of the set:
 
 ```python
-class Ledger:
-    def execute_adding(op_id: Hash, outputs: list[Note], channel_id: ChannelId | None):
-        for (output_index, output_note) in enumerate(outputs):
-            output_note_id = derive_note_id(op_id, output_index, output_note)
-            ledger.add(output_note_id)
-            if channel_id is not None:
-                ledger.channel_notes[output_note_id] = channel_id
+class NoteSet:
+    def execute_adding(self, outputs: list[NoteCommitment]):
+        for note_commitment in outputs:
+            mmr_append(self.commitments, note_commitment)
 ```
 
 # Appendix
@@ -1985,79 +1799,136 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 
 | Constants | Value |
 | --- | --- |
-| EXECUTION_TRANSFER_GAS | 590 |
+| EXECUTION_TRANSFER_GAS | 619 |
 | EXECUTION_CHANNEL_INSCRIBE_GAS | 59 |
 | EXECUTION_CHANNEL_CONFIG_GAS | 59 |
-| EXECUTION_CHANNEL_DEPOSIT_GAS | 590 |
-| EXECUTION_CHANNEL_WITHDRAW_GAS | 59 |
-| EXECUTION_CHANNEL_TRANSFER_GAS | 59 |
-| EXECUTION_SDP_DECLARE_GAS | 649 |
-| EXECUTION_SDP_WITHDRAW_GAS | 590 |
-| EXECUTION_SDP_ACTIVE_GAS | 590 |
-| EXECUTION_LEADER_CLAIM_GAS | 580 |
-| EXECUTION_CLAIM_POW_REWARD_GAS | 590 |
+| EXECUTION_CHANNEL_DEPOSIT_GAS | 619 |
+| EXECUTION_CHANNEL_WITHDRAW_GAS | 619 |
+| EXECUTION_SDP_DECLARE_GAS | 678 |
+| EXECUTION_SDP_WITHDRAW_GAS | 678 |
+| EXECUTION_SDP_ACTIVE_GAS | 59 |
+| EXECUTION_CLAIM_POW_REWARD_GAS | 0 |
 
-## Zero Knowledge Signature Scheme (ZkSignature)
+## Zero Knowledge Transfer Proof (ZkTransfer)
 
 A proof attesting that for the following public values:
 
 ```python
-class ZkSignaturePublic:
-    public_keys: list[ZkPublicKey] # public keys signing the message (len = 32)
-    msg: zkhash # a finite field element uniquely representing the message
+class ZkTransferPublic:
+    inputs: list[NoteNullifier]     # (len = 4) the nullifiers of the consumed notes
+    inputs_active: list[boolean]    # (len = 4) whether each input consumes a note
+    outputs: list[NoteCommitment]   # (len = 8) the commitments of the created notes
+    outputs_active: list[boolean]   # (len = 8) whether each output creates a note
+    excess_value: TokenValue        # the value of the inputs left over by the outputs
+    tx_commitment_root: MerkleRoot  # the referenced commitment_root extended with the tx_commitment_buffer of the set,
+                                    # or the commitments before its mini-block for a channel step
+    msg: zkhash                     # the message the proof is bound to
 ```
+
+`ZkTransfer_verify(inputs, outputs, excess_value, tx_commitment_root, msg, proof)` verifies the proof for these public values. The nullifiers of `inputs` fill the first inputs of the circuit and the commitments of `outputs` its first outputs. These are active, and every other input and output is inactive and holds `0`, so the verifier sets the flags from the lengths of the two lists. A ZkTransfer therefore spends at most 4 notes and creates at most 8: an Operation whose `inputs` or `outputs` list is longer is invalid. An Operation spending notes of a note set, other than `SDP_WITHDRAW`, verifies the proof through the [`verify_transfer`](#input-notes-spendability-validation) method of the set, which appends the commitments created earlier in the Mantle Transaction to the referenced root, all of them, or only those before its mini-block for a channel step.
+
+The circuit fixes the order of the public signals of the proof: the outputs `inputs`, `outputs` and `excess_value` first, then `inputs_active`, `outputs_active`, `tx_commitment_root` and `msg`.
 
 The prover knows a witness:
 
 ```python
-class ZkSignatureWitness:
-    # The list of secret keys used to signed the message
-    secret_keys: list[ZkSecretKey] # (len = 32)
+class ZkTransferWitness:
+    inputs_sk: list[ZkSecretKey]           # (len = 4) the secret key of each input
+    inputs_nonce: list[zkhash]             # the nonce of each input note
+    inputs_value: list[TokenValue]         # the value of each input note
+    inputs_selectors: list[list[boolean]]  # (len = 4 x NOTE_SET_DEPTH) the Merkle path direction of each input
+    inputs_path: list[list[zkhash]]        # (len = 4 x NOTE_SET_DEPTH) the Merkle path of each input
+    outputs_pk: list[ZkPublicKey]          # (len = 8) the public key of each output note
+    outputs_nonce: list[zkhash]            # the nonce of each output note
+    outputs_value: list[TokenValue]        # the value of each output note
 ```
 
-Such that the following constraints hold:
-
-- The number of secret keys is equal to the number of public keys.
-  ```python
-  assert len(secret_keys) == len(public_keys)
-  ```
+Such that the following constraints hold, where `inputs_pk` and `inputs_commitment` are the public keys and commitments the circuit derives for the inputs:
 
 - Each public key is derived from the corresponding secret key.
   ```python
   assert all(
-      notes[i].public_key == zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), secret_keys[i])
-      for i in range(len(public_keys))
+      inputs_pk[i] == zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), inputs_sk[i])
+      for i in range(len(inputs_sk))
   )
+  ```
+  
+- Each input flag is boolean, and each input commitment is derived from the public key, the nonce and the value.
+  ```python
+  assert all(
+      inputs_active[i] * (1 - inputs_active[i]) == 0
+      and inputs_commitment[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i])
+      for i in range(len(inputs_sk))
+  )
+  ```
+  
+- Each active input nullifier is derived from the secret key and the input commitment, and each inactive input has value 0.
+  ```python
+  assert all(
+      inputs[i] == zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), inputs_commitment[i], inputs_sk[i])
+      if inputs_active[i] else inputs_value[i] == 0
+      for i in range(len(inputs_sk))
+  )
+  ```
+  
+- The nullifiers of the active inputs are pairwise distinct, so a note is consumed at most once and counted once in the balance.
+  ```python
+  assert all(
+      inputs[i] != inputs[j]
+      for i in range(len(inputs_sk))
+      for j in range(i + 1, len(inputs_sk))
+      if inputs_active[i] and inputs_active[j]
+  )
+  ```
+  
+- Each selector is a bit, and each active input commitment is in `tx_commitment_root`, its path computed by [`path_root`](#commitment-merkle-mountain-range).
+  ```python
+  assert all(
+      inputs_selectors[i][j] * (1 - inputs_selectors[i][j]) == 0
+      for i in range(len(inputs_sk))
+      for j in range(len(inputs_selectors[i]))
+  )
+  assert all(
+      path_root(inputs_commitment[i], inputs_path[i], inputs_selectors[i]) == tx_commitment_root
+      or not inputs_active[i]
+      for i in range(len(inputs_sk))
+  )
+  ```
+
+- Each output flag is boolean, each active output commitment is derived from the public key, the nonce and the value, and each inactive output has value 0.
+  ```python
+  assert all(
+      outputs_active[i] * (1 - outputs_active[i]) == 0
+      and (outputs[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), outputs_value[i], outputs_nonce[i], outputs_pk[i])
+           if outputs_active[i] else outputs_value[i] == 0)
+      for i in range(len(outputs_pk))
+  )
+  ```
+  
+- Each output is well-formed and the excess value, zero or more, is outputted. Input values need no range check: every commitment of a set opens to a value below $`2^{64}`$, since ZkTransfer outputs are range-checked and every other note the ledger creates holds a `TokenValue`. Every Operation and note kind must keep this.
+  ```python
+  assert all(
+      outputs_value[i] < 2**64
+      for i in range(len(outputs_value))
+  )
+  value_inputs = sum(inputs_value)
+  value_outputs = sum(outputs_value)
+  assert value_inputs >= value_outputs
+  assert excess_value == value_inputs - value_outputs
   ```
 
 - The proof is bound to `msg` (it’s the `mantle_tx_hash` reduced modulo $`p`$ in case of transactions).
 
-  For implementation, the ZkSignature circuit will take a maximum of 32 public keys as inputs. To prove ownership of fewer keys, the remaining inputs will be padded with the public key corresponding to the secret key `0` and ignored during execution. The outputs have no size limit since they are included in the hashed message.
-
-### Benchmark
-
-The material used for the benchmarks is the following:
-
-- CPU       : 13th Gen Intel(R) Core(TM) i9-13980HX (24 cores / 32 threads)
-- RAM       : 32GB - Speed: 5600 MT/s
-- Motherboard: Micro-Star International Co., Ltd. MS-17S1
-- OS        : Ubuntu 22.04.5 LTS
-- Kernel    : 6.8.0-59-generic
-
-![Diagram](bedrock-v1.1-mantle-specification/assets/477261aa-09df-8268-8845-8145f3f8d670.png)
+The circuit takes at most 4 inputs and 8 outputs. The unused ones are inactive: their entry of `inputs` (or `outputs`) and of `inputs_value` (or `outputs_value` respectively) is `0`, and their other witnesses are arbitrary.
 
 ## Multiple Ed25519 Signatures Verification
 
-Several operations (e.g. [Channel Configuration](#channel-configuration) and
-[Channel Withdraw](#channel-withdraw)) authorize an action with a threshold of
-Ed25519 signatures produced by a list of accredited keys. Each signature comes
-with the index, in the accredited keys list, of the key that produced it. The
-verification is factored out in the following routine:
+The [Channel Configuration](#channel_config) authorizes an action with a threshold of Ed25519 signatures produced by a list of accredited keys. Each signature comes with the index, in the accredited keys list, of the key that produced it. The verification is factored out in the following routine:
 
 *Given*
 
 ```python
-msg: zkhash                        # the message being signed (the mantle txhash)
+msg: hash                          # the 32-byte mantle_txhash digest being signed
 signatures: list[Ed25519Signature]
 indexes: list[u16]                 # for each signature, the index in `keys` of
                                    # the signing key
@@ -2075,99 +1946,41 @@ def MultiEd25519_verify(msg, signatures, indexes, keys, threshold):
     # There must be exactly `threshold` signatures
     assert len(signatures) == threshold
 
-    # Indexes must be ordered from smallest to biggest without duplication.
-    # Being strictly increasing rejects duplicates and, since `idx` is used to
-    # index `keys`, guarantees every index stays within bounds.
+    # Indexes must be ordered from smallest to biggest without duplication,
+    # and the last one, hence every one, must index a key of `keys`.
     for i in range(len(indexes) - 1):
         assert indexes[i] < indexes[i + 1]
+    assert len(indexes) == 0 or indexes[-1] < len(keys)
 
     # Each signature must be valid for the accredited key at its index
     for sig, idx in zip(signatures, indexes):
         assert Ed25519_verify(msg, keys[idx], sig)
 ```
 
-## Proof of Claim
-
-A proof attesting that given these public values:
-
-```python
-class ProofOfClaimPublic:
-    voucher_root: zkhash # Merkle root of the reward_voucher maintained by everyone
-    voucher_nullifier: zkhash
-    mantle_tx_hash_fr: zkhash # attached hash reduced modulo p
-```
-
-The prover knows the following witness:
-
-```python
-class ProofOfClaimWitness:
-    secret_voucher: zkhash
-    voucher_merkle_path: list[zkhash]
-    voucher_merkle_path_selectors: list[bool]
-```
-
-such that the following constraints hold:
-
-- The reward voucher is derived from the secret voucher.
-```python
-assert reward_voucher == zkhash(
-    FiniteField(b"REWARD_VOUCHER", byte_order="little", modulus= p),
-    secret_voucher)
-```
-
-- There exists a valid Merkle path from the reward voucher as a leaf to the Merkle root.
-```python
-assert voucher_root == path_root(leaf=reward_voucher,
-    path=voucher_merkle_path,
-    selectors=voucher_merkle_path_selectors)
-```
-
-- The voucher nullifier is derived from the secret voucher correctly.
-```python
-assert voucher_nullifier == zkhash(
-    FiniteField(b"VOUCHER_NF", byte_order="little", modulus= p),
-    secret_voucher)
-```
-
-- The proof is bound to the `mantle_tx_hash` reduced modulo $`p`$.
-
-### Benchmark
-
-The material used for the benchmarks is the following:
-
-- CPU       : 13th Gen Intel(R) Core(TM) i9-13980HX (24 cores / 32 threads)
-- RAM       : 32GB - Speed: 5600 MT/s
-- Motherboard: Micro-Star International Co., Ltd. MS-17S1
-- OS        : Ubuntu 22.04.5 LTS
-- Kernel    : 6.8.0-59-generic
-
-![Diagram](bedrock-v1.1-mantle-specification/assets/b23261aa-09df-827c-8565-014a68d98d4c.png)
-
 ## Test Vectors
 
-To see what the payloads represent, refer to [Mantle Transaction Encoding](mantle-transaction-encoding.md).
+To see what the payloads represent, refer to [Mantle Transaction Encoding](mantle-transaction-encoding.md). The vectors are derived from this specification: `op_id` is the BLAKE2b-256 hash of `OPERATION_ID_V1` and the payload, without its opcode, and the transaction hash the BLAKE2b-256 hash of `MANTLE_TXHASH_V1` and the encoded `MantleTx`. Each field holds a small distinct value, so that every field can be told apart in the payload.
 
 ### Operation Id
 
 | Operation | Payload | `op_id` |
 | ------------------------- | - | - |
-| `TRANSFER`                | 0x0201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000600000000000000000000000000000000000000000000000000000000000000 | 0x5e5e1b318aa0c2aec93fbb327e6af5f705e5684269a34e0c1319539d00d06cdb |
-| `CHANNEL_CONFIG`          | 0x0707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c000d00 | 0x8bac7efe4c3ef10745c0d509ac88e2abaf1d3cda94987ed2eeb9ad71dd31d056 |
-| `CHANNEL_INSCRIBE`        | 0x0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c | 0xfb9af7fb1384fff51780ec8c5afbcba76449ab7603484f797df3a472e48826c1 |
-| `CHANNEL_DEPOSIT`         | 0x1010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000100000006465706f7369742d6d65746164617461 | 0xf14ff0aad9bc5e8e30c5d1aa3710aaa1c1cc1f47c2c256e7d9e73104cb17ccaf |
-| `CHANNEL_WITHDRAW`        | 0x1212121212121212121212121212121212121212121212121212121212121212011300000000000000000000000000000000000000000000000000000000000000 | 0x503d0d08f9faef971864943103965d13be7159fe6e0361c8ea614c6d0431e59c |
-| `CHANNEL_TRANSFER`        | 0x14141414141414141414141414141414141414141414141414141414141414140115000000000000000000000000000000000000000000000000000000000000000116000000000000001700000000000000000000000000000000000000000000000000000000000000 | 0xfb24c17731954e8bbe1b0dedd69e4857c8083d1689aff331ba16f3ed5883f0ce |
-| `SDP_DECLARE`             | 0x00010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000 | 0x42e93fdce121a5ab4da3201a6fd2da1d42ca8b7d8c1a8c9e2a657a6cdc7aa468 |
-| `SDP_WITHDRAW`            | 0x1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d00000000000000 | 0xa9f938ca71aa93a05f19aff553757b2707041daf0630b7c2d6d3da0705be8aaa |
+| `TRANSFER`                | 0x0201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000 | 0xb39493d223a2fefae67c6aac3c8f9338e3272137d4ae4ce714607bcbc9d011a4 |
+| `CHANNEL_CONFIG`          | 0x0707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c00 | 0xce2011caae1d309c81b201ba7dc3c7516e93fbd43359e1fe8aff423d61fd7cc1 |
+| `CHANNEL_INSCRIBE`        | 0x0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c0100010000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000010000000737465702d696e736372697074696f6e | 0x016189bfb661ec286950e7a95c7382b121833c2b1a2b0ffc863cb566d3816830 |
+| `CHANNEL_DEPOSIT`         | 0x1010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000012700000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000028000000000000001b0000006368616e6e656c2d6465706f7369742d696e736372697074696f6e | 0x27586493a0af5c413ec02bbb1cf310f70c74370df5b81c1d729f5e355a1e2937 |
+| `CHANNEL_WITHDRAW`        | 0x1212121212121212121212121212121212121212121212121212121212121212011300000000000000000000000000000000000000000000000000000000000000012a000000000000000000000000000000000000000000000000000000000000002900000000000000000000000000000000000000000000000000000000000000 | 0x18e88fc3142c430bce8210829302c77689735fd470668a303d26568d17939d09 |
+| `SDP_DECLARE`             | 0x00010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000011a000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d00000000000000 | 0x07cad981e914c28fb8d090e67627b05347314ad27090a7212cd3437ba66db105 |
+| `SDP_WITHDRAW`            | 0x1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000 | 0x22cfc077d947c544eada3e018542be63f726bda60c96f64477518eee62d88009 |
 | `SDP_ACTIVE`              | 0x1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303 | 0xc4a2a639034016f52728f34041cf95fc2c7adb8f54cf94b4361b2d0cb72ebb70 |
-| `LEADER_CLAIM`            | 0x200000000000000000000000000000000000000000000000000000000000000021000000000000000000000000000000000000000000000000000000000000002200000000000000000000000000000000000000000000000000000000000000 | 0x0dc1a007fdd184b4553a83d166b749a621f5be2de4b3b0429ebf0520d1dd9a51 |
+| `CLAIM_POW_REWARD`        | 0x313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0x271876ff684b7087005dba3153c44e8dcefd09257aa7e0d491399e2a483c975a |
 
 ### Mantle Transaction Hash
 
 | Transaction | Payload | Transaction Hash                                                   |
 | - | - | - |
 | Empty transaction | 0x00 | 0x2eba3f667b80a508f3d44d149a1c27a90ea365a51e4fc8209289088142b364e5 |
-| Transaction with one of each operation | 0x0b000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000600000000000000000000000000000000000000000000000000000000000000100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c000d00110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c121010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000100000006465706f7369742d6d6574616461746113121212121212121212121212121212121212121212121212121212121212121201130000000000000000000000000000000000000000000000000000000000000014141414141414141414141414141414141414141414141414141414141414141401150000000000000000000000000000000000000000000000000000000000000001160000000000000017000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d00000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c0202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020203030303030303030303030303030303030303030303030303030303030303033020000000000000000000000000000000000000000000000000000000000000002100000000000000000000000000000000000000000000000000000000000000220000000000000000000000000000000000000000000000000000000000000040230000000000000000000000000000000000000000000000000000000000000024242424242424242424242424242424242424242424242424242424242424242500000000000000000000000000000000000000000000000000000000000000 | 0xfa9bb4104085f58ecf14fe698f72c1eb1de893c239bfdcf01d308590e56b341c |
+| Transaction with one of each operation | 0x09000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c00110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c0100010000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000010000000737465702d696e736372697074696f6e121010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000012700000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000028000000000000001b0000006368616e6e656c2d6465706f7369742d696e736372697074696f6e131212121212121212121212121212121212121212121212121212121212121212011300000000000000000000000000000000000000000000000000000000000000012a0000000000000000000000000000000000000000000000000000000000000029000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000003000000000000000000000000000000000000000000000000000000000000000011a000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d00000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c02020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202030303030303030303030303030303030303030303030303030303030303030330313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0xb653a18b57ae852afa5a41d07dab4a29bcbc77039b3b3a08b6029cd9c51432df |
 
 ### Declaration Id
 
