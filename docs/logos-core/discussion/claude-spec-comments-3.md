@@ -38,7 +38,7 @@ appendices everything that is settled.
 | 1 | Earlier items answered, still needing discussion | 11 remarks covering 15 items |
 | 2.1 | Items of the second audit with no response | 10 |
 | 2.2 | Concerns of `human-spec-comments.md` that still need an answer | 4 |
-| 3.1 | New: contradictions and gaps in the spec text | 26 |
+| 3.1 | New: contradictions and gaps in the spec text | 27 |
 | 3.2 | New: the system contracts against their own rules | 10 |
 | 3.3 | New: the integrator documents against the specs | 8 |
 | 3.4 | New: porting the existing module catalog | 7 |
@@ -1083,6 +1083,63 @@ other rules depend on is not stated.
 - **Suggested resolution:** add a host operation that returns the Runtime instance id once the handle
   exists and before startup, or state that a configuration permitting generation is the acceptance that
   l.2666-2667 requires.
+
+#### TF-28 — A stop that outlives its drain deadline: the state at expiry, and the state when its cleanup later ends, are not stated
+- **Specs:** RUNTIME §3.4 l.569-570 (`stopping`: "Runtime has begun logical shutdown and is waiting for
+  applicable draining, lifecycle destruction, realization stop, detachment, and cleanup"; `error`:
+  "Realization, initialization, readiness, execution, or cleanup failed"), l.611-613 ("Completion of
+  cleanup after a failure MUST NOT by itself change `error` to `unloaded`"; "A new accepted execution
+  attempt may leave `error`; a completed explicit stop transitions the instance to `unloaded`"; "Runtime
+  MUST reject `start_module` with `NOT_READY` for an instance in `error` while cleanup of a previous
+  realization remains unresolved"), l.627 ("Runtime transitions to `unloaded` only after the required
+  cleanup or detachment is complete"); §9.1 l.1835-1837 ("Concurrent lifecycle requests MUST NOT create
+  duplicate realizations, native contexts, destruction calls, or release operations"; "A `stop_module`
+  request for an instance in `stopping` or `unloaded` MUST return its current module state and MUST NOT
+  initiate another destruction or release"); §9.3 l.3753 (`cleanup-timeout` is one of the initial
+  failure classifications), l.3757 ("Runtime MUST preserve the classification through failure cleanup,
+  replace it when a later failure supplies the current cause, and clear it when a new execution attempt
+  is accepted or an explicit stop completes successfully"), l.3758 ("A local instance in `error` MUST
+  include `failure`"); §10.2 l.3835-3838 (the deployment supplies "finite logical drain deadlines, the
+  phase covered by each deadline, and the permitted escalation after expiry"; "Expiry does not establish
+  quiescence, successful destruction, or absence of a realization"; "Runtime MUST retain unresolved
+  realization ownership and native resources until their actual uses end"; a shared-process native
+  realization "MUST NOT be force-released by destroying referenced state or unloading code that can
+  still execute"), l.3860-3861 (shutdown continues once each realization is released "or its cleanup
+  failure has been recorded according to shutdown policy").
+- **Issue:** for a native realization in the Runtime's own process nothing can be forced (l.3838). When
+  the drain deadline of an explicit stop expires and destruction has not returned, the Runtime can only
+  keep waiting. Three points are then open.
+  1. The state at expiry. The instance may stay `stopping`, which still describes it (l.569, l.627), or
+     become `error` with `cleanup-timeout` (l.570, l.3753). Shutdown records a cleanup failure
+     (l.3861). No rule says the same for `stop_module`, and no rule says when `cleanup-timeout` is set
+     or whether a record in `stopping` may carry it.
+  2. The state when the cleanup ends later, for an instance that was moved to `error`. By l.611 and the
+     first clause of l.3757 the instance stays `error` and keeps `cleanup-timeout`, because the cleanup
+     completed after a failure. By l.612 and the last clause of l.3757 the explicit stop has now
+     completed, so the instance becomes `unloaded` and the failure is cleared. The text does not say
+     whether a stop that overran its deadline "completes successfully" when its destruction returns.
+  3. A `stop_module` that arrives while the instance is in `error` and that cleanup is unresolved.
+     l.1837 covers `stopping` and `unloaded` only, and l.1835 excludes a second destruction. Whether
+     the request is answered with the current state, or is itself the explicit stop that completes
+     when the pending cleanup ends, is not said.
+- **Impact:** for one history, one Runtime reports `stopping` and then `unloaded`, another reports
+  `stopping`, `error` and `unloaded`, and a third stays in `error` until a second stop. The sequence of
+  `module_state_changed_event`, the presence of `failure` and what an operator must do after a slow
+  stop all differ. Orchestration that treats `error` as a failed instance acts on a stop that only took
+  long.
+- **Reading an implementation needs today:** at expiry move the instance to `error` with
+  `cleanup-timeout`, keep the realization, and refuse `start_module` with `NOT_READY` (l.613). When the
+  cleanup ends, keep `error` and the classification (l.611). A later `stop_module` then completes at
+  once and gives `unloaded` with the failure cleared; a new accepted start also leaves `error`. A
+  `stop_module` received while the cleanup is unresolved starts no second destruction and reports the
+  current state.
+- **Overlap:** TL-07 (the diagram has no edge from stopping to error), TL-08 (cleanup completion
+  produces no event), TF-20 (when `stop_module` answers), NL-06 (answered: cleanup alone never leaves
+  `error`).
+- **Suggested resolution:** state what the expiry of a stop's drain deadline does to the lifecycle state
+  and where `cleanup-timeout` is reported; state whether the later return of that destruction is a
+  completed explicit stop or cleanup after a failure; and say what `stop_module` does for an instance in
+  `error` whose cleanup is unresolved.
 
 ### 3.2 The system contracts, checked against their own rules
 
