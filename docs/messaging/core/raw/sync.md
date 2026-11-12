@@ -127,13 +127,7 @@ and a reconciliation status:
 | Field      | Type       | Description                          |
 |------------|------------|--------------------------------------|
 | elements   | seq[`SyncID`] | Sequence of `SyncID`s in the `Range` |
-| reconciled | bool       | Whether the sender still needs the remote peer's items for the `Range` |
-
-The `reconciled` flag tells the remote peer whether the sender still needs its items for this range.
-A peer sending an `ItemSet` in response to a `Fingerprint` range (including subranges produced by splitting) MUST set `reconciled` to `false`.
-A peer sending an `ItemSet` in response to an `ItemSet` with `reconciled` set to `false` MUST set `reconciled` to `true` and
-MUST use the same range bounds.
-A peer holding no `SyncID`s in the range MAY instead answer a `Fingerprint` range with an empty `ItemSet` and `reconciled` set to `true`.
+| reconciled | bool       | `true` when the sender has already compared the `Range` with the remote peer's items, `false` when it still needs them |
 
 #### Payload encoding
 
@@ -241,32 +235,32 @@ Each syncing peer performs the following in response to a `RangesData` payload:
 
 The responder:
 1. Receives and decodes the payload
-2. If the payload's `cluster` and `shards` match the responder's own, processes each range:
+2. If the payload is an empty payload, closes the stream without replying:
+   - If the payload's `cluster` and `shards` match the responder's own, the session has finished.
+   - Otherwise, the remote peer aborted the session.
+3. Otherwise, if shards or cluster don't match:
+   - Responds with an empty payload carrying its own cluster ID and supported shards.
+4. If the payload's `cluster` and `shards` match the responder's own, processes each range:
    - If the received range is of type `Skip`, processes it no further.
       - If the received `Skip` range is the trailing range, it MAY be omitted from the response.
       Otherwise, the responder MUST include it in the response as type `Skip` so that range bounds remain contiguous.
    - If the received range is of type `Fingerprint`, computes the fingerprint over the local matching range
       - If the local fingerprint matches the received fingerprint, includes this range in the response as type `Skip`
       - If the local fingerprint does _not_ match the received fingerprint:
-         - If the corresponding range is small enough, includes this range in the response as type `ItemSet` with all `SyncID`s
+         - If the corresponding range is small enough, includes this range in the response as type `ItemSet` with all `SyncID`s and `reconciled` set to `false`
          - If the corresponding range is too large, divide it into subranges.
-         For each subrange, if the range is small enough, includes it in the response as type `ItemSet` with all `SyncID`s.
+         For each subrange, if the range is small enough, includes it in the response as type `ItemSet` with all `SyncID`s and `reconciled` set to `false`.
          If the subrange is too large, includes it in the response as type `Fingerprint`.
    - If the received range is of type `ItemSet`, compares it to the local items in the corresponding range
       - If there are any differences between the local and remote items, adds these as part of the output of the `reconciliation` procedure.
       At this point, the syncing peers MAY start to exchange the full messages corresponding to differences using the `transfer` protocol.
-      - If the received `ItemSet` has `reconciled` set to `false`, includes the corresponding local range in the response as type `ItemSet`.
+      - If the received `ItemSet` has `reconciled` set to `false`, includes the corresponding local range in the response as type `ItemSet` with all `SyncID`s, the same range bounds and `reconciled` set to `true`.
       - If the received `ItemSet` has `reconciled` set to `true`, includes the corresponding local range in the response as type `Skip`.
-3. If shards or cluster don't match:
-   - Responds with an empty payload carrying its own cluster ID and supported shards.
-4. Delta encodes the response
-5. Sends the response using libp2p length-prefixed encoding
-
-A response consisting only of `Skip` ranges MUST be sent as an empty payload.
-Adjacent `Skip` ranges MAY be merged in a response.
-A peer that receives an empty payload compares the payload's `cluster` and `shards` with its own, as in step 2:
-if they match, the session has finished; otherwise the remote peer aborted it.
-In both cases the receiver closes the stream without replying.
+5. Before encoding the response:
+   - Adjacent `Skip` ranges MAY be merged.
+   - A response consisting only of `Skip` ranges MUST be sent as an empty payload.
+6. Delta encodes the response
+7. Sends the response using libp2p length-prefixed encoding
 
 ## Transfer Protocol
 
