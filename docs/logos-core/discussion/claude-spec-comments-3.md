@@ -38,7 +38,7 @@ appendices everything that is settled.
 | 1 | Earlier items answered, still needing discussion | 11 remarks covering 15 items |
 | 2.1 | Items of the second audit with no response | 10 |
 | 2.2 | Concerns of `human-spec-comments.md` that still need an answer | 4 |
-| 3.1 | New: contradictions and gaps in the spec text | 23 |
+| 3.1 | New: contradictions and gaps in the spec text | 26 |
 | 3.2 | New: the system contracts against their own rules | 10 |
 | 3.3 | New: the integrator documents against the specs | 8 |
 | 3.4 | New: porting the existing module catalog | 7 |
@@ -946,6 +946,143 @@ other rules depend on is not stated.
 - **Suggested resolution:** add event subscription and event delivery to the list at l.1720-1730, and
   state in RUNTIME §4.4 whether activation requires the subscriber's `subscribe-event` decision, with
   `NOT_AUTHORISED` when it is denied.
+
+#### TF-25 — Where bootstrap ends is not defined, so what `logos_runtime_start` waits for and the code of an expired startup deadline are open
+- **Specs:** RUNTIME §13.2 l.3967 (Start: "Complete bootstrap, then return while the Runtime continues
+  execution in the background"), l.3973-3974 ("Successful startup MUST establish the initial
+  system-service bindings required by Section 9"; "It does not require every ordinary module in the
+  deployment to be ready"), §13.4 l.4073 ("If shutdown is requested through Runtime Control during
+  bootstrap, startup MUST return `LOGOS_ERR_CANCELLED` unless it has already completed"), l.4088 ("Other
+  failures MUST use the applicable shared error code, or `LOGOS_ERR_MODULE` when no more specific shared
+  code applies"); §9 l.1640 ("Runtime startup MUST establish the initial orchestration realization under
+  bootstrap policy"), l.1643 ("Orchestration MUST establish that binding before starting the remaining
+  deployment under active authority policy"), l.1648 (a provider is used as a system service only when
+  "the module instance is ready under its selected execution mode"), l.1675 ("If an external Capability
+  Authority is unavailable, Runtime MUST deny operations that depend on it"), l.1685 ("Protected
+  construction and deployment inputs may establish bootstrap policy and initial system-service
+  bindings"); §3.4 l.566 (`loaded`: "Runtime has acquired or attached the selected realization and is
+  performing the applicable initialization and readiness checks"), l.664 ("The Runtime host or
+  deployment supplies a finite logical startup deadline"); §10.2 l.3876-3877 (a module that "fails
+  during startup before it reaches `ready`" is a "partially realized implementation", which Runtime
+  releases); §9.3 l.3753 (`startup-timeout` is a failure classification of the instance); INTERFACE
+  l.2067 ("expiration of the caller-selected duration produces `TIMEOUT`").
+- **Issue:** §13 ends `start` at "bootstrap" and never says what bootstrap contains. §9 gives startup two
+  obligations, the orchestration realization (l.1640) and the initial system-service bindings (l.3973).
+  Three things about the end point are not stated.
+  1. The state the orchestration instance must reach. A realization exists from `loaded` on (l.566), so
+     on one reading the obligation of l.1640 is met there. On the other it is met at `ready`: a
+     realization that fails before `ready` is only partial and is released (l.3876-3877), and `ready` is
+     what the text requires of a system-service provider (l.1648). The readings differ when the
+     module's initialization fails: `LOGOS_OK` on the first, a failed startup on the second.
+  2. The first authority binding. With an externalized authority that binding is established by
+     orchestration (l.1643), a module that can act only once it is ready, while successful startup must
+     establish the initial system-service bindings (l.3973). Whether `start` returns before or after
+     that binding exists is not said. No Runtime Control method binds a system service, so what
+     orchestration does to establish it, beyond starting the selected instance, is not said either.
+  3. The code when the startup deadline expires first. l.4088 asks for the applicable shared code.
+     `TIMEOUT` has one assigned producer, a prepared call's own duration (INTERFACE l.2067). The startup
+     deadline is also a duration the host supplies (l.664), and the instance's record then says
+     `startup-timeout` (l.3753). `TIMEOUT` and `LOGOS_ERR_MODULE` can both be argued.
+
+  That a startup which cannot establish orchestration has failed, and that the Runtime then stays up
+  until the host shuts it down, follows from l.1640, l.3989 and l.4075 and is not in question.
+- **Impact:** the host has no other view of the Runtime, because the Host Embedding API has no
+  observation operation and the host is not a consumer. The result of `start` is all it learns about
+  whether the module that drives the deployment is running and, under an externalized authority,
+  whether anything can be authorized yet. One Runtime returns `LOGOS_OK` where another reports a failed
+  startup, and a host that handles `TIMEOUT` and `LOGOS_ERR_MODULE` differently behaves differently on
+  the two.
+- **Reading an implementation needs today:** return from `start` when the orchestration instance is
+  `ready`, and treat a failure to reach it as a failed startup. Count towards bootstrap only the
+  system-service bindings that protected input establishes itself (l.1685); the first authority binding
+  is orchestration's task after `start` has returned, and until it exists the operations that depend on
+  it are denied (l.1675). Report an expired startup deadline as `LOGOS_ERR_MODULE`, with the
+  classification in the diagnostic message.
+- **Overlap:** TF-20 (when `start_module` answers), the `TIMEOUT` note in TF-06, TS-01 (what the host
+  cannot observe), NA-11 (bootstrap policy once an authority is bound).
+- **Suggested resolution:** define in §13.2 when bootstrap is complete, for example when every
+  system-service binding established from protected input has passed the checks of §9 and the
+  orchestration instance is `ready`; say whether the first authority binding of l.1643 belongs to it;
+  and assign the code that `start` returns when the startup deadline expires.
+
+#### TF-26 — The execution intent of an instance that startup realizes is not stated
+- **Specs:** RUNTIME §9 l.1640-1641 ("Runtime startup MUST establish the initial orchestration
+  realization under bootstrap policy"; "When Module Loader is used, its initial provider MUST be
+  established first and used to realize orchestration"), l.1667 ("Bootstrap realization and engine
+  enforcement cleanup MUST use their protected policy basis without fabricating a module consumer when
+  no module operation supplies one"); §9.3 l.3644 ("acceptance MUST establish `requested` intent with
+  the authenticated requesting module as its origin before execution authorization or startup"), l.3647
+  ("For an instance in `loaded` or `ready`, the request MUST preserve existing intent and origin"),
+  l.3500-3501 ("`execution.intent` is `uninitialized` before an execution choice is established,
+  `requested` while execution intent is retained, and `stopped` after an explicit stop";
+  "`intent_revision` MUST be present exactly when intent is `requested`"), l.3538-3540 ("Runtime MUST
+  reject the request unless intent is `requested`, the instance is `unloaded` or `error`, and cleanup of
+  any previous realization is complete"; "Authority to request recovery does not substitute for the
+  retained origin's execution authority"), l.2598 ("Resumption of retained requested intent MUST use
+  ordinary recovery and current authorization under that origin"), l.2052-2056 (`execution_state`
+  carries `revision`, `intent` and an optional `intent_revision`, and no origin); §10.1 l.3807-3808
+  ("MUST NOT autonomously restart orchestration"; "Another authorized module MAY restore orchestration,
+  or protected construction may establish it when the Runtime host restarts"); §9.1 l.1838 ("An explicit
+  stop MUST cancel retained execution intent"); §10.2 l.3842 ("Shutdown MUST preserve retained execution
+  intent and its origin").
+- **Issue:** execution intent is established by `start_module`, with the requesting module as its origin
+  (l.3644). Startup realizes orchestration, and before it the initial Module Loader provider, with no
+  requesting module, and must not invent one (l.1667). What `execution` then reports for such an
+  instance is not said, and either answer is visible to every observer.
+  1. `requested`, with an `intent_revision`. The intent then has an origin that is not a module, a kind
+     the text does not name. A later recovery is checked against the execution authority of that origin
+     (l.2598, l.3540), which would be the bootstrap policy, and that is not said.
+  2. `uninitialized`, although the instance is running. `recover_module` is then always rejected
+     (l.3538), so a failed orchestration can be restored only by `start_module`, which makes the calling
+     module the origin. While the instance runs, a `start_module` leaves the intent as it is (l.3647),
+     so it stays `uninitialized`.
+
+  A Runtime that keeps execution state across restarts meets a second question. After an explicit stop
+  of orchestration its intent is `stopped` (l.1838, l.3500), and shutdown preserves it (l.3842). At the
+  next startup l.1640 requires the realization to be established, and l.3808 expects protected
+  construction to do it. Whether startup overrides the retained `stopped`, and what the intent is
+  afterwards, is not stated.
+- **Impact:** two Runtimes report different `intent` values for the same deployment. Which method
+  restores a failed orchestration, and under whose execution authority, differs. With retained state,
+  whether an explicit stop of orchestration survives a restart differs as well.
+- **Reading an implementation needs today:** report `requested` with an `intent_revision`, record
+  protected bootstrap input as the origin, and check a later recovery against bootstrap policy. With
+  retained state the nearest reading is that startup establishes orchestration every time (l.1640,
+  l.3808) and so replaces a retained `stopped`.
+- **Overlap:** RT-02 (the basis of calls the engine makes for no module), NL-10 (who resumes retained
+  intent after a restart), TF-10, TF-25.
+- **Suggested resolution:** state in §9 the intent that startup establishes for the instances it
+  realizes, name protected input as a possible origin, and say which policy its execution authority is
+  checked against; and state whether startup establishes orchestration when its retained intent is
+  `stopped`.
+
+#### TF-27 — The host must accept a Runtime-generated instance id, and the Host Embedding API never shows it one
+- **Specs:** RUNTIME §9.3 l.2659-2660 ("A runtime instance id is an opaque string chosen or accepted by
+  the runtime host for a concrete runtime instance"), l.2665-2667 ("A runtime instance id MAY be
+  host-assigned or runtime-generated"; "If the runtime generates the id, the runtime host MUST accept it
+  before the id is used in runtime-control, addressing, or route records owned by that host"),
+  l.2671-2672 (for the remote profiles, "The runtime host or authorized provisioning system generates it
+  once and preserves it for the lifetime of that logical Runtime identity"), l.2553 (`get_self` "returns
+  the complete authenticated module-instance address associated with the invoked Runtime Control
+  binding"); §13 l.3935 ("It is not a module contract and does not give the host a module-instance or
+  consumer identity"), §13.2 l.3963-3970 (six operations), §13.3 l.4019-4030 (each returns
+  `logos_result_t`, and the only output is the handle), l.4034 ("an implementation-defined
+  configuration format").
+- **Issue:** a host-assigned id reaches the Runtime inside the implementation-defined configuration, and
+  that is enough. For a Runtime-generated id the host "MUST accept it" before its first use, and the six
+  host operations neither return the id nor take an acceptance. The id is in use as soon as startup
+  creates module-instance addresses. The duty therefore cannot be discharged through the standard
+  interface. The host cannot read the id afterwards either: `get_self` returns it to a module, and the
+  host is not one.
+- **Impact:** an implementation that generates the id either leaves the MUST unmet or defines an
+  implicit acceptance of its own. A host that needs the id, to provision an enrollment for a remote
+  profile or to relate its own records to the Runtime's, has to obtain it through a private channel.
+- **Reading an implementation needs today:** document that choosing a configuration which lets the
+  Runtime generate the id is the host's acceptance of it; a host that needs to know the id assigns it.
+- **Overlap:** TS-01 (what the host cannot do through the Host Embedding API), SO-03 (declined), TF-25.
+- **Suggested resolution:** add a host operation that returns the Runtime instance id once the handle
+  exists and before startup, or state that a configuration permitting generation is the acceptance that
+  l.2666-2667 requires.
 
 ### 3.2 The system contracts, checked against their own rules
 
