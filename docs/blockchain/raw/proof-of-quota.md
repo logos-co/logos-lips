@@ -98,7 +98,6 @@ class ProofOfQuotaWitness:
     pol_commitment_aged_selectors: list[bool]  # Indicates how to read the pol_commitment_aged_path (if Merkle nodes are left or right in the path)
     pol_low_leaf_nullifier: zkhash             # PoL nullifier of the leaf of the nullifier Indexed Merkle Tree (IMT) of the note set, when the stake distribution was frozen, holding the greatest nullifier lower than the nullifier of the note
     pol_low_leaf_next_nullifier: zkhash        # PoL next nullifier of that leaf
-    pol_low_leaf_next_index: int               # PoL next index of that leaf
     pol_low_leaf_path: list[zkhash]            # PoL Merkle path of that leaf to the nullifier IMT root of the note set when the stake distribution was frozen (len = NOTE_SET_DEPTH)
     pol_low_leaf_selectors: list[bool]         # Indicates how to read the pol_low_leaf_path (if Merkle nodes are left or right in the path)
     pol_set_aged_path: list[zkhash]            # PoL Merkle path of the leaf of the note set to pol_eligible_aged (len = ELIGIBLE_DEPTH)
@@ -188,7 +187,6 @@ is_leader = would_win_leadership(pol_epoch_nonce,
         pol_commitment_aged_selectors,
         pol_low_leaf_nullifier,
         pol_low_leaf_next_nullifier,
-        pol_low_leaf_next_index,
         pol_low_leaf_path,
         pol_low_leaf_selectors,
         pol_set_aged_path,
