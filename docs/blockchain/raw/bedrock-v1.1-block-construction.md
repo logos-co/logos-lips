@@ -35,6 +35,7 @@
 | 1.3.0 | Compressed Block Proposal: 16-byte transaction reference prefixes and a variable-length `references` list, reducing the proposal from 34,574 bytes to at most 18,192. Added the [Canonical Encoding](#canonical-encoding) section. | 2026-08-18 |
 | 1.4.0 | The `leader_voucher` is replaced with `reward_commitment` and `reward_value`: the PoL derives the commitment of the leader reward note and reveals only its value, a value differing from the computed reward condemns the block, and the commitment is inserted in the ledger at the end of the block execution. Channel and SDP withdrawals whose due slot is reached are released before the transactions. The PoL is bound to the header by its block ID and proven once the body is fixed: `leader_key`, the proposal and block signatures and the signatures of the uncle headers are removed, reducing the proposal to at most 17,752 bytes. An invalid proof of leadership condemns only the received copy, since the block ID does not cover the proof. A synchronized block is checked against its body root before its uncle entries and its transactions | 2026-11-06 |
 | 1.4.1 | The proof of the header uses the `Groth16Proof` terminal of the transaction encoding. The ZkProgramSpend proofs of a block are verified in their own batch, and a program proof alone. A transaction resolved without the openings of its program notes, or with altered ones, fails the copy, not the block. The leader reward note takes `reward_public_key` as its staking key | 2026-11-06 |
+| 1.4.2 | The batch verification of Groth16 proofs draws its random coefficients on 128 bits | 2026-11-02 |
 
 # Introduction
 
@@ -443,7 +444,7 @@ Relative to a design that carries the count in the header, this removes one of t
 ### ZkTransfer
 
 1. For each ZkTransfer proof, the verifier collects the classic Groth16 elements required for verification. It includes the proof $`\pi^{(i)}`$, and the public values $`x_j^{(i)}`$ for each proof.
-2. The verifier draws one random value for each proof $`r_i \overset{\$}{\leftarrow} \mathbb{F}_p`$.
+2. The verifier draws one random value for each proof $`r_i \overset{\$}{\leftarrow} \{0, \dots, 2^{128} - 1\}`$, which bounds the probability that an invalid proof passes to $`2^{-128}`$.
 3. The verifier computes:
 1. $`\pi'_C := \sum_{i=1}^k r_i \cdot \pi_C^{(i)}`$.
 2. $`r' := \sum_{i=1}^k r_i`$
