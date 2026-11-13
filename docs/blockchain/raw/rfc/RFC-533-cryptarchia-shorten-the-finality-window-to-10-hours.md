@@ -60,7 +60,7 @@ The wait that holds that chance, in hours:
 
 ### How 10 hours is chosen
 
-`K` is the least whole number of hours that meets every bound and both cases of its row. The case that binds is the delay of `T_M`, 15 s. Against 30 % its wait is 9.37 hours with the epoch nonce taken as unbiased, as the row takes it, and 9.46 hours with a nonce that resists grinding. Both give 10 hours. The other case, a tenth of the honest stake offline at 10 s, needs 8.4 hours, and two density windows need 9.
+`K` is the least whole number of hours that meets every bound and both cases of its row. The case that binds is the delay of `T_M`, 15 s. Against 30 % its wait is 9.37 hours with the epoch nonce taken as unbiased, as the row takes it, which is a nonce that cannot be ground. It is 9.46 hours with a nonce that resists grinding. Both give 10 hours. The other case, a tenth of the honest stake offline at 10 s, needs 8.4 hours, and two density windows need 9.
 
 The same rule gives 18 hours against a third, where the binding wait is 17.37 hours, or 17.53 with a nonce that resists grinding. So 10 hours keeps against 30 % the delay margin that 18 hours keeps against a third. The nonce's factor is taken at 10 s, where its bound is derived.
 
@@ -88,7 +88,7 @@ At 15 s of delay, the case that sizes `K`, 10 hours holds 30 % only with a nonce
 
 The least wait that holds 30 % at `1e-9` under the worst case at 15 s, for an attack that meets two nonces:
 
-| Epoch nonce | Wait (hours) | In whole hours, the rule of this RFC |
+| Epoch nonce | Wait (hours) | In whole hours |
 | --- | --- | --- |
 | The study's candidate: the smallest contributions of 25 sub-windows, each bound to its parent's, under a sequential delay | 9.5 | 10 |
 | The same contributions without the delay | 11.1–11.4 | 12 |
@@ -99,8 +99,8 @@ The least wait that holds 30 % at `1e-9` under the worst case at 15 s, for an at
 
 - A sequential delay is a function whose steps cannot be run in parallel. A cap on candidates is what a delay function gives when a coalition can run it in parallel.
 - The candidate's factor, 1.21, and the factor without the delay are derived at 10 s. The other rows take the factor at 15 s.
-- So 10 hours takes a nonce with a sequential delay. That design is not settled, and its delay function has no measured prototype.
-- **This RFC waits for the nonce's RFC.** 36,000 slots is what the rule gives for a nonce that is unbiased or resists grinding. If the nonce's RFC adopts a design of a lower row, the rule gives that row's `K`, and this RFC changes with it. Merged first, the specification would state a window that holds 0.247 to 0.272 of the stake where it names 30 %.
+- So at 15 s, 10 hours takes a nonce with a sequential delay. That design is not settled, and its delay function has no measured prototype.
+- **This RFC waits for the nonce's RFC.** 36,000 slots is what the rule gives for a nonce that is unbiased or resists grinding. If the nonce's RFC adopts a design of a lower row, the cases of the `K` row take that nonce's bias, the rule gives that row's `K`, and this RFC changes with it. Merged first, the specification would state a window that holds 0.247 to 0.272 of the stake where it names 30 %.
 
 Two ground nonces reach only targets past the cut-off and within `K` slots of the epoch's end: 5.6 % of targets at 10 hours, against 10 % at 18.
 
@@ -157,7 +157,9 @@ The floor holds back a side cut off from the rest until it has made `φ + 1` blo
 - **The epoch.** Every epoch value stays as it is: phases of 194,400, 194,400 and 259,200 slots, an epoch of 648,000 and a `PERIOD` of 388,800. Each phase that waits for a value to finalize lasts at least 5.4 times `K`.
 - **The epoch's waits.** A value is final when its phase ends only if `φ` occupied slots follow it by then. At mean rates the 54-hour phase that waits for the stake snapshot needs 8.5 % of the inferred stake to produce blocks, and the 72-hour phase that waits for the nonce and the inferred stake needs 6.4 %, against 15.5 % and 11.6 % at 18 hours.
 - **The uncle window.** It is 360 slots against 36,000.
-- **Blocks above `B_imm`.** About 1,014 on the specification's Blend, against about 1,825 at 18 hours.
+- **Blocks above `B_imm`.** About 1,014 on the specification's Blend, against about 1,825 at 18 hours. A node keeps the ledger states of these blocks.
+- **Who waits for `B_imm`.** A Zone that credits a deposit only once the deposit is final ([CHANNEL_DEPOSIT](../bedrock-v1.1-mantle-specification.md#channel_deposit)), and a client that waits for a Zone's inscription to be final ([Sovereign Zones](../bedrock-architecture-overview.md#sovereign-zones)). Each waits `K`, 10 hours in place of 18.
+- **The last round.** One of the four blocks its requests name lies `K` behind the local tip, 10 hours in place of 18.
 - **The block time.** [\[Analysis\] Block Times & Blend Network](../analysis-block-times-blend-network.md) says that Cryptarchia wants shorter block times for faster finality. With `K` sized by the rule above, a shorter block time does not shorten the wait. Against 30 % at 10 s it is 5.9 hours with a block every 30 s, 6.6 with a block every 20 s and 9.5 with a block every 15 s. This RFC does not change that document.
 
 ## Compatibility
@@ -187,10 +189,10 @@ In [Constants](../cryptarchia-v1-protocol.md#constants):
 - The row adds that `K` must not exceed a phase of the Epoch Schedule that waits for a value to finalize. A change that required its cases to be checked again now requires `K` to be sized again.
 - `φ` is 560 occupied slots, in place of 1,019.
 
-In [Finality Floor](../cryptarchia-v1-protocol.md#finality-floor) the floor is sized against the share `K` is sized against:
+In [Finality Floor](../cryptarchia-v1-protocol.md#finality-floor) the share that `K` and the floor are sized against changes:
 
 ```diff
--ALPHA_MAX = 1 / 3   # α_max, the share of the stake the floor is sized against
+-ALPHA_MAX = 1 / 3   # α_max, the share of the stake K and the floor are sized against
 +ALPHA_MAX = 3 / 10  # α_max, the share of the stake K and the floor are sized against
 ```
 
