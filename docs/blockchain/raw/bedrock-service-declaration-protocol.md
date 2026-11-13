@@ -37,6 +37,7 @@
 | 1.7.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a declaration covers one service, a note backs one declaration per service, and a `nonce` carries the `created` epoch of its declaration | 2026-10-01 |
 | 1.8.0 | The minimum stake is one `MinStake` of `threshold` and the block number `timestamp`, matching the implementation | 2026-10-27 |
 | 1.9.0 | The minimum stake and the service parameters are those of the era of a block's slot, and carry neither a `timestamp` nor an epoch; service-type bytes run from 0 without gaps ([Bedrock Eras](bedrock-eras.md)) | 2026-11-05 |
+| 1.10.0 | An epoch in which a service does not run counts as reported for every declaration of its active set ([Blend Protocol](blend-protocol.md)). | 2026-11-10 |
 
 # Introduction
 
@@ -226,7 +227,7 @@ Where:
 - `locators` is a copy of the `locators` from the `DeclarationMessage`;
 - `zk_id` is the `ZkPublicKey` of the validator, which signs its active and withdraw messages and receives its rewards;
 - `created` is the epoch of the block that contained the declaration;
-- `active` is the epoch of the block that contained the latest accepted active message, initialised to `created + 2` ([Message Timing](#message-timing));
+- `active` is the epoch of the block that last accepted an active message for the declaration or credited it with an epoch its service did not run ([Active](#active)), initialised to `created + 2` ([Message Timing](#message-timing));
 - `withdraw_at` is the epoch at which the node stops providing the service ([**Withdraw**](#withdraw)), and is `None` until the declaration is withdrawn;
 - `nonce` is the `nonce` of the latest accepted active or withdraw message, initialised with `created` as its `lifecycle_epoch` and a `sequence` of 0.
 
@@ -379,6 +380,8 @@ The SDP active action logic is:
 6. The `active` field of the `DeclarationInfo` is set to that epoch.
 
 An active message is valid only while the current epoch is at most `withdraw_at` (see [**Withdraw**](#withdraw)).
+
+An epoch in which a service does not run counts as reported for every declaration in the service's active set for that epoch. The first block after that epoch sets the `active` of each such declaration to its own epoch ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)). The Blend Network does not run in an epoch whose active set holds fewer declarations than the minimal network size of that epoch's era ([Fallback](blend-protocol.md#fallback)).
 
 ### **Withdraw**
 

@@ -42,6 +42,7 @@
 | 1.8.1 | Derived $`M_W`$ from the messages a neighbor is expected to deliver in an observation window and from the peering degree, in place of a fixed value. | 2026-10-30 |
 | 1.9.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, made the transition period the larger of $`\lfloor 1/f \rfloor`$ and $`T_M + 1`$ rounds, bounded the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). A round lasts one slot, and $`\beta_{max}`$ replaces $`\beta_C`$ and $`\beta_D`$. | 2026-11-10 |
 | 1.9.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, and an encapsulated message to 19313 bytes, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-11-02 |
+| 1.10.0 | A node constructs an active message only for an epoch in which the minimal network size is reached ([Service Declaration Protocol](bedrock-service-declaration-protocol.md)). | 2026-11-10 |
 
 # Introduction
 
@@ -1075,7 +1076,7 @@ The clamped regime is not a target: at $`{\mathcal A}_{\epsilon} = 0`$ rewards a
 
 ### Active Message
 
-A node $`l`$ for every epoch must construct an active message, which must follow the [Active Message](bedrock-service-declaration-protocol.md#active-message) and is carried on the wire by the `SDP_ACTIVE` operation ([Mantle Transaction Encoding](mantle-transaction-encoding.md)). The envelope fields (`declaration_id`, `nonce`) and their encoding are defined by those documents and are not restated here. This section defines only the service-specific `metadata` payload for the Blend service, which carries the [Activity Proof](#activity-proof) $`\pi_{A}^{l,t,e}`$ for a blending token $`t`$ and an epoch $`e`$.
+For every epoch in which the minimal network size is reached ([Fallback](#fallback)), a node $`l`$ must construct an active message, which must follow the [Active Message](bedrock-service-declaration-protocol.md#active-message) and is carried on the wire by the `SDP_ACTIVE` operation ([Mantle Transaction Encoding](mantle-transaction-encoding.md)). The envelope fields (`declaration_id`, `nonce`) and their encoding are defined by those documents and are not restated here. This section defines only the service-specific `metadata` payload for the Blend service, which carries the [Activity Proof](#activity-proof) $`\pi_{A}^{l,t,e}`$ for a blending token $`t`$ and an epoch $`e`$.
 
 The `metadata` field is the concatenation of the following fields, in order:
 

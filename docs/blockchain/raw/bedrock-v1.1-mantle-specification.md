@@ -50,6 +50,7 @@
 | 1.18.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, `SDP_WITHDRAW` no longer names the note, and a `nonce` carries the `created` epoch of its declaration | 2026-10-27 |
 | 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
 | 1.20.0 | Added the `fork_digest` field to the Mantle Transaction, accepted as defined in [Bedrock Eras](bedrock-eras.md), took `WINDOW` from the era of the claim's referenced block ([Acceptance Window](proof-of-work.md#acceptance-window)), dropped the `timestamp` of `MinStake` and the `epoch` of `ServiceParameters`, whose values are those of the era, and made the Execution Gas constants era parameters. | 2026-11-05 |
+| 1.21.0 | SDP epoch finalization credits the declarations of an epoch in which their service did not run ([Service Declaration Protocol](bedrock-service-declaration-protocol.md)). | 2026-11-10 |
 
 # Introduction
 
@@ -1396,15 +1397,18 @@ are distributed in the first block of epoch `withdraw_at + 1` (see
 In that same block, after the rewards have been distributed, every declaration
 with `withdraw_at + 1 <= current_epoch` is removed and its service note released.
 Declarations that withdrew without earning a final reward are removed by the
-same step.
+same step. The same step then credits the declarations of every epoch in which
+their service did not run ([Active](bedrock-service-declaration-protocol.md#active)).
 
   *Given*
 
 ```python
 current_epoch: EpochNumber
+parent_epoch: EpochNumber  # epoch of the previous block
 service_notes: dict[NoteId, dict[ServiceType, DeclarationId]]
 providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
 declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
+active_sets: dict[EpochNumber, dict[ServiceType, set[DeclarationId]]]  # Active Set of each epoch
 ```
 
   *Execute*
@@ -1425,6 +1429,22 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       ```python
       del declarations[service][declare_id]
       ```
+
+  Then, for every epoch `m` that ended since the previous block:
+
+  3. If the active set of the Blend Network for `m` held fewer declarations than
+     the minimal network size of the era of `m` ([Fallback](blend-protocol.md#fallback)),
+     credit each of them that remains with the current epoch.
+      ```python
+      for m in range(parent_epoch, current_epoch):
+          members = active_sets[m][ServiceType.BN]
+          if len(members) < minimum_network_size(m):
+              for declaration_id in members:
+                  if declaration_id in declarations[ServiceType.BN]:
+                      declarations[ServiceType.BN][declaration_id].active = current_epoch
+      ```
+
+  `minimum_network_size(m)` is the `minimum_network_size` of the era of epoch `m` ([Era Parameters](bedrock-eras.md#era-parameters)).
 
 ### SDP_ACTIVE
 
