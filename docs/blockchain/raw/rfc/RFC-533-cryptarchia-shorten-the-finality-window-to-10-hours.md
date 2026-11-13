@@ -7,7 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-10 |
-| v2 | The `K` row states the rule that gives 10 hours. [The epoch nonce](#the-epoch-nonce) gives the share 10 hours holds with today's nonce and the wait each nonce design needs, and says that this RFC waits for the nonce's RFC | 2026-11-13 |
+| v2 | The `K` row states the rule that gives 10 hours. [The epoch nonce](#the-epoch-nonce) gives the share 10 hours holds with today's nonce and the wait each nonce design needs, and says what the nonce's RFC is to propose and that this RFC waits for it | 2026-11-14 |
 | | Added: two density windows within `K`, honest stake offline, a split in halves, the participation the epoch's waits need, and the block-times analysis | |
 | | Corrected: the cost of the restart path (1.2 hours, not 1.5), the path against the 15 s case, the edges 2.097 and 1.50 and the cases they belong to, the blocks above `B_imm`, the factor `6.9·10^6`, the delay of a shorter Blend, and 6.5 and 7.1 hours in the table | |
 
@@ -99,8 +99,11 @@ The least wait that holds 30 % at `1e-9` under the worst case at 15 s, for an at
 
 - A sequential delay is a function whose steps cannot be run in parallel. A cap on candidates is what a delay function gives when a coalition can run it in parallel.
 - The candidate's factor, 1.21, and the factor without the delay are derived at 10 s. The other rows take the factor at 15 s.
-- So at 15 s, 10 hours takes a nonce with a sequential delay. That design is not settled, and its delay function has no measured prototype.
-- **This RFC waits for the nonce's RFC.** 36,000 slots is what the rule gives for a nonce that is unbiased or resists grinding. If the nonce's RFC adopts a design of a lower row, the cases of the `K` row take that nonce's bias, the rule gives that row's `K`, and this RFC changes with it. Merged first, the specification would state a window that holds 0.247 to 0.272 of the stake where it names 30 %.
+- So at 15 s, 10 hours takes a nonce with a sequential delay.
+
+**What the nonce's RFC is to propose.** The study's candidate binds each block's contribution to its parent's, takes the smallest contribution of each of 25 sub-windows before the cut-off, and passes a hash of them through a sequential delay of 4.49 hours on the fastest hardware. An honest node then computes for 13.5 to 22.4 hours once an epoch, at the speed ratios of 3 to 5 that published chips and designs give. The design is not settled. Its delay function has no measured prototype, and it has not been compared with a single delay on today's cut-off value.
+
+**When it should be adopted.** Before this RFC, which waits for it. 36,000 slots is what the rule gives for a nonce that is unbiased or resists grinding. If the nonce's RFC adopts a design of a lower row, the cases of the `K` row take that nonce's bias, the rule gives that row's `K`, and this RFC changes with it. Merged first, the specification would state a window that holds 0.247 to 0.272 of the stake where it names 30 %.
 
 Two ground nonces reach only targets past the cut-off and within `K` slots of the epoch's end: 5.6 % of targets at 10 hours, against 10 % at 18.
 
