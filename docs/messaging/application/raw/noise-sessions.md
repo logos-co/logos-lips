@@ -127,7 +127,7 @@ such two devices stop to reciprocally propagate any information regarding Noise 
 
 As regards security, an attacker that compromises an encrypted message propagating session information,
 might be able to compromise one or multiple messages exchanged within the session such information refers to.
-This can be mitigated by adopting techniques similar to the the ones proposed in [WAKU2-NOISE](noise.md#after-handshake),
+This can be mitigated by adopting techniques similar to the ones proposed in [WAKU2-NOISE](noise.md#after-handshake),
 where encryption keys are changed every time a new message is exchanged.
 
 This session management mechanism is loosely based on the paper ["Multi-Device for Signal"](https://eprint.iacr.org/2019/1363.pdf).
