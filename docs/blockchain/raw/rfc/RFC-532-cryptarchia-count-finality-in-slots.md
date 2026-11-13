@@ -61,7 +61,7 @@ The wait that holds that chance, in hours:
 | Random delay, a nonce that cannot be ground | 3.1 | 5.1 |
 
 - The ranges span two bounds on the grinding factor. Neither end is an attack.
-- The `K` row of the specification names two of these cases, with the epoch nonce taken as unbiased: a delay of `T_M`, 15 s, where a third needs 17.4 hours, and 10 s with a tenth of the honest stake offline, where it needs 16.2. With a nonce that resists grinding they are 17.5 and 16.4.
+- The `K` row of the specification names two of these cases, with the epoch nonce taken as unbiased, which is a nonce that cannot be ground: a delay of `T_M`, 15 s, where a third needs 17.4 hours, and 10 s with a tenth of the honest stake offline, where it needs 16.2. With a nonce that resists grinding they are 17.5 and 16.4.
 - The rows on honest stake offline read the lottery once the inference has corrected to the stake that is online. At 10 s, with a nonce that resists grinding, 18 hours holds a third down to 89 % of the honest stake online, and not at 88 %, where the wait is 18.4 hours.
 - A deflated inference is what an adversary gets by withholding every block for one observation period, 4.5 days. The inferred stake falls by its share, and every lottery threshold rises by `1/(1 − α)` for the next epoch. With the honest stake alone filling slots at `f`, the fixed delay weighs more.
 - Stake that joins faster than the inference corrects has the same effect: blocks come faster than `f` until the next correction, and under the worst case faster blocks need a longer wait. Against a third at 10 s, without grinding, 18 hours holds while the true active stake stays within 1.925 times the inferred, and against 30 % within 2.628 times. A deflation, or a third's coalition entering, makes 1.5. A rise of the active stake from 15 % to 30 % of the supply before the inference corrects breaks the limit against a third, and needs 19.6 hours.
@@ -104,7 +104,7 @@ The wait depends on how the nonce is made. The least wait that holds a third at 
 - The candidate's factor, 1.21, and the factor without the delay are derived at 10 s. The other rows take the factor at 15 s.
 - So at 15 s, 18 hours takes a nonce with a sequential delay. At 10 s the candidate without its delay would do: a third then needs 12.4 to 13.0 hours. The design is not settled. It must be compared with a single delay on today's cut-off value, and its delay function has no measured prototype.
 - The `K` row requires its cases to be checked again when the epoch nonce changes, so the nonce's RFC reads `K` again. If it adopts a design of a lower row, `K` moves to that row's wait.
-- Until then the two can land in either order, and genesis needs both. This RFC changes how finality is counted, and it sets `K` to `⌊k/f⌋`, the unit the epoch already has. Until the nonce's RFC lands, 18 hours holds the shares of the table above, below the third its row names.
+- Until then the two can land in either order, and genesis needs both. This RFC changes how finality is counted, and it sets `K` to `⌊k/f⌋`, the unit the epoch already has. Until the nonce's RFC lands, 18 hours holds the shares of the first table of this section, below the third its row names.
 
 ### Alternatives
 
@@ -265,6 +265,7 @@ The Online rule visits the forks in the same order. There the order decides only
 - **Two windows within `K`.** `s_gen` comes from Theorem 2 of Ouroboros Genesis. Its proof reads two windows of `s_gen` slots after the divergence block: one for the growth of the honest chain, and one for an honest block that follows it. Both must lie within the age of the fork when densities are compared. Under the depth rule that follows from `k` blocks. Here the comparison starts at `K` slots, so the bound becomes `2·s_gen ≤ K`, 9 hours against 18.
 - **The uncle window.** It is 360 slots against 64,800. A candidate's parent is above the proposer's `B_imm` exactly, not with high probability, because a `B_imm` that has moved lies at least `K` behind the slot being built. No candidate was pruned in a model of 9,000 random trees.
 - **Blocks above `B_imm`.** Their number is no longer bounded by `k`, which changes how a node sizes the ledger states it keeps. On the specification's Blend, `K` slots hold about 1,825 blocks.
+- **The last round.** One of the four blocks its requests name lies `K` behind the local tip.
 
 ## Compatibility
 
@@ -278,9 +279,9 @@ The figures come from the finality study, `tools/simulators/finality` of the res
 
 Beyond the study's notes, the figures come from four sources:
 
-- The study's bound, run for this RFC: the waits with a nonce that resists grinding, the deflated waits from 11 s to 15 s, the waits with honest stake offline, the waits and the share at 15 s of [The epoch nonce](#the-epoch-nonce), and the share of 0.295 on the restart path.
+- The study's bound, run for this RFC: the waits with a nonce that resists grinding, the deflated waits from 11 s to 15 s, the waits with honest stake offline, the waits and the share at 15 s of [The epoch nonce](#the-epoch-nonce), the limit of 2.628 on joining stake, which the study prints as 2.627, and the share of 0.295 on the restart path.
 - A model that runs the rules as the specifications print them: the counts of [Comparing forks](#comparing-forks), the two changes rejected there, and the uncle-window check of [What else reads `K`](#what-else-reads-k). The `φ` code is run as printed too.
-- Reference code of the rules with its tests: the switch, the last round, the order of visits, and the first and last slot of the floor's count. It has 40 tests, and each of 24 deliberately broken versions fails at least one of them.
+- Reference code of the rules with its tests: the switch, the last round, the order of visits, and the first and last slot of the floor's count. It has 40 tests, and each of 24 deliberately broken versions fails at least one of them. It does not model the ancestors that the last round's requests name.
 - Small models at mean rates: the rows marked simulated, the eclipse and lag figures of [What the floor leaves open](#what-the-floor-leaves-open) and [Comparing forks](#comparing-forks), the private race of [The restart path](#the-restart-path), the days a side needs, the split in halves, the participation the epoch's waits need, and the blocks above `B_imm`.
 
 > **TODO (author):** the study is not on GitHub yet, so none of this can be reproduced by a reviewer. Publish its branch with the models, the reference code and the runs listed here, link that commit in the first sentence, and remove this note.
@@ -471,7 +472,7 @@ The range stays `[s, s + p)`. `commit` passes `s = sl_C + 1` and `p = sl_tip −
 - [ ] Update the fork monitor of the test framework
 - [ ] Review the forward step of the time service against [the clock faults](#counting-from-the-tips-slot)
 - [ ] Prove the rule in the formal model, floor included: the current theorems read a depth of `k`, or a confirmation rule beside it
-- [ ] Add tests: a fork rejected by the Bootstrap rule against the switch, a last round in which the other peers return an invalid block, a tip on a long fork, or nothing, a last round that reaches its limit with a download running from a connected peer and from an IBD peer, an IBD peer that adds no block, a download that fails once, pruning of several forks at once, the floor's first and last slot, the Bootstrap test from either branch, in any delivery order, and for tips listed in any order, and two equally long forks under the Online rule listed in either order
+- [ ] Add tests: a fork rejected by the Bootstrap rule against the switch, a last round in which the other peers return an invalid block, a tip on a long fork, or nothing, a last round that reaches its limit with a download running from a connected peer and from an IBD peer, an IBD peer that adds no block, a download that fails once, a peer that does not hold the local tip, pruning of several forks at once, the floor's first and last slot, the Bootstrap test from either branch, in any delivery order, and for tips listed in any order, and two equally long forks under the Online rule listed in either order
 - [ ] Verify the implementation matches this specification
 
 # Affected Specifications
