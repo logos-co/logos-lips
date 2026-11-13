@@ -8,10 +8,10 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-10 |
 | v2 | Merged master, and applied the wording again to its rewritten oracle zone document | 2026-11-13 |
-| | The last round before the switch takes each tip from the peer that returned it and ends after `T_offline`. Removed the claim that one honest answer closes the case | |
+| | The last round before the switch takes each tip from the peer that returned it, names ancestors of the local tip in its requests, starts a failed download again, and waits at most `T_offline` for a connected peer. Qualified the claim that one honest answer closes the case | |
 | | `2·s_gen ≤ K` replaces `s_gen < K`. The `K` row states what `K` must hold. The Online rule visits forks by block ID | |
 | | [The epoch nonce](#the-epoch-nonce) states what each nonce design gives, and that 18 hours takes a nonce with a delay | |
-| | Corrected the floor's count by one honest uncle, "does not worsen", and the restart path against the 15 s case. Added honest stake offline, a split in halves, and the participation the epoch's waits need | |
+| | Corrected the floor's count by one honest uncle, "does not worsen", the restart path against the 15 s case, and two figures: 6.5 hours for 30 % after a deflated inference, and the limit of 2.628 on joining stake. Added honest stake offline, a split in halves, and the participation the epoch's waits need | |
 | | Removed the statement that the node does not wait `s_gen` slots after Initial Block Download | |
 
 ## Reviewer Orientation
@@ -22,7 +22,7 @@ Read the PR's Motivation first.
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here** — [Cryptarchia Protocol](#affected-specifications): [the rule](#1-the-latest-immutable-block-is-counted-in-slots) | the `commit` loop, its first slot and its last slot; `K`, what it must hold, and `φ` ([What the finality window holds](#what-the-finality-window-holds), [The finality floor](#the-finality-floor)) |
 | 2 | Critical | [Fork Choice Rule](#affected-specifications), [Cryptarchia Protocol](#affected-specifications): [both rules](#2-the-fork-choice-rules-read-the-age-of-a-fork-in-slots) | the Bootstrap test runs on every block; both rules visit forks by block ID; the Online rule's only bound is descent from `B_imm` ([Comparing forks](#comparing-forks)) |
-| 3 | Critical | **Start here** — [Bootstrapping & Synchronization](#affected-specifications): [the switch](#3-the-switch-to-online-runs-a-last-round-and-commit) | the last round takes each tip from the peer that returned it and ends after `T_offline`; a fork whose divergence block `commit` passes must not win after the switch, even across a restart ([The switch to Online](#the-switch-to-online)) |
+| 3 | Critical | **Start here** — [Bootstrapping & Synchronization](#affected-specifications): [the switch](#3-the-switch-to-online-runs-a-last-round-and-commit) | the last round takes each tip from the peer that returned it, and waits at most `T_offline` for a connected peer; a fork whose divergence block `commit` passes must not win after the switch, even across a restart ([The switch to Online](#the-switch-to-online)) |
 | 4 | High | [Cryptarchia Protocol](#affected-specifications): [the epoch schedule](#4-the-finality-window-sets-the-epoch-schedule) | every epoch value stays as it is |
 | 5 | Medium | [Cryptarchia Protocol, Fork Choice Rule, Bootstrapping & Synchronization](#affected-specifications): [three periods](#5-three-periods-stay-within-the-finality-window) | the bound on the uncle window, and two density windows within `K` |
 | 6 | Medium | [Total Stake Inference](#affected-specifications): [the count](#6-the-count-of-occupied-slots-takes-a-chain) | the inference's own count does not change |
@@ -40,7 +40,7 @@ The figures come from the finality study ([Reproducing the figures](#reproducing
 - **Worst case.** An adversary delivers every honest block as late as a bound `Δ` allows, taken at `Δ = 10` s, about the 99th percentile of delivery on the specification's Blend. The study reads the model of Gaži, Ren and Russell ("Practical Settlement Bounds for Longest-Chain Consensus", ePrint 2022/1571) for a wait on the 1 s slot lottery. `K` binds every node, so it must hold under this model.
 - **Random delay.** Blocks take Blend's mixing delays, measured in a simulation of 1,000 nodes. Only the private attack is played, with honest relays.
 
-The figures name two cases of the epoch nonce. A nonce that **cannot be ground** gives an adversary no choice among nonces. A nonce that **resists grinding** lets an attack that meets two nonces raise its chance by a factor of at most 1.21, the bound the study derives for its candidate ([The epoch nonce](#the-epoch-nonce)).
+The figures name two cases of the epoch nonce. A nonce that **cannot be ground** gives an adversary no choice among nonces. A nonce that **resists grinding** lets an attack raise its chance by a factor of at most 1.21 when it lasts across an epoch boundary and so meets two nonces. That is the bound the study derives for its candidate ([The epoch nonce](#the-epoch-nonce)).
 
 The wait that holds that chance, in hours:
 
@@ -61,10 +61,10 @@ The wait that holds that chance, in hours:
 | Random delay, a nonce that cannot be ground | 3.1 | 5.1 |
 
 - The ranges span two bounds on the grinding factor. Neither end is an attack.
-- The `K` row of the specification names two of these cases, both with a nonce that resists grinding: 15 s of delay, where a third needs 17.5 hours, and 10 s with a tenth of the honest stake offline, where it needs 16.4.
+- The `K` row of the specification names two of these cases, with the epoch nonce taken as unbiased: a delay of `T_M`, 15 s, where a third needs 17.4 hours, and 10 s with a tenth of the honest stake offline, where it needs 16.2. With a nonce that resists grinding they are 17.5 and 16.4.
 - The rows on honest stake offline read the lottery once the inference has corrected to the stake that is online. At 10 s, with a nonce that resists grinding, 18 hours holds a third down to 89 % of the honest stake online, and not at 88 %, where the wait is 18.4 hours.
 - A deflated inference is what an adversary gets by withholding every block for one observation period, 4.5 days. The inferred stake falls by its share, and every lottery threshold rises by `1/(1 − α)` for the next epoch. With the honest stake alone filling slots at `f`, the fixed delay weighs more.
-- Stake that joins faster than the inference corrects has the same effect: blocks come faster than `f` until the next correction, and under the worst case faster blocks need a longer wait. Against a third at 10 s, without grinding, 18 hours holds while the true active stake stays within 1.925 times the inferred, and against 30 % within 2.627 times. A deflation, or a third's coalition entering, makes 1.5. A rise of the active stake from 15 % to 30 % of the supply before the inference corrects breaks the limit against a third, and needs 19.6 hours.
+- Stake that joins faster than the inference corrects has the same effect: blocks come faster than `f` until the next correction, and under the worst case faster blocks need a longer wait. Against a third at 10 s, without grinding, 18 hours holds while the true active stake stays within 1.925 times the inferred, and against 30 % within 2.628 times. A deflation, or a third's coalition entering, makes 1.5. A rise of the active stake from 15 % to 30 % of the supply before the inference corrects breaks the limit against a third, and needs 19.6 hours.
 - The 12.5 hours takes the nonce's factor at the old rates, where its bound is derived.
 - After 18 hours against a third at 10 s, the chance of displacement is `1.2·10^-16` without grinding and `8.4·10^-14` after a deflated inference.
 - The delay leaves little margin after a deflation. Against a third, with a nonce that cannot be ground, 18 hours holds up to 15 s without a deflation. After one it holds up to 11 s, where the wait is 14.9 hours, and not at 12 s, where it is 18.2. The study prints deflated waits only at 1, 10 and 20 s, so the figures from 11 s to 15 s come from running its bound for this RFC.
@@ -73,7 +73,7 @@ The wait that holds that chance, in hours:
 
 ### The epoch nonce
 
-This RFC does not change the epoch nonce. Today's nonce is a hash chain over the leaders' contributions, and a coalition grinds it by withholding or forking its blocks near the cut-off. 18 hours holds a third only with a nonce that resists grinding, which the `K` row states. That nonce is required before genesis, in its own RFC.
+This RFC does not change the epoch nonce. Today's nonce is a hash chain over the leaders' contributions, and a coalition grinds it by withholding or forking its blocks near the cut-off, the slot at which the next epoch's nonce is read. At 15 s of delay, 18 hours holds a third only with a nonce that resists grinding. The `K` row takes the epoch nonce as unbiased, so it does not cover grinding. A nonce that resists it is required before genesis, in its own RFC.
 
 The largest share each rule holds with today's nonce, with two ground nonces at the upper end of the factor:
 
@@ -97,14 +97,14 @@ The wait depends on how the nonce is made. The least wait that holds a third at 
 | The same contributions without the delay | 21.4–22.3 | 23 |
 | Today's hash chain, with at most `2^8` candidates evaluated in an epoch | 24.0–26.1 | 27 |
 | Today's hash chain, with at most `2^16` | 31.3–33.4 | 34 |
-| Today's hash chain, with at most `2^24` | 38.7–40.7 | 41 |
+| Today's hash chain, with at most `2^24` | 38.6–40.7 | 41 |
 | Today's hash chain | 75.4–77.6 | 78 |
 
-- A cap on candidates is what a delay function gives when a coalition can run it in parallel, as Ouroboros Phalanx (CIP-0161) proposes: the coalition evaluates as many candidates as its machines and its time allow. The study places Phalanx's cap between `2^8` and `2^16`.
+- A sequential delay is a function whose steps cannot be run in parallel. A cap on candidates is what a delay function gives when a coalition can run it in parallel, as Ouroboros Phalanx (CIP-0161) proposes: the coalition evaluates as many candidates as its machines and its time allow. The study places Phalanx's cap between `2^8` and `2^16`.
 - The candidate's factor, 1.21, and the factor without the delay are derived at 10 s. The other rows take the factor at 15 s.
-- So 18 hours takes a nonce with a sequential delay. That design is not settled. It must be compared with a single delay on today's cut-off value, and its delay function has no measured prototype.
-- The nonce's RFC reads `K` again, as the `K` row requires for a change of the epoch nonce. If it adopts a design of a lower row, `K` moves to that row's wait.
-- Until then the two can land in either order. This RFC changes how finality is counted, whatever `K` is, and genesis needs both.
+- So at 15 s, 18 hours takes a nonce with a sequential delay. At 10 s the candidate without its delay would do: a third then needs 12.4 to 13.0 hours. The design is not settled. It must be compared with a single delay on today's cut-off value, and its delay function has no measured prototype.
+- The nonce's RFC reads `K` again. If it adopts a design of a lower row, `K` moves to that row's wait, and the cases of the `K` row take that nonce's bias in place of none.
+- Until then the two can land in either order, and genesis needs both. This RFC changes how finality is counted, and it sets `K` to `⌊k/f⌋`, the unit the epoch already has. Its `K` row says that it takes the nonce as unbiased, so the specification claims no more than it holds. Until the nonce's RFC lands, 18 hours holds the shares of the table above.
 
 ### Alternatives
 
@@ -121,7 +121,7 @@ The wait depends on how the nonce is made. The least wait that holds a third at 
 | 20 s | 12 | 12.5 |
 | 15 s | 9 | 20.4 |
 
-This is why the `K` row asks for its two cases to be checked again, and for `φ` to be derived again, when `k`, `f`, the slot length, the epoch nonce or `T_M` changes. The row states the cases in slots, and the floor's `Δ` is counted in slots, but the analysis sizes them in seconds at 1-second slots. `T_M` is 15 rounds and leaves out the gossip after the last hop, so a strict delay bound lies past the 15 s that 18 hours holds without a deflation, and past the 11 s it holds after one.
+This is why the `K` row asks for its two cases to be checked again, and for `φ` to be derived again, when `k`, `f`, the slot length or `T_M` changes. The first case reads `T_M` itself, 15 rounds of one slot each. `T_M` and the floor's `Δ` are counted in slots, but the analysis sizes them in seconds at 1-second slots. `T_M` is 15 rounds and leaves out the gossip after the last hop, so a strict delay bound lies past the 15 s that 18 hours holds without a deflation, and past the 11 s it holds after one.
 
 ## The finality floor
 
@@ -143,7 +143,7 @@ These targets size the floor. They claim nothing about Blend. Missing the floor 
 | 15 s | 1,084.6 | 3.4e-3 |
 | 20 s | 1,000.8 | 0.80, about 22 minutes' wait on average |
 
-For the floor, the specification therefore states the chance only at `Δ = 10`, and makes no statement at `T_M`. The `K` row states its own cases, at 15 and at 10 slots. The two delays differ on purpose: missing the floor costs time, and a `K` that is too short costs safety.
+For the floor, the specification therefore states the chance only at `Δ = 10`, and makes no statement at `T_M`. The `K` row states its own cases: one at `T_M`, 15 slots, and one at `Δ` with honest stake offline. The two delays differ on purpose: missing the floor costs time, and a `K` that is too short costs safety.
 
 The count covers the slots after the block, up to and including the slot of the tip, as `density_over_slots` counts them. Every canonical block occupies its own slot, so the count of occupied slots is at least the count of blocks, and a floor sized on blocks keeps its liveness. Under random delay a floor on occupied slots could stand at 1,225. Under the worst case no larger lower bound is derived, because an adversary that orphans a run of honest blocks leaves one countable uncle. An uncle counts only a genuine lottery win, and a slot counts once. So a side cut off from the rest counts the slots it won, and the slots of the honest blocks that hang from its chain, which its blocks can reference as uncles for 360 slots. In practice that is the first honest block after the divergence block.
 
@@ -208,23 +208,26 @@ This revision has no hold. `B_imm` stays frozen under Bootstrap, moves at the sw
 After a restart within `T_offline`, the fork runs over `K` slots and the node's chain stopped up to 20 minutes earlier. The margin `K/T_offline` is 54, as it is today. In a private race at 10 s, the head start makes 18 hours behave like 16.8 at 0.298 and 16.5 at a third. This is an estimate from a private race, not the study's bound.
 
 - With a nonce that resists grinding, this path covers a third at 10 s, where the wait is 10.2 hours, and after a deflated inference, where it is 12.5.
-- It does not cover 15 s of delay, where the wait is 17.5 hours, above 16.5. So on this path 18 hours keeps the deflated case and not the 15 s case of the `K` row.
+- It does not cover 15 s of delay, where the wait is 17.5 hours, above 16.5. So on this path 18 hours keeps the deflated case and not the case of the `K` row at `T_M`.
 - With today's nonce, the share on this path falls from 0.298 to about 0.295, from the study's bound at that wait.
 
-**Open question.** Deferring `commit` to the end of Initial Block Download would close the head start for a node with an honest IBD peer, with no stall. It would not cover a node with no IBD peers, and a malicious IBD peer could prolong IBD. Today's rule has the same exposure, so this RFC leaves it out.
+**Open question.** Deferring `commit` to the end of Initial Block Download would close the head start for a node with an honest IBD peer, a peer configured for Initial Block Download, with no stall. It would not cover a node with no IBD peers, and a malicious IBD peer could prolong IBD. Today's rule has the same exposure, so this RFC leaves it out.
 
 ### The last round
 
-After Initial Block Download a node receives new blocks only from its connected peers. An adversary that fills those can withhold the honest chain even when the IBD peers are honest, and a fork the Bootstrap rule rejected then wins after the switch ([Comparing forks](#comparing-forks)). So the node fetches the tips of its IBD peers and its connected peers once more before the switch.
+After Initial Block Download a node receives new blocks only from its connected peers. An adversary that fills those can withhold the honest chain even when the IBD peers are honest, and a fork the Bootstrap rule rejected then wins after the switch ([Comparing forks](#comparing-forks)). So the node fetches the tip of every IBD peer and every connected peer once more before the switch.
 
-- **Each tip comes from the peer that returned it.** Initial Block Download asks a tip's blocks from up to 16 connected and 16 discovered peers and uses the first usable answer, which spares the IBD peers. In this round that would defeat the purpose. The adversary that fills the connections answers first, one invalid block ends the download, and the node switches without the honest chain. v1 of this RFC had this flaw. A node that finished Initial Block Download on the honest chain lacks at most the blocks of its Prolonged Bootstrap Period, one day of them, so asking the IBD peers for them does not bring back the load that spreading the download avoids.
-- **The downloads run in parallel.** Run one after another, a peer that returns a tip on a long fork delays every peer after it.
-- **The round ends after `T_offline`.** Without a limit, one connected peer that streams slowly, or that returns a tip on a long valid fork, holds the node on the Bootstrap rule, where it must not propose. With the limit, the tips are at most 20 minutes old at the switch. That is the head start a fork already has on [the restart path](#the-restart-path).
-- **What is left.** A node that is still downloading the honest chain when the limit ends switches without the rest. A node whose every peer is the adversary's stays exposed, and this is accepted.
+- **Each tip comes from the peer that returned it.** Initial Block Download asks a tip's blocks from up to 16 connected and 16 discovered peers and uses the first usable answer, which spares the IBD peers. In this round that would defeat the purpose. The adversary that fills the connections answers first, one invalid block ends the download, and the node switches without the honest chain. v1 of this RFC had this flaw.
+- **Each peer is handled on its own, in parallel.** A peer that holds back its tip, returns a tip on a long fork, or streams slowly then delays only its own download.
+- **Requests name ancestors of the local tip.** A peer starts its stream at the latest block it shares with the blocks a request names: the local tip, `B_imm` and the last block downloaded. One private block on the node's tip makes that tip unknown to an honest peer, whose stream then starts at `B_imm`, which the Bootstrap rule never moves. So the round's requests also name the latest blocks of `c_loc` that lie at least `T_offline`, `s_gen` and `K` behind its tip. If the node's chain left the peer's less than `K` slots before its tip, the peer holds one of the three, and the node downloads at most the blocks of `K` slots more than it lacks. That also keeps the load on the IBD peers small.
+- **A failed download is started again.** One broken connection does not cost the node the honest chain.
+- **The round waits at most `T_offline` for a connected peer.** Without a limit, one connected peer that streams slowly, or that returns a tip on a long valid fork, holds the node on the Bootstrap rule, where it must not propose.
+- **A download from an IBD peer is not cancelled.** Otherwise a node that is far behind would switch, and make its chain immutable, while a peer its operator chose is still delivering another. The cost is that a slow or malicious IBD peer holds the node on the Bootstrap rule, as it can hold Initial Block Download today.
+- **What is left.** A node whose every peer is the adversary's stays exposed, and this is accepted. So does a node whose honest peers return no tip within `T_offline`.
 
-In the reference code of the rules, one peer that returns the honest tip and serves its blocks closes the case, whatever the other peers return: an invalid block, a tip on a long fork, or nothing. The round reads the peers' tips, not the clock, and does not terminate the node when no peer answers. So a network in which every node bootstraps at once, as at genesis, still switches.
+In the reference code of the rules, one IBD peer that returns the honest tip and serves its blocks closes the case, whatever the other peers return: an invalid block, a tip on a long fork, or nothing. A connected peer closes it if it serves the blocks within `T_offline`. The round asks for no tip of a given age, and does not terminate the node when no peer answers. So a network in which every node bootstraps at once, as at genesis, still switches.
 
-**Alternative: wait for the IBD peers without a limit.** The node would cancel only the downloads from its connected peers when the limit ends. It then never switches while an IBD peer is still delivering a chain, which protects a node that is far behind. But a slow or malicious IBD peer then holds the node on the Bootstrap rule, as it can hold Initial Block Download today. This RFC takes one limit for every peer.
+**Alternative: one limit for every peer.** The round would end `T_offline` after it started at the latest, whatever its peers do. A node still downloading the honest chain from an IBD peer at that time would switch without the rest. This RFC waits for the IBD peer.
 
 ### `T_boot` has no relation to `K`
 
@@ -257,7 +260,7 @@ The Online rule visits the forks in the same order. There the order decides only
 ## What else reads `K`
 
 - **The epoch.** Every epoch value stays as it is: phases of 194,400, 194,400 and 259,200 slots, an epoch of 648,000 and a `PERIOD` of 388,800. Changing `K` now changes the epoch.
-- **The epoch's waits.** A value is final when its phase ends only if `φ` occupied slots follow it by then, where it needed 2,160 blocks. At mean rates, the 54-hour phases need 15.5 % of the inferred stake to produce blocks, against 33.0 %, and the 72-hour phase needs 11.6 %, against 24.7 %. What a node does when a value is not final at the end of its phase is specified under neither rule.
+- **The epoch's waits.** A value is final when its phase ends only if `φ` occupied slots follow it by then, where it needed 2,160 blocks. At mean rates, the 54-hour phase that waits for the stake snapshot needs 15.5 % of the inferred stake to produce blocks, against 33.0 %. The 72-hour phase that waits for the nonce and the inferred stake needs 11.6 %, against 24.7 %. What a node does when a value is not final at the end of its phase is specified under neither rule.
 - **The density window.** `s_gen` stays at `⌊k/4f⌋`, 4.5 hours, against the 4.8 to 4.9 hours a third needs at `1e-9`. The chance of winning the window does not change. What a win buys does: a fork that wins the window is fixed at the switch after 1,020 blocks, where it needed 2,161.
 - **Two windows within `K`.** `s_gen` comes from Theorem 2 of Ouroboros Genesis. Its proof reads two windows of `s_gen` slots after the divergence block: one for the growth of the honest chain, and one for an honest block that follows it. Both must lie within the age of the fork when densities are compared. Under the depth rule that follows from `k` blocks. Here the comparison starts at `K` slots, so the bound becomes `2·s_gen ≤ K`, 9 hours against 18.
 - **The uncle window.** It is 360 slots against 64,800. A candidate's parent is above the proposer's `B_imm` exactly, not with high probability, because a `B_imm` that has moved lies at least `K` behind the slot being built. No candidate was pruned in a model of 9,000 random trees.
@@ -277,7 +280,7 @@ Beyond the study's notes, the figures come from four sources:
 
 - The study's bound, run for this RFC: the waits with a nonce that resists grinding, the deflated waits from 11 s to 15 s, the waits with honest stake offline, the waits and the share at 15 s of [The epoch nonce](#the-epoch-nonce), and the share of 0.295 on the restart path.
 - A model that runs the rules as the specifications print them: the counts of [Comparing forks](#comparing-forks), the two changes rejected there, and the uncle-window check of [What else reads `K`](#what-else-reads-k). The `φ` code is run as printed too.
-- Reference code of the rules with its tests: the switch, the last round, the order of visits, and the first and last slot of the floor's count. It has 37 tests, and each of 21 deliberately broken versions fails at least one of them.
+- Reference code of the rules with its tests: the switch, the last round, the order of visits, and the first and last slot of the floor's count. It has 39 tests, and each of 23 deliberately broken versions fails at least one of them.
 - Small models at mean rates: the rows marked simulated, the eclipse and lag figures of [What the floor leaves open](#what-the-floor-leaves-open) and [Comparing forks](#comparing-forks), the private race of [The restart path](#the-restart-path), the days a side needs, the split in halves, the participation the epoch's waits need, and the blocks above `B_imm`.
 
 > **TODO (author):** the study is not on GitHub yet, so none of this can be reproduced by a reviewer. Publish its branch with the models, the reference code and the runs listed here, link that commit in the first sentence, and remove this note.
@@ -300,9 +303,9 @@ In [Constants](../cryptarchia-v1-protocol.md#constants), `k` stops being a depth
 The `K` row also states:
 
 - the three periods of [§5](#5-three-periods-stay-within-the-finality-window), each with a link to its definition;
-- what `K` must hold: the chance that a share `α_max` of the stake displaces an immutable block stays at most `ε` per block, with every honest block up to 15 slots late, or up to 10 slots late while a tenth of the honest stake is offline;
-- that both cases take an epoch nonce whose grinding raises that chance by a factor of at most 1.21;
-- that a change of `k`, `f`, the slot length, the epoch nonce or `T_M` requires both cases to be checked again and `φ` to be derived again.
+- what `K` must hold: the chance that a share `α_max` of the stake displaces an immutable block stays at most `ε` per block, with every honest block up to `T_M` late, or up to `Δ` late while a tenth of the honest stake is offline;
+- that both cases take `α_max`, `Δ` and `ε` from Finality Floor, and the epoch nonce as unbiased;
+- that a change of `k`, `f`, the slot length or `T_M` requires both cases to be checked again and `φ` to be derived again.
 
 `commit` moves `B_imm` along `c_loc` instead of reading the block at a depth. It runs in `on_block` under the Online rule, and at the switch.
 
@@ -381,32 +384,41 @@ Both rules also visit the forks in increasing order of block ID, the lexicograph
 
 ## 3. The switch to Online runs a last round and `commit`
 
-[Switching to the Online Rule](../cryptarchia-v1-bootstr-sync.md#switching-to-the-online-rule) is a new section. When the timer of the Prolonged Bootstrap Period completes, the node runs a last round under the Bootstrap rule:
+[Switching to the Online Rule](../cryptarchia-v1-bootstr-sync.md#switching-to-the-online-rule) is a new section. When the timer of the Prolonged Bootstrap Period completes, the node runs a last round under the Bootstrap rule, and keeps listening for new blocks during it:
 
 ```python
 def last_round(ibd_peers, local_tree):
     deadline = now() + T_offline
-    peers = set(ibd_peers) | connected_peers()
-    tips = {peer: tip for peer, tip in parallel((peer, get_tip(peer)) for peer in peers) if tip is not None}
-    parallel(
-        (download_blocks(local_tree, target_block=tip, peers=[peer])
-         for peer, tip in tips.items() if not local_tree.has(tip)),
-        until=deadline,
-    )
+
+    def catch_up(peer):
+        tip = run_until(deadline, get_tip, peer)
+        if tip is None or local_tree.has(tip):
+            return
+        limit = None if peer in ibd_peers else deadline
+        while now() < deadline:
+            known = local_tree.blocks_behind_tip([T_offline, s_gen, K])
+            run_until(limit, download_blocks, local_tree, target_block=tip, peers=[peer], known=known)
+            if local_tree.has(tip):
+                return
+            sleep(T_round)
+
+    parallel(catch_up(peer) for peer in set(ibd_peers) | connected_peers())
 ```
 
-- A peer that does not return its tip is ignored, and the node is not terminated if none does.
-- The downloads must run in parallel.
-- `download_blocks` gains the argument `peers`. Without it, it selects peers as before.
+- A tip that has not arrived `T_offline` after the round started is given up, and the node is not terminated if no tip arrives.
+- Each request names in `KnownBlocks.additional_blocks` the latest blocks of `c_loc` whose slots lie at least `T_offline`, `s_gen` and `K` behind the slot of its tip.
+- A download that returns without the tip is started again after `T_round`, until `T_offline` after the round started.
+- A download from a connected peer that is still running then is cancelled. A download from an IBD peer is not.
+- `download_blocks` gains the arguments `peers` and `known`. Without them it behaves as before.
 - The row of `T_offline` states this second use.
 
-The node then switches to the Online rule and runs `commit` on `c_loc` before it processes any further block. It must store the `B_imm` that `commit` returns before anything it stores lets a restart select the Online rule. Otherwise a node that restarts between the two runs the Online rule with the old `B_imm`, once that `B_imm` is past the Genesis block or the checkpoint, and a fork the Bootstrap rule rejected can win by length.
+The node then switches to the Online rule and runs `commit` on `c_loc` before it processes any further block. It must store the `B_imm` that `commit` returns before it stores anything that lets a restart select the Online rule. Otherwise a node that restarts between the two runs the Online rule with the old `B_imm`, once that `B_imm` is past the Genesis block or the checkpoint, and a fork the Bootstrap rule rejected can win by length.
 
 The sentence that the node does not wait `s_gen` slots after Initial Block Download is removed.
 
 ## 4. The finality window sets the epoch schedule
 
-Phases of `3K`, `3K` and `4K` slots, an epoch of `10K`, and a `PERIOD` of `6K` replace `s` and `⌊k/f⌋`. Each phase that waits for a value to finalize must last at least `K` slots, or the value is not final when the phase ends. The value is also not final then unless `φ` occupied slots follow it within the phase.
+Phases of `3K`, `3K` and `4K` slots, an epoch of `10K`, and a `PERIOD` of `6K` replace `s` and `⌊k/f⌋`. Each phase that waits for a value to finalize must last at least `K` slots, or `commit` cannot make the value final within the phase.
 
 ## 5. Three periods stay within the finality window
 
@@ -439,7 +451,7 @@ The range stays `[s, s + p)`. `commit` passes `s = sl_C + 1` and `p = sl_tip −
 - Removed `s`, the name "slot security parameter", `block_at_depth`, "slot finality period" and the second name for `k`, "safety parameter".
 - Fixed `s` where `s_gen` was meant in `density`, made both fork choice functions valid Python, defined `grandparent`, and corrected their tie-break comments.
 - In the [Cryptarchia Fork Choice Rule](../fork-choice.md), named both headings of the long range attack after the rules, Bootstrap and Online, reworded its Introduction, its Overview and the Online section around `B_imm`, and defined the divergence block.
-- In the [Cryptarchia Protocol](../cryptarchia-v1-protocol.md), named `commit` as what moves `B_imm`, wrote "divergence block" throughout [Uncle References](../cryptarchia-v1-protocol.md#uncle-references), dropped "a proposer has no incentive to deviate from it" from [Uncle Selection](../cryptarchia-v1-protocol.md#uncle-selection), and corrected step 8 of Block Header Validation to name step 7. Its Introduction said that longest-chain protocols tolerate half of the participants. It now says that this holds when blocks are delivered at once, and names the share the document sizes immutability against.
+- In the [Cryptarchia Protocol](../cryptarchia-v1-protocol.md), named `commit` as what moves `B_imm`, wrote "divergence block" throughout [Uncle References](../cryptarchia-v1-protocol.md#uncle-references), dropped "a proposer has no incentive to deviate from it" from [Uncle Selection](../cryptarchia-v1-protocol.md#uncle-selection), and corrected step 8 of Block Header Validation to name step 7. Its Introduction said that longest-chain protocols tolerate half of the participants, and called that a large threshold. It now says that this holds when blocks are delivered at once, and points to the share the document sizes immutability against.
 - In [Setting the Fork Choice Rule](../cryptarchia-v1-bootstr-sync.md#setting-the-fork-choice-rule) and [Offline Grace Period](../cryptarchia-v1-bootstr-sync.md#offline-grace-period), reworded the lines that read `k`, restated the example's attack in slots, and replaced two images with one diagram. In [Downloading Blocks](../cryptarchia-v1-bootstr-sync.md#downloading-blocks), named the floor of `commit` among the readers of the uncle headers.
 - In [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md), named `commit` among the readers of the uncle headers.
 - In [\[Overview\] Bedrock Architecture](../bedrock-architecture-overview.md) and the [Bedrock Genesis Block](../bedrock-genesis-block.md), reworded the lines that read finality as a depth. In [\[Analysis\] Total Stake Inference](../analysis-total-stake-inference.md), stated the effect of participation on finality through the floor.
@@ -453,7 +465,8 @@ The range stays `[s, s + p)`. `commit` passes `s = sl_C + 1` and `p = sl_tip −
 - [ ] Remove the depth bound from the Online fork choice, and check descent from `B_imm` in both rules. With complete pruning the check can be skipped, which spares a walk per tip on every Bootstrap block
 - [ ] Replace the depth test of the Bootstrap fork choice with the test on the divergence block's slot, and run it on every block, including one that extends the local chain
 - [ ] Visit the tips in increasing order of block ID in both fork choice rules
-- [ ] Before the switch to Online, run the last round: fetch the tips of the IBD peers and the connected peers, download each tip from the peer that returned it, all in parallel, and end after `T_offline`, without terminating if no peer answers
+- [ ] Before the switch to Online, run the last round: for every IBD peer and every connected peer in parallel, fetch its tip and download the blocks up to it from that peer, without terminating if no peer answers
+- [ ] In the last round, name the three ancestors of the local tip in every request, start a failed download again after `T_round`, and `T_offline` after the round started give up tip requests and cancel downloads from connected peers, but not from IBD peers
 - [ ] At the switch, run `commit` before any further block, and store its `B_imm` before anything that lets a restart select the Online rule
 - [ ] Prune all forks below `B_imm` in one call, at every move of `B_imm` and at the switch to Online
 - [ ] Expire the wallet's leader-claim reservations after `K` slots instead of `k` immutable blocks
@@ -461,7 +474,7 @@ The range stays `[s, s + p)`. `commit` passes `s = sl_C + 1` and `p = sl_tip −
 - [ ] Update the fork monitor of the test framework
 - [ ] Review the forward step of the time service against [the clock faults](#counting-from-the-tips-slot)
 - [ ] Prove the rule in the formal model, floor included: the current theorems read a depth of `k`, or a confirmation rule beside it
-- [ ] Add tests: a fork rejected by the Bootstrap rule against the switch, a last round in which the other peers return an invalid block, a tip on a long fork, or nothing, a last round that reaches its limit, pruning of several forks at once, the floor's first and last slot, the Bootstrap test from either branch, in any delivery order, and for tips listed in any order, and two equally long forks under the Online rule listed in either order
+- [ ] Add tests: a fork rejected by the Bootstrap rule against the switch, a last round in which the other peers return an invalid block, a tip on a long fork, or nothing, a last round that reaches its limit with a download running from a connected peer and from an IBD peer, a download that fails once, pruning of several forks at once, the floor's first and last slot, the Bootstrap test from either branch, in any delivery order, and for tips listed in any order, and two equally long forks under the Online rule listed in either order
 - [ ] Verify the implementation matches this specification
 
 # Affected Specifications

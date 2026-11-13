@@ -26,7 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2025-08-22 |
 | 1.1.0 | Remove references to DA Replace Nomos with Logos Blockchain | 2026-01-14 |
-| 1.1.1 | Stated finality as the age of a block in slots. | 2026-11-13 |
+| 1.1.1 | Stated finality by the finality window and the finality floor. | 2026-11-13 |
 
 # Introduction
 

@@ -77,7 +77,7 @@ Nodes will remain on the honest chain if they reject forks that diverge before t
 - $`k`$, $`K`$ : the security parameter and the finality window, from [Constants](cryptarchia-v1-protocol.md#constants)
 - divergence block : the latest block that two chains share.
 - $`s_{gen}`$ : sufficient time measured in slots to measure the density of block production with enough statistical significance.
-  *In practice, we say* $`s_{gen} = \lfloor\frac{k}{4f}\rfloor`$*, where* $`f`$ *is the active slot coefficient from the leader lottery. (see* [Theorem 2 of Badertscher et al., 2018 “Ouroboros Genesis”](https://eprint.iacr.org/2018/378.pdf)*)* $`2s_{gen}`$ *must not exceed* $`K`$*. The proof of that theorem reads the two windows of* $`s_{gen}`$ *slots that follow the divergence block, and the Bootstrap rule compares densities once that block is* $`K`$ *slots old.*
+  *In practice, we say* $`s_{gen} = \lfloor\frac{k}{4f}\rfloor`$*, where* $`f`$ *is the active slot coefficient from the leader lottery. (see* [Theorem 2 of Badertscher et al., 2018 “Ouroboros Genesis”](https://eprint.iacr.org/2018/378.pdf)*)* $`2s_{gen}`$ *must not exceed* $`K`$*, or the Bootstrap rule compares densities before the two windows of* $`s_{gen}`$ *slots that the proof of that theorem reads after the divergence block have passed.*
 
 - $`\textbf{common\_prefix\_depth}(b_1, b_2) \to (\mathbb{N},\mathbb{N})`$
   *Returns the minimum block depth at which the two branches converge to a common chain.*

@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.0.2 | Spread block download requests across connected and discovered peers instead of downloading only from the configured IBD peers, which now only provide the chain tips to catch up with. Added [Selecting Peers for Downloading](#selecting-peers-for-downloading) and the `GetTipRequest` message. | 2026-10-20 |
-| 1.1.0 | Added [Switching to the Online Rule](#switching-to-the-online-rule): a last round that downloads each peer's tip from that peer within `T_offline`, then [Commit](cryptarchia-v1-protocol.md#commit). Bounded `T_offline` by the finality window `K`. | 2026-11-13 |
+| 1.1.0 | Added [Switching to the Online Rule](#switching-to-the-online-rule): a last round that downloads each peer's tip from that peer, then [Commit](cryptarchia-v1-protocol.md#commit). Bounded `T_offline` by the finality window `K`. | 2026-11-13 |
 
 # Introduction
 
@@ -106,7 +106,7 @@ The node can **propose blocks** after switching to the Online fork choice rule.
 
 | Constant | Name | Description | Value |
 | --- | --- | --- | --- |
-| $`T_\text{offline}`$ | Offline Grace Period | A period during which a node can be restarted without switching to the Bootstrap rule. It also limits the last round of [Switching to the Online Rule](#switching-to-the-online-rule). It must be shorter than the finality window $`K`$ ([Constants](cryptarchia-v1-protocol.md#constants)), or a fork built entirely while the node was offline can become immutable at the restart. | 20 minutes |
+| $`T_\text{offline}`$ | Offline Grace Period | A period during which a node can be restarted without switching to the Bootstrap rule. It also limits what the last round of [Switching to the Online Rule](#switching-to-the-online-rule) waits for. It must be shorter than the finality window $`K`$ ([Constants](cryptarchia-v1-protocol.md#constants)), or a fork built entirely while the node was offline can become immutable at the restart. | 20 minutes |
 | $`T_\text{boot}`$ | Prolonged Bootstrap Period | A period during which Bootstrap fork choice rule must be continuously used after Initial Block Download is completed. This gives nodes additional time to compare their synced chain with a broader set of peers. | 24 hours |
 | $`s_\text{gen}`$ | Density Check Slot Window | A number of slots used by density check of Bootstrap rule. This constant is defined in [Definitions](fork-choice.md#definitions). | $`\lfloor\frac{k}{4f}\rfloor`$ (=4h30m) |
 | $`T_\text{round}`$ | IBD Round Delay | A delay between rounds of [Initial Block Download](#initial-block-download). Implementers can choose a different value. | 1 second (recommended) |
@@ -196,35 +196,45 @@ A timer must be started when [Listening for New Blocks](#listening-for-new-block
 
 ### Switching to the Online Rule
 
-Peers that fill the connections of a node can withhold the chain that the rest of the network follows, so that a fork the Bootstrap rule rejected wins after the switch. Before the switch, the node therefore runs a last round: it fetches the tips of its IBD peers and of its connected peers, and downloads each tip from the peer that returned it. The round is limited in time, so that no peer can hold the node on the Bootstrap rule.
+Peers that fill the connections of a node can withhold the chain that the rest of the network follows, so that a fork the Bootstrap rule rejected wins after the switch. Before the switch, the node therefore runs a last round: it fetches the tip of every IBD peer and every connected peer, and the blocks up to each tip from the peer that returned it. The round waits for a connected peer for a limited time only, so that a connected peer cannot hold the node on the Bootstrap rule.
 
-The node runs the last round under the Bootstrap rule:
+The node runs the last round under the Bootstrap rule, and keeps [Listening for New Blocks](#listening-for-new-blocks) during it. It handles every IBD peer and every connected peer in parallel, each as follows:
 
-1. It requests the chain tip from every IBD peer and every connected peer in parallel, using `GetTipRequest` defined in [Downloading Blocks](#downloading-blocks). A peer that does not return its tip is ignored, and the node is not terminated if none does.
-2. For each peer whose tip is not in the local block tree, it downloads the blocks up to that tip from that peer, as defined in [Downloading Blocks](#downloading-blocks). The downloads must run in parallel, so that one peer cannot delay the download from another.
-3. The round ends when every download has returned, and at the latest $`T_\text{offline}`$ after it started. A download that is still running then is cancelled.
+1. It requests the chain tip of the peer, using `GetTipRequest` defined in [Downloading Blocks](#downloading-blocks). A tip that has not arrived $`T_\text{offline}`$ after the round started is given up. The node is not terminated if no tip arrives.
+2. If the tip is not in the local block tree, it downloads the blocks up to the tip from that peer, as defined in [Downloading Blocks](#downloading-blocks). Each request names in `KnownBlocks.additional_blocks` the latest blocks of $`c_{loc}`$ whose slots lie at least $`T_\text{offline}`$, $`s_\text{gen}`$ and $`K`$ behind the slot of its tip. A peer that does not hold the tip of $`c_{loc}`$ can then start its stream from one of them, not from $`B_\text{imm}`$.
+3. A download that returns without the tip in the local block tree is started again after $`T_\text{round}`$, until $`T_\text{offline}`$ after the round started.
+4. A download from a connected peer that is still running $`T_\text{offline}`$ after the round started is cancelled. The blocks it delivered stay in the local block tree. A download from an IBD peer is not cancelled.
+
+The round ends when no request and no download of the round is running.
 
 ```python
 def last_round(ibd_peers: List[Node], local_tree: Tree):
     deadline = now() + T_offline
 
-    # Fetch tips from the IBD peers and the connected peers in parallel.
-    # Peers that fail to respond are ignored.
-    peers = set(ibd_peers) | connected_peers()
-    tips = {peer: tip for peer, tip in parallel((peer, get_tip(peer)) for peer in peers) if tip is not None}
+    def catch_up(peer: Node):
+        # A tip that has not arrived at the deadline is given up.
+        tip = run_until(deadline, get_tip, peer)
+        if tip is None or local_tree.has(tip):
+            return
+        # A download from a connected peer is cancelled at the deadline.
+        # A download from an IBD peer is not.
+        limit = None if peer in ibd_peers else deadline
+        while now() < deadline:
+            # The latest blocks of the local chain whose slots lie at least
+            # T_offline, s_gen and K behind the slot of its tip.
+            known = local_tree.blocks_behind_tip([T_offline, s_gen, K])
+            run_until(limit, download_blocks, local_tree, target_block=tip, peers=[peer], known=known)
+            if local_tree.has(tip):
+                return
+            sleep(T_round)
 
-    # Download the blocks up to each missing tip from the peer that returned it.
-    # All downloads run in parallel, and those still running at the deadline are cancelled.
-    parallel(
-        (download_blocks(local_tree, target_block=tip, peers=[peer])
-         for peer, tip in tips.items() if not local_tree.has(tip)),
-        until=deadline,
-    )
+    # Every peer is handled in parallel.
+    parallel(catch_up(peer) for peer in set(ibd_peers) | connected_peers())
 ```
 
 When the round ends, the node switches the fork choice rule to the Online rule and runs [Commit](cryptarchia-v1-protocol.md#commit) on $`c_{loc}`$ before it processes any further block.
 
-The node must store the $`B_\text{imm}`$ that this Commit returns before anything it stores lets a restart select the Online rule ([Setting the Fork Choice Rule](#setting-the-fork-choice-rule)). Otherwise a restart can run the Online rule with the $`B_\text{imm}`$ from before the switch, and a fork that the Bootstrap rule rejected can then win by length.
+The node must store the $`B_\text{imm}`$ that this Commit returns before it stores anything that lets a restart select the Online rule ([Setting the Fork Choice Rule](#setting-the-fork-choice-rule), [Offline Duration Measurement](#offline-duration-measurement)). Otherwise a restart runs the Online rule with the $`B_\text{imm}`$ from before the switch.
 
 ## Listening for New Blocks
 
@@ -307,10 +317,11 @@ The responding peer finds the latest common ancestor (i.e. LCA) between the `tar
 
 ![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-8138-b041-c737c9e0071c.png)
 
-The requesting node should repeat `DownloadBlocksRequest`s by updating the `KnownBlocks` in order to download the next batches of blocks. Each repeated request is sent to newly selected peers, as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). The following code shows how the requesting node can be implemented.
+The requesting node should repeat `DownloadBlocksRequest`s by updating the `KnownBlocks` in order to download the next batches of blocks. Each repeated request is sent to newly selected peers, except in the last round, as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). The following code shows how the requesting node can be implemented.
 
 ```python
-def download_blocks(local_tree: Tree, target_block: BlockId, peers: Optional[List[Node]] = None):
+def download_blocks(local_tree: Tree, target_block: BlockId,
+                    peers: Optional[List[Node]] = None, known: Optional[List[BlockId]] = None):
     latest_downloaded: Optional[Block] = None
     while True:
         # Don't start downloading if target is already in local.
@@ -324,7 +335,8 @@ def download_blocks(local_tree: Tree, target_block: BlockId, peers: Optional[Lis
                 latest_immutable_block=local_tree.latest_immutable_block().id,
                 # Provide the latest downloaded block as well
                 # to avoid downloading duplicate blocks
-                additional_blocks=[latest_downloaded.id] if latest_downloaded is not None else [],
+                additional_blocks=(known or [])
+                    + ([latest_downloaded.id] if latest_downloaded is not None else []),
             )
         )
 
