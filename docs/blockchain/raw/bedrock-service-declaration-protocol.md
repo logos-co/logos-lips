@@ -37,6 +37,7 @@
 | 1.7.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a declaration covers one service, a note backs one declaration per service, and a `nonce` carries the `created` epoch of its declaration | 2026-10-01 |
 | 1.8.0 | The minimum stake is one `MinStake` of `threshold` and the block number `timestamp`, matching the implementation | 2026-10-27 |
 | 1.9.0 | The minimum stake and the service parameters are those of the era of a block's slot, and carry neither a `timestamp` nor an epoch; service-type bytes run from 0 without gaps ([Bedrock Eras](bedrock-eras.md)) | 2026-11-05 |
+| 1.10.0 | The default `inactivity_period` of the Blend Network is 3 instead of 2. | 2026-11-10 |
 
 # Introduction
 
@@ -111,7 +112,7 @@ For more information on how the minimum stake is calculated, please refer to the
 
 The service parameters structure defines the parameters set necessary for correctly handling interaction between the protocol and services. Each of the service types defined above must be mapped to a set of the following parameters:
 
-- `inactivity_period` defines the number of epochs after the epoch recorded in `active` for which the declaration remains active; after that, it is inactive and excluded from the service's participant set in the same way as a withdrawn declaration ([**Withdraw**](#withdraw)). A value of `2 + k` tolerates `k` consecutive missed reports ([Message Timing](#message-timing)). Any value below 2 excludes every declaration.
+- `inactivity_period` defines the number of epochs after the epoch recorded in `active` for which the declaration remains active; after that, it is inactive and excluded from the service's participant set in the same way as a withdrawn declaration ([**Withdraw**](#withdraw)). A value of `2 + k` tolerates `k` consecutive missed reports ([Message Timing](#message-timing)). At 2, a declaration that misses one report is out of the active set of every third epoch from then on, as it cannot report an epoch whose set it is not in. Any value below 2 excludes every declaration.
 
 ```python
 class ServiceParameters:
@@ -419,5 +420,5 @@ For more information about Mantle and ZK proofs, please refer to [Mantle](bedroc
 
 ```python
 class BlendNetworkServiceParameters:
-    inactivity_period: 2
+    inactivity_period: 3
 ```
