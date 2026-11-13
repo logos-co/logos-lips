@@ -385,7 +385,7 @@ If the requesting node is downloading blocks up to the peer’s tip $`c_{loc}`$ 
 
 A node should spread its `DownloadBlocksRequest`s across the peers it knows, instead of sending them only to a fixed set of peers such as the IBD peers. This keeps any single peer, in particular the well-known IBD peers, from serving most of the download traffic of the network. It also lets a node download blocks even when some peers are slow, unreachable, or malicious.
 
-In the last round of [Switching to the Online Rule](#switching-to-the-online-rule), every request of a download goes to the peer that returned the tip. For each other `DownloadBlocksRequest`, including each repeated request of the same download, the node selects peers as follows:
+This selection does not apply to the downloads of [Switching to the Online Rule](#switching-to-the-online-rule). For every other `DownloadBlocksRequest`, including each repeated request of the same download, the node selects peers as follows:
 
 1. Consider only peers that support the sync protocol (i.e. that advertise the [Libp2p Protocol ID](#downloading-blocks) above).
 2. Randomly select up to $`N_\text{conn}`$ peers from the connected peers.
