@@ -136,7 +136,7 @@ If peers for Initial Block Download (IBD) are configured, a node performs IBD by
 
 Blocks are downloaded in parent-to-child order, as defined in the [Downloading Blocks](#downloading-blocks) mechanism. This mechanism applies not only when a node starts from the Genesis block, but also when it already has the local block tree (or a checkpoint block)
 
-The configured IBD peers are used only to learn which chain tips the node must catch up with. The blocks themselves are not downloaded only from the IBD peers. Instead, each download request is spread across the connected and discovered peers, as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). IBD peers are typically a small set of well-known nodes that every new node is configured with. If every new node downloaded the whole chain from them, they would be overloaded, and the IBD of the whole network would depend on their capacity.
+During Initial Block Download, the configured IBD peers are used only to learn which chain tips the node must catch up with. The blocks themselves are not downloaded only from the IBD peers. Instead, each download request is spread across the connected and discovered peers, as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). IBD peers are typically a small set of well-known nodes that every new node is configured with. If every new node downloaded the whole chain from them, they would be overloaded, and the IBD of the whole network would depend on their capacity.
 
 IBD runs in rounds. In each round, the node:
 
@@ -201,31 +201,27 @@ Peers that fill the connections of a node can withhold the chain that the rest o
 The node runs the last round under the Bootstrap rule, and keeps [Listening for New Blocks](#listening-for-new-blocks) during it. It handles every IBD peer and every connected peer in parallel, each as follows:
 
 1. It requests the chain tip of the peer, using `GetTipRequest` defined in [Downloading Blocks](#downloading-blocks). A tip that has not arrived $`T_\text{offline}`$ after the round started is given up. The node is not terminated if no tip arrives.
-2. If the tip is not in the local block tree, it downloads the blocks up to the tip from that peer, as defined in [Downloading Blocks](#downloading-blocks). Each request names in `KnownBlocks.additional_blocks` the latest blocks of $`c_{loc}`$ whose slots lie at least $`T_\text{offline}`$, $`s_\text{gen}`$ and $`K`$ behind the slot of its tip. A peer that does not hold the tip of $`c_{loc}`$ can then start its stream from one of them, not from $`B_\text{imm}`$.
-3. A download that returns without the tip in the local block tree is started again after $`T_\text{round}`$, until $`T_\text{offline}`$ after the round started.
-4. A download from a connected peer that is still running $`T_\text{offline}`$ after the round started is cancelled. The blocks it delivered stay in the local block tree. A download from an IBD peer is not cancelled.
+2. If the tip is not in the local block tree, it downloads the blocks up to the tip from that peer, as defined in [Downloading Blocks](#downloading-blocks). Each request names in `KnownBlocks.additional_blocks` the latest blocks of $`c_{loc}`$ whose slots lie at least $`T_\text{offline}`$, $`s_\text{gen}`$, $`K`$ and $`T_\text{boot}`$ behind the slot of its tip. A peer that does not hold the tip of $`c_{loc}`$ can then start its stream from one of them, not from $`B_\text{imm}`$.
+3. A download that returns without the tip in the local block tree is started again after $`T_\text{round}`$.
+4. The handling of a connected peer ends $`T_\text{offline}`$ after the round started. The handling of an IBD peer ends when its download has added no block to the local block tree for $`T_\text{offline}`$. A request or download that is running then is cancelled, and the blocks it delivered stay in the local block tree.
 
-The round ends when no request and no download of the round is running.
+The round ends when the handling of every peer has ended.
 
 ```python
 def last_round(ibd_peers: List[Node], local_tree: Tree):
-    deadline = now() + T_offline
+    start = now()
 
     def catch_up(peer: Node):
-        # A tip that has not arrived at the deadline is given up.
-        tip = run_until(deadline, get_tip, peer)
-        if tip is None or local_tree.has(tip):
-            return
-        # A download from a connected peer is cancelled at the deadline.
-        # A download from an IBD peer is not.
-        limit = None if peer in ibd_peers else deadline
-        while now() < deadline:
+        # A tip that has not arrived T_offline after the round started is given up.
+        tip = run_until(start + T_offline, get_tip, peer)
+        # ended(peer) is true T_offline after the round started for a connected peer,
+        # and once an IBD peer's download has added no block for T_offline.
+        # The download running at that time is cancelled.
+        while tip is not None and not local_tree.has(tip) and not ended(peer):
             # The latest blocks of the local chain whose slots lie at least
-            # T_offline, s_gen and K behind the slot of its tip.
-            known = local_tree.blocks_behind_tip([T_offline, s_gen, K])
-            run_until(limit, download_blocks, local_tree, target_block=tip, peers=[peer], known=known)
-            if local_tree.has(tip):
-                return
+            # T_offline, s_gen, K and T_boot behind the slot of its tip.
+            known = local_tree.blocks_behind_tip([T_offline, s_gen, K, T_boot])
+            download_blocks(local_tree, target_block=tip, peers=[peer], known=known)
             sleep(T_round)
 
     # Every peer is handled in parallel.
