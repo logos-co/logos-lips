@@ -106,7 +106,8 @@ and attested prices and disputes, respectively.
 - **Round:** one price update, every `R_round`.
 - **Cycle:** `C_cycle` consecutive rounds that share one frozen membership root, `root_cycle`,
 and one proposer rotation. `cycleStartRound` is the first round of the cycle.
-- **Epoch:** the reward settlement period. It is used only for rewards and SHOULD span a whole number of cycles.
+- **Reward period:** the reward settlement period, distinct from an LBC epoch.
+It is used only for rewards and SHOULD span a whole number of cycles.
 - **Active oracle set (AOS):** the registered oracle nodes under `root_cycle`; `AOS_cycle` is their number.
 - **`obs_id`, `set_hash`:** the identifier of one observation and of an observation set,
 defined in [Price Fetching](#price-fetching) and [Raising a dispute](#raising-a-dispute).
@@ -796,7 +797,7 @@ A backup that skips the wait and writes immediately is still accepted,
 since the contract only checks that the sender is one of the three eligible indices.
 Doing this repeatedly is visible off-chain, since who wrote each round and at what share is public.
 The share is recorded per round when the dispute window closes and the attestation is finalized.
-The recorded share is applied at the epoch boundary
+The recorded share is applied at the reward period boundary
 when the indexer builds the reward table committed to the LEZ settlement contract.
 
 ### Edge cases
@@ -830,13 +831,13 @@ so that the seat's value reflects real, sustainable income rather than speculati
 
 Reward accounting is computed in the Oracle Zone,
 since only the indexer knows which `oracle nodes` submitted valid,
-within-bound observations in the epoch.
-At each epoch boundary the indexer commits a reward table, for example a Merkle root of `oracle node` amounts,
+within-bound observations in the reward period.
+At each reward period boundary the indexer commits a reward table, for example a Merkle root of `oracle node` amounts,
 to a LEZ settlement contract in a single cross-zone TX.
 This keeps reward traffic off the per-round path.
 The settlement contract does not run a scheduler.
 Each `oracle node` claims against the committed root,
-so payout is pull-based and per-epoch rather than a per-round push,
+so payout is pull-based and per-reward period rather than a per-round push,
 and the claimant pays its own settlement cost.
 
 Reward eligibility is assessed against a soft deviation band around the round's attested median.
@@ -955,8 +956,8 @@ Counted in LEZ blocks (~1 s each), since the LEZ contract checks it against its 
 | Slash fraction (wrong median) |  | capped* | Proposer attested a value a successful dispute proved wrong. |
 | Slash fraction (missed round) |  | small, TBD* | Primary proposer when none of the three writers attests a round that had `N` valid observations. |
 | Unbonding / cooldown period |  | 21 days* | Cosmos/Band anchor; must exceed fault-proving window plus deep-finality horizon. |
-| Reward settlement |  | per epoch, pull-based | Claim against a committed Merkle root|
-| Epoch length |  | 7 days* | Weekly settlement. |
+| Reward settlement |  | per reward period, pull-based | Claim against a committed Merkle root|
+| reward period length |  | 7 days* | Weekly settlement. |
 | Reward backing |  | fee-backed preferred* | Fees over pure emissions for sustainable franchise value. |
 | LBC block time | `T_block` | 30 s | Average time between two LBC blocks; Logos default assumed here. |
 | LBC finality depth | `k` | immutable bound (reference) | Number of LBC blocks after which an inscription cannot be reverted; practical confirmation depth is much shallower. |
@@ -1210,7 +1211,7 @@ Slashing is never automatic. An oracle node or watcher always starts it by sendi
 but not their exact economic parameters.
 Several values are left to future work.
 These are the concrete stake requirement, the four slash fractions,
-the reward rate and its fee backing, the epoch length, and the unbonding duration.
+the reward rate and its fee backing, the reward period length, and the unbonding duration.
 Each must be sized against the value the feed secures.
 The goal is to keep the cost of corruption above the profit from corruption.
 This work also covers how the reward table is committed.
