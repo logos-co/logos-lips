@@ -103,6 +103,7 @@ FILE_ASSIGNMENTS = {
     "blockchain/raw/template-cross-channel-messaging.md": ("Mantle", "[Template] Cross-Channel Messaging"),
     "blockchain/deprecated/v1.1.0-template-cross-channel-messaging.md": ("Mantle", "[1.1.0][Template] Cross-Channel Messaging"),
     "blockchain/deprecated/v1.0.0-template-cross-channel-messaging.md": ("Mantle", "[1.0.0] [Template] Cross-Channel Messaging"),
+    "blockchain/raw/template-offchain-inscription-bodies.md": ("Mantle", "[Template] Off-Chain Inscription Bodies"),
     "blockchain/raw/analysis-gas-cost-determination.md": ("Mantle", "[Analysis] Gas Cost Determination"),
     "blockchain/deprecated/v1.4.0-analysis-gas-cost-determination.md": ("Mantle", "[1.4.0][Analysis] Gas Cost Determination"),
     "blockchain/deprecated/v1.3.0-analysis-gas-cost-determination.md": ("Mantle", "[1.3.0] [Analysis] Gas Cost Determination"),
