@@ -89,7 +89,11 @@ in this document are to be interpreted as described in [RFC 2119](https://www.ie
 It orders and finalizes data but runs no general execution.
 - **Zone:** a domain that uses LBC for ordering, for example LEZ, the Logos Execution Zone.
 - **Channel:** a zone's ordered log on LBC.
-It is opened with a key, and LBC accepts a message into the channel for ordering only if it is signed with that key.
+It is claimed by its first inscription,
+and the Ed25519 public key that signs it becomes the channel's accredited key.
+LBC accepts an inscription into the channel only if it is signed by an accredited key.
+A channel MAY have several accredited keys that take turns writing;
+in LON each channel has one, the node's Zone-Public key.
 - **Inscription:** a message that LBC has accepted and ordered in a channel.
 - **`channel_id`:** the 32-byte identifier of a channel on LBC.
 In the current Zone SDK it equals the Zone-Public key that owns the channel.
