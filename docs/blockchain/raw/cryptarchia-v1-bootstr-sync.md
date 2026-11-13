@@ -200,10 +200,15 @@ Peers that fill the connections of a node can withhold the chain that the rest o
 
 The node runs the last round under the Bootstrap rule, and keeps [Listening for New Blocks](#listening-for-new-blocks) during it. It handles every IBD peer and every other connected peer in parallel. For each peer it repeats the following steps:
 
-1. It requests the chain tip of the peer, using `GetTipRequest` defined in [Downloading Blocks](#downloading-blocks). The node is not terminated if no tip arrives.
+1. It requests the chain tip of the peer, using `GetTipRequest` defined in [Downloading Blocks](#downloading-blocks). If the request fails, it continues at step 4. The node is not terminated if no tip arrives.
 2. If the tip is in the local block tree, the handling of the peer ends.
-3. Otherwise it downloads the blocks up to the tip from that peer, as defined in [Downloading Blocks](#downloading-blocks). Each request names in `KnownBlocks.additional_blocks` the last valid block that the peer has delivered in the round. Before the peer has delivered one, each request names instead the block recorded when the [Prolonged Bootstrap Period](#prolonged-bootstrap-period) started, and the latest blocks of $`c_{loc}`$ whose slots lie at least $`T_\text{offline}`$, $`s_\text{gen}`$ and $`K`$ behind the slot of its tip, where each exists. A peer that does not hold the tip of $`c_{loc}`$ can then start its stream from one of them, not from $`B_\text{imm}`$.
-4. It waits $`T_\text{round}`$ before it repeats the steps, also when the tip request failed.
+3. Otherwise it downloads the blocks up to the tip from that peer, as defined in [Downloading Blocks](#downloading-blocks). Each request of the download names in `KnownBlocks.additional_blocks`:
+   - the block recorded when the [Prolonged Bootstrap Period](#prolonged-bootstrap-period) started;
+   - the last valid block that the peer delivered in an earlier download of the round;
+   - if the peer has delivered none, the latest blocks of $`c_{loc}`$ whose slots lie at least $`T_\text{offline}`$, $`s_\text{gen}`$ and $`K`$ behind the slot of its tip, where each exists.
+
+   A peer that does not hold the tip of $`c_{loc}`$ can then start its stream from one of them, not from $`B_\text{imm}`$.
+4. It waits $`T_\text{round}`$ and starts again at step 1.
 
 The handling of a peer also ends as follows, in any step:
 
@@ -220,13 +225,13 @@ def last_round(ibd_peers: List[Node], local_tree: Tree, recorded: BlockId):
             if tip is not None:
                 if local_tree.has(tip):
                     return
-                # The last valid block that the peer has delivered in the round. Before it has
-                # delivered one: the block recorded when the Prolonged Bootstrap Period started,
-                # and the latest blocks of the local chain whose slots lie at least T_offline,
-                # s_gen and K behind the slot of its tip.
+                # The block recorded when the Prolonged Bootstrap Period started, and the last
+                # valid block that the peer delivered in an earlier download of the round. If
+                # it has delivered none: the latest blocks of the local chain whose slots lie
+                # at least T_offline, s_gen and K behind the slot of its tip.
                 last = last_delivered(peer)
-                known = [last] if last is not None else \
-                    [recorded] + local_tree.blocks_behind_tip([T_offline, s_gen, K])
+                known = [recorded] + ([last] if last is not None else
+                                      local_tree.blocks_behind_tip([T_offline, s_gen, K]))
                 download_blocks(local_tree, target_block=tip, peers=[peer], known=known)
             sleep(T_round)
 
@@ -315,7 +320,7 @@ Each streamed `Block` carries the signed headers of the uncles it references, in
 
 The responding peer uses `KnownBlocks` to determine the optimal starting block for the response stream, aiming to minimize the number of blocks to be returned. The requesting node can include any block it believes could assist in this process to the `KnownBlocks.additional_blocks`. To avoid spamming responders, the size of `KnownBlocks.additional_blocks` is limited to 5.
 
-The responding peer finds the latest common ancestor (i.e. LCA) between the `target_block` and each of the known blocks. Then, it returns a stream of blocks, starting from the highest LCA. To mitigate malicious downloading requests, the peer limits the number of blocks to be returned. The detailed implementation is up to implementers, depending on their internal architecture (e.g. storage design).
+The responding peer finds the latest common ancestor (i.e. LCA) between the `target_block` and each of the known blocks that it holds. It ignores a known block that it does not hold. Then, it returns a stream of blocks, starting from the highest LCA. To mitigate malicious downloading requests, the peer limits the number of blocks to be returned. The detailed implementation is up to implementers, depending on their internal architecture (e.g. storage design).
 
 ![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-8138-b041-c737c9e0071c.png)
 
