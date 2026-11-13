@@ -84,7 +84,7 @@ We RECOMMEND that this to be a random node.
 Next, the Store Sync node SHOULD perform a [13/WAKU2-STORE](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/core/draft/13/store.md#content-filtered-queries) query
 to the selected node for the time interval since it was last online.
 Messages returned by the query are then added to the local node storage.
-It is RECOMMENDED to limit the time interval to a maximum of `6` hours.
+It is RECOMMENDED to limit the time interval to a maximum of `1` hour.
 
 ### Waku Sync
 
