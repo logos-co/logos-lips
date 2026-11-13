@@ -225,7 +225,8 @@ It cuts at the first `N` valid observations in LBC order,
 and computes the median and the `set_hash` of these `N` observations.
 If fewer than `N` valid observations exist, no price is attested for the round.
 2. The designated `proposer` of the round, or one of its two backups if it does not write,
-writes an `AttestationSubmission` with the round, the price, the `confidence` and the `set_hash`,
+writes an `AttestationSubmission` to `oracle_prices` contract with the round,
+the price, the `confidence` and the `set_hash`,
 in a LEZ TX signed with its LEZ-Private key.
 The contract checks that one of the three designated writers authorized the TX,
 verifies no observation signature, sets the status to `PENDING`,
