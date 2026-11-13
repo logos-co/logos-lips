@@ -189,6 +189,9 @@ Its 32-byte x-only LEZ-Public key is the node's `oracle_id`, and the node signs 
 1. The `LON sequencer` opens the node's own channel on LBC with its Zone-Private key and pays the channel deposit.
 2. Only the holder of the Zone-Private key can write to this channel, which LBC enforces.
 
+The node SHOULD claim its channel before registering it in LEZ:
+registration makes the `channel_id` public, and an unclaimed channel can be claimed first by another key.
+
 ### 3. Registration in LEZ
 
 1. The `oracle node` sends a registration TX to the `oracle_register` contract, signed with its LEZ-Private key.
