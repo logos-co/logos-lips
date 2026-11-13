@@ -109,7 +109,7 @@ The node can **propose blocks** after switching to the Online fork choice rule.
 | $`T_\text{offline}`$ | Offline Grace Period | A period during which a node can be restarted without switching to the Bootstrap rule. It also limits what the last round of [Switching to the Online Rule](#switching-to-the-online-rule) waits for. It must be shorter than the finality window $`K`$ ([Constants](cryptarchia-v1-protocol.md#constants)), or a fork built entirely while the node was offline can become immutable at the restart. | 20 minutes |
 | $`T_\text{boot}`$ | Prolonged Bootstrap Period | A period during which Bootstrap fork choice rule must be continuously used after Initial Block Download is completed. This gives nodes additional time to compare their synced chain with a broader set of peers. | 24 hours |
 | $`s_\text{gen}`$ | Density Check Slot Window | A number of slots used by density check of Bootstrap rule. This constant is defined in [Definitions](fork-choice.md#definitions). | $`\lfloor\frac{k}{4f}\rfloor`$ (=4h30m) |
-| $`T_\text{round}`$ | IBD Round Delay | A delay between rounds of [Initial Block Download](#initial-block-download). Implementers can choose a different value. | 1 second (recommended) |
+| $`T_\text{round}`$ | IBD Round Delay | A delay between rounds of [Initial Block Download](#initial-block-download), and between the repetitions of the steps of [Switching to the Online Rule](#switching-to-the-online-rule). Implementers can choose a different value. | 1 second (recommended) |
 | $`N_\text{conn}`$ | Connected Peers per Download | The maximum number of connected peers a download request is sent to, as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). Implementers can choose a different value. | 16 (recommended) |
 | $`N_\text{disc}`$ | Discovered Peers per Download | The maximum number of discovered but not connected peers a download request is sent to, as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). Implementers can choose a different value. | 16 (recommended) |
 
@@ -196,31 +196,41 @@ A timer must be started when [Listening for New Blocks](#listening-for-new-block
 
 ### Switching to the Online Rule
 
-Peers that fill the connections of a node can withhold the chain that the rest of the network follows, so that a fork the Bootstrap rule rejected wins after the switch. Before the switch, the node therefore runs a last round: it fetches the tip of every IBD peer and every connected peer, and the blocks up to each tip from the peer that returned it. The round waits for a connected peer for a limited time only, so that a connected peer cannot hold the node on the Bootstrap rule.
+Peers that fill the connections of a node can withhold the chain that the rest of the network follows, so that a fork the Bootstrap rule rejected wins after the switch. Before the switch, the node therefore runs a last round: it fetches the tip of every IBD peer and of every other connected peer, and the blocks up to each tip from the peer that returned it. The round waits for a peer that is not an IBD peer for a limited time only, so that such a peer cannot hold the node on the Bootstrap rule.
 
-The node runs the last round under the Bootstrap rule, and keeps [Listening for New Blocks](#listening-for-new-blocks) during it. It handles every IBD peer and every connected peer in parallel, each as follows:
+The node runs the last round under the Bootstrap rule, and keeps [Listening for New Blocks](#listening-for-new-blocks) during it. It handles every IBD peer and every other connected peer in parallel. For each peer it repeats the following steps:
 
-1. It requests the chain tip of the peer, using `GetTipRequest` defined in [Downloading Blocks](#downloading-blocks). A tip that has not arrived $`T_\text{offline}`$ after the round started is given up. The node is not terminated if no tip arrives.
-2. If the tip is not in the local block tree, it downloads the blocks up to the tip from that peer, as defined in [Downloading Blocks](#downloading-blocks). Each request names in `KnownBlocks.additional_blocks` the block recorded when the [Prolonged Bootstrap Period](#prolonged-bootstrap-period) started, and the latest blocks of $`c_{loc}`$ whose slots lie at least $`T_\text{offline}`$, $`s_\text{gen}`$ and $`K`$ behind the slot of its tip. A peer that does not hold the tip of $`c_{loc}`$ can then start its stream from one of them, not from $`B_\text{imm}`$.
-3. A download that returns without the tip in the local block tree is started again after $`T_\text{round}`$.
-4. The handling of a peer ends when its tip is in the local block tree. Otherwise the handling of a connected peer ends $`T_\text{offline}`$ after the round started, and the handling of an IBD peer ends when the peer has delivered no block for $`T_\text{offline}`$. A block counts if it is valid and the peer has not delivered it earlier in the round. It counts whether or not the local block tree already holds it. A request or download that is running when the handling ends is cancelled, and the blocks it delivered stay in the local block tree.
+1. It requests the chain tip of the peer, using `GetTipRequest` defined in [Downloading Blocks](#downloading-blocks). The node is not terminated if no tip arrives.
+2. If the tip is in the local block tree, the handling of the peer ends.
+3. Otherwise it downloads the blocks up to the tip from that peer, as defined in [Downloading Blocks](#downloading-blocks). Each request names in `KnownBlocks.additional_blocks` the last valid block that the peer has delivered in the round. Before the peer has delivered one, each request names instead the block recorded when the [Prolonged Bootstrap Period](#prolonged-bootstrap-period) started, and the latest blocks of $`c_{loc}`$ whose slots lie at least $`T_\text{offline}`$, $`s_\text{gen}`$ and $`K`$ behind the slot of its tip, where each exists. A peer that does not hold the tip of $`c_{loc}`$ can then start its stream from one of them, not from $`B_\text{imm}`$.
+4. It waits $`T_\text{round}`$ before it repeats the steps, also when the tip request failed.
 
-The round ends when the handling of every peer has ended.
+The handling of a peer also ends as follows, in any step:
+
+- The handling of an IBD peer ends when $`T_\text{offline}`$ has passed since the round started, or since the peer last delivered a block that counts, whichever is later. A block counts if it is valid and no download from the peer delivered it earlier in the round. It counts whether or not the local block tree already holds it.
+- The handling of any other peer ends $`T_\text{offline}`$ after the round started.
+
+A request or download that is running when the handling ends is cancelled, and the blocks it delivered stay in the local block tree. The round ends when the handling of every peer has ended.
 
 ```python
 def last_round(ibd_peers: List[Node], local_tree: Tree, recorded: BlockId):
     def catch_up(peer: Node):
-        # A tip that has not arrived T_offline after the round started is given up.
-        tip = get_tip(peer)
-        while tip is not None and not local_tree.has(tip):
-            # The block recorded when the Prolonged Bootstrap Period started, and the latest
-            # blocks of the local chain whose slots lie at least T_offline, s_gen and K
-            # behind the slot of its tip.
-            known = [recorded] + local_tree.blocks_behind_tip([T_offline, s_gen, K])
-            download_blocks(local_tree, target_block=tip, peers=[peer], known=known)
+        while True:
+            tip = get_tip(peer)
+            if tip is not None:
+                if local_tree.has(tip):
+                    return
+                # The last valid block that the peer has delivered in the round. Before it has
+                # delivered one: the block recorded when the Prolonged Bootstrap Period started,
+                # and the latest blocks of the local chain whose slots lie at least T_offline,
+                # s_gen and K behind the slot of its tip.
+                last = last_delivered(peer)
+                known = [last] if last is not None else \
+                    [recorded] + local_tree.blocks_behind_tip([T_offline, s_gen, K])
+                download_blocks(local_tree, target_block=tip, peers=[peer], known=known)
             sleep(T_round)
 
-    # Every peer is handled in parallel. The handling of a peer is cancelled as step 4 states.
+    # Every peer is handled in parallel. The handling of a peer is cancelled as stated above.
     parallel(catch_up(peer) for peer in set(ibd_peers) | connected_peers())
 ```
 
