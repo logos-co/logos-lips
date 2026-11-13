@@ -64,7 +64,7 @@ The wait that holds that chance, in hours:
 
 The same rule gives 18 hours against a third, where the binding wait is 17.37 hours, or 17.53 with a nonce that resists grinding. So 10 hours keeps against 30 % the delay margin that 18 hours keeps against a third. The nonce's factor is taken at 10 s, where its bound is derived.
 
-`K` no longer follows from `k` and `f`, because the bound behind the two cases is a numerical computation, not a formula. The row links here, and asks for `K` to be sized again and `φ` to be derived again when `k`, `f`, `α_max`, the slot length or `T_M` changes.
+`K` no longer follows from `k` and `f`, because the bound behind the two cases is a numerical computation, not a formula. The row links here, and asks for `K` to be sized again and `φ` to be derived again when `k`, `f`, the slot length, `T_M`, the epoch nonce or a target of the floor changes. `α_max` is one of those targets.
 
 `K` is sized at `T_M`, 15 s, and the floor at 10 s. The two delays differ on purpose: missing the floor costs time, and a `K` that is too short costs safety.
 
@@ -84,7 +84,7 @@ At 10 hours a third of the stake is outside the `1e-9` guarantee. The chance tha
 
 ### The epoch nonce
 
-At 15 s of delay, the case that sizes `K`, 10 hours holds 30 % only with a nonce that resists grinding. The `K` row takes the epoch nonce as unbiased, so it does not cover grinding. Today's nonce is a hash chain that a coalition grinds near the cut-off, the slot at which the next epoch's nonce is read. With it, 30 % needs 13.6 to 18.7 hours at 10 s, and 10 hours holds a share of 0.272 at 10 s and 0.247 at 15 s, with two ground nonces at the upper end of the factor.
+At 15 s of delay, the case that sizes `K`, 10 hours holds 30 % only with a nonce that resists grinding. The `K` row takes the epoch nonce as unbiased, and says that a nonce an adversary can bias lowers the share `K` holds. Today's nonce is a hash chain that a coalition grinds near the cut-off, the slot at which the next epoch's nonce is read. With it, 30 % needs 13.6 to 18.7 hours at 10 s, and 10 hours holds a share of 0.272 at 10 s and 0.247 at 15 s, with two ground nonces at the upper end of the factor.
 
 The least wait that holds 30 % at `1e-9` under the worst case at 15 s, for an attack that meets two nonces:
 
@@ -150,7 +150,7 @@ The floor holds back a side cut off from the rest until it has made `φ + 1` blo
 - `s_gen` stays at 16,200 slots. `2·s_gen` is 32,400 slots, 9 hours, within `K`. The proof behind `s_gen` reads two windows after the divergence block, and 10 hours holds 2.2 of them, where 18 hours holds four.
 - The density test now decides forks from 10 to 18 hours old, which the length test decided before. Over one window of `s_gen` at 10 s, a fork of 30 % is at least as dense as the honest chain with chance `6.0·10^-14`. Against a third the same estimate is `3.9·10^-9`, the shortfall of a 4.5-hour window that counting in slots already accepts. These are single-window estimates, not the study's bound. A fork that wins the window is fixed at the switch after 561 blocks, against 1,020 at 18 hours.
 - A fork the Bootstrap rule rejected by density needs a lag to survive the switch. Against 30 % at mean rates the lag is about 8.8 hours with no delivery delay, and 7.2 at 10 s. The last round before the switch closes this when an IBD peer returns the honest tip and serves its blocks, or a connected peer does so within `T_offline`.
-- The reference code of the rules passes its 39 tests at `K = 36,000` and `φ = 560`, and each of 23 deliberately broken versions fails at least one of them.
+- The reference code of the rules passes its 40 tests at `K = 36,000` and `φ = 560`, and each of 24 deliberately broken versions fails at least one of them.
 
 ## What else reads `K`
 
@@ -184,7 +184,7 @@ In [Constants](../cryptarchia-v1-protocol.md#constants):
 
 - `K` is 36,000 slots, 10 hours, in place of `⌊k/f⌋` = 64,800 slots. Its row no longer sets the Epoch Schedule.
 - The row states the rule that gives `K`: the least whole number of hours that meets its bounds and both of its cases. At 64,800 slots the row required `K` to meet them.
-- The row adds that `K` must not exceed a phase of the Epoch Schedule that waits for a value to finalize, and names `α_max` among the parameters whose change requires `K` to be sized again.
+- The row adds that `K` must not exceed a phase of the Epoch Schedule that waits for a value to finalize. A change that required its cases to be checked again now requires `K` to be sized again.
 - `φ` is 560 occupied slots, in place of 1,019.
 
 In [Finality Floor](../cryptarchia-v1-protocol.md#finality-floor) the floor is sized against the share `K` is sized against:
