@@ -60,11 +60,13 @@ The wait that holds that chance, in hours:
 
 ### How 10 hours is chosen
 
-`K` is the least whole number of hours that holds `α_max` at `1e-9` under the worst case at 15 s, with a nonce that resists grinding. Against 30 % that wait is 9.46 hours, so `K` is 10 hours. The same rule gives 18 hours against a third, where the wait is 17.53 hours. So 10 hours keeps against 30 % the delay margin that 18 hours keeps against a third. The nonce's factor is taken at 10 s, where its bound is derived.
+`K` is the least whole number of hours that meets every bound and both cases of its row. The case that binds is the delay of `T_M`, 15 s. Against 30 % its wait is 9.37 hours with the epoch nonce taken as unbiased, as the row takes it, and 9.46 hours with a nonce that resists grinding. Both give 10 hours. The other case, a tenth of the honest stake offline at 10 s, needs 8.4 hours, and two density windows need 9.
 
-`K` no longer follows from `k` and `f`, because the bound behind it is a numerical computation, not a formula. Its row states the rule above, with the share, the chance, the delay and the bound on the nonce's grinding. It also requires `K` to hold with a tenth of the honest stake offline at 10 s, where 30 % needs 8.5 hours. The row links here, and asks for `K` to be sized again and `φ` to be derived again when `k`, `f`, `α_max`, the slot length, the epoch nonce or `T_M` changes.
+The same rule gives 18 hours against a third, where the binding wait is 17.37 hours, or 17.53 with a nonce that resists grinding. So 10 hours keeps against 30 % the delay margin that 18 hours keeps against a third. The nonce's factor is taken at 10 s, where its bound is derived.
 
-`K` is sized at 15 s and the floor at 10 s. The two delays differ on purpose: missing the floor costs time, and a `K` that is too short costs safety.
+`K` no longer follows from `k` and `f`, because the bound behind the two cases is a numerical computation, not a formula. The row links here, and asks for `K` to be sized again and `φ` to be derived again when `k`, `f`, `α_max`, the slot length or `T_M` changes.
+
+`K` is sized at `T_M`, 15 s, and the floor at 10 s. The two delays differ on purpose: missing the floor costs time, and a `K` that is too short costs safety.
 
 ### What a third keeps
 
@@ -82,7 +84,7 @@ At 10 hours a third of the stake is outside the `1e-9` guarantee. The chance tha
 
 ### The epoch nonce
 
-At 15 s of delay, the case that sizes `K`, 10 hours holds 30 % only with a nonce that resists grinding, which the `K` row states. Today's nonce is a hash chain that a coalition grinds near the cut-off, the slot at which the next epoch's nonce is read. With it, 30 % needs 13.6 to 18.7 hours at 10 s, and 10 hours holds a share of 0.272 at 10 s and 0.247 at 15 s, with two ground nonces at the upper end of the factor.
+At 15 s of delay, the case that sizes `K`, 10 hours holds 30 % only with a nonce that resists grinding. The `K` row takes the epoch nonce as unbiased, so it does not cover grinding. Today's nonce is a hash chain that a coalition grinds near the cut-off, the slot at which the next epoch's nonce is read. With it, 30 % needs 13.6 to 18.7 hours at 10 s, and 10 hours holds a share of 0.272 at 10 s and 0.247 at 15 s, with two ground nonces at the upper end of the factor.
 
 The least wait that holds 30 % at `1e-9` under the worst case at 15 s, for an attack that meets two nonces:
 
@@ -98,7 +100,7 @@ The least wait that holds 30 % at `1e-9` under the worst case at 15 s, for an at
 - A sequential delay is a function whose steps cannot be run in parallel. A cap on candidates is what a delay function gives when a coalition can run it in parallel.
 - The candidate's factor, 1.21, and the factor without the delay are derived at 10 s. The other rows take the factor at 15 s.
 - So 10 hours takes a nonce with a sequential delay. That design is not settled, and its delay function has no measured prototype.
-- **This RFC waits for the nonce's RFC.** 36,000 slots is the result of the rule for one nonce design. If the nonce's RFC adopts another, the rule gives another `K`, and this RFC changes with it. Merged first, the specification would state a window that holds 0.247 to 0.272 of the stake where it names 30 %.
+- **This RFC waits for the nonce's RFC.** 36,000 slots is what the rule gives for a nonce that is unbiased or resists grinding. If the nonce's RFC adopts a design of a lower row, the rule gives that row's `K`, and this RFC changes with it. Merged first, the specification would state a window that holds 0.247 to 0.272 of the stake where it names 30 %.
 
 Two ground nonces reach only targets past the cut-off and within `K` slots of the epoch's end: 5.6 % of targets at 10 hours, against 10 % at 18.
 
@@ -142,14 +144,13 @@ The floor holds back a side cut off from the rest until it has made `φ + 1` blo
 
 - With a nonce that resists grinding, this path covers 30 % at 10 s, where the wait is 6.0 hours, and after a deflated inference, where it is 6.5.
 - It does not cover 15 s of delay, where the wait is 9.5 hours, above 8.8. So on this path 10 hours keeps the deflated case and not the case that sizes `K`.
-- The last round before the switch ends after `T_offline`, so a fork has the same head start at the switch.
 
 ## Comparing forks and the switch
 
 - `s_gen` stays at 16,200 slots. `2·s_gen` is 32,400 slots, 9 hours, within `K`. The proof behind `s_gen` reads two windows after the divergence block, and 10 hours holds 2.2 of them, where 18 hours holds four.
 - The density test now decides forks from 10 to 18 hours old, which the length test decided before. Over one window of `s_gen` at 10 s, a fork of 30 % is at least as dense as the honest chain with chance `6.0·10^-14`. Against a third the same estimate is `3.9·10^-9`, the shortfall of a 4.5-hour window that counting in slots already accepts. These are single-window estimates, not the study's bound. A fork that wins the window is fixed at the switch after 561 blocks, against 1,020 at 18 hours.
-- A fork the Bootstrap rule rejected by density needs a lag to survive the switch. Against 30 % at mean rates the lag is about 8.8 hours with no delivery delay, and 7.2 at 10 s. The last round before the switch closes this when one peer returns the honest tip and serves its blocks within `T_offline`.
-- The reference code of the rules passes its 37 tests at `K = 36,000` and `φ = 560`, and each of 21 deliberately broken versions fails at least one of them.
+- A fork the Bootstrap rule rejected by density needs a lag to survive the switch. Against 30 % at mean rates the lag is about 8.8 hours with no delivery delay, and 7.2 at 10 s. The last round before the switch closes this when an IBD peer returns the honest tip and serves its blocks, or a connected peer does so within `T_offline`.
+- The reference code of the rules passes its 39 tests at `K = 36,000` and `φ = 560`, and each of 23 deliberately broken versions fails at least one of them.
 
 ## What else reads `K`
 
@@ -182,7 +183,7 @@ Beyond the study's notes, the figures come from three sources:
 In [Constants](../cryptarchia-v1-protocol.md#constants):
 
 - `K` is 36,000 slots, 10 hours, in place of `⌊k/f⌋` = 64,800 slots. Its row no longer sets the Epoch Schedule.
-- The row states the rule that gives `K`: the least whole number of hours that keeps the chance that a share `α_max` of the stake displaces an immutable block at most `ε` per block, with every honest block up to 15 slots late. At 64,800 slots the row required `K` to hold that case. The case with a tenth of the honest stake offline and the bound on the epoch nonce's grinding stay as they are.
+- The row states the rule that gives `K`: the least whole number of hours that meets its bounds and both of its cases. At 64,800 slots the row required `K` to meet them.
 - The row adds that `K` must not exceed a phase of the Epoch Schedule that waits for a value to finalize, and names `α_max` among the parameters whose change requires `K` to be sized again.
 - `φ` is 560 occupied slots, in place of 1,019.
 
