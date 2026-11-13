@@ -27,7 +27,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.1.0 | Clarified that `density` counts only the blocks of the chain being measured and excludes the [uncle references](cryptarchia-v1-protocol.md#uncle-references) those blocks carry, since uncles carry no fork-choice weight. | 2026-07-09 |
-| 1.2.0 | Read the age of a fork in slots: the Bootstrap rule compares by density a fork that diverged at least `K` slots before the later tip and visits the forks in order of block ID, and both rules ignore a fork that does not descend from `B_imm`. | 2026-11-09 |
+| 1.2.0 | Read the age of a fork in slots: the Bootstrap rule compares by density a fork that diverged at least `K` slots before the later tip. Both rules visit the forks in order of block ID and ignore a fork that does not descend from `B_imm`. | 2026-11-13 |
 
 # Introduction
 
@@ -41,7 +41,7 @@ Once bootstrapping completes, the node commits to the best chain it has seen so 
 
 During bootstrapping, we use a fork choice rule derived from [Ouroboros Genesis](fork-choice.md#bootstrap-fork-choice-rule). After bootstrapping, we switch to a fork choice rule derived from [Ouroboros Praos](fork-choice.md#online-fork-choice-rule).
 
-To understand why we use the Genesis rule during bootstrapping, it’s useful to consider the long range attack.
+To understand why we use the Bootstrap rule during bootstrapping, it’s useful to consider the long range attack.
 
 ## The Long Range Attack
 
@@ -75,8 +75,9 @@ Nodes will remain on the honest chain if they reject forks that diverge before t
 ## Definitions
 
 - $`k`$, $`K`$ : the security parameter and the finality window, from [Constants](cryptarchia-v1-protocol.md#constants)
+- divergence block : the latest block that two chains share.
 - $`s_{gen}`$ : sufficient time measured in slots to measure the density of block production with enough statistical significance.
-  *In practice, we say* $`s_{gen} = \lfloor\frac{k}{4f}\rfloor`$*, where* $`f`$ *is the active slot coefficient from the leader lottery. (see* [Theorem 2 of Badertscher et al., 2018 “Ouroboros Genesis”](https://eprint.iacr.org/2018/378.pdf)*)* $`s_{gen}`$ *must be below* $`K`$*, or a chain may not hold the whole window when the Bootstrap rule compares it.*
+  *In practice, we say* $`s_{gen} = \lfloor\frac{k}{4f}\rfloor`$*, where* $`f`$ *is the active slot coefficient from the leader lottery. (see* [Theorem 2 of Badertscher et al., 2018 “Ouroboros Genesis”](https://eprint.iacr.org/2018/378.pdf)*)* $`2s_{gen}`$ *must not exceed* $`K`$*. The proof of that theorem reads the two windows of* $`s_{gen}`$ *slots that follow the divergence block, and the Bootstrap rule compares densities once that block is* $`K`$ *slots old.*
 
 - $`\textbf{common\_prefix\_depth}(b_1, b_2) \to (\mathbb{N},\mathbb{N})`$
   *Returns the minimum block depth at which the two branches converge to a common chain.*
@@ -109,13 +110,11 @@ Nodes will remain on the honest chain if they reject forks that diverge before t
 
 ## Bootstrap Fork Choice Rule
 
-During bootstrapping, we use the Ouroboros Genesis fork choice rule (`maxvalid-bg`), with the age of the divergence block in slots in place of the depth of the fork. The age is measured from the later of the two tips. Here we ignore any fork that does not descend from the [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block) $`B_\text{imm}`$, with the `is_ancestor` check that step 8 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) uses when pruning is incomplete. It visits the forks in increasing order of [Block ID](cryptarchia-v1-protocol.md#block-id), compared as bytes.
+During bootstrapping, we use the Ouroboros Genesis fork choice rule (`maxvalid-bg`), with the age of the divergence block in slots in place of the depth of the fork. The age is measured from the later of the two tips. Here we ignore any fork that does not descend from the [latest immutable block](cryptarchia-v1-protocol.md#latest-immutable-block) $`B_\text{imm}`$, with the `is_ancestor` check that step 8 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) uses when pruning is incomplete. It visits the forks in increasing lexicographic order of the bytes of their [Block ID](cryptarchia-v1-protocol.md#block-id).
 
 ```python
 def bootstrap_fork_choice(c_local, forks, K, s_gen, B_imm):
     c_max = c_local
-    # The comparison is not transitive, so the order of visits can decide the result.
-    # A fixed order makes it a function of the block tree and c_local.
     for c_fork in sorted(forks, key=block_id):
         if not is_ancestor(B_imm, c_fork):
             # The fork diverged before `B_imm`.
@@ -143,12 +142,12 @@ def bootstrap_fork_choice(c_local, forks, K, s_gen, B_imm):
 
 ## Online Fork Choice Rule
 
-During normal operations, we use the longest chain rule of Ouroboros Praos (`maxvalid-mc`) without its depth bound. Here too we ignore any fork that does not descend from $`B_\text{imm}`$.
+During normal operations, we use the longest chain rule of Ouroboros Praos (`maxvalid-mc`) without its depth bound. Here too we ignore any fork that does not descend from $`B_\text{imm}`$, and visit the forks in the order of the Bootstrap rule.
 
 ```python
 def online_fork_choice(c_local, forks, B_imm):
     c_max = c_local
-    for c_fork in forks:
+    for c_fork in sorted(forks, key=block_id):
         if not is_ancestor(B_imm, c_fork):
             # The fork diverged before `B_imm`.
             # Ignore this fork.
