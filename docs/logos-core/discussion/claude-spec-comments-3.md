@@ -343,8 +343,9 @@ other rules depend on is not stated.
   local module instance, including after an explicit stop, MUST use its retained accepted declaration and
   MUST NOT select a replacement declaration"), l.3546-3547 ("Installing or updating a package MUST NOT
   replace an existing instance's retained implementation selection. A deployment upgrade uses a new module
-  instance selected under current policy"), l.2629-2631 (an address is preserved only with "continuity of
-  the same logical instance"; otherwise "Runtime MUST allocate a fresh address"); CONFIG l.93-95 (the
+  instance selected under current policy"), l.2629-2632 (an address is preserved only with "continuity of
+  the same logical instance"; otherwise "Runtime MUST allocate a fresh address", and it "MUST NOT assign
+  an address previously used for one logical instance to an unrelated instance"); CONFIG l.93-95 (the
   configuration revision follows the module-instance identity); SECURITY l.473 (the iOS baseline is
   "statically linked or bundled trusted module code using direct mode inside one application").
 - **Issue:** relinking the host application replaces the implementation of every statically linked
@@ -358,9 +359,11 @@ other rules depend on is not stated.
   question for every module. One Runtime keeps the instances and their state. Another allocates fresh
   instances, and the user's state is left behind until a migration that no specified operation performs.
 - **Reading an implementation needs today:** keep the instance when the declaration facts supplied at
-  registration are identical to the retained ones and allocate a fresh instance otherwise; or always keep
-  it; or always allocate a fresh one. The first is the conservative reading that still preserves state
-  across an unchanged declaration.
+  registration are identical to the retained ones and do not continue it otherwise; or always keep it; or
+  never keep it. The first is the conservative reading that still preserves state across an unchanged
+  declaration. Not continuing it means a fresh address (l.2631). Where protected deployment input names
+  the instance, the Runtime cannot choose another identifier: it refuses the changed record under the
+  retained one (l.2632) until the deployment names a new instance.
 - **Overlap:** NP-04 (no package-to-static-registration handoff, declined), RT-06 (upgrade by a replacement
   instance), TS-08.
 - **Suggested resolution:** state the continuity rule for static registration: which registered facts
@@ -808,12 +811,16 @@ other rules depend on is not stated.
   is blocked both differ. For a module that stops itself, waiting for `unloaded` cannot complete:
   destruction waits for the module's in-flight calls and joins its threads, and one of them is waiting
   for this answer. `report_failure` and `shutdown_runtime` each say that the answer does not wait;
-  `stop_module` does not, and nothing says whether a module may name itself as the target.
+  `stop_module` does not, and nothing says whether a module may name itself as the target. Nothing says
+  either what a `stop_module` that waits for `unloaded` answers when its drain deadline expires before
+  destruction returns (TF-28 has the state at that point).
 - **Impact:** orchestration written against a Runtime that answers `start_module` at `ready` misbehaves
   on one that answers at `loaded`. On a Runtime that answers `stop_module` at `unloaded`, a module that
   stops itself hangs until a drain deadline expires.
 - **Reading an implementation needs today:** answer `stop_module` at `stopping` at least when the caller
-  is the target or has a call in progress in it; for `start_module`, either point, documented.
+  is the target or has a call in progress in it; for `start_module`, either point, documented. A
+  `stop_module` that waits for `unloaded` answers no later than the expiry of its drain deadline, with
+  the state the instance has then.
 - **Overlap:** NL-06 (leaving `error`), TL-07 (the state diagram), TF-10.
 - **Suggested resolution:** state for each method the state at which the response is sent, or that both
   are permitted and the returned state tells which; and state that a `stop_module` whose target is the
@@ -1190,9 +1197,11 @@ other rules depend on is not stated.
   `cleanup-timeout`, keep the realization, and refuse `start_module` with `NOT_READY` (l.613). When the
   cleanup ends, keep `error` and the classification (l.611). A later `stop_module` then completes at
   once and gives `unloaded` with the failure cleared; a new accepted start also leaves `error`. A
-  `stop_module` received while the cleanup is unresolved starts no second destruction and reports the
-  current state. Where the stop itself completed in time, after a live reconfiguration became
-  indeterminate, report `unloaded` with the failure cleared.
+  `stop_module` received while the cleanup is unresolved starts no second destruction. It is an explicit
+  stop of an instance in `error` (l.612): the instance is `stopping` again under a new deadline, and the
+  end of the pending cleanup completes that stop and gives `unloaded` with the failure cleared. Where the
+  stop itself completed in time, after a live reconfiguration became indeterminate, report `unloaded`
+  with the failure cleared.
 - **Overlap:** TL-07 (the diagram has no edge from stopping to error), TL-08 (cleanup completion
   produces no event), TF-20 (when `stop_module` answers), NL-06 (answered: cleanup alone never leaves
   `error`).
