@@ -8,7 +8,7 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-10 |
 | v2 | Merged master, and applied the wording again to its rewritten oracle zone document | 2026-11-13 |
-| | The last round before the switch takes each tip from the peer that returned it, names ancestors of the local tip in its requests, starts a failed download again, and waits at most `T_offline` for a connected peer. Qualified the claim that one honest answer closes the case | |
+| | The last round before the switch takes each tip from the peer that returned it, names in its requests blocks that an honest peer is likely to hold, starts a failed download again, and waits at most `T_offline` for a connected peer. Qualified the claim that one honest answer closes the case | |
 | | `2·s_gen ≤ K` replaces `s_gen < K`. The `K` row states what `K` must hold. The Online rule visits forks by block ID | |
 | | [The epoch nonce](#the-epoch-nonce) states what each nonce design gives, and that 18 hours takes a nonce with a delay | |
 | | Corrected the floor's count by one honest uncle, "does not worsen", the restart path against the 15 s case, and two figures: 6.5 hours for 30 % after a deflated inference, and the limit of 2.628 on joining stake. Added honest stake offline, a split in halves, and the participation the epoch's waits need | |
@@ -219,10 +219,10 @@ After Initial Block Download a node receives new blocks only from its connected 
 
 - **Each tip comes from the peer that returned it.** Initial Block Download asks a tip's blocks from up to 16 connected and 16 discovered peers and uses the first usable answer, which spares the IBD peers. In this round that would defeat the purpose. The adversary that fills the connections answers first, one invalid block ends the download, and the node switches without the honest chain. v1 of this RFC had this flaw.
 - **Each peer is handled on its own, in parallel.** A peer that holds back its tip, returns a tip on a long fork, or streams slowly then delays only its own download.
-- **Requests name ancestors of the local tip.** A peer starts its stream at the latest block it shares with the blocks a request names: the local tip, `B_imm` and the last block downloaded. One private block on the node's tip makes that tip unknown to an honest peer, whose stream then starts at `B_imm`, which the Bootstrap rule never moves. So the round's requests also name the latest blocks of `c_loc` that lie at least `T_offline`, `s_gen`, `K` and `T_boot` behind its tip. If the node's chain left the peer's less than `T_boot` before its tip, the peer holds one of the four, and the node downloads at most a day of blocks more than it lacks. That also keeps the load on the IBD peers small.
+- **Requests name blocks the peer is likely to hold.** A peer starts its stream at the latest block it shares with the blocks a request names: the local tip, `B_imm` and the last block downloaded. One private block on the node's tip makes that tip unknown to an honest peer, whose stream then starts at `B_imm`, which the Bootstrap rule never moves. So the round's requests also name the latest blocks of `c_loc` that lie at least `T_offline`, `s_gen` and `K` behind its tip. An adversary whose fork has been the node's chain for more than `K` slots made all three. So the requests also name a block the node recorded when its Prolonged Bootstrap Period started: the block that lay `K` behind its tip then. If the node was on the honest chain at that time, every honest peer holds that block, and a stream starts there at the latest. When the round starts, that is 42 hours of blocks, `K` and `T_boot`. That also keeps the load on the IBD peers small.
 - **A failed download is started again.** One broken connection does not cost the node the honest chain.
 - **The round waits at most `T_offline` for a connected peer.** Without a limit, one connected peer that streams slowly, or that returns a tip on a long valid fork, holds the node on the Bootstrap rule, where it must not propose.
-- **An IBD peer is given up only when it stops delivering.** Its handling ends when its download has added no block for `T_offline`. With one limit for every peer, a node that is far behind would switch, and make its chain immutable, while a peer its operator chose is still delivering another. The cost is that an IBD peer that keeps delivering the blocks of a long fork holds the node on the Bootstrap rule, as it can hold Initial Block Download today.
+- **An IBD peer is given up only when it stops delivering.** Its handling ends when it has delivered no block for `T_offline`. A block counts even when the node holds it, as long as this peer has not delivered it earlier in the round. So a stream that starts below what the node holds counts as progress, and a peer that sends the same blocks again does not. With one limit for every peer, a node that is far behind would switch, and make its chain immutable, while a peer its operator chose is still delivering another. The cost is that an IBD peer that keeps delivering the blocks of a long fork holds the node on the Bootstrap rule, as it can hold Initial Block Download today.
 - **What is left.** A node whose every peer is the adversary's stays exposed, and this is accepted. So does a node whose honest peers return no tip within `T_offline`.
 
 In the reference code of the rules, one IBD peer that returns the honest tip and serves its blocks closes the case, whatever the other peers return: an invalid block, a tip on a long fork, or nothing. A connected peer closes it if it serves the blocks within `T_offline`. The round asks for no tip of a given age, and does not terminate the node when no peer answers. So a network in which every node bootstraps at once, as at genesis, still switches.
@@ -265,7 +265,7 @@ The Online rule visits the forks in the same order. There the order decides only
 - **Two windows within `K`.** `s_gen` comes from Theorem 2 of Ouroboros Genesis. Its proof reads two windows of `s_gen` slots after the divergence block: one for the growth of the honest chain, and one for an honest block that follows it. Both must lie within the age of the fork when densities are compared. Under the depth rule that follows from `k` blocks. Here the comparison starts at `K` slots, so the bound becomes `2·s_gen ≤ K`, 9 hours against 18.
 - **The uncle window.** It is 360 slots against 64,800. A candidate's parent is above the proposer's `B_imm` exactly, not with high probability, because a `B_imm` that has moved lies at least `K` behind the slot being built. No candidate was pruned in a model of 9,000 random trees.
 - **Blocks above `B_imm`.** Their number is no longer bounded by `k`, which changes how a node sizes the ledger states it keeps. On the specification's Blend, `K` slots hold about 1,825 blocks.
-- **The last round.** One of the four blocks its requests name lies `K` behind the local tip.
+- **The last round.** Its requests name the block that lies `K` behind the local tip, and the block that lay `K` behind it when the Prolonged Bootstrap Period started.
 
 ## Compatibility
 
@@ -281,7 +281,7 @@ Beyond the study's notes, the figures come from four sources:
 
 - The study's bound, run for this RFC: the waits with a nonce that resists grinding, the deflated waits from 11 s to 15 s, the waits with honest stake offline, the waits and the share at 15 s of [The epoch nonce](#the-epoch-nonce), the limit of 2.628 on joining stake, which the study prints as 2.627, and the share of 0.295 on the restart path.
 - A model that runs the rules as the specifications print them: the counts of [Comparing forks](#comparing-forks), the two changes rejected there, and the uncle-window check of [What else reads `K`](#what-else-reads-k). The `φ` code is run as printed too.
-- Reference code of the rules with its tests: the switch, the last round, the order of visits, and the first and last slot of the floor's count. It has 40 tests, and each of 24 deliberately broken versions fails at least one of them. It does not model the ancestors that the last round's requests name.
+- Reference code of the rules with its tests: the switch, the last round, the order of visits, and the first and last slot of the floor's count. It has 41 tests, and each of 25 deliberately broken versions fails at least one of them. It does not model the blocks that the last round's requests name.
 - Small models at mean rates: the rows marked simulated, the eclipse and lag figures of [What the floor leaves open](#what-the-floor-leaves-open) and [Comparing forks](#comparing-forks), the private race of [The restart path](#the-restart-path), the days a side needs, the split in halves, the participation the epoch's waits need, and the blocks above `B_imm`.
 
 > **TODO (author):** the study is not on GitHub yet, so none of this can be reproduced by a reviewer. Publish its branch with the models, the reference code and the runs listed here, link that commit in the first sentence, and remove this note.
@@ -389,13 +389,11 @@ Both rules also visit the forks in increasing order of block ID, the lexicograph
 [Switching to the Online Rule](../cryptarchia-v1-bootstr-sync.md#switching-to-the-online-rule) is a new section. When the timer of the Prolonged Bootstrap Period completes, the node runs a last round under the Bootstrap rule, and keeps listening for new blocks during it:
 
 ```python
-def last_round(ibd_peers, local_tree):
-    start = now()
-
+def last_round(ibd_peers, local_tree, recorded):
     def catch_up(peer):
-        tip = run_until(start + T_offline, get_tip, peer)
-        while tip is not None and not local_tree.has(tip) and not ended(peer):
-            known = local_tree.blocks_behind_tip([T_offline, s_gen, K, T_boot])
+        tip = get_tip(peer)
+        while tip is not None and not local_tree.has(tip):
+            known = [recorded] + local_tree.blocks_behind_tip([T_offline, s_gen, K])
             download_blocks(local_tree, target_block=tip, peers=[peer], known=known)
             sleep(T_round)
 
@@ -403,9 +401,9 @@ def last_round(ibd_peers, local_tree):
 ```
 
 - A tip that has not arrived `T_offline` after the round started is given up, and the node is not terminated if no tip arrives.
-- Each request names in `KnownBlocks.additional_blocks` the latest blocks of `c_loc` whose slots lie at least `T_offline`, `s_gen`, `K` and `T_boot` behind the slot of its tip.
+- When the Prolonged Bootstrap Period starts, the node records the latest block of `c_loc` whose slot lies at least `K` behind the slot of its tip, or `B_imm` if there is none. Each request names that block in `KnownBlocks.additional_blocks`, with the latest blocks of `c_loc` whose slots lie at least `T_offline`, `s_gen` and `K` behind the slot of its tip.
 - A download that returns without the tip is started again after `T_round`.
-- The handling of a connected peer ends `T_offline` after the round started. The handling of an IBD peer ends when its download has added no block to the local block tree for `T_offline`. What is running then is cancelled, and the blocks it delivered stay.
+- The handling of a peer ends when its tip is in the local block tree. Otherwise the handling of a connected peer ends `T_offline` after the round started, and the handling of an IBD peer ends when the peer has delivered no block for `T_offline`, counting each block once. What is running then is cancelled, and the blocks it delivered stay.
 - `download_blocks` gains the arguments `peers` and `known`. Without them it behaves as before.
 - The row of `T_offline` states this second use.
 
@@ -463,8 +461,8 @@ The range stays `[s, s + p)`. `commit` passes `s = sl_C + 1` and `p = sl_tip −
 - [ ] Replace the depth test of the Bootstrap fork choice with the test on the divergence block's slot, and run it on every block, including one that extends the local chain
 - [ ] Visit the tips in increasing order of block ID in both fork choice rules
 - [ ] Before the switch to Online, run the last round: for every IBD peer and every connected peer in parallel, fetch its tip and download the blocks up to it from that peer, without terminating if no peer answers
-- [ ] In the last round, name the four ancestors of the local tip in every request, and start a failed download again after `T_round`
-- [ ] In the last round, give up a tip request and end the handling of a connected peer `T_offline` after the round started, and end the handling of an IBD peer when its download has added no block for `T_offline`
+- [ ] Record, when the Prolonged Bootstrap Period starts, the block `K` behind the local tip. In the last round, name it and the three ancestors of the local tip in every request, and start a failed download again after `T_round`
+- [ ] In the last round, give up a tip request and end the handling of a connected peer `T_offline` after the round started, and end the handling of an IBD peer when it has delivered no block for `T_offline`, counting each block once
 - [ ] At the switch, run `commit` before any further block, and store its `B_imm` before anything that lets a restart select the Online rule
 - [ ] Prune all forks below `B_imm` in one call, at every move of `B_imm` and at the switch to Online
 - [ ] Expire the wallet's leader-claim reservations after `K` slots instead of `k` immutable blocks
@@ -472,7 +470,7 @@ The range stays `[s, s + p)`. `commit` passes `s = sl_C + 1` and `p = sl_tip −
 - [ ] Update the fork monitor of the test framework
 - [ ] Review the forward step of the time service against [the clock faults](#counting-from-the-tips-slot)
 - [ ] Prove the rule in the formal model, floor included: the current theorems read a depth of `k`, or a confirmation rule beside it
-- [ ] Add tests: a fork rejected by the Bootstrap rule against the switch, a last round in which the other peers return an invalid block, a tip on a long fork, or nothing, a last round that reaches its limit with a download running from a connected peer and from an IBD peer, an IBD peer that adds no block, a download that fails once, a peer that does not hold the local tip, pruning of several forks at once, the floor's first and last slot, the Bootstrap test from either branch, in any delivery order, and for tips listed in any order, and two equally long forks under the Online rule listed in either order
+- [ ] Add tests: a fork rejected by the Bootstrap rule against the switch, a last round in which the other peers return an invalid block, a tip on a long fork, or nothing, a last round that reaches its limit with a download running from a connected peer and from an IBD peer, an IBD peer that sends only blocks it sent before, an IBD peer whose stream starts below what the node holds, a download that fails once, a peer that does not hold the local tip, pruning of several forks at once, the floor's first and last slot, the Bootstrap test from either branch, in any delivery order, and for tips listed in any order, and two equally long forks under the Online rule listed in either order
 - [ ] Verify the implementation matches this specification
 
 # Affected Specifications
