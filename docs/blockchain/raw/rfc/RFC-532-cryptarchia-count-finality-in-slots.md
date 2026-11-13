@@ -7,10 +7,10 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-10 |
-| v2 | Merged master, and applied the wording again to its rewritten oracle zone document | 2026-11-13 |
+| v2 | Merged master, and applied the wording again to its rewritten oracle zone document | 2026-11-14 |
 | | The last round before the switch takes each tip from the peer that returned it, names in its requests blocks that an honest peer is likely to hold, starts a failed download again, and waits at most `T_offline` for a connected peer. Qualified the claim that one honest answer closes the case | |
 | | `2·s_gen ≤ K` replaces `s_gen < K`. The `K` row states what `K` must hold. The Online rule visits forks by block ID | |
-| | [The epoch nonce](#the-epoch-nonce) states what each nonce design gives, and that 18 hours takes a nonce with a delay | |
+| | [The epoch nonce](#the-epoch-nonce) states what each nonce design gives, that 18 hours takes a nonce with a delay, what the nonce's RFC is to propose, and when it should be adopted | |
 | | Corrected the floor's count by one honest uncle, "does not worsen", the restart path against the 15 s case, and two figures: 6.5 hours for 30 % after a deflated inference, and the limit of 2.628 on joining stake. Added honest stake offline, a split in halves, and the participation the epoch's waits need | |
 | | Removed the statement that the node does not wait `s_gen` slots after Initial Block Download | |
 
@@ -102,9 +102,28 @@ The wait depends on how the nonce is made. The least wait that holds a third at 
 
 - A sequential delay is a function whose steps cannot be run in parallel. A cap on candidates is what a delay function gives when a coalition can run it in parallel, as Ouroboros Phalanx (CIP-0161) proposes: the coalition evaluates as many candidates as its machines and its time allow. The study places Phalanx's cap between `2^8` and `2^16`.
 - The candidate's factor, 1.21, and the factor without the delay are derived at 10 s. The other rows take the factor at 15 s.
-- So at 15 s, 18 hours takes a nonce with a sequential delay. At 10 s the candidate without its delay would do: a third then needs 12.4 to 13.0 hours. The design is not settled. It must be compared with a single delay on today's cut-off value, and its delay function has no measured prototype.
+- So at 15 s, 18 hours takes a nonce with a sequential delay. At 10 s the candidate without its delay would do: a third then needs 12.4 to 13.0 hours.
+
+**What the nonce's RFC is to propose.** The study's candidate changes how the nonce is made, in three steps. The proof of leadership and the epoch schedule stay as they are.
+
+1. A block's contribution is bound to its parent's: `c(b) = hash(c(parent) ‖ ρ_LEAD(b))`, under its own domain separator. A contribution of a fork then exists only once the blocks before it do, so a coalition cannot compute it ahead.
+2. The 108 hours before the cut-off are split into 25 sub-windows of 4.32 hours. The pre-nonce is a hash of the previous nonce and the smallest contribution of each sub-window. A withheld or displaced block changes the pre-nonce only if its contribution was the smallest of its sub-window.
+3. The nonce is a hash of the output of a sequential delay function on the pre-nonce, Wesolowski's over a class group. The delay takes 4.49 hours on the fastest hardware: one sub-window and a margin of 10 minutes. A coalition then sees the nonce a choice gives only after it had to make the choice.
+
+A block of the last phase carries the output with its proof, and every node verifies the proof in place of the computation. An honest node computes for `R` times 4.49 hours, where `R` is how much faster the fastest hardware is than the node's: 13.5 hours at `R = 3`, 22.4 at 5 and 44.9 at 10. The 72 hours from the cut-off to the next epoch hold `R` up to 16. Published chips and designs give `R` between 3 and 5.
+
+The design is not settled. Three things are open:
+
+- The delay function has no measured prototype at this length, so `R` rests on other projects' figures.
+- The candidate has not been compared with a single delay on today's cut-off value, which changes fewer rules.
+- What a node does when no block carries the output by the first slot of the epoch is not specified.
+
+**When it should be adopted.**
+
+- Before genesis. Until it lands, 18 hours holds the shares of the first table of this section, below the third its row names.
+- In either order with this RFC. This RFC changes how finality is counted, and it sets `K` to `⌊k/f⌋`, the unit the epoch already has. Neither change reads the design of the nonce.
+- Before any change that shortens `K`. The table above gives each design its own least wait, so a shorter window can be sized only once the design is chosen.
 - The `K` row requires its cases to be checked again when the epoch nonce changes, so the nonce's RFC reads `K` again. If it adopts a design of a lower row, `K` moves to that row's wait.
-- Until then the two can land in either order, and genesis needs both. This RFC changes how finality is counted, and it sets `K` to `⌊k/f⌋`, the unit the epoch already has. Until the nonce's RFC lands, 18 hours holds the shares of the first table of this section, below the third its row names.
 
 ### Alternatives
 
