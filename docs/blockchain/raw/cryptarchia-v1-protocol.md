@@ -35,7 +35,7 @@
 | 1.2.3 | Update the test vectors to reflect the parent added in the `CHANNEL_CONFIG` payload | 2026-08-27 |
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
-| 1.3.0 | Counted finality in slots: [Commit](#commit) moves `B_imm` to the latest block of the local chain that lies at least the finality window `K` behind the tip and is followed by at least the finality floor `φ` of occupied slots. `K` replaces `s` and `⌊k/f⌋`. | 2026-11-09 |
+| 1.3.0 | Counted finality in slots: [Commit](#commit) makes a block immutable once it lies the finality window `K` behind the tip and the finality floor `φ` of occupied slots follows it. `K` replaces `s` and `⌊k/f⌋`. | 2026-11-13 |
 
 # Introduction
 
@@ -61,7 +61,7 @@ Chains that prioritize liveness generally do so by relying on fork choice rules 
 
 Additionally, due to a lack of quorums, these protocols can be quite message efficient. Thus, participation does not need to be artificially reduced to remain within bandwidth restrictions.
 
-These protocols tolerate up to 1/2 of participants becoming faulty. The large fault tolerance threshold and the large number of participants provides for much higher resilience to corruption.
+These protocols tolerate up to 1/2 of participants becoming faulty when blocks are delivered at once, and less under delay. This document sizes immutability against the share stated in [Finality Floor](#finality-floor). The large fault tolerance threshold and the large number of participants provides for much higher resilience to corruption.
 
 ## Privacy
 
@@ -99,8 +99,8 @@ Our design starts from the solid foundation provided by Ouroboros Crypsinous: Pr
 | Symbol | Name | Description | Value |
 | --- | --- | --- | --- |
 | $`f`$ | slot activation coefficient | The target rate of occupied slots. Not all slots contain blocks, many are empty.   (see [ANALYSIS-BLOCK-TIMES-BLEND-NETWORK](analysis-block-times-blend-network.md) for analysis leading to the choice of value) | 1/30 |
-| $`k`$ | security parameter | The parameter from which $`K`$ and $`s_{gen}`$ are derived. | 2160 blocks |
-| $`K`$ | finality window | The number of slots a block must lie behind the tip of the local chain before [Commit](#commit) can make it immutable. It also sets the [Epoch Schedule](#epoch-schedule). It must exceed $`W\cdot f^{-1}`$, $`s_{gen}`$ and $`T_\text{offline}`$, whose definitions state what breaks otherwise. A change of $`k`$, $`f`$, the slot length or the message traversal time $`T_M`$ of the [Blend Protocol](blend-protocol.md) requires $`K`$ and $`\phi`$ to be checked again. A $`K`$ that is too short lets a block made immutable be displaced. (see [What the finality window holds](https://github.com/logos-co/logos-lips/blob/master/docs/blockchain/raw/rfc/RFC-532-cryptarchia-count-finality-in-slots.md#what-the-finality-window-holds) for the analysis behind the value) | $`\lfloor \frac{k}{f}\rfloor`$ = 64,800 slots (18 hours) |
+| $`k`$ | security parameter | A number of blocks from which other constants are derived, each at its definition. | 2160 blocks |
+| $`K`$ | finality window | The number of slots a block must lie behind the tip of the local chain before [Commit](#commit) can make it immutable. It also sets the [Epoch Schedule](#epoch-schedule). It must exceed $`W\cdot f^{-1}`$ and $`T_\text{offline}`$ ([Constants](cryptarchia-v1-bootstr-sync.md#constants)), and must be at least $`2s_{gen}`$ ([Definitions](fork-choice.md#definitions)). Their definitions state what breaks otherwise. It must also keep the chance that a share $`\alpha_\text{max}`$ of the stake displaces an immutable block at most $`\varepsilon`$ per block, with $`\alpha_\text{max}`$ and $`\varepsilon`$ as in [Finality Floor](#finality-floor), in two cases: every honest block is delivered up to 15 slots late, or up to 10 slots late while a tenth of the honest stake is offline. Both cases take an [epoch nonce](#epoch-nonce) whose grinding raises that chance by a factor of at most 1.21. A change of $`k`$, $`f`$, the slot length, the epoch nonce or the message traversal time $`T_M`$ of the [Blend Protocol](blend-protocol.md) requires both cases to be checked again and $`\phi`$ to be derived again. (see [What the finality window holds](https://github.com/logos-co/logos-lips/blob/master/docs/blockchain/raw/rfc/RFC-532-cryptarchia-count-finality-in-slots.md#what-the-finality-window-holds) for the analysis behind the value) | $`\lfloor \frac{k}{f}\rfloor`$ = 64,800 slots (18 hours) |
 | $`\phi`$ | finality floor | The number of occupied slots that must follow a block before [Commit](#commit) can make it immutable, derived in [Finality Floor](#finality-floor). A floor above what the honest chain holds in $`K`$ slots delays finality. | 1,019 occupied slots |
 | *none* | slot length | The duration of a single slot. | 1 second |
 | MAX_BLOCK_SIZE | max block size | The maximum size of the block body (not including the header) | 2 MiB (2,097,152 bytes) |
@@ -123,7 +123,7 @@ Our design starts from the solid foundation provided by Ouroboros Crypsinous: Pr
 
 The latest immutable block $`B_\text{imm}`$ is the most recent block considered permanently finalized. The blocks deeper than $`B_\text{imm}`$ in the local chain $`c_{loc}`$ are never to be reorganized.
 
-[Commit](#commit) moves it along $`c_{loc}`$ while the [Online fork choice rule](fork-choice.md) is in use. It does not move while the [Bootstrap](fork-choice.md) rule is in use, so it may lie further behind if the fork choice rule has been switched from Online to Bootstrap.
+[Commit](#commit) moves it along $`c_{loc}`$ while the [Online fork choice rule](fork-choice.md) is in use. It does not move while the [Bootstrap](fork-choice.md) rule is in use, so it may lie further behind the tip of $`c_{loc}`$ if the fork choice rule has been switched from Online to Bootstrap.
 
 The details of fork choice rule transitions are defined in the bootstrap spec: [Cryptarchia Bootstrapping & Synchronization](cryptarchia-v1-bootstr-sync.md)
 
@@ -153,7 +153,7 @@ An epoch is divided into 3 phases, as outlined below.
 | Buffer phase | $`3K`$ slots | After the stake distribution is finalized, we wait another $`3K`$ slots before entering the next phase. This is to further ensure that there is at least one honest leader contributing to the epoch nonce randomness. If an adversary can predict the nonce, they can grind their coin secret keys to gain an advantage. |
 | Lottery Constants Finalization | $`4K`$ slots | On the $`6K^{th}`$ slot into the epoch, the epoch nonce $`\eta`$ and the inferred total stake $`D`$ can be computed. We wait another $`4K`$ slots for these values to finalize. |
 
-Each phase that waits for a value to finalize must last at least the finality window $`K`$, or the value is not final when the phase ends.
+Each phase that waits for a value to finalize must last at least the finality window $`K`$, or the value is not final when the phase ends. The value is also not final then unless at least the finality floor $`\phi`$ of occupied slots follows it within the phase.
 
 The **epoch length** is the sum of the individual phases: $`3K + 3K + 4K = 10K`$ slots.
 
@@ -494,7 +494,7 @@ $`\text{define } \textbf{on\_block}(state, B)\to state'`$:
 
 ### Commit
 
-We define the procedure that moves the latest immutable block $`B_\text{imm}`$ along $`c_{loc}`$. After startup, $`B_\text{imm}`$ moves only through this procedure, which runs in [Chain Maintenance](#chain-maintenance) and at the switch to the Online rule in [Prolonged Bootstrap Period](cryptarchia-v1-bootstr-sync.md#prolonged-bootstrap-period). The count of occupied slots is $`\textbf{density\_over\_slots}`$, defined in [Functions](cryptarchia-total-stake-inference.md#functions) of the Total Stake Inference.
+We define the procedure that moves the latest immutable block $`B_\text{imm}`$ along $`c_{loc}`$. After startup, $`B_\text{imm}`$ moves only through this procedure, which runs in [Chain Maintenance](#chain-maintenance) and in [Switching to the Online Rule](cryptarchia-v1-bootstr-sync.md#switching-to-the-online-rule). The count of occupied slots is $`\textbf{density\_over\_slots}`$, defined in [Functions](cryptarchia-total-stake-inference.md#functions) of the Total Stake Inference.
 
 $`\text{define } \textbf{commit}(T,c_{loc},B_\text{imm})\to (T', B_\text{imm}'):`$
 

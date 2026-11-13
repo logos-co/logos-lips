@@ -26,7 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-01-20 |
 | 1.1.0 | Changed `density_over_slots` to count **distinct occupied slots** instead of blocks, including the slots of the [uncles](cryptarchia-v1-protocol.md#uncle-references) referenced by the honest chain's in-period blocks, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md). | 2026-08-06 |
-| 1.2.0 | `PERIOD` reads the finality window `K`, and `density_over_slots` takes the chain it counts, so that [Commit](cryptarchia-v1-protocol.md#commit) can read it. | 2026-11-09 |
+| 1.2.0 | `PERIOD` reads the finality window `K`. `density_over_slots` and the inference take the chain they count, so that [Commit](cryptarchia-v1-protocol.md#commit) can read the count. | 2026-11-13 |
 
 # Introduction
 
@@ -62,21 +62,20 @@ This algorithm has been analyzed and shown to have good accuracy, precision and 
 
 ## Algorithm
 
-For a current epoch’s estimate `total_stake_estimate` and the epoch’s first slot `epoch_slot`, the next epoch’s estimate is calculated as shown below:
+For the tip `tip` of the chain the estimate is derived on, a current epoch’s estimate `total_stake_estimate` and the epoch’s first slot `epoch_slot`, the next epoch’s estimate is calculated as shown below:
 
 ```rust
 const PRECISION: u64 = 1e3
-fn total_stake_inference(total_stake_estimate: u64, epoch_slot: u64) -> u64 {
+fn total_stake_inference(tip: Block, total_stake_estimate: u64, epoch_slot: u64) -> u64 {
     // f: f64
     // PERIOD: u64
-    // c: the tip of the chain the estimate is derived on
-    // density_over_slots(c, u64, u64) -> u64
+    // density_over_slots(Block, u64, u64) -> u64
 
     let beta_p: u64 = truncate(beta * PRECISION)
     let f_p: u64 = truncate(f * PRECISION)
     let tse_p: u64 = total_stake_estimate * PRECISION
 
-    let measured_density_p: u64 = density_over_slots(c, epoch_slot, PERIOD) * PRECISION
+    let measured_density_p: u64 = density_over_slots(tip, epoch_slot, PERIOD) * PRECISION
     let expected_density_p: u64 = PERIOD * f_p
     let density_diff_p: i128 = (expected_density_p as i128) - (measured_density_p as i128)
         let slot_activation_error_p: i128 = (tse_p * density_diff_p) / (expected_density_p as i128)
