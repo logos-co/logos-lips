@@ -39,6 +39,7 @@
 | 1.6.2 | The node count and the neighbor distinction read the `provider_id`s of the Blend declarations, which the Service Declaration Protocol keeps unique | 2026-10-27 |
 | 1.7.0 | Derived the observation window $`W`$ from cover traffic in place of the maximal release delay. | 2026-10-29 |
 | 1.8.0 | Refused a neighbor closed as not live for $`W`$ rounds, restarting its liveness count, in place of shutting it out for the rest of the epoch. | 2026-10-30 |
+| 1.8.1 | Derived $`M_W`$ from the messages a neighbor is expected to deliver in an observation window and from the peering degree, in place of a fixed value. | 2026-10-30 |
 
 # Introduction
 
@@ -451,6 +452,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`E`$ denotes a number of rounds in an epoch;
 - $`W`$ denote the observation window expressed in the number of rounds;
 - $`M_W`$ denote the number of messages a core connection carries from cover traffic alone in an observation window;
+- $`\lambda`$ denote the number of messages a neighbor is expected to deliver to a node in an observation window;
 - $`F_1`$ denote the number of messages a core connection carries per round;
 - $`V`$ denote the number of messages per second the slowest node the protocol targets processes;
 - $`r_1`$ denote the number of messages a node reads from a core connection in a round;
@@ -477,7 +479,8 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\eta=2`$ rounds, the network absorption of one hop.
 - $`T_M = 15`$ rounds, the message traversal time, as derived in the [Transition Period](#transition-period) section.
 - $`W = \lceil M_W / (F_C \cdot (1 + R_C) \cdot \beta_C) \rceil = 30`$ rounds, the observation window: the rounds in which a core connection carries $`M_W`$ messages from cover traffic alone ([Expected Traffic](#expected-traffic)).
-- $`M_W = 90`$ messages. With a smaller $`M_W`$, a node more often reads an honest neighbor as not live and closes its connection ([Connectivity Maintenance](#connectivity-maintenance)). With a larger one, a neighbor that delivers nothing holds a connection slot for longer, a neighbor closed as not live is refused for longer, and a blacklist entry lasts longer.
+- $`M_W = \lambda \cdot (\Phi_{CC} - 1) / (\Phi_{CC} - 2) = 90`$ messages. A neighbor sends a node every message except the ones it first received from that node ([Releasing](#releasing)). A neighbor holds at least $`\Phi_{CC} - 1`$ connections, so on average at most one message in $`\Phi_{CC} - 1`$ reaches it first from that node ([Connectivity Maintenance](#connectivity-maintenance)).
+- $`\lambda = 60`$ messages. For deliveries arriving at random, an honest neighbor delivers nothing within $`W`$ rounds with probability at most $`e^{-\lambda}`$, and is closed as not live ([Connectivity Maintenance](#connectivity-maintenance)). A larger $`\lambda`$ lengthens $`W`$: a neighbor that delivers nothing holds a connection slot for longer, a neighbor closed as not live is refused for longer, and a blacklist entry lasts longer.
 - $`F_C=1`$, the network generates one cover message per round on average.
 - $`F_D=1/30`$, the network generates one block proposal every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
 - $`F_T = 130/30`$, the network carries $`130`$ messages per slot of $`30`$ rounds, each carrying one transaction ([Payload Formatting](payload-formatting.md)), whatever quota backs them: $`\left(F_1 / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 130`$ at $`F_1 = 16`$ ([Expected Traffic](#expected-traffic)).
