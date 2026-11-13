@@ -96,8 +96,6 @@ A channel MAY have several accredited keys that take turns writing;
 in LON each channel has one, the node's Zone-Public key.
 - **Inscription:** a message that LBC has accepted and ordered in a channel.
 - **`channel_id`:** the 32-byte identifier of a channel on LBC.
-In the current Zone SDK it equals the Zone-Public key that owns the channel.
-It is different from the `oracle_id`.
 - **`oracle_id`:** the 32-byte x-only LEZ-Public key (BIP-340) of an oracle node.
 It is the node's only identity on LEZ: it registers and stakes, signs the node's observations,
 and signs every LEZ TX the node sends.
