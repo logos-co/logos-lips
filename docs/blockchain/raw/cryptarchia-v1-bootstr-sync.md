@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.0.2 | Spread block download requests across connected and discovered peers instead of downloading only from the configured IBD peers, which now only provide the chain tips to catch up with. Added [Selecting Peers for Downloading](#selecting-peers-for-downloading) and the `GetTipRequest` message. | 2026-10-20 |
-| 1.1.0 | Added [Switching to the Online Rule](#switching-to-the-online-rule): a last round that downloads each peer's tip from that peer, then [Commit](cryptarchia-v1-protocol.md#commit). Bounded `T_offline` by the finality window `K`. | 2026-11-13 |
+| 1.1.0 | Added [Switching to the Online Rule](#switching-to-the-online-rule): a last round that downloads each peer's tip from that peer, then [Commit](cryptarchia-v1-protocol.md#commit). Bounded `T_offline` by the finality window `K`. | 2026-11-14 |
 
 # Introduction
 
@@ -203,7 +203,7 @@ The node runs the last round under the Bootstrap rule, and keeps [Listening for 
 1. It requests the chain tip of the peer, using `GetTipRequest` defined in [Downloading Blocks](#downloading-blocks). A tip that has not arrived $`T_\text{offline}`$ after the round started is given up. The node is not terminated if no tip arrives.
 2. If the tip is not in the local block tree, it downloads the blocks up to the tip from that peer, as defined in [Downloading Blocks](#downloading-blocks). Each request names in `KnownBlocks.additional_blocks` the block recorded when the [Prolonged Bootstrap Period](#prolonged-bootstrap-period) started, and the latest blocks of $`c_{loc}`$ whose slots lie at least $`T_\text{offline}`$, $`s_\text{gen}`$ and $`K`$ behind the slot of its tip. A peer that does not hold the tip of $`c_{loc}`$ can then start its stream from one of them, not from $`B_\text{imm}`$.
 3. A download that returns without the tip in the local block tree is started again after $`T_\text{round}`$.
-4. The handling of a peer ends when its tip is in the local block tree. Otherwise the handling of a connected peer ends $`T_\text{offline}`$ after the round started, and the handling of an IBD peer ends when the peer has delivered no block for $`T_\text{offline}`$. A block counts if the peer has not delivered it earlier in the round, whether or not the local block tree already holds it. A request or download that is running when the handling ends is cancelled, and the blocks it delivered stay in the local block tree.
+4. The handling of a peer ends when its tip is in the local block tree. Otherwise the handling of a connected peer ends $`T_\text{offline}`$ after the round started, and the handling of an IBD peer ends when the peer has delivered no block for $`T_\text{offline}`$. A block counts if it is valid and the peer has not delivered it earlier in the round. It counts whether or not the local block tree already holds it. A request or download that is running when the handling ends is cancelled, and the blocks it delivered stay in the local block tree.
 
 The round ends when the handling of every peer has ended.
 
