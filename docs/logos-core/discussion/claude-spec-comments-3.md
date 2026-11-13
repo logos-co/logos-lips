@@ -38,7 +38,7 @@ appendices everything that is settled.
 | 1 | Earlier items answered, still needing discussion | 11 remarks covering 15 items |
 | 2.1 | Items of the second audit with no response | 10 |
 | 2.2 | Concerns of `human-spec-comments.md` that still need an answer | 4 |
-| 3.1 | New: contradictions and gaps in the spec text | 35 |
+| 3.1 | New: contradictions and gaps in the spec text | 48 |
 | 3.2 | New: the system contracts against their own rules | 10 |
 | 3.3 | New: the integrator documents against the specs | 8 |
 | 3.4 | New: porting the existing module catalog | 7 |
@@ -421,9 +421,10 @@ other rules depend on is not stated.
   permissions"), l.3761 ("An observation with no current failure or failure-caused unavailability,
   including a ready local instance, MUST omit `failure`"), l.3801 ("A stop caused by permission-settings
   reconciliation, permission withdrawal, or loss of execution authorization MUST preserve execution intent
-  and its authenticated origin"); CA l.854 ("When an execution authorization ends, Runtime MUST withdraw
-  the dependent execution access and initiate required termination").
-- **Issue:** two causes can stop an accepted start before a realization exists, and for neither is the
+  and its authenticated origin"), l.750, l.1745, l.2528, l.2538 and l.3780 (quoted in points 3 and 4); CA
+  l.854 ("When an execution authorization ends, Runtime MUST withdraw the dependent execution access and
+  initiate required termination").
+- **Issue:** four causes can stop an accepted start before a realization exists, and for none is the
   resulting state given.
   1. Missing configuration. The attempt returns `NOT_READY` and leaves intent `requested`. Whether the
      instance stays `unloaded` with no `failure`, or enters `error` with a classification (CONFIG calls
@@ -437,6 +438,18 @@ other rules depend on is not stated.
      attempted (l.570), and the diagram has no edge from `unloaded` to `error`. An instance whose start
      was denied is therefore either `unloaded` and carrying a `failure`, which no rule allows or
      forbids, or in `error` although nothing was realized.
+  3. A missing permission. When the saved settings omit a permission that the instance needs, the start is
+     refused: "Omitted permissions are denied, including when the array is empty; declarations and grants
+     MUST NOT bypass these limits" (l.2538). No policy gave that refusal, and a denial is "an explicit
+     deny result from runtime authority policy" (l.1745). The enforcement classification is excluded once
+     the settings are applied: execution failures "MUST NOT be encoded as permission-enforcement failures
+     after the settings have been applied" (l.2528). So the code of the request and the `failure` on the
+     record are both open.
+  4. An unready prerequisite. Under accepted ordering constraints "every prerequisite module instance MUST
+     be ready before Runtime initializes the dependent module instance" (l.750), and "An unavailable
+     prerequisite MUST prevent dependent startup or operations that require it" (l.3780). What
+     `start_module` answers for the dependent, and whether its record then carries a `failure`, is not
+     said. The same holds for a start that needs a system service which is unavailable (l.3817).
 
   The second question returns for an instance that was running. When its execution authorization ends,
   Runtime stops it (CA l.854) and keeps its intent (l.3801). That is a stop, so the instance passes
@@ -450,17 +463,21 @@ other rules depend on is not stated.
 - **Impact:** an orchestrator or a presentation module cannot tell "waiting for configuration" or
   "waiting for permission" from "not started" or from a failure, two Runtimes report different states for
   the same event, and whether the module starts by itself when the value arrives differs as well.
-- **Reading an implementation needs today:** keep the instance `unloaded` with intent `requested` in both
-  cases, with no failure for missing configuration and with `failure` set to `authority-denied` or
-  `authority-evaluation-failed` after a refused authorization, and leave the retry to orchestration; or
-  enter `error`, with `other` for missing configuration. The first is the conservative reading, because
-  it reports no failure of something that never ran. For a running instance that enforcement stops, report
-  `unloaded` with the intent kept and a `failure` that names the cause.
+- **Reading an implementation needs today:** keep the instance `unloaded` with intent `requested` for the
+  first two causes, with no failure for missing configuration and with `failure` set to `authority-denied`
+  or `authority-evaluation-failed` after a refused authorization, and leave the retry to orchestration; or
+  enter `error`, with `other` for missing configuration. The first is the conservative reading, because it
+  reports no failure of something that never ran. For a running instance that enforcement stops, report
+  `unloaded` with the intent kept and a `failure` that names the cause. For a start that the saved
+  permission settings refuse, answer `NOT_AUTHORISED`, keep the intent, and record `authority-denied`. For
+  a start whose prerequisite is not ready, answer `NOT_READY` and keep the intent with no failure.
 - **Overlap:** NC-02 (missing configuration gives `NOT_READY` and preserves intent), NL-07, TL-07.
-- **Suggested resolution:** state the lifecycle state for both causes and whether an `unloaded` instance
+- **Suggested resolution:** state the lifecycle state for each cause and whether an `unloaded` instance
   may carry a `failure`, including after a stop that enforcement caused; add a classification such as
   `configuration-missing` if one is intended for the first cause; and say that acting on the retained
-  intent after a configuration mutation is orchestration's task, as l.3803 says for permissions.
+  intent after a configuration mutation is orchestration's task, as l.3803 says for permissions. Give the
+  code and the `failure` for a start that the saved permission settings refuse, and for a start whose
+  prerequisite is not ready.
 
 #### TF-11 — A line break inside an unprefixed byte-string literal: which bytes it contributes is not defined
 - **Specs:** cdCDDLe l.127 ("For text-string and byte-string literals, the grammar and escape rules MUST
@@ -727,11 +744,12 @@ other rules depend on is not stated.
   INTERFACE l.3888-3890 (for `materialize_route`: "After the ownership and non-disclosure checks, a
   successfully reconstructed schema root that differs from `expected_contract_root`, or a recorded route
   contract root that differs from it, MUST produce `VERSION_MISMATCH`"; "Route readiness and
-  authorization failures MUST follow LOGOS-MODULE-RUNTIME Section 7.5"); CONFIG l.190 ("After ordinary
-  target authorization and non-disclosure checks, configuration operations use these pre-acceptance
-  classifications"), l.192-198 and l.292-296 (the two tables of failed preconditions).
+  authorization failures MUST follow LOGOS-MODULE-RUNTIME Section 7.5"); RUNTIME l.788 and l.1344 (quoted
+  in point 6); CONFIG l.190 ("After ordinary target authorization and non-disclosure checks, configuration
+  operations use these pre-acceptance classifications"), l.192-198 and l.292-296 (the two tables of failed
+  preconditions).
 - **Issue:** some orders are fixed: method resolution and the route's access scope come before payload
-  checks, and ownership comes before the root comparison. Five are not.
+  checks, and ownership comes before the root comparison. Six are not.
   1. A malformed Runtime Control request from a caller without authority for the method. Validating
      first gives `INVALID_PARAMS`, with detail; authorizing the method first gives `NOT_AUTHORISED`.
      "before executing an operation" (l.1626) and "before applying a state mutation" (l.1823) bind
@@ -751,16 +769,23 @@ other rules depend on is not stated.
      or a differing commitment, gives `NOT_READY`, `INVALID_PARAMS` or `VERSION_MISMATCH` (CONFIG
      l.294-296). Authorization comes first (CONFIG l.190), and nothing says that the order of the rows is
      an order of precedence.
-- **Impact:** none of the five discloses anything about a hidden target. But two Runtimes answer the same
+  6. A materialization that meets the end of its route. The Hello is refused because the ticket was
+     revoked, and "a well-formed ProtocolError received during Hello MUST cause materialization to fail
+     with that shared error code" (l.788), here `NOT_AUTHORISED`. If the route ended by a closure, a new
+     operation gets `NOT_READY`: "explicit route closure or loss of Runtime-owned provider or route
+     readiness MUST produce `NOT_READY`" (l.1344). Two rules give two codes for one event.
+- **Impact:** none of the six discloses anything about a hidden target. But two Runtimes answer the same
   request with different codes, a consumer handles `NOT_AUTHORISED`, `INVALID_PARAMS` and `NOT_READY`
   differently, and a conformance test cannot assert either answer.
 - **Reading an implementation needs today:** authorize what can be authorized without the payload, then
   validate the payload, then authorize the target, then check readiness, then compare roots. For a
-  configuration request, take the rows of each CONFIG table in the order written.
+  configuration request, take the rows of each CONFIG table in the order written. For a materialization
+  that meets the end of its route, return the cause of that end when the binding already holds one, and
+  otherwise the code the peer sent.
 - **Overlap:** EC-05 and EC-06 (the codes themselves), EC-01 to EC-04.
 - **Suggested resolution:** state one order of checks for a Runtime Control invocation, for a route call
-  and for `materialize_route`, and say whether the rows of the two CONFIG tables are in order of
-  precedence.
+  and for `materialize_route`, say whether the rows of the two CONFIG tables are in order of precedence,
+  and give the code of a materialization that meets the end of its route.
 
 #### TF-19 — Whether provider code may return the status codes that carry Runtime meanings, and what the caller does with them, is not stated
 - **Specs:** INTERFACE l.3315-3319 ("A nonzero value means that the invocation did not produce a valid
@@ -919,7 +944,8 @@ other rules depend on is not stated.
   `CANCELLED`; expiration of the caller-selected duration produces `TIMEOUT`"), l.2076 ("A local timeout
   does not prove that the provider observed cancellation"), l.1486-1487 (the handle retains a
   termination code: "Known authority withdrawal or expiry uses `NOT_AUTHORISED`; otherwise explicit
-  route closure or known provider/readiness loss uses `NOT_READY`").
+  route closure or known provider/readiness loss uses `NOT_READY`"); TRANSPORT l.987-995 (the end of a
+  session at an expiry or revocation; quoted below).
 - **Issue:** whether a call admitted before its route was closed, failed or revoked may still complete is
   left to policy, deliberately. Six passages refer to that policy, under three names (a profile or
   implementation policy, the runtime authority policy, the route-revocation policy), and none defines
@@ -932,6 +958,14 @@ other rules depend on is not stated.
      provider may have run it to the end, while elsewhere that code reports an operation that was not
      performed (l.1737-1738). The specs say "does not prove" only of `TRANSPORT_ERROR` (TRANSPORT
      l.552-553) and of a local timeout (INTERFACE l.2076).
+
+  On a transported route part of the answer is fixed, and it differs. After an expiry or revocation the
+  provider side closes the session, and "requests without a terminal Response still fail with
+  `TRANSPORT_ERROR`" (TRANSPORT l.995), where the handle's rule gives `NOT_AUTHORISED` for a withdrawal of
+  authority (INTERFACE l.1487). Whether the provider side may first answer each in-flight Request with
+  `NOT_AUTHORISED` is not said: TRANSPORT l.989 gives that answer to a new Request, and l.988 and l.991
+  leave in-flight work to policy ("After any permitted bounded completion of in-flight work,"). So one
+  revocation can end a call on a direct route and a call on a transported route with different codes.
 - **Impact:** for a route that is revoked or closed during a call, one Runtime returns the result,
   another `NOT_AUTHORISED` or `NOT_READY`, and a third `CANCELLED`. A consumer that takes
   `NOT_AUTHORISED` to mean that nothing happened skips a compensation it owes, or repeats an operation
@@ -939,12 +973,16 @@ other rules depend on is not stated.
 - **Reading an implementation needs today:** the code that the handle's terminal observer receives
   (INTERFACE l.1486-1487): `NOT_AUTHORISED` after a withdrawal or expiry of authority, `NOT_READY` after
   a closure or a loss of readiness. Treat either as `TRANSPORT_ERROR` is treated, as no proof that the
-  provider did not execute.
+  provider did not execute. On a transported route, answer each in-flight Request with `NOT_AUTHORISED`
+  before the ProtocolError where the connection is still writable, so that both kinds of route end the
+  call with one code.
 - **Overlap:** TF-15 (a new operation after a lost connection), the `TIMEOUT` note in TF-06, EC-05, TL-03
-  (`draining`), TF-17 (a denied renewal).
+  (`draining`), TF-17 (a denied renewal), TF-47.
 - **Suggested resolution:** add to INTERFACE §2.9.1 and RUNTIME §7.5 the code of a call that the end of
   its route terminates before a result is accepted, for synchronous and asynchronous calls, with one
-  sentence saying that this code does not prove that the provider did not execute.
+  sentence saying that this code does not prove that the provider did not execute. Say also whether, at an
+  expiry or revocation, the provider side of a transported route answers in-flight Requests before it
+  sends the ProtocolError.
 
 #### TF-24 — Whether activating an event subscription needs an authority decision is not stated
 - **Specs:** RUNTIME l.1720-1730 (the list of operations that "require an allow decision from runtime
@@ -1028,6 +1066,11 @@ other rules depend on is not stated.
      establish the initial system-service bindings (l.3973). Whether `start` returns before or after
      that binding exists is not said. No Runtime Control method binds a system service, so what
      orchestration does to establish it, beyond starting the selected instance, is not said either.
+     Orchestration also cannot tell when the binding exists. Runtime makes it after its own checks
+     (l.1645-1650), and no record, event or method reports it. `get_self` proves nothing, because Runtime
+     "MUST NOT require a separate policy grant or availability of Capability Authority for this method"
+     (l.2555). Orchestration must wait for the binding "before starting the remaining deployment"
+     (l.1643), and has only the outcome of a policy-decided call to go by.
   3. The code when the startup deadline expires first. l.4088 asks for the applicable shared code.
      `TIMEOUT` has one assigned producer, a prepared call's own duration (INTERFACE l.2067). The startup
      deadline is also a duration the host supplies (l.664), and the instance's record then says
@@ -1053,14 +1096,16 @@ other rules depend on is not stated.
   is orchestration's task after `start` has returned, and until it exists the operations that depend on
   it are denied (l.1675). Report an expired startup deadline as `LOGOS_ERR_MODULE`, with the
   classification in the diagnostic message. Report an orchestration instance that has no configuration
-  value as `LOGOS_ERR_MODULE` too.
+  value as `LOGOS_ERR_MODULE` too. Orchestration takes the first policy-decided call that succeeds as the
+  sign that the authority is bound.
 - **Overlap:** TF-20 (when `start_module` answers), the `TIMEOUT` note in TF-06, TS-01 (what the host
   cannot observe), NA-11 (bootstrap policy once an authority is bound).
 - **Suggested resolution:** define in §13.2 when bootstrap is complete, for example when every
   system-service binding established from protected input has passed the checks of §9 and the
   orchestration instance is `ready`; say whether the first authority binding of l.1643 belongs to it;
   and assign the codes that `start` returns when the startup deadline expires and when the orchestration
-  instance cannot start for want of a configuration value.
+  instance cannot start for want of a configuration value. Say how orchestration learns that the first
+  authority binding exists.
 
 #### TF-26 — The execution intent of an instance that startup realizes is not stated
 - **Specs:** RUNTIME §9 l.1640-1641 ("Runtime startup MUST establish the initial orchestration
@@ -1164,7 +1209,8 @@ other rules depend on is not stated.
   still execute"), l.3860-3861 (shutdown continues once each realization is released "or its cleanup
   failure has been recorded according to shutdown policy"); CONFIG l.272 ("MUST NOT destroy the native
   context while the hook can still use it"), l.312 ("If the application outcome is indeterminate, Runtime
-  MUST place the module instance in `error`").
+  MUST place the module instance in `error`"); RUNTIME l.669 and LOADER l.573 (an execution envelope that
+  is ended by force; quoted in the last paragraph of the issue).
 - **Issue:** for a native realization in the Runtime's own process nothing can be forced (l.3838). When
   the drain deadline of an explicit stop expires and destruction has not returned, the Runtime can only
   keep waiting. Three points are then open.
@@ -1188,6 +1234,15 @@ other rules depend on is not stated.
   `error` (CONFIG l.312). The hook then returns, and the destruction of the stop completes within the
   stop's own deadline. l.612 and the last clause of l.3757 give `unloaded` with the failure cleared; l.611
   keeps `error` with `configuration-indeterminate`.
+
+  For a realization in an execution envelope of its own the deadline can be enforced. "Protected
+  supervision may terminate an isolated execution envelope without waiting for a public release
+  invocation" (l.669), and the deployment supplies "the permitted escalation after expiry" (l.3835).
+  Ending the envelope at the deadline shows at once that no realization remains, although destruction may
+  never have run: "Forced termination of the execution envelope MAY prevent destruction from beginning or
+  returning" (LOADER l.573). Points 1 and 2 then fall together. Whether that end is a completed explicit
+  stop, which gives `unloaded` (l.612), or a failed one, which gives `error` with `cleanup-timeout`, is
+  not said.
 - **Impact:** for one history, one Runtime reports `stopping` and then `unloaded`, another reports
   `stopping`, `error` and `unloaded`, and a third stays in `error` until a second stop. The sequence of
   `module_state_changed_event`, the presence of `failure` and what an operator must do after a slow
@@ -1201,7 +1256,8 @@ other rules depend on is not stated.
   stop of an instance in `error` (l.612): the instance is `stopping` again under a new deadline, and the
   end of the pending cleanup completes that stop and gives `unloaded` with the failure cleared. Where the
   stop itself completed in time, after a live reconfiguration became indeterminate, report `unloaded`
-  with the failure cleared.
+  with the failure cleared. Where the deployment ended the envelope by force at the deadline, report
+  `error` with `cleanup-timeout`, and report that no realization remains.
 - **Overlap:** TL-07 (the diagram has no edge from stopping to error), TL-08 (cleanup completion
   produces no event), TF-20 (when `stop_module` answers), NL-06 (answered: cleanup alone never leaves
   `error`).
@@ -1209,7 +1265,8 @@ other rules depend on is not stated.
   and where `cleanup-timeout` is reported; state whether the later return of that destruction is a
   completed explicit stop or cleanup after a failure; say what `stop_module` does for an instance in
   `error` whose cleanup is unresolved; and say which rule applies to an explicit stop that completes after
-  a live reconfiguration became indeterminate.
+  a live reconfiguration became indeterminate. Say also what an explicit stop reports when the permitted
+  escalation ended the execution envelope at the deadline.
 
 #### TF-29 — What a preserved instance reports after the Runtime ended without completing shutdown is not stated
 - **Specs:** RUNTIME §3.4 l.562 (apart from a stop, the diagram leaves `ready` only by an "unexpected
@@ -1231,7 +1288,9 @@ other rules depend on is not stated.
   and unresolved cleanup obligations"), l.3783 ("containment of faults that corrupt or terminate that
   process is not guaranteed"); §10.2 l.3842 ("Shutdown MUST preserve retained execution intent and its
   origin"); LOADER l.497-499 ("Unexpected Module Host termination, loss of a required direct binding, or
-  an indeterminate live-configuration outcome changes an active realization to failed").
+  an indeterminate live-configuration outcome changes an active realization to failed"), l.102 ("Module
+  Loader reports operational realization status to Runtime"), l.625 ("`realization-failed` covers
+  initialization, Module Host creation,").
 - **Issue:** a Runtime that keeps its instances across a restart writes each lifecycle state before it
   shows it (l.3505). Its store can therefore hold an instance as `loaded`, `ready` or `stopping` when the
   Runtime's process ends with no shutdown: a crash, a kill by the operating system, a power loss. After a
@@ -1252,6 +1311,16 @@ other rules depend on is not stated.
   resumption after Runtime restart from retries after execution failure" (l.3775), and an instance in
   `error` reads as an execution failure. On a platform that ends the host process routinely, each such end
   would then be charged to the module's retry limit.
+
+  A realization can also be lost while the Runtime keeps running, when its Module Host ends unexpectedly
+  (LOADER l.497-499). The Loader reports that as status (LOADER l.102), under one code that covers several
+  causes (LOADER l.625). Whether the classification of the instance is then `host-terminated`, or
+  `loader-realization-failed` by RUNTIME l.3754, is not said, and it may depend on whether the Runtime's
+  own supervision saw the end or only the Loader's record shows it. The same folding hides a cause that
+  the list names. A failed `_MODULE_init` is an initialization failure for Runtime (l.1568-1569: "Runtime
+  MUST treat the reported rejection or a module's ABI-version or structure-size"). Behind a Loader it
+  arrives as `realization-failed`, so `initialization-failed` cannot be reported unless the cause travels
+  beside the contract.
 - **Impact:** for the same crash one Runtime reports `unloaded` and another `error`, with `other` or with
   `host-terminated`. The first state event after the restart, the readiness result and the execution
   summary differ, and an orchestration module's restart policy treats the same module as resumed on one
@@ -1259,13 +1328,18 @@ other rules depend on is not stated.
 - **Reading an implementation needs today:** report `error` with `other` for an instance stored as
   `loaded`, `ready` or `stopping`, keep its intent, and document that orchestration counts this state
   after a restart as a resumption and charges no retry; or report `unloaded` with no failure. The first is
-  the conservative reading, because it does not report an orderly stop that never took place.
+  the conservative reading, because it does not report an orderly stop that never took place. For a Module
+  Host that ends while the Runtime runs, report `host-terminated` when the Runtime's own supervision saw
+  the end, and the `loader-` classification when only the Loader's failed record is known. Report a failed
+  initialization as `initialization-failed` wherever the implementation can know that cause.
 - **Overlap:** NL-10 (who resumes retained intent after a restart; answered), TF-08 (a statically linked
-  module across an update of the host binary), TF-26, TF-28, TL-07.
+  module across an update of the host binary), TF-26, TF-28, TL-07, TF-39 (an isolated realization that
+  may have outlived the Runtime), TF-41.
 - **Suggested resolution:** state in §9.3 or §10.1 the lifecycle state of a preserved instance when the
   Runtime starts after ending without a completed shutdown; define `host-terminated` and say whether it
   covers the end of the Runtime's own process; and say whether orchestration counts such an instance as a
-  resumption under l.3775.
+  resumption under l.3775. Say how a Runtime behind a Loader learns the cause of a failed realization,
+  since `realization-failed` covers initialization as well.
 
 #### TF-30 — Four required refusals have no assigned code: a target owned by another Runtime, `create_module` with no selected declaration, a configuration state too large for a frame, and a revision that cannot advance
 - **Specs:** RUNTIME l.3558 ("The target's `runtime_instance_id` MUST identify the Runtime exposing this
@@ -1436,7 +1510,8 @@ other rules depend on is not stated.
   l.3164-3165 ("An allow decision used for an established route MUST have a validity end, and `expires_at`
   MUST NOT be later than that end"), l.3183-3184 ("`renew_route` preserves the route identity, consumer,
   selected provider, contract, and access scope"; "It performs a new authority check and may extend
-  `expires_at` and replace `decision_id`").
+  `expires_at` and replace `decision_id`"); TRANSPORT l.930 and RUNTIME l.3477 (a session and its bound
+  decision; quoted in point 6).
 - **Issue:** after a policy change an established route depends on a new decision (CA l.910). The text
   gives the result of a deny and of a narrowing allow, and leaves open how and when that decision is
   obtained and what else it changes.
@@ -1460,6 +1535,12 @@ other rules depend on is not stated.
   5. The recorded cause. For a deny, `authority-denied` and `authority-revoked` both fit their definitions
      (RUNTIME l.2502, l.2505). For an allow narrower than the bound scope neither fits plainly. The state,
      `revoked` or `failed`, is given for neither case.
+  6. A live session. On a transported route "The session MUST end when its bound decision expires or is
+     revoked" (TRANSPORT l.930), and "Renewal does not by itself change the decision or deadline bound to
+     an existing provider session" (RUNTIME l.3477). After a re-authorization that allows, the session's
+     own decision was invalidated by the notification and was not revoked by a deny. Whether the session
+     ends, as for a revoked decision, or goes on because its use does not "exceed current authority" (CA
+     l.914), is not said.
 - **Impact:** after the same policy change, routes stop working at different times on two Runtimes, and
   their records show different states, failure codes, decision ids and expiry times. An observer of route
   state sees a denied route as `ready` on one of them for as long as its consumer is idle.
@@ -1468,12 +1549,13 @@ other rules depend on is not stated.
   and set `expires_at` to the earlier of its old value and the new validity end. On a deny or a narrowing
   allow, revoke the route with `authority-denied`. On a failed evaluation treat the route as CA l.872
   treats loss of the notification path: keep it, refuse protected operations, and evaluate again at its
-  next use.
+  next use. After an allow, keep a live session of the route; each call on it is still decided on its own.
 - **Overlap:** TF-17 (a renewal that the consumer requests and policy denies), NA-07 (event deliveries
   after a policy change; answered), NA-03, TL-03, TF-24.
 - **Suggested resolution:** say beside CA l.906-911 that re-evaluating a dependent route is a renewal
   evaluated by Runtime, when it has to happen, and what it does to `expires_at` and `decision_id`; and
-  give the route state and failure code for a deny, for a narrowing allow and for a failed evaluation.
+  give the route state and failure code for a deny, for a narrowing allow and for a failed evaluation. Say
+  whether a session bound to the earlier decision ends when the re-authorization allows.
 
 #### TF-34 — Which fields of a record the selectors of a Runtime Control scope are compared with is not stated
 - **Specs:** CA l.180-190 (`runtime_control_scope` has the optional selectors `modules`, `instances`,
@@ -1605,6 +1687,477 @@ other rules depend on is not stated.
   implementation-local mechanism that follows a LOADER strategy may report that strategy's name and
   LOADER's error codes.
 
+#### TF-37 — Who may invoke the Module Loader's `realize`, `release` and `apply_configuration` is not stated
+- **Specs:** RUNTIME l.166-168 ("Every system service provider MUST be a local module provider backed by a
+  local module instance"; "Ordinary module consumers access them through consumer-bound routes; the
+  Runtime engine uses the protected system-service bindings defined in Section 9"); LOADER l.80 ("The
+  engine admits lifecycle requests and invokes the bound Module Loader provider for realization, status
+  and release"), l.103-104 (the Loader "MUST NOT directly create or mutate Runtime-owned module
+  identity,"), l.425-427 ("Runtime MUST obtain authorization for module execution and every required
+  permission before invoking `realize`"; "Module Loader MUST accept security and deployment constraints
+  only from a boundary trusted by the selected profile"); CA l.343-345 (outside bootstrap, an allow
+  decision comes "before asking Module Loader to realize a direct native implementation"), l.354-358
+  ("Authorization to call the Module Loader provider does not authorize an arbitrary module execution
+  operation"; "An ordinary module caller requires its own provider-access decision"; "Neither invocation
+  authority substitutes for the required execution and permission decision").
+- **Issue:** the Loader is a module provider, so policy can grant an ordinary module a route to it
+  (RUNTIME l.168; CA l.357). Its contract is written for one caller, the engine (LOADER l.80, l.426). For
+  an ordinary caller three things are not stated.
+  1. Which methods it may invoke. Nothing separates `list_capabilities` and `get_status` from `realize`,
+     `release` and `apply_configuration`.
+  2. Who obtains the execution decision. The decision is required of Runtime before it invokes `realize`
+     (CA l.344; LOADER l.426). An ordinary caller is not Runtime, and its provider-access decision is
+     expressly not that decision (CA l.358).
+  3. What such a realization belongs to. Runtime owns module identity, lifecycle and readiness (LOADER
+     l.103-104). A realization that the engine did not request has no lifecycle record behind it, and the
+     Loader may take constraints only from a trusted boundary (LOADER l.427).
+- **Impact:** one Runtime lets policy grant the route and then holds realizations outside its lifecycle
+  records. Another refuses every such route, which no text says it may. The same policy gives a module
+  different powers on the two.
+- **Reading an implementation needs today:** refuse to establish a route from an ordinary module to the
+  Loader's contract, whatever policy allows, and have the Loader accept the three mutating methods only
+  from the engine's system-service binding.
+- **Overlap:** C-10 (the request has no field for the endpoint or for private handoffs), RT-05, TF-36.
+- **Suggested resolution:** state in LOADER §13 which methods an ordinary consumer may invoke. If a
+  mutating method is among them, say who obtains the execution decision and how Runtime learns of the
+  realization.
+
+#### TF-38 — A consumer in a Module Host and a provider realized directly: whether the route exists, and how its endpoint is served, is not stated
+- **Specs:** RUNTIME l.168, l.172 ("A system service provider MAY use direct mode or local transport mode
+  according to active policy and the applicable profile"), §9.3 l.2067 (a module record has one `mode`),
+  l.3005-3007 ("Runtime Control MUST NOT return an invocation descriptor for a direct-mode route"; "and an
+  out-of-process caller requires a local or remote transport route"); LOADER l.192-193 ("Module Loader
+  MUST NOT create or return a Transport endpoint for a direct realization"; "Runtime MAY expose the
+  directly realized provider through a separate Transport invocation boundary"); TRANSPORT §8.2
+  l.1122-1125 (Runtime binds the socket "before transferring its open descriptor through the selected
+  realization mechanism"; "The Module Host MUST serve only that transferred listener and MUST NOT bind or
+  substitute another endpoint"; "Runtime MUST validate the exact transferred listener and its directory,
+  path type, symbolic-link absence, ownership, and listening state").
+- **Issue:** when the consumer runs in a Module Host and the provider is realized directly in the
+  Runtime's process, the route must be transported (RUNTIME l.3007). The only endpoint a direct provider
+  can have is one that Runtime chooses to expose (LOADER l.193, a MAY). Three things are not stated.
+  1. Whether Runtime must offer that endpoint. If it may refuse the route, the code is not given. System
+     services are commonly direct (RUNTIME l.172), and a hosted module reaches them only by such a route
+     (RUNTIME l.168), so a refusal cuts every hosted module off from every system-service contract.
+  2. How TRANSPORT §8.2 applies. Its rules are written for a listener that Runtime creates and transfers
+     to a Module Host (TRANSPORT l.1122-1125). When Runtime serves the listener itself, nothing is
+     transferred, and which of those rules still bind is not said.
+  3. What the provider's record shows. It has one `mode` (RUNTIME l.2067), and the provider is then direct
+     for callers in its process and transported for the others.
+- **Impact:** a module that works when it is realized directly loses its routes to direct providers when
+  the deployment moves it into a Module Host on one Runtime, and keeps them on another. Nothing in the
+  route record tells the consumer which it has.
+- **Reading an implementation needs today:** Runtime serves a listener of its own for the direct provider,
+  under every rule of §8.2 that does not concern the transfer, and the provider's record stays `direct`.
+- **Overlap:** TF-16 (a route that cannot be returned has no code), TS-04.
+- **Suggested resolution:** say in RUNTIME §4.2.1 whether Runtime must expose a direct provider to
+  out-of-process consumers. If it may refuse, give the code. State how §8.2 applies to a listener that
+  Runtime serves itself.
+
+#### TF-39 — What confirms, after a Runtime restart, that an execution envelope of the previous run has ended is not stated
+- **Specs:** RUNTIME l.613 ("Runtime MUST reject `start_module` with `NOT_READY` for an instance in
+  `error` while cleanup of a previous realization remains unresolved"), §4.2.1 l.977 ("Re-establishing a
+  Runtime or Loader binding MUST NOT adopt a surviving realization or discharge its unresolved cleanup
+  ownership"), §9.3 l.2641 ("Creating a fresh identity MUST NOT discharge unresolved realization cleanup
+  or permit access to persistent state that the previous realization may still hold"), l.3532-3533
+  ("`absent` means Runtime has confirmed that no realization or unresolved cleanup ownership remains for
+  the instance"; "Runtime MUST report `unknown` when realization ownership or its correspondence to the
+  selection cannot be confirmed, including an unresolved realization attempt or cleanup outcome"), l.3548
+  ("confirm quiescence and cleanup of every realization that could still access that state"), §10.1 l.3821
+  ("Runtime MUST retain unresolved cleanup ownership until the protected realization or deployment
+  mechanism confirms that the old execution envelope and its access to assigned state have ended");
+  SECURITY l.209 ("The hosted `process` placement is not equivalent to a sandbox,").
+- **Issue:** for a realization in the Runtime's own process, the end of that process ends the realization.
+  A Module Host is another process and can outlive the Runtime that started it. After a restart the new
+  Runtime holds a preserved instance whose earlier envelope may still run and still hold its state
+  directory. The rules that cover this are written for the loss of a Loader (l.3821) or forbid adoption
+  (l.977). Three things are not stated.
+  1. Who confirms the end. Until someone does, `realization` is `unknown` (l.3533) and a start is refused
+     (l.613). No rule names the mechanism whose confirmation the new Runtime may rely on, so nothing ends
+     that state.
+  2. What belongs to the envelope of a `process` placement: the host process, its process group, or every
+     process the module started.
+  3. Whether a new instance on the same state (l.2641), or a transfer of that state (l.3548), may go ahead
+     on the Runtime's own inference that the old host is gone.
+- **Impact:** one Runtime starts a second host on a state directory that the first still holds. Another
+  never starts the instance again. A third reports `absent` on a guess.
+- **Reading an implementation needs today:** report `unknown` and refuse `start_module` until a deployment
+  mechanism confirms that the earlier envelope has ended. For a `process` placement take the host's
+  process group as the envelope, and state that a process which left the group is not covered.
+- **Overlap:** TF-29 (what a preserved instance reports; this item is the case of an isolated
+  realization), RT-05, NL-10 (answered).
+- **Suggested resolution:** say in §10.1 that the confirmation of l.3821 is also required after a Runtime
+  restart, name what may give it, and say what the envelope of each hosted placement contains.
+
+#### TF-40 — The code of `apply_configuration` when the hook's result is lost between the Module Loader and a Module Host is not stated
+- **Specs:** CONFIG §8 l.312, l.317-318 ("If Runtime cannot obtain a valid application-hook result, it
+  MUST report `TRANSPORT_ERROR` when the cause is failure to exchange the required transport messages, and
+  `MODULE_ERROR` otherwise"; "That distinction MUST NOT change the required transition to `error` for an
+  indeterminate application outcome"); LOADER l.335 ("Channel setup and descriptor transfer are determined
+  by the implementation"), l.537 ("For hosted realization, the Module Host invokes the same ABI hook under
+  Loader control"), l.541-542 ("If Module Loader cannot establish whether the module accepted the value,";
+  "the operation returns `realization-failed` with the failed realization"); RUNTIME l.955 ("Any carrier
+  between a Module Host and the owning Runtime is realization-internal machinery rather than an ordinary
+  provider route").
+- **Issue:** for a hosted realization the hook runs in the Module Host (LOADER l.537). If the host ends or
+  its channel breaks during the hook, the Loader cannot tell whether the module accepted the value, and it
+  answers `realization-failed` (LOADER l.541-542). Runtime then has no valid hook result (CONFIG l.317).
+  Which code applies turns on whether the exchange between the Loader and its host counts as "the required
+  transport messages". Two readings are open.
+  1. `MODULE_ERROR`. Runtime received a valid answer from the Loader and exchanged no Transport message. A
+     channel inside a realization is machinery, not a route (RUNTIME l.955; LOADER l.335).
+  2. `TRANSPORT_ERROR`. The messages that carried the hook and its result were lost, whatever carried
+     them.
+- **Impact:** the instance is `error` under both (CONFIG l.318). The caller of `apply_configuration` gets
+  one code or the other for the same event, and a caller that retries after `TRANSPORT_ERROR` and not
+  after `MODULE_ERROR` behaves differently.
+- **Reading an implementation needs today:** `MODULE_ERROR`. Keep `TRANSPORT_ERROR` for a Loader that
+  Runtime reaches through Transport and cannot reach.
+- **Overlap:** TF-28 (an explicit stop after an indeterminate reconfiguration), TF-29.
+- **Suggested resolution:** say in CONFIG §8 whether a channel inside a realization counts as transport
+  for this rule.
+
+#### TF-41 — Whether a disabled restart policy also stops resumption, and how orchestration tells a resumption from a retry, is not stated
+- **Specs:** RUNTIME §10.1 l.3774-3775 ("When orchestration becomes operational, it MUST reconcile
+  retained requested execution intents, including after Runtime restart, and schedule the recovery
+  attempts permitted by active policy"; "Deployment documentation MUST distinguish resumption after
+  Runtime restart from retries after execution failure"), l.3786-3789 ("The orchestration module MUST
+  evaluate the active restart policy and schedule permitted recovery through `recover_module`"; "Disabling
+  automatic restart is a valid policy"; "Enabled policy MUST bound retry frequency and MAY limit attempts;
+  retry accounting MUST survive orchestration restart and lost responses"), l.3803-3804 ("When required
+  permissions become available, orchestration MUST request resumption of that intent through
+  `recover_module`"; "A failed resumption is subject to the active restart policy"), l.3806-3808 ("Another
+  authorized module MAY restore orchestration, or protected construction may establish it when the Runtime
+  host restarts").
+- **Issue:** the texts name two things, a resumption and a retry (l.3775), and one policy, the restart
+  policy. Three things are not stated.
+  1. Whether resumption is under that policy. With automatic restart disabled (l.3788), orchestration may
+     still be bound to resume retained intents after a Runtime restart (l.3774 says "permitted by active
+     policy" and does not say which policy) and after permissions return (l.3803 has no condition). Only a
+     failed resumption is put under the restart policy (l.3804).
+  2. What shows that a recovery is a resumption. The state of the instance does not: an instance preserved
+     across an unclean end may be in `error` (TF-29), and so is one whose enforcement stop overran its
+     deadline (TF-28). Orchestration can also be restored alone (l.3806-3808), and nothing shows it
+     whether the Runtime restarted or only it did.
+  3. Whether a resumption counts against the attempt limit of l.3789.
+- **Impact:** with automatic restart disabled, one deployment comes back after a power loss and another
+  stays down. With an attempt limit, a platform that ends the host process routinely uses up a module's
+  attempts on one Runtime and not on another.
+- **Reading an implementation needs today:** treat resumption as outside the restart policy. After a
+  Runtime restart and after permissions return, request one recovery for every instance whose intent is
+  `requested`, under every policy, and do not charge it. Charge what follows a failed resumption.
+- **Overlap:** TF-29, TF-28, TL-08 (the state carries no mark of an accepted attempt), NL-10 (answered).
+- **Suggested resolution:** say in §10.1 whether resumption after a Runtime restart and after permissions
+  return is subject to the restart policy, and whether it is charged. Give orchestration a way to tell
+  that the Runtime restarted, for example a start counter in the readiness result.
+
+#### TF-42 — Whether a state assignment may pass to another instance, and what authorizes a migration of state, is not stated
+- **Specs:** RUNTIME §8 l.1451-1454 ("Distinct module instances MUST NOT share a state assignment by
+  default"; "Allocation, reuse across identities, sharing, inspection, retention, deletion, migration, and
+  restoration of concrete state are authority-bearing policy decisions"; "This specification does not
+  define their policy language, configuration files, or concrete storage layout"), §9.3 l.2624 ("When a
+  module has persistent state, the state assignment is bound to this module instance identity"),
+  l.2637-2639 ("Retained grants, permission settings, configuration, state assignments, execution intent,
+  and audit records MUST remain attributed to their original module-instance addresses"; "Any authorized
+  migration or provisioning MUST satisfy the requirements of the owning contract and active policy"),
+  l.2643 ("`module_state_assignment_id` identifies an abstract persistent-state assignment visible through
+  Runtime Control"), l.3547-3550 ("The replacement receives a fresh state assignment unless an explicit
+  authorized state-reassignment or sharing policy applies"; "Populating its state from the old instance
+  requires a separately authorized migration or restoration procedure compatible with the selected
+  implementation"), l.3554 ("this revision defines no general upgrade or state-transfer Runtime Control
+  method"), l.3587 ("Retirement MUST preserve concrete assigned storage and the metadata needed for its
+  separately authorized retention, disposal, or migration").
+- **Issue:** an upgrade replaces an instance by a new one (l.3547), and two things about its state are not
+  stated.
+  1. Whether the assignment itself may pass to the replacement. l.3549 allows a "state-reassignment"
+     policy. l.2637 keeps state assignments with their original instance, and l.2624 binds the assignment
+     to that identity. Either the reassignment clause is an exception, so that the identifier passes to
+     the replacement and the old record stops showing it, or the identifier never moves and only the
+     concrete state is copied or moved into a fresh assignment (l.3550). The identifier is visible through
+     Runtime Control (l.2643), so the two differ for an observer.
+  2. What authorizes the procedure. It is an "authority-bearing" decision (l.1453) that is "separately
+     authorized" (l.3550) and must meet "the requirements of the owning contract" (l.2639). Grants,
+     configuration and permission settings each have an owning contract. Persistent state has none, no
+     scope names a migration, and no method performs one (l.3554).
+- **Impact:** after the same upgrade one deployment shows the old assignment on the new instance and
+  another shows a new one. A tool that follows state by its assignment identifier finds it on one and not
+  on the other. What must be recorded, and by whom, is left to each deployment.
+- **Reading an implementation needs today:** the identifier does not move. The replacement gets a fresh
+  assignment, and a procedure that protected deployment input authorizes copies or moves the concrete
+  state, after the old instance is stopped and its cleanup is confirmed (l.3548). No authority decision is
+  taken for it.
+- **Overlap:** RT-06 (upgrade by a replacement instance; resolved), TF-08, TF-02.
+- **Suggested resolution:** say whether the reassignment of l.3549 moves the assignment identifier, as an
+  exception to l.2637, or only concrete state. Name the owning contract of l.2639 for persistent state, or
+  say that protected deployment input is the authorization.
+
+#### TF-43 — What a complete Logos module system must contain, and which deployments BCP §5.1 and §5.4 bind, is not stated
+- **Specs:** BCP l.123 ("Its local realization follows the complete-system composition rule in Section 5.1
+  when that conformance is claimed"), §5.1 l.282-283 ("Credential Store is optional to implement and
+  deploy"; "Neither lower-layer conformance nor complete-system conformance to this BCP requires it"),
+  l.287-290 ("A deployment claiming conformance to this BCP as a complete Logos module system MUST
+  establish its initial Module Loader provider through protected, non-recursive bootstrap"; "Every
+  subsequent local module implementation MUST also be realized through the bound Module Loader provider"),
+  §5.3 l.340 ("The deployment owner chooses and documents the applicable behavior listed in Section 5.4"),
+  §5.4 l.355-358 ("A complete deployment MUST document every applicable choice that the Core
+  specifications assign to deployment"; "At minimum, that documentation MUST identify:"; "supported
+  Package Manager source kinds and optional package-provenance profiles"); RUNTIME l.253 ("Package Manager
+  is not required for Runtime to consume already resolved module facts from protected sources"), l.1378,
+  l.1641 ("When Module Loader is used, its initial provider MUST be established first and used to realize
+  orchestration").
+- **Issue:** four things about the complete-system claim are not stated.
+  1. Its members. §5.1 gives the composition rule for the Module Loader and orchestration only. The
+     Credential Store alone is declared optional for a complete system (BCP l.283), which suggests that
+     the other system services are required. RUNTIME makes the Package Manager conditional (RUNTIME l.253,
+     l.1378). Whether a deployment with no Package Manager can make the claim is not said.
+  2. The reach of BCP l.288-290. The sentences after l.287 name no subject. They may bind only a
+     deployment that makes the claim, or every Runtime with a bound Loader, for which RUNTIME has only the
+     order rule of l.1641.
+  3. The reach of §5.4. BCP l.355 binds "A complete deployment". The matrix gives the same duty to "The
+     deployment owner" with no such word (BCP l.340). Whether a deployment that claims the lower
+     specifications alone owes the document is not said.
+  4. An item with no subject. For a deployment with no Package Manager, "every applicable choice" (BCP
+     l.355) lets the item of l.358 be left out, and "At minimum" (BCP l.356) asks for it. Whether a true
+     *none* meets the duty is not said.
+- **Impact:** two deployments with the same components make different conformance statements, and a reader
+  cannot tell from the claim whether a Package Manager is present. A conformance suite cannot decide
+  whether a missing item of the document is a failure.
+- **Reading an implementation needs today:** take every system service except the Credential Store as a
+  member, and make no complete-system claim without a Package Manager. Follow BCP l.288-290 whenever a
+  Loader is bound. Publish the §5.4 document for any deployment, and answer an item that has no subject
+  with *none*.
+- **Overlap:** TF-36, the TF-06 note on a claim for the engine alone.
+- **Suggested resolution:** list in §5.1 what a complete system contains. Say whether l.288-290 and §5.4
+  bind every deployment or only one that makes the claim, and whether an item with no subject is answered
+  or omitted.
+
+#### TF-44 — "Package-backed" is not defined, and when the Package Manager handoff is obtained again is not stated
+- **Specs:** RUNTIME §8 l.1379 ("Runtime consumes `logos.package_manager.runtime_handoff` directly"),
+  l.1388-1391 ("accepted integrity evidence only because the record came from the authenticated Package
+  Manager system service"; "Copying those fields into another record does not preserve that provenance";
+  "Protected bootstrap, static registration, deployment mechanisms, and test harnesses MAY supply
+  equivalent accepted facts through implementation-local inputs"), §9.3 l.3519 ("`selection.signer` MUST
+  report the exact verified signer retained with a package-backed selection when that authenticated
+  evidence exists, and MUST otherwise be omitted"), l.3539 ("MUST recheck current execution authority,
+  trust, prerequisites and realization acceptance"), l.3614-3616 ("For package-backed declarations, that
+  integration MUST support protected selection of an exact package identity and version"), l.3637 ("MUST
+  use its retained accepted declaration and MUST NOT select a replacement declaration"); PM l.403
+  ("Withdrawal blocks subsequent accepted package operations and handoffs under this section; existing
+  execution remains subject to its independent execution authority"), l.1392 ("MUST NOT emit the handoff
+  if the package is no longer accepted by active signing trust"), l.1715 ("an engine system-service
+  invocation MUST NOT be admitted to this method").
+- **Issue:** two things are not stated.
+  1. The term. Rules attach to a "package-backed" selection or declaration (RUNTIME l.3519, l.3616), and
+     the term has no definition. It may mean only a declaration taken from an authenticated handoff
+     (RUNTIME l.1388-1389), or any declaration whose protected input names a verified package and signer
+     (RUNTIME l.1391, "equivalent accepted facts"). Under the second, `selection.signer` could be reported
+     with no Package Manager.
+  2. When the handoff is obtained. Creation selects a declaration (RUNTIME l.3614), a start uses the
+     retained one (RUNTIME l.3637), and recovery rechecks "trust" (RUNTIME l.3539). Whether Runtime asks
+     for a new handoff before each realization is not said. If it does, what a start does when the Package
+     Manager now refuses (PM l.1392) or returns other facts is not said. If it does not, withdrawn signing
+     trust reaches a retained instance only through execution authority (PM l.403), and no event tells the
+     engine of it (PM l.1715).
+- **Impact:** after a signer is withdrawn, one Runtime refuses the next start of an instance and another
+  keeps starting it. Policy that names a signer applies to host-configured modules on one Runtime and not
+  on another.
+- **Reading an implementation needs today:** package-backed means taken from an authenticated handoff. Ask
+  for a new handoff before each realization, and fail the start if it is refused or if its commitment,
+  signer or artifact hash differ from the retained ones.
+- **Overlap:** TF-07 (key rotation and installed packages), TF-08, TS-05, TP-07.
+- **Suggested resolution:** define the term in RUNTIME §8. Say when Runtime obtains the handoff again and
+  what a refusal or a changed handoff does to an existing instance.
+
+#### TF-45 — A bound system service with dependents: a stop, a permission-settings update, the point at which it has failed, and its replacement are not stated
+- **Specs:** RUNTIME l.166-170, §9.3 l.2591 ("An enforcement failure MUST retain the saved settings, leave
+  the affected module stopped, and report `failed`"), l.2595 ("It MAY enforce the replacement on a running
+  realization through the selected permission mechanism or stop and re-realize when necessary to enforce
+  it"), l.3566 ("Runtime MUST NOT accept retirement while a conflicting mutation remains incomplete or a
+  live dependency requires the target to remain Runtime-known"), l.3683 ("The `stop_module` method stops
+  the selected module instance"), §10.1 l.3793 ("An ordinary invocation failure MUST NOT by itself be
+  treated as a report of realization failure"), l.3814-3818 ("The failed provider MUST NOT be invoked to
+  restart itself"; "That unavailability alone MUST NOT change the lifecycle state of an otherwise healthy
+  module realization unless continued execution would exceed current authority"), l.3823 ("When the owning
+  Loader has failed and continued realization control cannot be maintained, Runtime MUST mark affected
+  instances as `error`, fail their routes, preserve execution intent, and arrange termination through
+  protected host or deployment supervision"), l.3829-3831, §10.2 l.3863 ("Runtime MUST release
+  Loader-owned realizations before quiescing and releasing or detaching their owning Loader provider
+  through its bootstrap mechanism"); BCP l.287 ("through protected, non-recursive bootstrap").
+- **Issue:** a system service is an ordinary module instance (l.166-170), so the lifecycle and settings
+  methods can name it. Four things are not stated for one that has dependents: the Module Loader while it
+  owns realizations, or the Capability Authority while decisions it gave are in force.
+  1. A stop. `stop_module` has no rule for it (l.3683). The rule that Loader-owned realizations are
+     released first stands in the shutdown procedure only (l.3863), and the live-dependency rule covers
+     retirement only (l.3566). The Runtime may refuse, stop the dependents first, or stop the service and
+     treat it as lost.
+  2. A permission-settings replacement. Reconciliation may have to stop and re-realize the instance
+     (l.2595), and a failure leaves it stopped (l.2591). The question is the same.
+  3. When it has failed. The texts treat an unavailable service and a failed one differently (l.3818,
+     l.3823) and do not say what makes Runtime conclude the second: its own report, a response that
+     violates its contract, or an invocation failure that a later query cannot resolve. l.3793 says only
+     that one invocation failure is not a report.
+  4. Its replacement. A failed provider is not invoked to restart itself (l.3814). Whether a new Loader is
+     established by bootstrap again, and what "non-recursive" (BCP l.287) allows, is not said. The
+     supervision that must end the affected realizations is left to the deployment (l.3829-3831), and the
+     Host Embedding API gives the host no sign that it is needed.
+- **Impact:** an operator's stop of the Loader ends every hosted module on one Runtime and is refused on
+  another. One Runtime ends every hosted module after a single unanswered Loader call, and another marks
+  the one instance it concerned.
+- **Reading an implementation needs today:** refuse `stop_module` and a settings replacement with
+  `NOT_READY` while the service has dependents. Hold the service failed only when its own record is
+  `error`, by its own report or after a response that violates its contract. Keep an invocation failure
+  that cannot be resolved with the one instance it concerned. Restore a failed Loader only by a restart of
+  the Runtime host.
+- **Overlap:** RT-05 (nothing separates a Loader that is briefly unavailable from one that has failed),
+  TF-26, TF-36, TF-37.
+- **Suggested resolution:** give `stop_module` and the settings methods a rule for a bound system service
+  that has dependents. Say in §10.1 what makes a system service failed, how a failed Loader is replaced,
+  and how the host learns that termination through its supervision is required.
+
+#### TF-46 — Permission settings at three edges: an instance established by protected bootstrap, an instance with no realization, and the snapshot a module reads
+- **Specs:** RUNTIME §9 l.1659 ("The binding does not authorize remote system-service invocation or waive
+  package, realization, execution-authority, or permission checks"), §9.3 l.2538 ("Omitted permissions are
+  denied, including when the array is empty; declarations and grants MUST NOT bypass these limits"),
+  l.2541-2544 ("When a new instance has no accepted protected permission settings, Runtime MUST atomically
+  initialize its permission settings with revision 1, an empty permission array, status `applied`, and no
+  failure"; "Protected provisioning MAY supply independently authorized initial settings before the
+  instance is exposed"; "Restoration of an existing instance MUST preserve its accepted settings,
+  revision, and application state"), l.2549 ("`applied` means the saved settings are enforced"),
+  l.2572-2574 ("Runtime MUST derive it from retained enforcement state, not from module declarations,
+  saved permission settings, or a fresh authority evaluation"; "When Runtime cannot provide an enforced
+  snapshot, it MUST return `unavailable` rather than an empty permission array"), l.2590, l.2593
+  ("Settings administration MUST NOT create execution intent or substitute the administrator's execution
+  authority"), l.2595, l.2599-2600 ("An `applied` settings state describes enforcement, not successful
+  resumption"; "Runtime MUST NOT report the replacement as `applied` until the selected mechanism enforces
+  the saved constraints"); CA l.121 ("An allow decision MUST NOT broaden a requested scope and MAY narrow
+  it"), l.343, l.364 ("Runtime MUST reject the operation if the selected execution path cannot enforce a
+  required constraint"); LOADER l.425 ("Outside protected initial system-service bootstrap,").
+- **Issue:** three things are not stated.
+  1. An instance that protected bootstrap establishes. Its bootstrap needs no allow decision (CA l.343;
+     LOADER l.425). Whether its saved settings still limit it is not said. RUNTIME l.2538 has no
+     exception, and the system-service binding waives no permission check (RUNTIME l.1659). With the
+     default of l.2541 every permission of such an instance is denied, and it runs. Either bootstrap
+     provisions its settings (l.2543), or the settings do not apply to it and `applied` (l.2549) is untrue
+     for it.
+  2. An instance with no realization. A replacement saved while the instance is `unloaded` has no running
+     realization to be enforced on (RUNTIME l.2595). l.2600 withholds `applied` until the mechanism
+     enforces the constraints, while l.2541 reports `applied` for a new instance that never ran. Such a
+     replacement may be `applied` at once, `pending` until a start that the administration may not cause
+     (l.2593), or `failed` when it names a permission that nothing can enforce (CA l.364). The revision
+     and status of settings that protected provisioning supplies (l.2543), and whether a restored
+     `pending` (l.2544, l.2590) may change before the instance is exposed, are not given either.
+  3. The snapshot. `get_execution_permissions` answers from "retained enforcement state" (RUNTIME l.2572),
+     a term with no definition. It may be what Runtime handed to enforcement at admission, that is the
+     saved settings cut to the scopes the decision allowed (CA l.121), or what the enforcing mechanism
+     reports.
+- **Impact:** a system service shows no permissions and status `applied` while it holds the host's whole
+  access. A replacement saved for a stopped instance shows three different statuses on three Runtimes. A
+  module reads different snapshots of the same enforcement.
+- **Reading an implementation needs today:** provision the settings of every bootstrap-established
+  instance during its protected construction, so that the settings limit every instance alike. Report a
+  replacement saved for an instance with no realization as `applied` when every permission it names has an
+  enforcement point, and as `failed` otherwise. Answer the snapshot from what was handed to enforcement at
+  admission, kept per realization.
+- **Overlap:** TF-32 (which scopes an execution decision covers), the TF-06 note on `applied` with empty
+  settings, TF-10, TL-04.
+- **Suggested resolution:** say in §9.3 whether saved settings limit an instance that protected bootstrap
+  establishes. Give the status of a replacement saved while no realization exists. Define retained
+  enforcement state.
+
+#### TF-47 — Transport gives the provider side no way to end one subscription, and gives a route that ends for a readiness cause no signal on the wire
+- **Specs:** TRANSPORT §1.2 l.111-121 (the message types; only the caller sends Unsubscribe), §3.2
+  l.541-543 ("Either party may close the socket at any time"; "All in-flight requests receive a synthetic
+  `TRANSPORT_ERROR` response"), §5.1 l.767-768 ("Closing the connection terminates all of its
+  subscriptions"), §8.1 l.987-991 ("When the route expires or is revoked, that Runtime MUST stop admitting
+  new operations and terminate affected subscriptions and the protected session"; "the Runtime MUST send
+  ProtocolError `NOT_AUTHORISED` when the connection remains writable and close the session"); CA
+  l.913-914 ("It MUST terminate dependent provider sessions and subscriptions when their continued use
+  would exceed current authority"); INTERFACE l.1486-1490 ("Known authority withdrawal or expiry uses
+  `NOT_AUTHORISED`; otherwise explicit route closure or known provider/readiness loss uses `NOT_READY`";
+  "Connection failure without a known authorization or readiness cause uses `TRANSPORT_ERROR`"; "The code
+  records the first terminal transition and MUST NOT be replaced when a later cause becomes known");
+  RUNTIME l.1344.
+- **Issue:** two ends that Runtime must bring about have no message.
+  1. One subscription. When a later decision denies one subscription and not the route (CA l.914), the
+     provider side cannot end it. Unsubscribe is the caller's message (TRANSPORT l.117), and the callee
+     can only close the connection, which ends every subscription and every call of the session (TRANSPORT
+     l.767). So either the whole session ends for one subscription, or the provider side stops delivering
+     and the subscriber is told nothing.
+  2. A readiness end. At an expiry or revocation the provider side sends a ProtocolError that carries the
+     cause (TRANSPORT l.991). For a route that is closed, or whose provider stops, there is no such
+     message, and the socket closes (TRANSPORT l.541). The handle must then record `NOT_READY` (INTERFACE
+     l.1487). The caller side sees only a lost connection, may not infer a cause (INTERFACE l.1489), and
+     records `TRANSPORT_ERROR` (INTERFACE l.1488), for good (INTERFACE l.1490). Where consumer and
+     provider have one Runtime, that Runtime can tell the consumer's side first. Between two Runtimes
+     nothing carries the cause.
+- **Impact:** a subscriber whose subscription was ended by policy waits for events that will not come. A
+  consumer of a remote route sees `TRANSPORT_ERROR` for an orderly closure and retries where `NOT_READY`
+  would have told it to stop.
+- **Reading an implementation needs today:** for one denied subscription, stop delivering and keep the
+  session, and document that the subscriber gets no signal. For a readiness end on a local route, give the
+  consumer's side the cause before the session closes.
+- **Overlap:** TF-15 (a new operation after a lost connection), TF-23, TF-24, TF-35, TL-03.
+- **Suggested resolution:** add a callee message that ends one subscription with a code, or say that the
+  session ends. Add a ProtocolError with `NOT_READY` for a route that is closed or loses readiness, as
+  l.991 has for authority.
+
+#### TF-48 — The erasure of a marked payload cannot be met when an execution envelope is ended by force
+- **Specs:** INTERFACE §1.4.1 l.380-382 ("They MUST erase their owned temporary buffers containing payload
+  data after their last use, before releasing or reusing their storage"; "This requirement includes
+  encoding, decoding, commitment processing, transport buffering, and partial processing on failure or
+  cancellation"), l.388 ("An invocation path MUST NOT be established for a marked payload unless its
+  participating implementations support these requirements"), l.400 ("Each implementation remains
+  responsible for the temporary copies it owns"); RUNTIME l.669 ("Protected supervision may terminate an
+  isolated execution envelope without waiting for a public release invocation"), l.974-976 ("native
+  destruction is not guaranteed to begin or return"); LOADER l.573 ("Forced termination of the execution
+  envelope MAY prevent destruction from beginning or returning").
+- **Issue:** the erasure duty has no exception (INTERFACE l.381-382), and it reaches a Module Host as an
+  invocation intermediary (INTERFACE l.380). The texts also allow an envelope to be ended by force, at a
+  deadline or after its control channel is lost (RUNTIME l.669, l.974-976; LOADER l.573), and a process
+  can end by a fault. A process that is ended erases nothing. Whether such an end breaks l.381, and
+  whether the participants of a path through a placement that may be ended by force "support these
+  requirements" (INTERFACE l.388), is not said.
+- **Impact:** a deployment cannot both allow forced termination and claim the erasure rule for hosted
+  modules. One implementation refuses marked payloads on every hosted path, and another accepts them and
+  claims an erasure it cannot guarantee.
+- **Reading an implementation needs today:** erase on every orderly path, the orderly end of a host
+  included, and make no erasure claim for an envelope that was ended by force. State that limit where the
+  deployment documents its placements.
+- **Overlap:** TF-28, TF-39.
+- **Suggested resolution:** say in §1.4.1 that forced termination of an execution envelope is outside the
+  erasure duty, or say what a deployment must do before it may end such an envelope.
+
+#### TF-49 — A context returned together with a failure code: whether anything is left to clean is not stated
+- **Specs:** INTERFACE l.1630-1635 ("Failure requires a nonzero result code and a null context;"; "the
+  module MUST release any partially initialized instance state before returning"; "The ABI caller MUST
+  reject any other result/context combination"), l.1661 ("Destroy one successfully initialized module
+  instance"); RUNTIME l.1568-1573 ("Runtime MUST treat the reported rejection or a module's ABI-version or
+  structure-size"; "A failed initialization does not create a live module instance context and"; "the
+  applicable ABI caller MUST NOT invoke `_MODULE_destroy(context)` for that failed initialization");
+  LOADER l.418-423 ("Module Loader MUST clean every partial context, binding, transferred listener
+  reference, and execution envelope that it can safely clean"; "When cleanup completes, it returns the
+  error without a realization record"; "it retains and returns a failed realization so Runtime can invoke
+  `release`").
+- **Issue:** a module that returns a nonzero code and also writes a context breaks INTERFACE l.1633. The
+  caller must reject that result (INTERFACE l.1635), and Runtime treats it as an initialization failure
+  (RUNTIME l.1568). What becomes of the context is not said. `_MODULE_destroy` is declared for a
+  successfully initialized instance (INTERFACE l.1661) and is forbidden after a failure with a null
+  context (RUNTIME l.1573). For a failure with a context neither line speaks. Two readings are open.
+  1. Nothing is left. The module was bound to release its partial state before returning (INTERFACE
+     l.1634), and the pointer is ignored. Behind a Loader the cleanup is then complete, and the Loader
+     returns the error with no record (LOADER l.421).
+  2. Something may be left that only the module can free. Cleanup then "remains necessary" (LOADER l.422),
+     the Loader retains a failed realization (LOADER l.423), and no `release` of it can ever succeed,
+     because release would need the destroy call that is not defined for this case.
+- **Impact:** under the second reading the instance cannot start again in that process, and its record
+  shows a failed realization for good. Under the first a faulty module leaks what it allocated, and the
+  instance can be started again.
+- **Reading an implementation needs today:** the first: an error and no realization record. Do not call
+  `_MODULE_destroy`. What the stray pointer refers to stays the module's fault.
+- **Overlap:** TF-03, TF-29.
+- **Suggested resolution:** say in INTERFACE beside l.1635 that a context written with a failure is
+  ignored and never destroyed, and in LOADER §6 that such a failure leaves nothing to clean.
+
 ### 3.2 The system contracts, checked against their own rules
 
 The CDDL of Runtime Control (RUNTIME §9.2-§9.3), Configuration (CONFIG §9), Capability Authority, Module
@@ -1697,13 +2250,19 @@ What came back clean is listed in Appendix F. The items below are what did not.
   lets the caller act on it shows, through the code, whether that grant or target exists. A repeated
   revocation is idempotent (l.744), and whether it writes a second audit record under l.1167-1168 is not
   said. Which scope kinds one request may combine as a single operation, beyond execution with permissions
-  (l.484-486), and the code for a request that combines two operations, are not given.
+  (l.484-486), and the code for a request that combines two operations, are not given. A permission scope
+  also names no module and no instance (l.212-216), so it is tied to an execution only by standing beside
+  an execution scope in one request (l.484-485: "such as module execution plus network and
+  persistent-state permissions"). Whether a grant that holds a permission scope alone applies to every
+  execution its consumer may request, and whether two grants that together cover a request allow it
+  (l.556: "An allow decision MUST list every grant on which it depends"), is not said.
 - **Impact:** two CA providers pick different codes for one condition; Runtime's mapping to its own
   channels and the audit trail differ; no conformance test can assert a value.
 - **Overlap:** the EC group lists codes the specs need and do not assign; this is the converse.
 - **Suggested resolution:** a one-line definition per value in CA §5 and §7, as LOADER §10 has, a `denial`
   arm (or a stated code) for a refused revocation, the order of the checks, whether a repeated revocation
-  is audited, and the scope combinations that one evaluation request may carry.
+  is audited, and the scope combinations that one evaluation request may carry. Say also whether a
+  permission scope in a grant stands by itself or only beside an execution scope.
 
 #### TL-05 — "Consume by schema reference" is promised for types that the schema rules make unreferenceable
 - **Specs:** LOADER §3 l.142-144 ("`logos.module_loader.realization_descriptor` is the canonical
@@ -2442,6 +3001,32 @@ holds keys. A and B stand for other modules and are local to one item.
   neither, and the specs name no claim for the engine alone. Saying which requirements of RUNTIME bind the
   engine and which bind the orchestration module, and that the first set can be claimed by itself, would
   settle it.
+- RUNTIME l.194 has the orchestration module apply startup defaults "using conditional start or stop
+  requests as defined in Section 9.3". Section 9.3 defines the field (`expected_execution_revision`,
+  l.2247); the comparison rule is in §9.1 (l.1832-1833). What a startup default is, is defined nowhere.
+- BCP l.266 labels `logos.remote.tls-tcp` "Mandatory remote transport" in the identifier table. The
+  requirement is l.336: "Mandatory for an implementation supporting production remote Runtime transport".
+  The label lacks that condition.
+- RUNTIME l.3441-3442: a Runtime that implements no remote transport profile has no stated answer to a
+  valid `set_remote_listener` that enables a listener. It may be `TRANSPORT_ERROR` "when the failure is in
+  transport setup", or `MODULE_ERROR` under l.3442.
+- LOADER l.258: "graceful release, and the fixed hosted-provider Transport profile are required behavior".
+  Read alone, the sentence binds a Loader that advertises no hosted strategy, which l.252-255 allow.
+- TRANSPORT l.1119: "The directory mode MUST be `0700` on POSIX filesystems". If a deployment gives each
+  Module Host an operating-system identity of its own, to meet l.1107-1109, a consumer under another
+  identity cannot reach the socket by its path (l.1129).
+- BCP l.384 binds "A deployment supporting external application activation", and the term is not defined:
+  whether a command sent to a module instance that is already running is an activation is open. BCP l.399
+  asks for a non-production notice in "operator-facing diagnostics", which is not defined either.
+- Whether LOADER strategies and hosted placements are profiles for BCP l.311, l.347 and l.423 is not said.
+  BCP l.296 defines a named Core profile as "a complete, interoperable behavior selected by a stable
+  identifier", which could cover them; the matrix of §5.3 omits them; LOADER has its own rule (l.377).
+- PM l.396-397 are passive ("The accepted high-water state MUST survive ordinary restart"; "Older state or
+  different contents at the same revision MUST be rejected") and name no component that keeps the mark.
+  Whether the Package Manager keeps it itself or may rely on its host is open.
+- TRANSPORT l.1120: Runtime "MUST NOT follow, remove, or replace a symbolic link or another filesystem
+  object at that path". Who clears an endpoint path left by a Runtime that ended without cleanup is not
+  said.
 
 ---
 
