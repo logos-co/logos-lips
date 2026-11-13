@@ -150,7 +150,7 @@ The floor holds back a side cut off from the rest until it has made `φ + 1` blo
 - `s_gen` stays at 16,200 slots. `2·s_gen` is 32,400 slots, 9 hours, within `K`. The proof behind `s_gen` reads two windows after the divergence block, and 10 hours holds 2.2 of them, where 18 hours holds four.
 - The density test now decides forks from 10 to 18 hours old, which the length test decided before. Over one window of `s_gen` at 10 s, a fork of 30 % is at least as dense as the honest chain with chance `6.0·10^-14`. Against a third the same estimate is `3.9·10^-9`, the shortfall of a 4.5-hour window that counting in slots already accepts. These are single-window estimates, not the study's bound. A fork that wins the window is fixed at the switch after 561 blocks, against 1,020 at 18 hours.
 - A fork the Bootstrap rule rejected by density needs a lag to survive the switch. Against 30 % at mean rates the lag is about 8.8 hours with no delivery delay, and 7.2 at 10 s. The last round before the switch closes this when an IBD peer returns the honest tip and serves its blocks, or a connected peer does so within `T_offline`.
-- The reference code of the rules passes its 40 tests at `K = 36,000` and `φ = 560`, and each of 24 deliberately broken versions fails at least one of them.
+- The reference code of the rules passes its 41 tests at `K = 36,000` and `φ = 560`, and each of 25 deliberately broken versions fails at least one of them.
 
 ## What else reads `K`
 
@@ -159,7 +159,7 @@ The floor holds back a side cut off from the rest until it has made `φ + 1` blo
 - **The uncle window.** It is 360 slots against 36,000.
 - **Blocks above `B_imm`.** About 1,014 on the specification's Blend, against about 1,825 at 18 hours. A node keeps the ledger states of these blocks.
 - **Who waits for `B_imm`.** A Zone that credits a deposit only once the deposit is final ([CHANNEL_DEPOSIT](../bedrock-v1.1-mantle-specification.md#channel_deposit)), and a client that waits for a Zone's inscription to be final ([Sovereign Zones](../bedrock-architecture-overview.md#sovereign-zones)). Each waits `K`, 10 hours in place of 18.
-- **The last round.** One of the four blocks its requests name lies `K` behind the local tip, 10 hours in place of 18.
+- **The last round.** Its requests name the block that lies `K` behind the local tip, and the block that lay `K` behind it when the Prolonged Bootstrap Period started. Each lies 10 hours behind in place of 18, so a stream starts at most 34 hours of blocks back when the round starts, against 42.
 - **The block time.** [\[Analysis\] Block Times & Blend Network](../analysis-block-times-blend-network.md) says that Cryptarchia wants shorter block times for faster finality. With `K` sized by the rule above, a shorter block time does not shorten the wait. Against 30 % at 10 s it is 5.9 hours with a block every 30 s, 6.6 with a block every 20 s and 9.5 with a block every 15 s. This RFC does not change that document.
 
 ## Compatibility
