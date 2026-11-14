@@ -38,7 +38,7 @@ appendices everything that is settled.
 | 1 | Earlier items answered, still needing discussion | 11 remarks covering 15 items |
 | 2.1 | Items of the second audit with no response | 10 |
 | 2.2 | Concerns of `human-spec-comments.md` that still need an answer | 4 |
-| 3.1 | New: contradictions and gaps in the spec text | 48 |
+| 3.1 | New: contradictions and gaps in the spec text | 50 |
 | 3.2 | New: the system contracts against their own rules | 10 |
 | 3.3 | New: the integrator documents against the specs | 8 |
 | 3.4 | New: porting the existing module catalog | 7 |
@@ -2157,6 +2157,96 @@ other rules depend on is not stated.
 - **Overlap:** TF-03, TF-29.
 - **Suggested resolution:** say in INTERFACE beside l.1635 that a context written with a failure is
   ignored and never destroyed, and in LOADER §6 that such a failure leaves nothing to clean.
+
+#### TF-50 — At a hosted provider's endpoint, which event commits a Response and when a policy change takes effect there are not stated
+- **Specs:** TRANSPORT l.867 ("The terminal-response linearization point is the commitment of a Response
+  to the connection's ordered output sequence"), l.987-989 ("When the route expires or is revoked, that
+  Runtime MUST stop admitting new operations and terminate affected subscriptions and the protected
+  session"; "A new Request processed during termination MUST receive a correlated
+  `logos.transport.response-err` with `NOT_AUTHORISED`, without dispatch"), l.1123 ("The Module Host MUST
+  serve only that transferred listener and MUST NOT bind or substitute another endpoint"); RUNTIME l.130
+  ("For a hosted provider, it may also expose the provider endpoint and perform provider-side
+  invocation"), l.955 ("Any carrier between a Module Host and the owning Runtime is realization-internal
+  machinery rather than an ordinary provider route"), l.1293-1296 ("Runtime MUST order the applicable
+  policy transition with the decision to commit a Response; a prior authorization check MUST NOT permit a
+  later commitment contrary to that policy"; "A committed result can still be lost when the connection
+  terminates; commitment is not proof of receipt or rollback").
+- **Issue:** the connections of a hosted provider are held by its Module Host, which serves the listener
+  (TRANSPORT l.1123; RUNTIME l.130). A Response is committed when it enters the ordered output sequence of
+  its connection (TRANSPORT l.867), and that sequence is in the Module Host. The policy transitions that a
+  commitment must be ordered with are changes of Runtime state (RUNTIME l.958): a revocation, an expiry, a
+  stop. RUNTIME l.1293 gives the ordering to "Runtime", and TRANSPORT l.987 gives the end of the session
+  to "that Runtime". How the two processes meet is left to the carrier, which is not specified (RUNTIME
+  l.955). Two points stay open, and both can be seen from outside.
+  1. Which event is "the decision to commit a Response" (RUNTIME l.1293). It may be the acceptance of the
+     Response into the output sequence by the Module Host, or a decision that the Runtime takes for each
+     Response before the Module Host may write it. Under the second, every Response of a hosted provider
+     waits for an exchange with the Runtime.
+  2. When a policy transition takes effect at that endpoint: when the Runtime decides it, or when the
+     Module Host processes what the Runtime tells it. A Response that the Module Host accepts between the
+     two is "a later commitment contrary to that policy" (RUNTIME l.1293) under the first and a permitted
+     one under the second. The same question holds for "A new Request processed during termination"
+     (TRANSPORT l.989): when termination has begun for a Request that the Module Host reads is not said.
+- **Impact:** a consumer may or may not receive a successful Response after the Runtime has recorded the
+  route as revoked, and the outcome the Runtime records for the call may differ from what the consumer
+  received. One implementation sends every Response through the Runtime to order it, and another lets the
+  Module Host commit.
+- **Reading an implementation needs today:** the Module Host commits. A policy transition takes effect at
+  a hosted endpoint when the Module Host processes what the Runtime tells it, and a Response accepted
+  before that is committed under the earlier policy. The Module Host reports what it committed, and the
+  Runtime records that.
+- **Overlap:** TF-23, TF-33, TF-51.
+- **Suggested resolution:** say in RUNTIME §7.3.1 that for a hosted provider the boundary in the Module
+  Host makes the commit decision and that a policy transition takes effect there when that boundary
+  processes it, or say that the Runtime decides each Response.
+
+#### TF-51 — Whose computation of the payload roots enters a call record when the payload never enters the Runtime's own process is not stated
+- **Specs:** RUNTIME l.128 ("The Runtime enforcement point that resolves the consumer, route, selected
+  provider, selected contract, method, authority, commitments, and audit requirements for a call"),
+  l.775-776 ("The handle wraps a local transport connection to the selected provider"), l.951 ("its
+  process-local invocation boundary remains part of the same logical Runtime routing domain"), l.962 ("An
+  invocation boundary that shares an address space with module code"), l.1762-1764 ("Runtime MUST compute
+  every request and successful-response payload commitment at the Runtime-controlled invocation boundary,
+  independently of whether authority policy requires audit retention"), l.1771-1772 ("It MUST derive each
+  retained request or response commitment from the schema-typed value at the enforcement boundary, not
+  from an unverified root or contract identifier supplied by the provider or consumer"); CA l.1174 ("the
+  Runtime-controlled invocation boundary MUST produce a `call` audit record"), l.1205 ("`value_root` is
+  the corresponding root computed or verified under those exact inputs"); TRANSPORT l.1123 ("The Module
+  Host MUST serve only that transferred listener and MUST NOT bind or substitute another endpoint");
+  SECURITY l.506 ("call evidence authenticates one retained call record and optional verified views
+  without granting authority or proving computation correctness"), l.522 ("place third-party native code
+  behind a selected process or application isolation profile whose required controls are available").
+- **Issue:** on the path that RUNTIME describes for local transport, the handle of a hosted consumer holds
+  a connection to the provider's endpoint (l.775-776), and the endpoint of a hosted provider is in its
+  Module Host (TRANSPORT l.1123). A call between two hosted modules then goes from one Module Host to the
+  other, and its payload never enters the Runtime's own process. The Runtime must still compute both roots
+  at the Runtime-controlled invocation boundary (RUNTIME l.1762-1764), and a retained root must come from
+  the value at the enforcement boundary and not from a root "supplied by the provider or consumer"
+  (RUNTIME l.1771-1772). The only boundaries that see the value are those inside the two Module Hosts, and
+  each shares an address space with module code (RUNTIME l.962). Whether such a boundary is the
+  Runtime-controlled invocation boundary for these rules is not said. Two readings are open.
+  1. It is, as "part of the same logical Runtime routing domain" (RUNTIME l.951). The record then holds a
+     root that was computed in a process the module's code can alter, and nothing in the record or in the
+     call evidence (SECURITY l.506) shows that. Which side's root the record holds when both ends are
+     hosted is not said either: the sending boundary computes it (TRANSPORT l.655), the receiving boundary
+     recomputes it (SECURITY l.338-341), and CA l.1205 allows "computed or verified".
+  2. It is not, and a root reported by a Module Host is one "supplied by the provider or consumer"
+     (RUNTIME l.1772). The value must then pass through a process of the Runtime itself. Since RUNTIME
+     l.1762-1764 ask for the roots of every call, with or without retention, every payload passes through
+     the Runtime, and the direct path of RUNTIME l.775-776 is not available.
+- **Impact:** the `call` record of one implementation rests on the Runtime's own computation and that of
+  another on a Module Host, and the two records look the same. A module is placed in a host because it is
+  not trusted to share the Runtime's address space (SECURITY l.522), and under the first reading the
+  record of its calls rests on that module's process.
+- **Reading an implementation needs today:** the first. The boundary in the provider's Module Host
+  verifies the request root and computes the response root, and reports them to the Runtime, which writes
+  the record. The deployment documents that the roots of a hosted call rest on the integrity of the
+  provider's Module Host.
+- **Overlap:** TF-50, the TF-06 note on the sentences that describe local transport mode.
+- **Suggested resolution:** say in RUNTIME §9, beside l.1762, whether a boundary inside a Module Host is
+  the Runtime-controlled invocation boundary for commitments and call records. If it is, say that the
+  record's roots carry the trust of that Module Host, and which side's root is recorded. If it is not, say
+  that the payload of such a call passes through the Runtime.
 
 ### 3.2 The system contracts, checked against their own rules
 
