@@ -3027,6 +3027,20 @@ holds keys. A and B stand for other modules and are local to one item.
 - TRANSPORT l.1120: Runtime "MUST NOT follow, remove, or replace a symbolic link or another filesystem
   object at that path". Who clears an endpoint path left by a Runtime that ended without cleanup is not
   said.
+- RUNTIME describes local transport mode in three sentences, none with a requirement keyword. Two put the
+  consumer's end of the provider session in the process that holds the route handle: "The handle wraps a
+  local transport connection to the selected provider" (l.775-776), and "the process-local invocation
+  boundary uses only the invocation material bound to that route and translates typed calls into
+  LOGOS-MODULE-TRANSPORT messages" (l.1337). The third names the Runtime as the Transport peer of a hosted
+  provider: "Runtime communicates with the process-local invocation boundary over LOGOS-MODULE-TRANSPORT"
+  (l.1077). The same specification leaves the layout open: "Any carrier between a Module Host and the
+  owning Runtime is realization-internal machinery rather than an ordinary provider route" (l.955), and
+  "If Runtime, a process-local invocation boundary, or a facade provider remains on the invocation path,
+  that is an implementation property of the selected provider or descriptor" (l.3040-3041). A Runtime that
+  holds a hosted consumer's provider session itself, and exchanges each call with the Module Host over
+  that carrier, fits l.955, l.1077 and l.3040-3041 and not l.775-776 or l.1337. Whether those two
+  sentences describe one permitted layout or the required one is left to inference. Saying that they
+  describe one permitted layout would settle it.
 
 ---
 
