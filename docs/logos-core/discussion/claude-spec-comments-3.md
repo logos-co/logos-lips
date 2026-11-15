@@ -3123,7 +3123,10 @@ holds keys. A and B stand for other modules and are local to one item.
   The label lacks that condition.
 - RUNTIME l.3441-3442: a Runtime that implements no remote transport profile has no stated answer to a
   valid `set_remote_listener` that enables a listener. It may be `TRANSPORT_ERROR` "when the failure is in
-  transport setup", or `MODULE_ERROR` under l.3442.
+  transport setup", or `MODULE_ERROR` under l.3442. A request that disables a listener asks nothing of the
+  transport: "Remote listeners and provider exports MUST be disabled by default" (l.2830), and the method
+  "idempotently assigns the requested listener state" (l.3431). Whether a listener in that default state
+  has a record, which `list_remote_listeners` returns and an export can name (l.3451), is not said.
 - LOADER l.258: "graceful release, and the fixed hosted-provider Transport profile are required behavior".
   Read alone, the sentence binds a Loader that advertises no hosted strategy, which l.252-255 allow.
 - TRANSPORT l.1119: "The directory mode MUST be `0700` on POSIX filesystems". If a deployment gives each
