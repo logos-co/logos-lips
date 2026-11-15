@@ -48,6 +48,7 @@
 | 1.16.0 | Gas Determination table updated for strict Ed25519 verification: channel Operations 56 → 59 Execution Gas per signature, `EXECUTION_SDP_DECLARE_GAS` 646 → 649, from [Gas Cost Determination](analysis-gas-cost-determination.md) 1.7.0 | 2026-09-24 |
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
 | 1.18.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, `SDP_WITHDRAW` no longer names the note, and a `nonce` carries the `created` epoch of its declaration | 2026-10-27 |
+| 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
 
 # Introduction
 
@@ -1075,8 +1076,8 @@ class Locator(bytes):
         assert validate_multiaddr(self)
 
 class MinStake:
-    stake_threshold: int # stake value
-    epoch: EpochNumber # epoch number
+    threshold: TokenValue # stake value
+    timestamp: BlockNumber # see SDP: Minimum Stake
 
 class ServiceParameters:
     inactivity_period: NumberOfEpochs # number of epochs
@@ -1175,7 +1176,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       ```python
       assert ledger.is_unspent(declaration.service_note_id)
       note = ledger.get_note(declaration.service_note_id)
-      assert note.value >= min_stake.stake_threshold
+      assert note.value >= min_stake.threshold
       ```
 
 #### Execution

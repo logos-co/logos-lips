@@ -48,7 +48,7 @@ These terms, the wire protocol and message flows are explained below.
 
 ### Wire protocol
 
-#### Reconcilation payload
+#### Reconciliation payload
 
 Nodes participating in the `reconciliation` protocol exchange encoded `RangesData` messages.
 
@@ -63,6 +63,8 @@ The `RangesData` structure represents a complete `reconciliation` payload:
 The `cluster` and `shards` fields
 represent the sharding elements as defined in [RELAY-SHARDING](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/core/raw/relay-sharding.md#static-sharding).
 The `ranges` field contain a sequence of ranges for reconciliation.
+A `RangesData` whose `ranges` field is empty is an *empty payload*.
+Two peers *match* when they have the same `cluster` and the same set of `shards`.
 
 We identify the following subtypes:
 
@@ -125,7 +127,7 @@ and a reconciliation status:
 | Field      | Type       | Description                          |
 |------------|------------|--------------------------------------|
 | elements   | seq[`SyncID`] | Sequence of `SyncID`s in the `Range` |
-| reconciled | bool       | Whether the `Range` has been reconciled  |
+| reconciled | bool       | `true` when the sender has already compared the `Range` with the remote peer's items, `false` when it still needs them |
 
 #### Payload encoding
 
@@ -138,6 +140,9 @@ Concatenate each of the following, in order:
 3. For each shard, encode the shard as a varint and concatenate it to the previous
 4. Encode the `ranges`, according to ["Delta encoding for Ranges"](#delta-encoding-for-ranges).
 
+An empty payload is therefore encoded as steps 1 to 3 alone: the cluster ID, the number of shards and the shards.
+It is never zero bytes: a message of zero length is malformed.
+
 ##### Varint encoding
 
 All variable integers (varints) MUST be encoded as little-endian base 128 variable-length integers (LEB128) and MUST be minimally encoded.
@@ -145,6 +150,7 @@ All variable integers (varints) MUST be encoded as little-endian base 128 variab
 ##### Delta encoding for Ranges
 
 The `ranges` field contain a sequence of `Ranges`.
+The ranges of a payload MUST be contiguous: each range's lower bound is the previous range's upper bound, and the first range's lower bound is SyncID `0`.
 
 It can be delta encoded as follows:
 
@@ -229,27 +235,32 @@ Each syncing peer performs the following in response to a `RangesData` payload:
 
 The responder:
 1. Receives and decodes the payload
-2. If shards and cluster match, processes each range:
-   - If the received range is of type `Skip`, ignores it.
+2. If the payload is an empty payload, closes the stream without replying:
+   - If the payload's `cluster` and `shards` match the responder's own, the session has finished.
+   - Otherwise, the remote peer aborted the session.
+3. Otherwise, if shards or cluster don't match:
+   - Responds with an empty payload carrying its own cluster ID and supported shards.
+4. If the payload's `cluster` and `shards` match the responder's own, processes each range:
+   - If the received range is of type `Skip`, processes it no further.
+      - If the received `Skip` range is the trailing range, it MAY be omitted from the response.
+      Otherwise, the responder MUST include it in the response as type `Skip` so that range bounds remain contiguous.
    - If the received range is of type `Fingerprint`, computes the fingerprint over the local matching range
       - If the local fingerprint matches the received fingerprint, includes this range in the response as type `Skip`
       - If the local fingerprint does _not_ match the received fingerprint:
-         - If the corresponding range is small enough, includes this range in the response as type `ItemSet` with all `SyncID`s
+         - If the corresponding range is small enough, includes this range in the response as type `ItemSet` with all `SyncID`s and `reconciled` set to `false`
          - If the corresponding range is too large, divide it into subranges.
-         For each subrange, if the range is small enough, includes it in the response as type `ItemSet` with all `SyncID`s.
+         For each subrange, if the range is small enough, includes it in the response as type `ItemSet` with all `SyncID`s and `reconciled` set to `false`.
          If the subrange is too large, includes it in the response as type `Fingerprint`.
    - If the received range is of type `ItemSet`, compares it to the local items in the corresponding range
       - If there are any differences between the local and remote items, adds these as part of the output of the `reconciliation` procedure.
       At this point, the syncing peers MAY start to exchange the full messages corresponding to differences using the `transfer` protocol.
-      - If the received `ItemSet` is _not_ marked as `reconciled` by the remote peer, includes the corresponding local range in the response as type `ItemSet`.
-      - If the received `ItemSet` is marked as `reconciled` by the remote peer, includes the corresponding local range in the response as type `Skip`.
-3. If shards or cluster don't match:
-   - Responds with an empty payload
-4. Delta encodes the response
-5. Sends the response using libp2p length-prefixed encoding
-
-This process continues until the syncing peer crafts an empty response,
-i.e., when all ranges have been processed and reconciled by both syncing peers and there are no differences left.
+      - If the received `ItemSet` has `reconciled` set to `false`, includes the corresponding local range in the response as type `ItemSet` with all `SyncID`s, the same range bounds and `reconciled` set to `true`.
+      - If the received `ItemSet` has `reconciled` set to `true`, includes the corresponding local range in the response as type `Skip`.
+5. Before encoding the response:
+   - Adjacent `Skip` ranges MAY be merged.
+   - A response consisting only of `Skip` ranges MUST be sent as an empty payload.
+6. Delta encodes the response
+7. Sends the response using libp2p length-prefixed encoding
 
 ## Transfer Protocol
 
@@ -258,7 +269,9 @@ i.e., when all ranges have been processed and reconciled by both syncing peers a
 Once the `reconciliation` protocol starts finding differences in `SyncID`s,
 the `transfer` protocol MAY be used to exchange actual message contents between peers.
 A node using `transfer` SHOULD proactively send [`14/WAKU2-MESSAGE`](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/core/stable/14/message.md)s missing in the remote party.
-Nodes SHOULD only accept incoming transfers from peers for which they have an active reconciliation session.
+A node SHOULD only accept via `transfer` messages whose `SyncID` it identified as missing during a `reconciliation` session.
+The differences found in the last round of a session are transferred after that session has ended,
+so a rule that accepts transfers only while a reconciliation session is open rejects legitimate messages.
 The `SyncID`s corresponding to messages received via `transfer`,
 MUST be added to the corresponding `Range` tracked by the `reconciliation` protocol.
 The `transfer`payload MUST follow the wire specification below.
