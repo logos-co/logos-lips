@@ -1158,33 +1158,57 @@ other rules depend on is not stated.
   checked against; and state whether startup establishes orchestration when its retained intent is
   `stopped`.
 
-#### TF-27 — The host must accept a Runtime-generated instance id, and the Host Embedding API never shows it one
+#### TF-27 — The host must accept a Runtime-generated instance id, and the Host Embedding API never shows it one; whether a Runtime that signs call evidence must keep its identity is not stated
 - **Specs:** RUNTIME §9.3 l.2659-2660 ("A runtime instance id is an opaque string chosen or accepted by
   the runtime host for a concrete runtime instance"), l.2665-2667 ("A runtime instance id MAY be
   host-assigned or runtime-generated"; "If the runtime generates the id, the runtime host MUST accept it
   before the id is used in runtime-control, addressing, or route records owned by that host"),
   l.2671-2672 (for the remote profiles, "The runtime host or authorized provisioning system generates it
-  once and preserves it for the lifetime of that logical Runtime identity"), l.2553 (`get_self` "returns
-  the complete authenticated module-instance address associated with the invoked Runtime Control
-  binding"); §13 l.3935 ("It is not a module contract and does not give the host a module-instance or
-  consumer identity"), §13.2 l.3963-3970 (six operations), §13.3 l.4019-4030 (each returns
-  `logos_result_t`, and the only output is the handle), l.4034 ("an implementation-defined
-  configuration format").
+  once and preserves it for the lifetime of that logical Runtime identity"), l.2675 ("Assigning a new
+  Runtime identity requires a new enrollment"), l.2553 (`get_self` "returns the complete authenticated
+  module-instance address associated with the invoked Runtime Control binding"); §13 l.3935 ("It is not a
+  module contract and does not give the host a module-instance or consumer identity"), §13.2 l.3963-3970
+  (six operations), §13.3 l.4019-4030 (each returns `logos_result_t`, and the only output is the handle),
+  l.4034 ("an implementation-defined configuration format"); CA §9.1 l.1265 ("Protected trust input MUST
+  map each accepted `kid` to exactly one producer Runtime identity and one exact 48-byte
+  `SLH-DSA-SHA2-192s` public key"), l.1282 ("Rotation installs a new key under a new `kid` before the
+  producer begins using it"), l.1284-1285 ("Evidence under an unknown or revoked `kid` MUST be rejected";
+  "In this baseline, revocation invalidates all evidence under that key"), l.1290 ("The `producer` MUST
+  equal the Runtime identity authorized for the selected `kid`"); SECURITY l.367 ("The signing key has a
+  distinct evidence-signing purpose and is bound through protected trust input to the producer Runtime
+  identity").
 - **Issue:** a host-assigned id reaches the Runtime inside the implementation-defined configuration, and
   that is enough. For a Runtime-generated id the host "MUST accept it" before its first use, and the six
   host operations neither return the id nor take an acceptance. The id is in use as soon as startup
   creates module-instance addresses. The duty therefore cannot be discharged through the standard
   interface. The host cannot read the id afterwards either: `get_self` returns it to a module, and the
   host is not one.
+
+  The second question is how long the id lasts. For the remote profiles it is generated once and preserved
+  (RUNTIME l.2671-2672), and a new identity needs a new enrollment (RUNTIME l.2675). For a Runtime that
+  uses local transport only, no rule says that the id survives a restart. Call evidence presumes that it
+  does. The trust input of a verifier maps each accepted `kid` to "exactly one producer Runtime identity"
+  (CA l.1265), and the `producer` of each record must equal it (CA l.1290). A Runtime that takes a fresh
+  id at each start and signs under one key produces, after its first restart, records whose producer no
+  trust input names. Rotation is defined for the key (CA l.1282) and not for the identity: whether a
+  Runtime whose identity changes must take a new key and `kid`, and what becomes of evidence signed under
+  the old pairing, is not said. CA l.1284-1285 provide only for an unknown or a revoked `kid`.
 - **Impact:** an implementation that generates the id either leaves the MUST unmet or defines an
   implicit acceptance of its own. A host that needs the id, to provision an enrollment for a remote
-  profile or to relate its own records to the Runtime's, has to obtain it through a private channel.
+  profile or to relate its own records to the Runtime's, has to obtain it through a private channel. An
+  implementation that keeps its id only while it runs cannot have its call evidence verified after a
+  restart. One that keeps the `kid` across a change of identity leaves a verifier with two producers under
+  one `kid`, which CA l.1265 excludes.
 - **Reading an implementation needs today:** document that choosing a configuration which lets the
-  Runtime generate the id is the host's acceptance of it; a host that needs to know the id assigns it.
+  Runtime generate the id is the host's acceptance of it; a host that needs to know the id assigns it. A
+  Runtime that signs call evidence keeps one identity for as long as its key is in use: the host assigns
+  the id and keeps it with the key, and a new identity takes a new key and `kid`.
 - **Overlap:** TS-01 (what the host cannot do through the Host Embedding API), SO-03 (declined), TF-25.
 - **Suggested resolution:** add a host operation that returns the Runtime instance id once the handle
   exists and before startup, or state that a configuration permitting generation is the acceptance that
-  l.2666-2667 requires.
+  l.2666-2667 requires. Say in RUNTIME §9.3 that a Runtime which produces call evidence preserves its
+  identity, as l.2671-2672 require for the remote profiles, and in CA §9.1 that a change of the producer's
+  identity requires a new `kid`.
 
 #### TF-28 — A stop that outlives its drain deadline: the state at expiry, and the state when its cleanup later ends, are not stated
 - **Specs:** RUNTIME §3.4 l.569-570 (`stopping`: "Runtime has begun logical shutdown and is waiting for
@@ -3131,6 +3155,30 @@ holds keys. A and B stand for other modules and are local to one item.
   that carrier, fits l.955, l.1077 and l.3040-3041 and not l.775-776 or l.1337. Whether those two
   sentences describe one permitted layout or the required one is left to inference. Saying that they
   describe one permitted layout would settle it.
+- CA l.1326: "Sensitive evidence requires confidentiality-protected transport and storage." The sentence
+  has no requirement keyword and names no component, and sensitive evidence is not defined. SECURITY l.369
+  says of all call evidence "Its disclosure and storage still require confidentiality protection and audit
+  authority", also without a keyword. Evidence of a marked payload cannot exist, because its commitment is
+  never retained: "Runtime MUST reject the invocation before dispatch rather than retain it or omit the
+  policy requirement" (INTERFACE l.397). What a store of evidence can hold is the retained roots of
+  unmarked payloads and the optional proofs (CA l.1242). Of such a root SECURITY l.402 says "An observer
+  who knows the schema can test guessed values against an exposed commitment". Whether a file that only
+  its owner can read is confidentiality-protected storage, or encryption at rest is meant, is not said:
+  "This specification does not define a second encrypted evidence format" (CA l.1327). Saying which
+  evidence is sensitive, which component protects it and with which keyword would settle it.
+- BCP l.367 asks the deployment document for "accepted-declaration selection and exact package/version
+  pinning for package-backed module creation". Whether "for package-backed module creation" qualifies both
+  parts or only the pinning is not said. A deployment that creates no package-backed instance owes the
+  first part under one reading and nothing under the other.
+- BCP l.376: "The documentation MUST also identify Package Manager installation and inventory scope,
+  shared-state coordination, and the protected administration of required operating-system integration
+  material". Whether "Package Manager" governs the first element alone or all three is not said. A
+  deployment without a Package Manager owes the last two under one reading and nothing under the other.
+- CA l.394-395 require a profile that permits operating-system or platform access to define permission
+  names and constraints "for every facility it exposes" (l.395). CA l.396 then says "Relevant facilities
+  include:" and lists seven classes (l.398-404). Whether a profile must tell those classes apart, or the
+  list is an illustration, is not said. A profile with one permission that stands for every class meets
+  l.394-395 under one reading and fails it under the other.
 
 ---
 
