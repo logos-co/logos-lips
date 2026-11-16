@@ -319,7 +319,9 @@ other rules depend on is not stated.
   already-installed package identity with the same manifest commitment succeeds with the current installed
   record and creates no duplicate"), l.1680 (`update_package` "selects a version strictly greater than
   `current`"), l.1672 (`remove_package` fails with `package-in-use` while another installed package
-  depends on the package), l.1504-1513 (the method list).
+  depends on the package), l.1504-1513 (the method list), l.542 ("Equal manifest commitments MUST NOT by
+  themselves establish equal signer provenance"), l.1685 ("If no applicable newer version exists, the
+  operation succeeds with the current installed record and changes nothing").
 - **Issue:** when the overlap ends, an installed package whose retained signer is the removed key can no
   longer be handed off to Runtime. The publisher can sign the unchanged manifest with the new key, because
   the signature covers the manifest commitment and not the reverse. No operation accepts that signature
@@ -327,12 +329,24 @@ other rules depend on is not stated.
   needs a greater version, and there is no re-verification method. What remains is removing and
   reinstalling the package, which is refused while another installed package depends on it, or a new
   release of every package that was signed with the old key.
+
+  A second point concerns the two operations that change nothing. `install_package` for an installed
+  identity with the same manifest commitment "succeeds with the current installed record" (PM l.1667), and
+  `update_package` with no newer version "succeeds with the current installed record and changes nothing"
+  (PM l.1685). When the signer retained with that record is no longer accepted, PM l.431 forbids the use
+  of the removed anchor "for a new successful resolution, installation, update, or Runtime handoff", and
+  PM l.405 says that retained provenance does not stand in for current trust. Whether such a call
+  succeeds, because it installs nothing new, or fails, because its success rests on a signer that is no
+  longer accepted, is not said. The caller sees the difference.
 - **Impact:** a routine key rotation becomes a re-release of the publisher's whole catalog or an uninstall
   on every device, and a revoked key cannot be replaced for a package whose content has not changed.
 - **Overlap:** NP-10 (continuity of trust input), TS-05.
 - **Suggested resolution:** let `install_package` accept an installed package identity with an unchanged
   manifest commitment under a signature by a currently accepted signer and replace the retained signer
   record; or add a re-verification method; or state that rotation requires a new release of each package.
+
+  Say also which outcome an `install_package` or `update_package` call that changes nothing has while the
+  signer retained with the installed record is not accepted.
 
 #### TF-08 — A statically linked module across an update of the host binary: whether the instance survives is not said
 - **Specs:** RUNTIME l.1394-1396 ("Core supports static realization through protected registration but
@@ -2288,39 +2302,50 @@ other rules depend on is not stated.
   handle or establish its Transport session"); TRANSPORT l.1123 ("The Module Host MUST serve only that
   transferred listener and MUST NOT bind or substitute another endpoint"), l.1213 ("the authenticated
   source Runtime identity matches the route consumer's `runtime_instance_id`"), l.1289 ("One authenticated
-  connection carries one such provider session and channel-binding use").
+  connection carries one such provider session and channel-binding use"); LOADER l.331 ("Module Loader MAY
+  convey a private invocation channel between a Module Host and a Runtime-controlled Transport adapter
+  outside the module's execution envelope"), l.333 ("It MUST NOT expose Runtime credentials to the Module
+  Host or module").
 - **Issue:** for local transport the specifications say where the sessions of a hosted module live: its
   Module Host serves the listener that the Runtime transferred (TRANSPORT l.1123), and the boundary in
-  that process may expose the provider endpoint (RUNTIME l.130). For remote transport they name only the
-  Runtime. A remote connection is authenticated on both sides as a Runtime (TRANSPORT l.1213; RUNTIME
-  l.2841). The Runtime has one credential (RUNTIME l.2705-2706), and that credential may not be placed in
-  a process that also holds module code (RUNTIME l.962-963). So the component that authenticates a remote
-  connection is not a Module Host. What carries the session after that is described in two ways. At the
-  provider's end, RUNTIME l.2850-2851 has the Runtime dispatch each message to the provider over its local
-  path, in a sentence without a requirement keyword, and RUNTIME l.2854-2855 forbids only the exposure
-  that bypasses enforcement. At the consumer's end, RUNTIME l.779-780 and l.3130 put the connection with
-  the handle and its language binding, and RUNTIME l.1338 puts it on a path between two Runtimes. Two
-  points stay open.
-  1. Whether the component that authenticated the connection must stay on the path of every payload of the
-     session, relaying between the remote connection and the local path of a hosted module, or whether the
-     session may then be carried by the Module Host of the hosted consumer or provider. A connection
-     carries one provider session (TRANSPORT l.1289), so it never serves two module instances.
-  2. If it may, whether a session served in the provider's own process is exposed "in a way that bypasses
-     this enforcement boundary" (RUNTIME l.2855) when the boundary in that process enforces the route's
-     method and event access, as it does for a local session (TF-50).
-- **Impact:** the two layouts interoperate, because the peer sees the same connection. They differ in
-  whether the second conforms, in which process holds the payloads of every remote call, and in where the
-  payload commitments of a remote call are computed (TF-51). An implementation that keeps payloads out of
-  the Runtime's own process for local routes has no stated way to do the same for remote routes.
-- **Reading an implementation needs today:** a component of the Runtime that holds no module code
-  authenticates each remote connection, redeems the ticket and stays the peer of the session. It exchanges
-  the session's messages with a hosted module over that module's local path.
+  that process may expose the provider endpoint (RUNTIME l.130). For remote transport they name the
+  Runtime and, as an option, one component beside it: a Transport adapter under the Runtime's control and
+  outside the module's execution envelope, to which the Loader may convey a private channel from a Module
+  Host (LOADER l.331). A remote connection is authenticated on both sides as a Runtime (TRANSPORT l.1213;
+  RUNTIME l.2841). The Runtime has one credential (RUNTIME l.2705-2706), which may not be placed in a
+  process that also holds module code (RUNTIME l.962-963) and which the adapter may not expose to a Module
+  Host (LOADER l.333). So the component that authenticates a remote connection is not a Module Host. What
+  carries the session after that is described in more than one way. At the provider's end, RUNTIME
+  l.2850-2851 has the Runtime dispatch each message to the provider over its local path, in a sentence
+  without a requirement keyword, and RUNTIME l.2854-2855 forbids only the exposure that bypasses
+  enforcement. At the consumer's end, RUNTIME l.779-780 and l.3130 put the connection with the handle and
+  its language binding, and RUNTIME l.1338 puts it on a path between two Runtimes. The adapter is
+  permitted and not required. Two points stay open.
+  1. Whether the component that authenticated the connection, the adapter where there is one, must stay on
+     the path of every payload of the session, relaying between the remote connection and the private
+     channel or local path of a hosted module, or whether the session may then be carried by the Module
+     Host of the hosted consumer or provider. A connection carries one provider session (TRANSPORT
+     l.1289), so it never serves two module instances.
+  2. If it may, whether the traffic keys of that one session are "Runtime credentials" in the sense of
+     LOADER l.333, and whether a session served in the provider's own process is exposed "in a way that
+     bypasses this enforcement boundary" (RUNTIME l.2855) when the boundary in that process enforces the
+     route's method and event access, as it does for a local session (TF-50).
+- **Impact:** the layouts interoperate, because the peer sees the same connection. They differ in whether
+  the second conforms, in which process holds the payloads of every remote call, and in where the payload
+  commitments of a remote call are computed (TF-51). An implementation that keeps payloads out of the
+  Runtime's own process for local routes can do so for remote routes only through an adapter, with one
+  more process on the path at each end.
+- **Reading an implementation needs today:** a component of the Runtime that holds no module code, such as
+  the adapter of LOADER l.331, authenticates each remote connection, redeems the ticket and stays the peer
+  of the session. It exchanges the session's messages with a hosted module over a private channel or that
+  module's local path.
 - **Overlap:** TF-50, TF-51, TS-04 (one connection for each route), the TF-06 note on the sentences that
   describe local transport mode.
 - **Suggested resolution:** say in RUNTIME §9.3 whether l.2850-2851 describes a required hop or one
   permitted layout, and whether an authenticated provider session, or the caller's end of one, may be
   carried by the process-local invocation boundary of a hosted module once the Runtime has authenticated
-  the connection and bound the session to its route.
+  the connection and bound the session to its route. Say in LOADER §5.4 whether the adapter is the only
+  component that may stand between a remote connection and a Module Host.
 
 ### 3.2 The system contracts, checked against their own rules
 
@@ -3266,6 +3291,20 @@ holds keys. A and B stand for other modules and are local to one item.
   Package Manager's own answer to the Runtime is `package-not-installed` (PM l.1645), the handoff is
   refused, or the Package Manager binding is not ready. Whether `create_module` reports these as one
   outcome, and whether that outcome may differ from a denial, is not said.
+- RUNTIME l.2701: "Public-key rotation uses a higher active revision containing both old and new keys
+  during overlap." An enrollment names one trust anchor (RUNTIME l.2018), and when the peer's certificate
+  is itself that anchor, "The direct-anchor case requires equality with the provisioned certificate's
+  complete DER encoding" (TRANSPORT l.1260). A certificate for the new key is a different certificate, so
+  a Runtime whose certificate is directly anchored cannot present both keys under one enrollment. It can
+  rotate without an overlap, or leave direct anchoring for a certificate chain, whose non-anchor
+  certificates need revocation evidence (TRANSPORT l.1265). Which is intended for the direct-anchor case
+  is not said.
+- RUNTIME l.1983 makes `profile` optional in a `tls-tcp` address ("? profile:
+  logos.runtime_control.address_profile,"), as l.1975 and l.1992 do for the other two address forms. In an
+  invocation descriptor "The endpoint's `profile` field MUST be present" (RUNTIME l.2975), and the field
+  "selects the complete remote transport and security profile" (TRANSPORT l.1204-1205). What an address
+  without `profile` selects where the field is not required, for a listener (RUNTIME l.3433) or for the
+  target of `connect_remote`, is not said: a default for each transport, or a refusal.
 
 ---
 
