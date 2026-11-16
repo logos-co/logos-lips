@@ -2288,24 +2288,27 @@ other rules depend on is not stated.
 
 #### TF-52 — For a remote route, which component carries the session of a hosted consumer or provider is not stated
 - **Specs:** RUNTIME l.130 ("For a hosted provider, it may also expose the provider endpoint and perform
-  provider-side invocation"), l.779-780 ("The handle wraps a remote transport connection to the selected
-  remote provider"), l.962-963 ("An invocation boundary that shares an address space with module code MUST
-  NOT place unrelated secrets or authority material in that address space"), l.1338 ("the route handle
-  uses the authenticated Runtime-to-Runtime path and provider session established for that route"),
-  l.2705-2706 ("The baseline uses one Runtime credential for the Runtime identity; ordinary modules and
-  providers do not receive separate long-lived certificates"), l.2836 ("The provider endpoint is
-  controlled by Runtime"), l.2841 ("The provider-side endpoint MUST authenticate as the Runtime that owns
-  the selected provider"), l.2850-2851 ("Runtime dispatches authorized messages to the selected provider
-  through its protected local invocation path"), l.2854-2855 ("The mandatory remote profile MUST NOT
-  expose an individual module process or container in a way that bypasses this enforcement boundary"),
-  l.3130 ("A language binding MAY materialize a ready route returned by those methods as a process-local
-  handle or establish its Transport session"); TRANSPORT l.1123 ("The Module Host MUST serve only that
-  transferred listener and MUST NOT bind or substitute another endpoint"), l.1213 ("the authenticated
-  source Runtime identity matches the route consumer's `runtime_instance_id`"), l.1289 ("One authenticated
-  connection carries one such provider session and channel-binding use"); LOADER l.331 ("Module Loader MAY
-  convey a private invocation channel between a Module Host and a Runtime-controlled Transport adapter
-  outside the module's execution envelope"), l.333 ("It MUST NOT expose Runtime credentials to the Module
-  Host or module").
+  provider-side invocation"), l.475 ("direct bindings or local transport endpoints for local module
+  instances, or remote transport and target material for remote module facades"), l.779-780 ("The handle
+  wraps a remote transport connection to the selected remote provider"), l.962-963 ("An invocation
+  boundary that shares an address space with module code MUST NOT place unrelated secrets or authority
+  material in that address space"), l.1338 ("the route handle uses the authenticated Runtime-to-Runtime
+  path and provider session established for that route"), l.2705-2706 ("The baseline uses one Runtime
+  credential for the Runtime identity; ordinary modules and providers do not receive separate long-lived
+  certificates"), l.2836 ("The provider endpoint is controlled by Runtime"), l.2841 ("The provider-side
+  endpoint MUST authenticate as the Runtime that owns the selected provider"), l.2850-2851 ("Runtime
+  dispatches authorized messages to the selected provider through its protected local invocation path"),
+  l.2854-2855 ("The mandatory remote profile MUST NOT expose an individual module process or container in
+  a way that bypasses this enforcement boundary"), l.3040-3041 ("If Runtime, a process-local invocation
+  boundary, or a facade provider remains on the invocation path, that is an implementation property of the
+  selected provider or descriptor"), l.3130 ("A language binding MAY materialize a ready route returned by
+  those methods as a process-local handle or establish its Transport session"); TRANSPORT l.1123 ("The
+  Module Host MUST serve only that transferred listener and MUST NOT bind or substitute another
+  endpoint"), l.1213 ("the authenticated source Runtime identity matches the route consumer's
+  `runtime_instance_id`"), l.1289 ("One authenticated connection carries one such provider session and
+  channel-binding use"); LOADER l.331 ("Module Loader MAY convey a private invocation channel between a
+  Module Host and a Runtime-controlled Transport adapter outside the module's execution envelope"), l.333
+  ("It MUST NOT expose Runtime credentials to the Module Host or module").
 - **Issue:** for local transport the specifications say where the sessions of a hosted module live: its
   Module Host serves the listener that the Runtime transferred (TRANSPORT l.1123), and the boundary in
   that process may expose the provider endpoint (RUNTIME l.130). For remote transport they name the
@@ -2320,7 +2323,7 @@ other rules depend on is not stated.
   without a requirement keyword, and RUNTIME l.2854-2855 forbids only the exposure that bypasses
   enforcement. At the consumer's end, RUNTIME l.779-780 and l.3130 put the connection with the handle and
   its language binding, and RUNTIME l.1338 puts it on a path between two Runtimes. The adapter is
-  permitted and not required. Two points stay open.
+  permitted and not required. Three points stay open.
   1. Whether the component that authenticated the connection, the adapter where there is one, must stay on
      the path of every payload of the session, relaying between the remote connection and the private
      channel or local path of a hosted module, or whether the session may then be carried by the Module
@@ -2330,6 +2333,13 @@ other rules depend on is not stated.
      LOADER l.333, and whether a session served in the provider's own process is exposed "in a way that
      bypasses this enforcement boundary" (RUNTIME l.2855) when the boundary in that process enforces the
      route's method and event access, as it does for a local session (TF-50).
+  3. Whether the consumer's Runtime may give a hosted consumer a descriptor of the local kind for a route
+     to a facade, naming an endpoint that a component of the Runtime serves and that relays to the remote
+     session. RUNTIME l.3040-3041 allows a facade provider on the invocation path as a property of the
+     selected provider or descriptor. RUNTIME l.475 gives local transport endpoints to local module
+     instances and remote transport material to facades, and TRANSPORT l.1123 describes the listener of a
+     local endpoint for a Module Host only. A descriptor of the remote kind (RUNTIME l.2080-2085) names an
+     endpoint to which the consumer's own process cannot authenticate.
 - **Impact:** the layouts interoperate, because the peer sees the same connection. They differ in whether
   the second conforms, in which process holds the payloads of every remote call, and in where the payload
   commitments of a remote call are computed (TF-51). An implementation that keeps payloads out of the
@@ -2345,7 +2355,8 @@ other rules depend on is not stated.
   permitted layout, and whether an authenticated provider session, or the caller's end of one, may be
   carried by the process-local invocation boundary of a hosted module once the Runtime has authenticated
   the connection and bound the session to its route. Say in LOADER §5.4 whether the adapter is the only
-  component that may stand between a remote connection and a Module Host.
+  component that may stand between a remote connection and a Module Host. Say whether a route to a facade
+  may carry a descriptor of the local kind.
 
 ### 3.2 The system contracts, checked against their own rules
 
