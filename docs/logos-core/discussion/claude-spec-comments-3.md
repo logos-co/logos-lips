@@ -3344,6 +3344,32 @@ holds keys. A and B stand for other modules and are local to one item.
   such as a command-line tool, is in that position whenever its grant is narrower than the provider's
   whole surface. A Runtime Control method that returns the documents of one selected contract would settle
   it.
+- INTERFACE l.2298 has "The fixed common-header and allowed standard-header includes remain governed by
+  Section 3.1", and Section 3.1 names no standard header; the three that `logos_types.h` itself includes
+  (l.3432-3434) are the natural set. INTERFACE l.642 lets file-level include guards differ, and l.2325
+  says "Contract-header dependency includes and the mapping, context, and document identity checks MUST
+  remain outside any enclosing guard that could suppress their evaluation." A guard around a whole file
+  encloses every include and check in it, so the two sentences meet only for a header that has neither.
+  INTERFACE l.2335 says "A C contract MUST include `logos_types.h` rather than redeclare a fixed common
+  type", while l.2218 calls its declarations "available to every C contract". Whether a header that uses
+  those names and has no include is a conforming input is not said.
+- INTERFACE l.2206 has the mapping input "with one subject document or one module selected under Section
+  3.2". Section 3.2 requires that reconstruction "MUST identify one subject document and its complete
+  required dependency set" (l.2282) and does not say how the input designates the subject when the header
+  set holds more than one candidate. So l.2385, "a supporting-schema group supplied as a dependency but
+  not referenced", is open for a set that also holds unrelated headers: every supplied supporting group,
+  or only those that the subject's header includes. INTERFACE l.2332 defines a namespace group as "the
+  complete set of schema-derived declarations assigned to one exact schema namespace". Whether that set
+  may be divided among several header bodies of one input, or each body's share is an incomplete group
+  (l.2375), is not said.
+- INTERFACE l.2605 recovers the module name "from a consistent lifecycle symbol family conforming to
+  Sections 2.1 and 2.6". Section 2.6 says which symbols an implementation makes available (l.1533,
+  l.1547). Which declarations a hand-written header must contain for the family to be consistent is not
+  said: the three identity and lifecycle symbols, or also the three provider symbols when the module is a
+  provider; nor whether a provider symbol in the header of a module that is not a provider is an error.
+  INTERFACE l.31: "Both paths MUST produce identical artifacts for the same logical contract and module
+  binding, if any." What an artifact is, is not said, and l.2634 lets the CDDL text of the two paths
+  differ in comments, whitespace, order and file layout.
 
 ---
 
