@@ -19,7 +19,7 @@ publishes each new public key through discovery,
 keeps accepting its old key for a grace window,
 and then destroys that key together with its replay table.
 Compromise of a node's keys then reveals at most the packets processed under the keys the node still accepts.
-The mix identity, the Sphinx packet format, and the published record format are unchanged.
+The node's [peer ID](https://github.com/libp2p/specs/blob/7740c076350b6636b868a9e4a411280eea34d335/peer-ids/peer-ids.md#peer-ids), the Sphinx packet format, and the published record format are unchanged.
 
 ## 1. Introduction
 
@@ -73,7 +73,7 @@ The following additional terms are used throughout this specification:
 - **Replay Table**: The tags a node has seen under one mix key.
 - **Record**: The information a node publishes through discovery ([Mix Protocol Section 6.1](./mix.md#61-discovery)),
   including its current public key,
-  authenticated under the node's mix identity.
+  authenticated as coming from the node's peer ID.
 - **`D`**: The longest time nodes can still obtain a record whose key has been replaced,
   from the discovery mechanism or any cache they obtain records from,
   such as records relayed by other nodes.
@@ -107,7 +107,7 @@ keys generated at 0:00, 1:00, and 2:00 are all accepted between 2:00 and 2:30.
 ### 3.2 Generation
 
 Each mix key is an X25519 key pair as defined in the [Mix Protocol](./mix.md#82-cryptographic-primitives).
-A node MUST generate each mix key independently of the mix identity and of every other mix key,
+A node MUST generate each mix key independently of the key pair behind its peer ID and of every other mix key,
 and MUST generate a new mix key every `U` seconds on its own clock.
 A node MAY persist its mix keys ([Section 3.5](#35-start-and-restart)).
 A node that does MUST persist them securely,
@@ -164,7 +164,7 @@ and start a new rotation interval from then.
 
 A node that relays packets for others publishes its current public key through discovery
 ([Mix Protocol Section 6.1](./mix.md#61-discovery)),
-authenticated under its mix identity.
+authenticated as coming from its peer ID.
 When it generates a new key,
 it MUST publish the new public key in place of the old one,
 and MUST stop publishing the record with the old key,
