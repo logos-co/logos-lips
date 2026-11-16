@@ -3356,12 +3356,14 @@ holds keys. A and B stand for other modules and are local to one item.
 - INTERFACE l.2206 has the mapping input "with one subject document or one module selected under Section
   3.2". Section 3.2 requires that reconstruction "MUST identify one subject document and its complete
   required dependency set" (l.2282) and does not say how the input designates the subject when the header
-  set holds more than one candidate. So l.2385, "a supporting-schema group supplied as a dependency but
-  not referenced", is open for a set that also holds unrelated headers: every supplied supporting group,
-  or only those that the subject's header includes. INTERFACE l.2332 defines a namespace group as "the
-  complete set of schema-derived declarations assigned to one exact schema namespace". Whether that set
-  may be divided among several header bodies of one input, or each body's share is an incomplete group
-  (l.2375), is not said.
+  set holds more than one candidate. The meaning of l.2385, "a supporting-schema group supplied as a
+  dependency but not referenced", is then open. The required case of l.2960-2970 puts an interface and a
+  supporting document that it does not reference into one header set, and the mapper must "reconstruct
+  either document when selected as the subject" (l.2970). So a supporting group that is merely present is
+  not supplied as a dependency; what makes it one, for example an include from the subject's header, is
+  not said. INTERFACE l.2332 defines a namespace group as "the complete set of schema-derived declarations
+  assigned to one exact schema namespace". Whether that set may be divided among several header bodies of
+  one input, or each body's share is an incomplete group (l.2375), is not said.
 - INTERFACE l.2605 recovers the module name "from a consistent lifecycle symbol family conforming to
   Sections 2.1 and 2.6". Section 2.6 says which symbols an implementation makes available (l.1533,
   l.1547). Which declarations a hand-written header must contain for the family to be consistent is not
