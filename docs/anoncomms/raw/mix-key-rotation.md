@@ -109,16 +109,11 @@ keys generated at 0:00, 1:00, and 2:00 are all accepted between 2:00 and 2:30.
 Each mix key is an X25519 key pair as defined in the [Mix Protocol](./mix.md#82-cryptographic-primitives).
 A node MUST generate each mix key independently of the key pair behind its peer ID and of every other mix key,
 and MUST generate a new mix key every `U` seconds on its own clock.
-A node MAY persist its mix keys ([Section 3.5](#35-start-and-restart)).
-A node that does MUST persist them securely,
-and a node that also publishes its public keys ([Section 4](#4-key-publication))
-MUST persist each key before publishing its public key.
 
 ### 3.3 Destruction
 
 When the grace window of an old key ends,
-a node MUST make that private key and its replay table unrecoverable,
-including any persisted copies.
+a node MUST make that private key and its replay table unrecoverable.
 After that,
 no party can process a packet built for that key.
 
@@ -141,22 +136,8 @@ and SHOULD make the condition observable to its operator.
 
 ### 3.5 Start and Restart
 
-A node keeps its keys' complete replay tables across a restart
-only if it persisted each tag before acting on the packet that produced it.
-A node MUST NOT process packets under a key without its complete replay table.
-Otherwise, packets processed before the restart could be replayed through it.
-
-A node that persists its keys
-MUST also persist when each was generated and replaced.
-This allows it to measure `U` and `G` on its wall clock across restarts.
-
-When a node restarts,
-it MUST destroy every key whose grace window has ended
-or that lacks its complete replay table ([Section 3.3](#33-destruction)),
-and MUST replace its current key if `U` seconds have passed since it was generated.
-If this leaves it without a current key,
-as for a node that does not persist its keys or has lost its persistent storage,
-it MUST generate a new one,
+When a node starts or restarts,
+it MUST generate a new mix key,
 publish it if it relays packets for others ([Section 4](#4-key-publication)),
 and start a new rotation interval from then.
 
@@ -180,8 +161,7 @@ but MUST NOT publish it, as it does not relay packets.
 ## 5. Initiating Node Behavior
 
 A record's age is the time since an initiating node last obtained it from discovery.
-Obtaining the same record again resets its age;
-loading it from the node's own storage does not.
+Obtaining the same record again resets its age.
 
 An initiating node:
 
@@ -287,10 +267,12 @@ since it discards each within `G - U - D` seconds ([Section 7](#7-single-use-rep
 
 Rotation does not open a gap for replays.
 While a key is accepted,
-its replay table detects every replay of a packet built for it ([Section 3.4](#34-replay-tables)),
-including across restarts ([Section 3.5](#35-start-and-restart)).
+its replay table detects every replay of a packet built for it ([Section 3.4](#34-replay-tables)).
 Once the key is destroyed,
 a replayed packet built for it can no longer be processed ([Section 3.3](#33-destruction)).
+After a restart,
+the node accepts only its new key,
+so packets processed before the restart cannot be replayed through it ([Section 3.5](#35-start-and-restart)).
 
 ### 9.3 Sender Partitioning
 
@@ -311,13 +293,16 @@ since a different key can always be a rotation.
 
 If discovery serves an old record for longer than `D`,
 an initiating node keeps a record for longer than `U` seconds,
-or the node loses its keys,
-or its wall clock steps forward across a restart and makes it destroy keys early ([Section 3.5](#35-start-and-restart)),
+or the node restarts ([Section 3.5](#35-start-and-restart)),
 packets built for a key the node no longer holds are lost without notice,
 which looks like the node dropping traffic.
+After a restart,
+this packet loss lasts until initiating nodes obtain the node's new record,
+up to `U + D` seconds,
+and includes replies to SURBs whose return path uses the node.
 An old record remains validly authenticated,
-so a malicious discovery node or cache can also cause this deliberately,
-by serving it beyond `D`.
+so a malicious discovery node or cache can also cause such packet loss deliberately,
+by serving the old record beyond `D`.
 
 ## 10. Operational Considerations
 
