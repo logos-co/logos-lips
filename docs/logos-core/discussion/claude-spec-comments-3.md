@@ -38,7 +38,7 @@ appendices everything that is settled.
 | 1 | Earlier items answered, still needing discussion | 11 remarks covering 15 items |
 | 2.1 | Items of the second audit with no response | 10 |
 | 2.2 | Concerns of `human-spec-comments.md` that still need an answer | 4 |
-| 3.1 | New: contradictions and gaps in the spec text | 50 |
+| 3.1 | New: contradictions and gaps in the spec text | 51 |
 | 3.2 | New: the system contracts against their own rules | 10 |
 | 3.3 | New: the integrator documents against the specs | 8 |
 | 3.4 | New: porting the existing module catalog | 7 |
@@ -2272,6 +2272,56 @@ other rules depend on is not stated.
   record's roots carry the trust of that Module Host, and which side's root is recorded. If it is not, say
   that the payload of such a call passes through the Runtime.
 
+#### TF-52 — For a remote route, which component carries the session of a hosted consumer or provider is not stated
+- **Specs:** RUNTIME l.130 ("For a hosted provider, it may also expose the provider endpoint and perform
+  provider-side invocation"), l.779-780 ("The handle wraps a remote transport connection to the selected
+  remote provider"), l.962-963 ("An invocation boundary that shares an address space with module code MUST
+  NOT place unrelated secrets or authority material in that address space"), l.1338 ("the route handle
+  uses the authenticated Runtime-to-Runtime path and provider session established for that route"),
+  l.2705-2706 ("The baseline uses one Runtime credential for the Runtime identity; ordinary modules and
+  providers do not receive separate long-lived certificates"), l.2836 ("The provider endpoint is
+  controlled by Runtime"), l.2841 ("The provider-side endpoint MUST authenticate as the Runtime that owns
+  the selected provider"), l.2850-2851 ("Runtime dispatches authorized messages to the selected provider
+  through its protected local invocation path"), l.2854-2855 ("The mandatory remote profile MUST NOT
+  expose an individual module process or container in a way that bypasses this enforcement boundary"),
+  l.3130 ("A language binding MAY materialize a ready route returned by those methods as a process-local
+  handle or establish its Transport session"); TRANSPORT l.1123 ("The Module Host MUST serve only that
+  transferred listener and MUST NOT bind or substitute another endpoint"), l.1213 ("the authenticated
+  source Runtime identity matches the route consumer's `runtime_instance_id`"), l.1289 ("One authenticated
+  connection carries one such provider session and channel-binding use").
+- **Issue:** for local transport the specifications say where the sessions of a hosted module live: its
+  Module Host serves the listener that the Runtime transferred (TRANSPORT l.1123), and the boundary in
+  that process may expose the provider endpoint (RUNTIME l.130). For remote transport they name only the
+  Runtime. A remote connection is authenticated on both sides as a Runtime (TRANSPORT l.1213; RUNTIME
+  l.2841). The Runtime has one credential (RUNTIME l.2705-2706), and that credential may not be placed in
+  a process that also holds module code (RUNTIME l.962-963). So the component that authenticates a remote
+  connection is not a Module Host. What carries the session after that is described in two ways. At the
+  provider's end, RUNTIME l.2850-2851 has the Runtime dispatch each message to the provider over its local
+  path, in a sentence without a requirement keyword, and RUNTIME l.2854-2855 forbids only the exposure
+  that bypasses enforcement. At the consumer's end, RUNTIME l.779-780 and l.3130 put the connection with
+  the handle and its language binding, and RUNTIME l.1338 puts it on a path between two Runtimes. Two
+  points stay open.
+  1. Whether the component that authenticated the connection must stay on the path of every payload of the
+     session, relaying between the remote connection and the local path of a hosted module, or whether the
+     session may then be carried by the Module Host of the hosted consumer or provider. A connection
+     carries one provider session (TRANSPORT l.1289), so it never serves two module instances.
+  2. If it may, whether a session served in the provider's own process is exposed "in a way that bypasses
+     this enforcement boundary" (RUNTIME l.2855) when the boundary in that process enforces the route's
+     method and event access, as it does for a local session (TF-50).
+- **Impact:** the two layouts interoperate, because the peer sees the same connection. They differ in
+  whether the second conforms, in which process holds the payloads of every remote call, and in where the
+  payload commitments of a remote call are computed (TF-51). An implementation that keeps payloads out of
+  the Runtime's own process for local routes has no stated way to do the same for remote routes.
+- **Reading an implementation needs today:** a component of the Runtime that holds no module code
+  authenticates each remote connection, redeems the ticket and stays the peer of the session. It exchanges
+  the session's messages with a hosted module over that module's local path.
+- **Overlap:** TF-50, TF-51, TS-04 (one connection for each route), the TF-06 note on the sentences that
+  describe local transport mode.
+- **Suggested resolution:** say in RUNTIME §9.3 whether l.2850-2851 describes a required hop or one
+  permitted layout, and whether an authenticated provider session, or the caller's end of one, may be
+  carried by the process-local invocation boundary of a hosted module once the Runtime has authenticated
+  the connection and bound the session to its route.
+
 ### 3.2 The system contracts, checked against their own rules
 
 The CDDL of Runtime Control (RUNTIME §9.2-§9.3), Configuration (CONFIG §9), Capability Authority, Module
@@ -3194,6 +3244,28 @@ holds keys. A and B stand for other modules and are local to one item.
   deployment or audit-profile policy" (CA l.1169) covers where records go, not what follows when one is
   lost. Whether the Runtime then refuses later calls that need retention, or only notes the loss, is left
   to each implementation. One sentence in CA §9 would settle it.
+- PM l.1620: "A deployment MUST establish compatible protected invocation integration and observation
+  policy before exposing Package Manager queries." The authority that this policy grants is not defined.
+  PM l.1627 speaks of "the corresponding observation authority", and PM l.1628 says "method invocation
+  permission alone MUST NOT imply record visibility", which rules out the permission to call the method.
+  CA gives observation a scope for Runtime Control, "`runtime_control_scope` covers calls, observations,
+  and subscriptions under the Runtime Control contract exposed by one Runtime instance" (CA l.301-302),
+  and none for package records. Whether the visibility of a package record is meant to be a Capability
+  Authority scope or a rule kept outside it is not said; PM l.1624 calls it "an additional deployment
+  requirement". Naming the scope, or saying that none is intended, would settle it.
+- PM l.1442 says of the module facts and artifacts that protected deployment input supplies for the
+  initial Package Manager and Storage providers: "Provisioning these inputs does not itself create
+  installed package records or establish Package Manager verification." A module supplied that way
+  therefore has no installed record, and a package that declares a dependency on it is served from a
+  catalog source or fails: "an LGX operation can resolve a dependency only from a satisfying installed
+  package" (PM l.1337). PM l.831 speaks of "restoring state". Whether an installed record can exist that
+  no `install_package` or `update_package` call created, and which verification makes it one, is not said.
+- RUNTIME l.3617: "An unavailable or unacceptable exact selection MUST fail without substituting another
+  package or version." No error code is named, as for the case of TF-30. A package-backed declaration adds
+  causes that another declaration does not have: the selected package is not installed, for which the
+  Package Manager's own answer to the Runtime is `package-not-installed` (PM l.1645), the handoff is
+  refused, or the Package Manager binding is not ready. Whether `create_module` reports these as one
+  outcome, and whether that outcome may differ from a denial, is not said.
 
 ---
 
