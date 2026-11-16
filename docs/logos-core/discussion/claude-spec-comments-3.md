@@ -3182,6 +3182,18 @@ holds keys. A and B stand for other modules and are local to one item.
   include:" and lists seven classes (l.398-404). Whether a profile must tell those classes apart, or the
   list is an illustration, is not said. A profile with one permission that stands for every class meets
   l.394-395 under one reading and fails it under the other.
+- RUNTIME l.1770: "Runtime MUST produce the `call` audit record defined by
+  LOGOS-MODULE-CAPABILITY-AUTHORITY", when the applied decision requires retention. The record is produced
+  "after the corresponding enforcement outcome" (CA l.1175), so a Runtime that then cannot build or store
+  it can no longer fail the call. No rule says what it does. CA names an outcome for one cause only, a
+  record that would retain unauthorized sensitive constraint values: the evaluation fails "without issuing
+  an allow or deny decision" (CA l.1342), and a grant issuance fails "with `authority-unavailable` without
+  issuing a grant or grant denial" (CA l.1345). BCP l.553 says "When mandatory audit cannot be satisfied,
+  the owning audit failure rules continue to apply", and for a record that cannot be stored there is none,
+  for the call record or for the others (CA l.1167-1168). "Retention duration and storage realization are
+  deployment or audit-profile policy" (CA l.1169) covers where records go, not what follows when one is
+  lost. Whether the Runtime then refuses later calls that need retention, or only notes the loss, is left
+  to each implementation. One sentence in CA §9 would settle it.
 
 ---
 
