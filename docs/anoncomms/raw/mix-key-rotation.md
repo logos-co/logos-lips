@@ -174,6 +174,7 @@ An initiating node:
 - MUST rebuild a packet built in advance,
   such as a cover packet or a queued message,
   if it would be transmitted once a record it was built from is more than `U` seconds old.
+  Obtaining a record again after building the packet does not reset that record's age for the packet.
 - MUST use its own current key for its own hop,
   such as the last hop of a loop or of a SURB's return path.
 
@@ -204,21 +205,24 @@ so that processing time does not reveal which key a packet used.
 
 ## 7. Single-Use Reply Blocks
 
-A SURB is built with the keys of the initiating node's records at that time.
+A SURB is built with the public keys in the initiating node's records
+for the other nodes on its return path.
 In the worst case,
-a record was obtained `D` seconds after its key was replaced ([Section 4](#4-key-publication)),
-and the SURB was built as late as `U` seconds after that ([Section 5](#5-initiating-node-behavior)),
-so the key remains accepted for only `G - U - D` more seconds.
+the record of one of those nodes was obtained `D` seconds after its key was replaced ([Section 4](#4-key-publication)),
+and the packet carrying the SURB was sent as late as `U` seconds after that record was obtained ([Section 5](#5-initiating-node-behavior)),
+so that key remains accepted for only `G - U - D` seconds after sending.
 The request and the reply take up to `max_transit` each,
 and what remains is the time the destination has to respond.
 
 An exit MUST therefore drop held SURBs ([Mix Protocol Section 8.7.3](./mix.md#873-using-a-surb))
 no later than `G - U - D - 2 · max_transit` seconds after receiving them,
 which is the longest the destination can take to respond.
-The creator MUST make the tuple it stores for reply recovery
+Every reply then arrives within `G - D` seconds
+of obtaining the oldest record the SURB was built from.
+The initiating node MUST make the tuple it stores for reply recovery
 ([Mix Protocol Section 8.7.2](./mix.md#872-surb-creation) Step 4)
 unrecoverable once it recovers the reply,
-or `G - U - D` seconds after building the SURB,
+or `G - D` seconds after obtaining that record,
 whichever is first.
 
 ## 8. Parameters
@@ -261,7 +265,7 @@ this is more than twice `U`.
 Shared secrets do not extend this,
 since a node erases each one once it has processed its packet ([Section 3.3](#33-destruction)).
 Neither do the SURB tuples a node holds for its own pending replies,
-since it discards each within `G - U - D` seconds ([Section 7](#7-single-use-reply-blocks)).
+since it discards each within `G - D` seconds of obtaining the oldest record its SURB was built from ([Section 7](#7-single-use-reply-blocks)).
 
 ### 9.2 Replays
 
