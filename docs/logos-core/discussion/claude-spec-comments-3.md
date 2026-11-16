@@ -3333,6 +3333,17 @@ holds keys. A and B stand for other modules and are local to one item.
   process's "operating-system identity MUST satisfy the expected Runtime identity", and what that identity
   is on Windows is not said either: the user alone, or also the elevation and the integrity level of the
   process's token, in which two processes of one user can differ.
+- INTERFACE l.3873-3876 names three sources for the contract documents that a first route handle needs:
+  documents that the caller carries, a `describe_provider` response, and an earlier `logos.schema`
+  response, of which l.3876 says "The caller does not need a call to `logos.schema` to materialize its
+  first handle." A `logos.schema` request needs a handle already. `describe_provider` answers for the
+  whole provider or not at all: "An unknown provider or a provider whose complete surface may not be
+  disclosed MUST produce `NOT_AUTHORISED` with a non-revealing diagnostic." (RUNTIME l.454). So a consumer
+  that may discover and call one contract of a provider, for example one implemented interface, and that
+  carries no documents, has no way to obtain the documents of that contract. A general-purpose consumer,
+  such as a command-line tool, is in that position whenever its grant is narrower than the provider's
+  whole surface. A Runtime Control method that returns the documents of one selected contract would settle
+  it.
 
 ---
 
