@@ -3316,6 +3316,23 @@ holds keys. A and B stand for other modules and are local to one item.
   "selects the complete remote transport and security profile" (TRANSPORT l.1204-1205). What an address
   without `profile` selects where the field is not required, for a listener (RUNTIME l.3433) or for the
   target of `connect_remote`, is not said: a default for each transport, or a refusal.
+- TRANSPORT l.1156: "Endpoint-use permission alone MUST NOT grant consumers permission to delete, rename,
+  replace, or change security on the endpoint or its containing directory." Whether this binds when the
+  consumers run under the Runtime's own operating-system identity is not said. For every platform
+  TRANSPORT l.1107 says "A shared operating-system user identity is not an isolation boundary between
+  processes of that identity.", and l.1109 lays the protection from such processes only on "A deployment
+  claiming protection from such processes". On POSIX the rule is a directory of mode `0700` (l.1119), in
+  which a consumer of the same identity can delete or replace the socket. Read with those lines, l.1156
+  separates the right to use an endpoint from the other rights where a consumer is a different principal.
+  Read alone, it asks on Windows for a separation inside one identity that the POSIX rule does not ask
+  for. Saying which is meant would settle it.
+- TRANSPORT l.1170: "A Windows implementation MUST establish the peer-query attribution and
+  listener-sharing behavior of its supported operating-system versions and placements before claiming
+  support." What counts as one version is not said: a release, a build number, or each servicing update,
+  which can replace the component that answers the peer query. TRANSPORT l.1165 requires that the
+  process's "operating-system identity MUST satisfy the expected Runtime identity", and what that identity
+  is on Windows is not said either: the user alone, or also the elevation and the integrity level of the
+  process's token, in which two processes of one user can differ.
 
 ---
 
