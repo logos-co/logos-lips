@@ -35,7 +35,7 @@
 | 1.2.3 | Update the test vectors to reflect the parent added in the `CHANNEL_CONFIG` payload | 2026-08-27 |
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
-| 1.3.0 | Counted finality in slots: [Commit](#commit) makes a block immutable once it lies the finality window `K` behind the tip and the finality floor `φ` of occupied slots follows it. `K` replaces `s` and `⌊k/f⌋`. | 2026-11-13 |
+| 1.3.0 | Counted finality in slots: [Commit](#commit) makes a block immutable once it lies the finality window `K` behind the tip and the finality floor `φ` of occupied slots follows it. `K` replaces `s` and `⌊k/f⌋`. | 2026-11-17 |
 | 1.4.0 | Shortened the finality window `K` to 36,000 slots, sized against 30 % of the stake, and recomputed the finality floor `φ`. The [Epoch Schedule](#epoch-schedule) reads `⌊k/f⌋`, so its length does not change. | 2026-11-13 |
 
 # Introduction
@@ -495,7 +495,7 @@ $`\text{define } \textbf{on\_block}(state, B)\to state'`$:
 
 ### Commit
 
-We define the procedure that moves the latest immutable block $`B_\text{imm}`$ along $`c_{loc}`$. After startup, $`B_\text{imm}`$ moves only through this procedure, which runs in [Chain Maintenance](#chain-maintenance) and in [Switching to the Online Rule](cryptarchia-v1-bootstr-sync.md#switching-to-the-online-rule). The count of occupied slots is $`\textbf{density\_over\_slots}`$, defined in [Functions](cryptarchia-total-stake-inference.md#functions) of the Total Stake Inference.
+We define the procedure that moves the latest immutable block $`B_\text{imm}`$ along $`c_{loc}`$. After startup, $`B_\text{imm}`$ moves only through this procedure. It runs in [Chain Maintenance](#chain-maintenance), in [Switching to the Online Rule](cryptarchia-v1-bootstr-sync.md#switching-to-the-online-rule), and when a node starts with the Online rule, as defined in [Setting the Fork Choice Rule](cryptarchia-v1-bootstr-sync.md#setting-the-fork-choice-rule). The count of occupied slots is $`\textbf{density\_over\_slots}`$, defined in [Functions](cryptarchia-total-stake-inference.md#functions) of the Total Stake Inference.
 
 $`\text{define } \textbf{commit}(T,c_{loc},B_\text{imm})\to (T', B_\text{imm}'):`$
 

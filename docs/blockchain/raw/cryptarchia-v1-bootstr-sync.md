@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.0.2 | Spread block download requests across connected and discovered peers instead of downloading only from the configured IBD peers, which now only provide the chain tips to catch up with. Added [Selecting Peers for Downloading](#selecting-peers-for-downloading) and the `GetTipRequest` message. | 2026-10-20 |
-| 1.1.0 | Added [Switching to the Online Rule](#switching-to-the-online-rule): a last round that downloads each peer's tip from that peer, then [Commit](cryptarchia-v1-protocol.md#commit). Bounded `T_offline` by the finality window `K`. | 2026-11-14 |
+| 1.1.0 | Added [Switching to the Online Rule](#switching-to-the-online-rule): a last round that downloads each peer's tip from that peer, then [Commit](cryptarchia-v1-protocol.md#commit). Bounded `T_offline` by the finality window `K`. A node that stopped under the Bootstrap rule restarts with it, and a node that starts with the Online rule runs Commit. | 2026-11-17 |
 
 # Introduction
 
@@ -63,10 +63,11 @@ flowchart TD
             direction TB
             Cond1{{LIB is set to Genesis or Checkpoint?}}
             Cond2{{Restarting after long offline?}}
-            Cond3{{Bootstrap flag enabled?}}
+            Cond3{{Stopped under the Bootstrap rule?}}
+            Cond4{{Bootstrap flag enabled?}}
         end
     CheckBoostrap -->|Yes| SetBootstrap[ForkChoice=BOOTSTRAP]
-    CheckBoostrap -->|No| SetOnline[ForkChoice=ONLINE]
+    CheckBoostrap -->|No| SetOnline["ForkChoice=ONLINE, then Commit"]
     end
 
     SetBootstrap --> IBD
@@ -123,12 +124,16 @@ Upon startup, a node sets the fork choice rule to the **Bootstrap** rule in one 
 - **A node is restarting after being offline longer than** $`T_\text{offline}`$ **(20 minutes).**
   Unlike starting from Genesis or checkpoint, in the case where a node is restarted while preserving its existing block tree, the node must choose a fork choice rule depending on how long it has been offline.
 
-  If it is certain that a node has been offline longer than the offline grace period $`T_\text{offline}`$ since it last used the Online rule, the node uses the Bootstrap rule upon startup. Otherwise, it starts with the Online rule.
+  If it is certain that a node has been offline longer than the offline grace period $`T_\text{offline}`$ since it last used the Online rule, the node uses the Bootstrap rule upon startup.
 
   Details of $`T_\text{offline}`$ are described in [Offline Grace Period](#offline-grace-period). A recommended way how to measure the offline duration is introduced in [**Offline Duration Measurement**](#offline-duration-measurement).
 
+- **A node is restarting after it stopped under the Bootstrap rule.**
+
 - **A node operator set the Bootstrap rule explicitly (e.g., by** **`--bootstrap`** **flag).**
   In any case where the node operator is clearly aware that the tip of the node's local chain is more than the finality window $`K`$ old, they should be able to start the node with the Bootstrap rule. For example, the operator may obtain the slot of the latest block from another trusted operator and realize that their node has fallen significantly behind due to some issue.
+
+A node that starts with the Online rule runs [Commit](cryptarchia-v1-protocol.md#commit) on $`c_{loc}`$ before it processes any block.
 
 ## Initial Block Download
 
@@ -240,8 +245,6 @@ def last_round(ibd_peers: List[Node], local_tree: Tree, recorded: BlockId):
 ```
 
 When the round ends, the node switches the fork choice rule to the Online rule and runs [Commit](cryptarchia-v1-protocol.md#commit) on $`c_{loc}`$ before it processes any further block.
-
-The node must store the $`B_\text{imm}`$ that this Commit returns before it stores anything that lets a restart select the Online rule ([Setting the Fork Choice Rule](#setting-the-fork-choice-rule), [Offline Duration Measurement](#offline-duration-measurement)). Otherwise a restart runs the Online rule with the $`B_\text{imm}`$ from before the switch.
 
 ## Listening for New Blocks
 
