@@ -3332,7 +3332,9 @@ holds keys. A and B stand for other modules and are local to one item.
   which can replace the component that answers the peer query. TRANSPORT l.1165 requires that the
   process's "operating-system identity MUST satisfy the expected Runtime identity", and what that identity
   is on Windows is not said either: the user alone, or also the elevation and the integrity level of the
-  process's token, in which two processes of one user can differ.
+  process's token, in which two processes of one user can differ. The same holds for the ownership that
+  TRANSPORT l.1125 has the Runtime validate: an object created under an administrator's elevated token is
+  owned by a group by default, and which owner the validation expects is not said.
 - INTERFACE l.3873-3876 names three sources for the contract documents that a first route handle needs:
   documents that the caller carries, a `describe_provider` response, and an earlier `logos.schema`
   response, of which l.3876 says "The caller does not need a call to `logos.schema` to materialize its
