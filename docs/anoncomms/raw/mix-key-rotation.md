@@ -233,7 +233,7 @@ with the following recommended values:
 
 | Parameter | Recommended | Rationale |
 |---|---|---|
-| `U` | 1 hour | Rotation interval. A shorter interval reduces the past traffic a key compromise exposes and the size of each replay table, but requires initiating nodes to obtain records more often ([Section 5](#5-initiating-node-behavior)). |
+| `U` | 1 hour | Rotation interval. A shorter interval reduces the past traffic a key compromise exposes ([Section 9.1](#91-forward-secrecy)), the size of each replay table ([Section 3.4](#34-replay-tables)), and the packets lost after a restart ([Section 9.4](#94-silent-loss)), but requires initiating nodes to obtain records more often to keep their pools full ([Section 10](#10-operational-considerations)). |
 | `G` | 1 hour 30 minutes | Grace window. Exceeds `U + D + 2 · max_transit` for the bounds assumed below, and gives the destination up to 13 minutes to respond to a request ([Section 7](#7-single-use-reply-blocks)). |
 
 The recommended `G` assumes the following bounds,
