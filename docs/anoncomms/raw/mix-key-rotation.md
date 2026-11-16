@@ -200,8 +200,9 @@ a node stores the tag only after the check passes,
 so that packets built for other keys add no tags to a table.
 If the check fails under every candidate,
 the node MUST discard the packet without storing a tag.
-A node SHOULD perform the same computations under every candidate for every packet,
+A node MAY perform the same computations under every candidate for every packet,
 so that processing time does not reveal which key a packet used.
+The difference in processing time is small next to per-hop delays.
 
 ## 7. Single-Use Reply Blocks
 
