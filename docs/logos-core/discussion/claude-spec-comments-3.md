@@ -3320,7 +3320,7 @@ holds keys. A and B stand for other modules and are local to one item.
   replace, or change security on the endpoint or its containing directory." Whether this binds when the
   consumers run under the Runtime's own operating-system identity is not said. For every platform
   TRANSPORT l.1107 says "A shared operating-system user identity is not an isolation boundary between
-  processes of that identity.", and l.1109 lays the protection from such processes only on "A deployment
+  processes of that identity", and l.1109 lays the protection from such processes only on "A deployment
   claiming protection from such processes". On POSIX the rule is a directory of mode `0700` (l.1119), in
   which a consumer of the same identity can delete or replace the socket. Read with those lines, l.1156
   separates the right to use an endpoint from the other rights where a consumer is a different principal.
