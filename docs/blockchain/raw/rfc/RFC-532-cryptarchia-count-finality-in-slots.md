@@ -240,9 +240,9 @@ A start decides the rule from what the node stored. Today's text lets a restart 
 - **A node that stopped under the Bootstrap rule.** Today's cases read `B_imm`, the operator's flag and the time offline. None reads the rule the node used when it stopped. A node that is started with the flag, and restarted without it within `T_offline` of its last use of the Online rule, starts with the Online rule. It has run no Prolonged Bootstrap Period, no last round and no `commit`, while Initial Block Download may have moved its chain by days. Such a node now restarts with the Bootstrap rule.
 - **A node that cannot tell how long it was offline.** Today the Bootstrap rule is selected only if it is certain that the node was offline for longer than `T_offline`. A lost record of that time therefore selects the Online rule after any outage. Now the Online rule needs the certainty.
 
-Both cases read what the node stored. So the node stores `c_loc`, `B_imm` and the rule it uses together, and a restart loads the three as the node held them at one moment. Stored apart, a restart can find the Online rule with the `B_imm` from before the switch, or a tip that does not descend from `B_imm`. The node software already keeps the three in one record, and restarts with the recorded rule within the grace period.
+The first case reads the rule the node stored. So the node stores `c_loc`, `B_imm` and the rule it uses together: after it sets the rule at startup, after each block it processes, and after it switches to the Online rule. A restart loads the three as last stored. Stored apart, a restart can find the Online rule with the `B_imm` from before the switch, or a tip that does not descend from `B_imm`. Stored only after a block, the Online rule would still be the stored one after a start with the flag. The node software already keeps the three in one record, and restarts with the recorded rule within the grace period.
 
-**Alternative: run `commit` at every start with the Online rule.** It repairs a `B_imm` that was stored before the `commit` of the switch. It runs on the tip as stored, so it does not help a node whose stored tip is older than its stored rule. With the three stored together it never changes anything.
+**Alternative: run `commit` at every start with the Online rule.** It repairs a `B_imm` that was stored before the `commit` of the switch. It runs on the tip as stored, so it does not help a node whose stored tip is older than its stored rule. With the three stored together it never moves `B_imm`.
 
 **What is left.** The rule does not cover the block tree. A node that stored a block, and not the three values after it, restarts on the earlier tip. Under the Bootstrap rule it compares the stored block when the next block arrives. If none arrives before the switch, `commit` runs on the earlier tip.
 
@@ -454,8 +454,8 @@ The sentence that the node does not wait `s_gen` slots after Initial Block Downl
 [Setting the Fork Choice Rule](../cryptarchia-v1-bootstr-sync.md#setting-the-fork-choice-rule) changes in three places ([What a restart loads](#what-a-restart-loads)):
 
 - A new case selects the Bootstrap rule: the node is restarting after it stopped under the Bootstrap rule.
-- The offline case selects the Bootstrap rule unless it is certain that the node has been offline for at most `T_offline` since it last used the Online rule. It selected that rule only if it was certain that the node had been offline for longer.
-- The node stores `c_loc`, `B_imm` and the fork choice rule it uses together. A restart loads the three as the node held them at one moment: after it processed a block, or after it switched to the Online rule.
+- The offline case also covers a node that cannot tell how long it was offline. It selects the Bootstrap rule unless it is certain that the node has been offline for at most `T_offline` since it last used the Online rule. It selected that rule only if it was certain that the node had been offline for longer.
+- The node stores `c_loc`, `B_imm` and the fork choice rule it uses together: after it sets the rule at startup, after each block it processes, and after it switches to the Online rule. A restart loads the three as last stored.
 
 ## 4. The finality window sets the epoch schedule
 
@@ -511,7 +511,7 @@ The range stays `[s, s + p)`. `commit` passes `s = sl_C + 1` and `p = sl_tip −
 - [ ] As a responder, ignore a known block that is not held
 - [ ] In the last round, end the handling of an IBD peer when `T_offline` passes without a valid block it has not delivered before, and the handling of any other peer `T_offline` after the round started
 - [ ] At the switch, run `commit` before any further block
-- [ ] Store the tip, `B_imm` and the fork choice rule as one record, and restart with the Bootstrap rule when the record holds it
+- [ ] Store the tip, `B_imm` and the fork choice rule as one record: after the rule is set at startup, after each block, and after the switch. Restart with the Bootstrap rule when the record holds it
 - [ ] Restart with the Bootstrap rule when the time offline cannot be read, or when no record of it exists
 - [ ] Prune all forks below `B_imm` in one call, at every move of `B_imm` and at the switch to Online
 - [ ] Expire the wallet's leader-claim reservations after `K` slots instead of `k` immutable blocks
