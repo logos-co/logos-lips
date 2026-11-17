@@ -7,6 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-17 |
+| v2 | Follows revision v5 of [RFC-486](RFC-486-mantle-post-quantum-note-encryption.md): the note encryption key derives from the ZK secret key `k_logos`, so the `sk_enc`, the `pk_enc` and the full address of the test vectors are regenerated. The key-only addresses and every other vector are unchanged | 2026-11-17 |
 
 ## Reviewer Orientation
 
