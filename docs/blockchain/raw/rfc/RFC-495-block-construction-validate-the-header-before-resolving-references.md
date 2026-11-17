@@ -7,7 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-21 |
-| v2 | Reconstruction checks the size of the resolved transactions after the body root, and a block over `MAX_BLOCK_SIZE` is condemned, as the implementation does. | 2026-11-17 |
+| v2 | Reconstruction checks the size of the resolved transactions after the body root, and a block over `MAX_BLOCK_SIZE` is condemned, as the implementation does. An invalid uncle in a full block from chain synchronisation also discards it without a verdict. | 2026-11-17 |
 
 ## Reviewer Orientation
 
@@ -38,6 +38,10 @@ Once the body root matches, the size belongs to the block. `header.body_root` bi
 
 For an oversized copy, checking the body root first costs a Merkle root over at most `MAX_BLOCK_TXS` transaction hashes before the size check drops it.
 
+## A full block from synchronisation with an invalid uncle
+
+The implementation checks a full block obtained through chain synchronisation in the same order as a proposal, the uncles before the body root. It therefore records no verdict for an invalid uncle on either path, and step 3 says the same. A verdict would only spare a node from fetching and rejecting the same block again. That costs the same uncle checks as a proposal with tampered uncle entries, which can never be condemned.
+
 # Details
 
 ## Header and uncle validation precede reconstruction
@@ -61,7 +65,7 @@ For an oversized copy, checking the body root first costs a Merkle root over at 
  5. **Mempool Transactions Validation**
 ```
 
-The paragraph after the steps counts an invalid uncle entry, step 3, among the failures that discard only the received copy, and cites the other steps by their new numbers. The note on the cost of reconstruction says it follows signature and PoL verification.
+The paragraph after the steps counts an invalid uncle entry, step 3, among the failures that discard only the received copy, and cites the other steps by their new numbers. Step 3 handles an invalid uncle in a full block obtained through chain synchronisation the same way, with no verdict. The note on the cost of reconstruction says it follows signature and PoL verification.
 
 ## Reconstruction checks the size after the body root
 
