@@ -14,14 +14,12 @@
 This specification defines `cdCDDLe`, a deterministic schema-as-data representation for a defined subset of CDDL.
 
 `cdCDDLe` takes parsed and resolved CDDL within that subset as input and produces a canonical CDDL schema model.
-When bytes are needed, that canonical schema model is encoded as deterministic CBOR
-using the RFC 8949-based rules defined by this specification.
+When bytes are needed, that canonical schema model is encoded as deterministic CBOR using the RFC 8949-based rules defined by this specification.
 
 ## 1. Introduction
 
 CDDL defines a notation for describing CBOR and JSON data structures.
-It does not define a canonical schema-as-data representation for CDDL schemas
-themselves.
+It does not define a canonical schema-as-data representation for CDDL schemas themselves.
 
 For systems that need stable schema processing, raw CDDL source text is not a suitable canonical input.
 Whitespace, comments, and harmless formatting differences should not change the resulting schema model.
@@ -67,8 +65,7 @@ This specification does not define:
 - package, runtime, security, or trust policy.
 
 Those topics may consume `cdCDDLe`, but they are not part of `cdCDDLe`.
-In particular, the Logos canonical schema model is a separate domain interpretation
-of the canonical CDDL schema model defined here.
+In particular, the Logos canonical schema model is a separate domain interpretation of the canonical CDDL schema model defined here.
 
 ## 3. Normative Dependencies
 
@@ -92,20 +89,16 @@ Lowercase forms retain their ordinary English meanings.
 
 **Resolved CDDL rule graph** is the syntax and rule model produced by a conforming CDDL parser and resolver.
 
-**Canonical CDDL schema model** is the abstract schema-as-data object produced
-by `cdCDDLe`.
+**Canonical CDDL schema model** is the abstract schema-as-data object produced by `cdCDDLe`.
 
-**Canonical schema bytes** are the deterministic CBOR bytes produced by
-encoding the canonical CDDL schema model.
+**Canonical schema bytes** are the deterministic CBOR bytes produced by encoding the canonical CDDL schema model.
 
 **Bound rule name** means a CDDL rule name that binds a type definition and can be referenced from other CDDL rules.
 
 **Presentation information** means information such as whitespace, comments,
 line breaks, indentation, and source formatting.
 
-**Domain interpretation** means a consuming specification's interpretation of a
-generic CDDL schema as something more specific, such as a protocol message
-set, credential format, file format, or application contract.
+**Domain interpretation** means a consuming specification's interpretation of a generic CDDL schema as something more specific, such as a protocol message set, credential format, file format, or application contract.
 
 ## 5. Processing Model
 
@@ -125,14 +118,13 @@ source text
 
 The parse and resolve stages MUST follow RFC 8610 semantics for the supported subset.
 For text-string and byte-string literals, the grammar and escape rules MUST follow [RFC 9682] Section 2.
+An implementation MUST reject an unprefixed byte-string literal that contains a raw line break.
 `cdCDDLe` starts at the resolved CDDL rule graph.
 
-A `cdCDDLe` implementation MAY expose parsing and resolution as part of the
-same tool.
+A `cdCDDLe` implementation MAY expose parsing and resolution as part of the same tool.
 If it does, parse or resolution errors MUST be reported before canonicalization.
 
-Before canonicalization, an implementation MUST verify that the resolved CDDL rule graph
-uses only the constructs in Section 5.1.
+Before canonicalization, an implementation MUST verify that the resolved CDDL rule graph uses only the constructs in Section 5.1.
 It MUST reject any other construct rather than omit it, approximate it,
 or assign it an implementation-local representation.
 
@@ -146,8 +138,7 @@ The canonicalization stage MUST NOT depend on:
 - implementation-specific parser object identity;
 - host-language map iteration order.
 
-The encoding stage MUST encode the canonical model as deterministic CBOR using
-the rules in Section 9.
+The encoding stage MUST encode the canonical model as deterministic CBOR using the rules in Section 9.
 
 ### 5.1 Supported CDDL Construct Subset
 
@@ -163,7 +154,7 @@ The supported input subset consists of:
 - required and optional map members;
 - ordered type choices written with `/`;
 - inclusive integer ranges written with `..`; and
-- the `.size` control with a non-negative integer or inclusive non-negative integer range as its controller.
+- the `.size` control applied directly to `uint`, `tstr`, or `bstr`, optionally parenthesized, with a non-negative integer or inclusive non-negative integer range as its controller.
 
 The following constructs are unsupported:
 
@@ -183,6 +174,9 @@ Named references as range bounds MUST be rejected.
 Integer literals and integer range bounds MUST be between -18446744073709551616 and 18446744073709551615, inclusive.
 A resolved rule graph containing an integer outside that interval is outside the supported subset.
 An inclusive range whose lower bound exceeds its upper bound is outside the supported subset and MUST be rejected.
+
+A range used as a `.size` controller MUST be parenthesized, as in `tstr .size (1..5)`.
+An unparenthesized range controller, such as `tstr .size 1..5`, MUST be rejected.
 
 The colon member form has the cut semantics defined by RFC 8610.
 Because every supported keyed member uses that form,
@@ -210,17 +204,14 @@ The model MUST be able to represent:
 
 The model MUST preserve bound rule names.
 A consuming domain may treat those names as semantic.
-For example, a generic CDDL validator may treat two rule definitions as
-structurally equivalent, while a domain interpretation may distinguish them
+For example, a generic CDDL validator may treat two rule definitions as structurally equivalent, while a domain interpretation may distinguish them
 because their bound names become application-specific identifiers.
 
 The model MUST preserve all semantics of the supported constructs except RFC 8610 implicit root selection,
 which is outside the model as specified in Section 5.1.
 
-The model MUST preserve references as references unless an explicit
-canonicalization rule in this specification requires expansion.
-`cdCDDLe` MUST NOT silently replace all named references with their expanded
-structure.
+The model MUST preserve references as references unless an explicit canonicalization rule in this specification requires expansion.
+`cdCDDLe` MUST NOT silently replace all named references with their expanded structure.
 
 The model MUST distinguish at least these concepts:
 
@@ -238,20 +229,19 @@ The model MUST distinguish at least these concepts:
 Every resolved rule graph within the supported subset MUST have a corresponding canonical model representation.
 A canonical model document MUST contain at least one rule.
 Every bound rule name and reference name MUST be a syntactically valid RFC 8610 CDDL identifier.
-Bound rule names MUST be unique within one canonical document and MUST NOT equal a primitive name listed in Section 5.1.
+Bound rule names MUST be unique within one canonical document and MUST NOT equal a name defined in the standard prelude of RFC 8610 Appendix D.
+Of those names, only the primitive types listed in Section 5.1 are predefined; a reference to another prelude name resolves only through an external context.
 Every reference MUST have been resolved successfully before canonicalization.
+Resolution MAY use an external context supplied by an owning profile, such as LOGOS-MODULE-COMMITMENT-MODEL.
+A reference resolved in that context remains a type-reference node and its target is not added to the document's rule array.
 
 ## 7. Canonicalization Rules
 
 `cdCDDLe` MUST remove presentation information.
-Whitespace, comments, source indentation, and line wrapping MUST NOT affect the
-canonical model.
+Whitespace, comments, source indentation, and line wrapping MUST NOT affect the canonical model.
 
-`cdCDDLe` MUST normalize syntactic forms that are unambiguously equivalent in
-CDDL.
-Examples include numeric spelling differences where the parsed numeric value is
-the same, and string escaping differences where the parsed text or byte value
-is the same.
+`cdCDDLe` MUST normalize syntactic forms that are unambiguously equivalent in CDDL.
+Examples include numeric spelling differences where the parsed numeric value is the same, and string escaping differences where the parsed text or byte value is the same.
 
 `cdCDDLe` MUST NOT normalize by arbitrary structural equivalence.
 Two named rules with the same structure MUST remain distinguishable in the canonical model
@@ -259,20 +249,16 @@ because the bound names remain present.
 An implementation MAY expose structural equivalence as a derived view,
 but that view MUST NOT replace the name-preserving canonical model.
 
-`cdCDDLe` MUST NOT derive a universal schema identifier from canonical bytes as
-part of this specification.
-Applications MAY hash canonical schema bytes for their own purposes, but the
-meaning of that hash belongs to the consuming application profile.
+`cdCDDLe` MUST NOT derive a universal schema identifier from canonical bytes as part of this specification.
+Applications MAY hash canonical schema bytes for their own purposes, but the meaning of that hash belongs to the consuming application profile.
 
-`cdCDDLe` MUST NOT decide that two schemas are the same merely because they
-accept the same set of data items.
+`cdCDDLe` MUST NOT decide that two schemas are the same merely because they accept the same set of data items.
 General CDDL semantic equivalence is outside the scope of this specification.
 
 ### 7.1 Rule Ordering
 
 Top-level rule order is not an identity input.
-After parsing and resolution, top-level rules MUST be ordered by their
-canonical rule key before encoding.
+After parsing and resolution, top-level rules MUST be ordered by their canonical rule key before encoding.
 
 The canonical rule key is:
 
@@ -280,8 +266,7 @@ The canonical rule key is:
 
 Two top-level rules with the same canonical rule key are invalid.
 
-Nested order is preserved unless this specification explicitly defines a
-canonical sort for the construct.
+Nested order is preserved unless this specification explicitly defines a canonical sort for the construct.
 In particular, tuple positions, array members, and choice alternatives preserve their resolved order.
 Map members MUST be sorted by their text key in Unicode scalar value order.
 Two map members with the same text key are invalid.
@@ -289,33 +274,25 @@ Two map members with the same text key are invalid.
 ### 7.2 Choice Ordering
 
 Choice alternative order is preserved.
-`cdCDDLe` MUST NOT reorder choice alternatives by structural identity, encoded
-bytes, diagnostic order, or implementation-specific matching behavior.
+`cdCDDLe` MUST NOT reorder choice alternatives by structural identity, encoded bytes, diagnostic order, or implementation-specific matching behavior.
 
-If an order can affect diagnostics, matching behavior, or a domain
-interpretation, the order should remain represented.
+If an order can affect diagnostics, matching behavior, or a domain interpretation, the order should remain represented.
 
 ### 7.3 Reference Expansion
 
 `cdCDDLe` MUST NOT fully inline all references by default.
 Inlining erases the difference between a bound name and an anonymous structure.
 
-The name-preserving canonical model is finite even when the resolved CDDL rule
-graph contains recursive or cyclic references.
+The name-preserving canonical model is finite even when the resolved CDDL rule graph contains recursive or cyclic references.
 References are represented as reference nodes.
 They are not replaced by the referenced rule body during canonicalization.
 
 The resolved rule/reference relation MAY form a graph.
-That graph MAY contain cycles if the underlying CDDL schema and resolver accept
-them.
-Such cycles do not create cycles in the canonical schema-as-data item because
-the canonical item stores references by name.
+That graph MAY contain cycles if the underlying CDDL schema and resolver accept them.
+Such cycles do not create cycles in the canonical schema-as-data item because the canonical item stores references by name.
 
-Any diagnostic or derived expanded view that follows references recursively
-MUST detect cycles and mark or reject the expansion according to that derived
-view's own rules.
-Such an expanded view is not the canonical model defined by this
-specification.
+Any diagnostic or derived expanded view that follows references recursively MUST detect cycles and mark or reject the expansion according to that derived view's own rules.
+Such an expanded view is not the canonical model defined by this specification.
 
 `cdCDDLe` defines only the name-preserving canonical model.
 A derived structural-equivalence view MUST be separately identified
@@ -351,8 +328,7 @@ A `.size` range controller with equal bounds MUST canonicalize to one non-negati
 
 The canonical model MUST have a deterministic schema-as-data representation.
 
-This representation is a compact CBOR data model with integer keys and small
-integer node-kind identifiers.
+This representation is a compact CBOR data model with integer keys and small integer node-kind identifiers.
 
 Every canonical model node is a CBOR map.
 Key `0` is the required node-kind identifier.
@@ -463,8 +439,7 @@ literal = integer-literal / bool-literal / tstr-literal / bstr-literal
 ```
 
 Literal values are parsed values, not source spelling.
-For example, numeric base notation and string escape spelling are not
-preserved.
+For example, numeric base notation and string escape spelling are not preserved.
 
 Arrays, maps, and groups have these shapes:
 
@@ -569,18 +544,14 @@ cdcddle-rule = cdcddle-type-rule
 ```
 
 The representation is defined by this specification.
-An implementation MUST NOT infer alternative canonicalization semantics from
-local tool versions, publication dates, file names, or implementation-specific
-metadata.
+An implementation MUST NOT infer alternative canonicalization semantics from local tool versions, publication dates, file names, or implementation-specific metadata.
 
-Any update that changes canonicalization semantics, node-kind identifiers, required fields, or byte encoding
-in a way that can change canonical schema bytes is a change to this specification.
+Any update that changes canonicalization semantics, node-kind identifiers, required fields, or byte encoding in a way that can change canonical schema bytes is a change to this specification.
 Such a change requires a new canonical-model identifier and new conformance vectors.
 
 ## 9. Deterministic CBOR Encoding
 
-When the canonical CDDL schema model is encoded as bytes, it MUST be encoded
-as deterministic CBOR.
+When the canonical CDDL schema model is encoded as bytes, it MUST be encoded as deterministic CBOR.
 
 The encoding MUST follow the core deterministic encoding requirements in RFC 8949 Section 4.2.1.
 
@@ -596,8 +567,7 @@ They are an input that a consuming profile may hash, bind, transmit, or store.
 
 ## 10. Decoding And Checking
 
-A `cdCDDLe` decoder MUST reject CBOR bytes that are not valid deterministic
-CBOR under the RFC 8949-based rules in Section 9.
+A `cdCDDLe` decoder MUST reject CBOR bytes that are not valid deterministic CBOR under the RFC 8949-based rules in Section 9.
 
 A `cdCDDLe` decoder MUST reject unknown node kinds, unknown fields, absent or invalid required fields,
 forbidden optional fields, duplicate map keys, an empty document rule array, an empty choice,
@@ -610,8 +580,7 @@ A `cdCDDLe` decoder MUST reject a choice node that has another choice node as a 
 The decoder MUST verify that top-level rules and map members occur in canonical order.
 It MUST NOT accept and silently reorder a non-canonical model.
 
-A `cdCDDLe` checker MUST verify that a byte string is the unique deterministic encoding
-of a valid canonical CDDL schema model.
+A `cdCDDLe` checker MUST verify that a byte string is the unique deterministic encoding of a valid canonical CDDL schema model.
 Re-encoding the decoded model and comparing the result byte-for-byte is one conforming check.
 
 ## 11. Conformance
@@ -630,8 +599,7 @@ A conforming `cdCDDLe` canonicalizer MUST:
 A conforming `cdCDDLe` encoder MUST:
 
 - encode only valid canonical CDDL schema models;
-- use the RFC 8949-based deterministic CBOR rules required by this
-  specification;
+- use the RFC 8949-based deterministic CBOR rules required by this specification;
 - produce a single byte string for a given canonical model.
 
 A conforming `cdCDDLe` decoder/checker MUST:
@@ -661,10 +629,8 @@ cdcddle-vector = {
 Exactly one of `input-cddl` and `input-cbor-hex` MUST be present.
 `input-cddl` is source text supplied to a canonicalizer.
 `input-cbor-hex` is an encoded canonical-model candidate supplied to a decoder or checker.
-`canonical-diagnostic` is a deterministic diagnostic notation for the
-canonical CDDL schema model.
-`canonical-cbor-hex` is the hexadecimal encoding of the RFC 8949-based
-deterministic CBOR bytes.
+`canonical-diagnostic` is a deterministic diagnostic notation for the canonical CDDL schema model.
+`canonical-cbor-hex` is the hexadecimal encoding of the RFC 8949-based deterministic CBOR bytes.
 `error-class` identifies the expected rejection category without prescribing diagnostic wording.
 
 A valid normative vector MUST include `canonical-cbor-hex`
@@ -678,8 +644,7 @@ No canonical model or canonical bytes exist for invalid input.
 
 A conformance vector set claiming complete coverage MUST include at least:
 
-- presentation equivalence for whitespace, comments, numeric spelling, and
-  string escaping;
+- presentation equivalence for whitespace, comments, numeric spelling, and string escaping;
 - top-level rule-order equivalence;
 - preservation of distinct bound rule names with identical structure;
 - preservation of choice alternative order;
@@ -704,12 +669,9 @@ It MUST NOT reinterpret a document whose canonical-model identifier is `cdcddle`
 
 ## Appendix A. Storage-Like cdCDDLe Vector (Normative)
 
-This appendix gives a normative `cdCDDLe` vector for the Storage-like schema
-used by LOGOS-MODULE-COMMITMENT-MODEL Appendix A.
-It shows the generic `cdCDDLe` canonical CDDL schema model before Logos domain
-interpretation.
-It does not synthesize Logos method declarations, choose a schema namespace, or
-assign Logos schema roots.
+This appendix gives a normative `cdCDDLe` vector for the Storage-like schema used by LOGOS-MODULE-COMMITMENT-MODEL Appendix A.
+It shows the generic `cdCDDLe` canonical CDDL schema model before Logos domain interpretation.
+It does not synthesize Logos method declarations, choose a schema namespace, or assign Logos schema roots.
 
 The vector name is `storage-like`, and its expected result is `valid`.
 
@@ -966,5 +928,4 @@ a300000187a3000101675f6d6f64756c6503a30006016474737472026e73746f
 
 ## Copyright
 
-Copyright and related rights waived via
-[CC0](https://creativecommons.org/publicdomain/zero/1.0/).
+Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).

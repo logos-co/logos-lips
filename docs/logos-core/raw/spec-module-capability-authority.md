@@ -29,8 +29,7 @@ Remote facades and host or deployment services that are not module providers MUS
 The canonical flat runtime module name is `logos_capability_authority`.
 The canonical schema namespace is `logos.capability_authority`.
 The CDDL blocks in this specification collectively define the normative machine-readable contract.
-`logos_capability_authority.cddl` is an extracted machine-readable mirror.
-If the extracted artifact differs from this specification, this specification governs.
+Appendix A lists the complete contract schema in one block.
 The Capability Authority module schema imports the Runtime Types supporting schema defined by LOGOS-MODULE-RUNTIME.
 
 ## Requirements Language
@@ -75,6 +74,8 @@ Every `consumer` field contains a module-instance address.
 In a grant, `target` names the module instance to which that grant applies.
 Consumer and target are authorization roles; neither creates another module entity type.
 An address used to authenticate a consumer, issue a grant to a target, or apply authority MUST resolve to the exact Runtime-known module instance concerned.
+A grant target whose `runtime_instance_id` names another Runtime resolves when that Runtime is enrolled with the issuing Runtime; issuance does not verify that the target instance exists.
+Such a grant supports authority only when that target is a consumer accepted under the forwarding rules of LOGOS-MODULE-RUNTIME Section 9.
 Retained grant and audit records MAY name historical module-instance addresses that no longer resolve.
 Query filters MAY name those historical addresses; disclosure still requires current authorization for the querying consumer and the records.
 A historical reference MUST NOT authenticate a current instance, establish its liveness, or transfer authority to another address.
@@ -89,6 +90,8 @@ Runtime MUST populate or validate the request's `consumer` against that context 
 For `evaluate`, Runtime supplies the module instance whose authority is required for the attempted operation under LOGOS-MODULE-RUNTIME.
 Runtime's protected invocation on behalf of a module MUST preserve that module as consumer.
 For other methods, the consumer is the module instance authenticated at the Capability Authority invocation boundary.
+On an ordinary routed call, Runtime MUST reject a supplied `consumer` that differs from the authenticated caller with `NOT_AUTHORISED` without dispatch and MUST NOT replace it.
+Such a rejection is an invocation-authorization failure at the Runtime boundary, not a policy denial or evaluation failure, and requires no Capability Authority audit record.
 A request may separately name a target module instance.
 A target does not supply the authority used to invoke the method and does not become the consumer.
 
@@ -131,8 +134,7 @@ Every `actions`, `uses`, `scopes`, `providers`, `routes`, `modules`, `instances`
 that is present in a Capability Authority record MUST be non-empty unless its field definition explicitly permits an empty list.
 Every array whose elements are a set of scopes, actions, uses, providers, routes, modules, instances, modes,
 placements, method roots, event roots, or supporting grant identifiers
-MUST contain its elements in strictly ascending bytewise lexicographic order
-of each element's complete Logos deterministic-CBOR encoding.
+MUST contain its elements in strictly ascending bytewise lexicographic order of each element's complete Logos deterministic-CBOR encoding.
 This uses the bytewise comparator defined for deterministic-CBOR map keys by LOGOS-MODULE-INTERFACE.
 Such an array MUST NOT contain duplicate elements.
 A receiver MUST reject an unordered or duplicate set-valued array
@@ -244,38 +246,29 @@ For this action, the evaluation's `consumer` MUST identify the publishing module
 `access.publish_events` constrains which events that provider may publish on the route; it does not define a consumer-to-provider event path.
 Event delivery also requires the subscriber's `subscribe-event` authority and MUST satisfy both route event lists.
 
-A `discover` allow decision permits Runtime to disclose providers matching the exact `contract`
-within the allowed provider constraints.
+A `discover` allow decision permits Runtime to disclose providers matching the exact `contract` within the allowed provider constraints.
 It does not select a provider, establish a route, or authorize a method or event operation.
-Runtime MUST obtain this decision before satisfying an `all-runtime-visible`
-request or disclosing a provider's complete call surface through a
-module-selected call binding.
+Runtime MUST obtain this decision before satisfying an `all-runtime-visible` request or disclosing a provider's complete call surface through a module-selected call binding.
 For module-selected disclosure,
-Runtime MUST obtain one `discover` allow decision for the selected provider and
-each exact primary or interface contract in its validated call surface.
+Runtime MUST obtain one `discover` allow decision for the selected provider and each exact primary or interface contract in its validated call surface.
 If any contract view may not be disclosed,
 Runtime MUST fail the module-selected object request rather than omit that view
 or return a filtered surface.
 These decisions authorize metadata visibility only.
 They do not establish or authorize any of the exact-contract routes aggregated by the object.
 
-An ordinary `single` request for one exact known contract remains
-non-enumerating and does not require `discover` in addition to its
-route-establishment decision.
-This includes a primary-contract-selected or interface-selected object that
-exposes only that exact contract.
+An ordinary `single` request for one exact known contract remains non-enumerating and does not require `discover` in addition to its route-establishment decision.
+This includes a primary-contract-selected or interface-selected object that exposes only that exact contract.
 
 `access` uses the Capability Authority contract's projection of Runtime route access.
 Its method and event roots are interpreted under `contract`.
-The sole common-surface exception in this revision is the well-known `logos.schema` method root
-permitted by LOGOS-MODULE-RUNTIME for selected-contract introspection.
+The sole common-surface exception in this revision is the well-known `logos.schema` method root permitted by LOGOS-MODULE-RUNTIME for selected-contract introspection.
 That root remains bound to the requested provider, route, and exact `contract` in this scope.
 When authorized, `logos.schema` returns the selected contract document and the exact interface and supporting documents required to reconstruct it.
 Method-level or event-level route access may narrow which operations the consumer may perform,
 but it MUST NOT produce a filtered construction input, disclose an unrelated contract, or change the selected contract identity.
 An interface document returned as reconstruction input does not select or authorize a route under that interface.
-An implementation that needs a separately visible subset of a concrete
-contract MUST expose that subset as its own exact interface contract.
+An implementation that needs a separately visible subset of a concrete contract MUST expose that subset as its own exact interface contract.
 If `providers` is absent, the scope does not further restrict providers that Runtime and active policy find eligible.
 If `routes` is absent, the scope does not further restrict the Runtime routes that may rely on it.
 If `access` is absent, the scope does not further restrict method or event access.
@@ -307,6 +300,10 @@ The remaining optional fields constrain the module, module instance, provider,
 or route records that may be observed or targeted.
 Every present constraint MUST match the attempted operation or returned observation.
 Referenced module instances, providers, and routes MUST belong to the Runtime named in `runtime`.
+A selector is compared with the subject's own field: `routes` with its route identifier, `providers` with its provider address, `modules` with its module name, and `instances` with its module instance identifier.
+For a route record, `providers`, `modules`, and `instances` are compared with the record's `target_provider`, `module`, and `instance` fields, never with its `consumer`.
+A present selector whose field the subject does not carry does not match.
+Authority to observe a route record discloses that route's consumer.
 Local and remote Runtime Control use the same scope shape.
 
 ### 3.3 Module Execution And The Loader Boundary
@@ -315,8 +312,7 @@ Local and remote Runtime Control use the same scope shape.
 It may bind the decision to a module instance,
 execution mode, hosted placement, package and optional version,
 or artifact already resolved by Runtime and Package Manager.
-The placement, package, version, and artifact fields are Capability Authority wire projections
-of values selected by Runtime from Module Loader and Package Manager records.
+The placement, package, version, and artifact fields are Capability Authority wire projections of values selected by Runtime from Module Loader and Package Manager records.
 Their values have the same operational meaning,
 but their Capability Authority subtree roots are distinct from Module Loader, Package Manager, and Runtime subtree roots.
 The scope applies to local `direct` and `local-transport` module execution
@@ -368,13 +364,13 @@ Such code requires trust or a profile-defined in-process containment mechanism.
 
 A package or module manifest's requested permissions are policy inputs.
 They do not create a grant or authorize realization, initialization, provider access, or operating-system access.
-Capability Authority maps each declared permission into one or more authority scopes
-according to the permission's defining specification or profile.
+Capability Authority maps each declared permission into one or more authority scopes according to the permission's defining specification or profile.
+The required permission scopes of an execution decision are those mapped from the target instance's saved permission settings defined by LOGOS-MODULE-RUNTIME.
+A declared permission that those settings omit is denied and does not by itself prevent execution.
 
 ### 3.4 Remote Runtime Enrollment
 
-`remote_enrollment_scope` covers enrolling, refreshing, or removing an identified remote Runtime
-for Runtime Control or provider-access eligibility.
+`remote_enrollment_scope` covers enrolling, refreshing, or removing an identified remote Runtime for Runtime Control or provider-access eligibility.
 Enrollment does not authorize a concrete Runtime Control method or provider route;
 that operation requires its corresponding scope.
 The remote Runtime identifier does not authenticate the remote Runtime by itself.
@@ -390,9 +386,11 @@ that defines the permission and its constraint schema.
 The `constraints` byte string contains one Logos deterministic-CBOR value
 that MUST conform to that definition's CDDL.
 Capability Authority MUST reject an unknown permission or invalid constraints.
+A Logos specification that defines a permission assigns its `logos.` identifier; this revision defines no operating-system or platform permission names.
+A selected profile or the deployment defines those permissions under identifiers that do not begin with `logos.`.
+A future revision may define platform permission profiles.
 
-A profile that permits operating-system or platform access MUST define permission names and constraints
-for every facility it exposes.
+A profile that permits operating-system or platform access MUST define permission names and constraints for every facility it exposes.
 Relevant facilities include:
 
 - network connection, listening, protocol, destination, and port access;
@@ -445,28 +443,22 @@ the decision adds no retention requirement for that direction.
 These fields do not enable commitment computation or add evidence to a method payload.
 Runtime and Transport compute and verify the mandatory payload commitments independently of authority policy.
 
-Contract schema roots and method or event declaration roots enter authorization
-through `provider_access_scope`, `runtime_control_scope`, and Runtime's exact route-access values.
+Contract schema roots and method or event declaration roots enter authorization through `provider_access_scope`, `runtime_control_scope`, and Runtime's exact route-access values.
 They MUST be resolved and validated before Capability Authority evaluates them.
-A mutable catalog alias, package name, module name, version string, or caller-supplied schema text
-MUST NOT substitute for an exact root required by policy.
+A mutable catalog alias, package name, module name, version string, or caller-supplied schema text MUST NOT substitute for an exact root required by policy.
 
-Package signatures and artifact digests are verified by Package Manager and Runtime
-at their respective integrity boundaries.
-The `package`, `version`, and `artifact` fields in `module_execution_scope`
-identify the verified package facts presented to policy;
+Package signatures and artifact digests are verified by Package Manager and Runtime at their respective integrity boundaries.
+The `package`, `version`, and `artifact` fields in `module_execution_scope` identify the verified package facts presented to policy;
 the fields are not signatures, digest proofs, or trust anchors.
 Capability Authority MUST NOT turn an unverified identifier into trusted package or artifact evidence.
 
-An authenticated remote Runtime identity enters policy only after the selected remote identity profile
-has validated its credential and current enrollment.
+An authenticated remote Runtime identity enters policy only after the selected remote identity profile has validated its credential and current enrollment.
 Provider identity remains the provider address selected and validated by Runtime.
 Neither identity grants authority by itself.
 
 Request and response value roots normally do not exist when an allow decision is made.
 Commitment requirements tell the enforcement boundary which request or successful-response roots to retain for audit.
-The resulting roots are linked to the decision, exact call scope, and enforcement outcome
-through the audit rules in Section 9.
+The resulting roots are linked to the decision, exact call scope, and enforcement outcome through the audit rules in Section 9.
 
 Trust stores, catalogs, transparency logs, consensus systems,
 and equivalent mechanisms may supply verified policy inputs under a selected profile.
@@ -576,7 +568,7 @@ and MUST treat it as expired when the current time is greater than or equal to `
 
 The `execution_renewal` field identifies Runtime's renewal of an existing execution authorization.
 Runtime MUST set it only while that authorization remains valid under Section 8 and only for the retained consumer, execution target, and requested scopes.
-Runtime MUST reject this field on evaluation requests supplied by ordinary callers, including routed calls.
+Runtime MUST reject this field on evaluation requests supplied by ordinary callers, including routed calls, with `NOT_AUTHORISED` without dispatch.
 Capability Authority MUST receive the indication through the Runtime-enforced invocation boundary required by Section 2.
 An absent field identifies an ordinary evaluation.
 The indication does not grant authority, extend authorization validity, or change policy evaluation.
@@ -783,6 +775,40 @@ logos.capability_authority.error = {
 
 `denial` records an explicit policy result for the attempted operation.
 `error` records inability to process or evaluate the request.
+
+The denial codes have the following meanings:
+
+| Code | Meaning |
+| --- | --- |
+| `consumer-denied` | Active policy explicitly denies the requested operation to the consumer. |
+| `target-denied` | Active policy explicitly denies the operation for a provider, module, instance, or grant target named by the request. |
+| `grant-revoked` | No active rule or grant allows the operation; revoked grants, alone or together with expired grants, would allow every requested scope that active policy does not allow. |
+| `grant-expired` | No active rule or grant allows the operation; expired grants alone would allow every requested scope that active policy does not allow. |
+| `approval-required` | Active policy allows the operation only after an approval that has not been given. |
+| `scope-denied` | Active policy covers the requested action for the consumer, but a requested scope, method or event list, or constraint exceeds what it allows. |
+| `not-granted` | No active policy rule or grant covers the requested action for the consumer. |
+
+`evaluate` and `issue_grant` use these codes.
+An active rule or grant covers the requested action when it applies to the consumer and contains a scope of the same kind and action as a requested scope, whatever constraints, methods, or events that scope carries.
+For a permission scope the action is the permission name; for a runtime-control scope it is the Runtime and the contract.
+When several denial codes apply, Capability Authority MUST return the first applicable code in the order of this table.
+
+The error codes have the following meanings:
+
+| Code | Meaning |
+| --- | --- |
+| `invalid-request` | The request violates a rule of this specification that no more specific code covers, including an unordered or duplicate set-valued array, an evaluation request that combines independent operations, and an invalid cursor or query bound. |
+| `unsupported-scope` | The request contains a scope kind or action that the provider does not support. |
+| `unknown-permission` | A `permission_scope` names a permission that no accepted specification or selected profile defines. |
+| `invalid-constraints` | A `permission_scope` carries constraints that do not conform to the definition of its permission. |
+| `grant-not-found` | The named grant does not exist or is hidden from the consumer. |
+| `grant-not-active` | The named grant is visible to the consumer but is not `active` where the operation requires an active grant. |
+| `not-authorised` | The named grant is visible to the consumer, but active policy does not permit the consumer to revoke it. |
+| `authority-unavailable` | Capability Authority cannot obtain required policy, grant, trust, or audit state. |
+| `internal-error` | Processing failed for a reason that no other code covers. |
+
+After method authorization, Capability Authority MUST validate the request before it resolves a named grant or target, and MUST establish visibility of that grant or target before it evaluates policy for it.
+Revoking an already revoked grant does not produce another grant-revocation audit record.
 Capability Authority MUST NOT return a deny decision merely because it is unavailable, lacks required state,
 encounters an internal error, or cannot validate the request.
 Runtime MUST fail closed for the attempted operation in both cases
@@ -899,8 +925,7 @@ Ordinary consumer routes MUST NOT authorize subscriptions to these events, inclu
 Authority to invoke grant-query or grant-administration methods does not authorize receiving these notifications.
 The protected binding MUST authorize the complete information required for its notification coverage.
 An event payload, subscription result, or diagnostic MUST NOT disclose information outside that binding's authority.
-A Runtime notification path is working for cache reuse only if it remains authorized
-to receive every change that can invalidate the cached decision.
+A Runtime notification path is working for cache reuse only if it remains authorized to receive every change that can invalidate the cached decision.
 Loss of that visibility is notification-path loss and requires full cache invalidation.
 
 After processing a policy-change notification, Runtime MUST re-evaluate dependent operations before admitting another protected operation.
@@ -909,6 +934,11 @@ observations, new event-delivery commitments, lifecycle changes, and enrollment 
 Existing commitment and connection-failure rules continue to govern events already committed.
 It MUST make a dependent route unusable when the new decision denies the route
 or narrows its scope below the route's bound scope.
+Runtime re-evaluates a dependent route by requesting a decision for the route's bound scope as for renewal, without a consumer request.
+It MUST complete that evaluation before admitting the route's next protected operation and MAY perform it earlier.
+An allow decision covering the bound scope keeps the route, replaces its `decision_id`, and sets `expires_at` to the earlier of its current value and the new validity end.
+A deny decision, or an allow decision narrower than the bound scope, MUST place the route in `revoked` state with failure code `authority-denied`.
+If the evaluation fails, the route MUST remain unusable for protected operations until a later evaluation reauthorizes it.
 
 After processing a notification of grant revocation or expiry, or reaching an applicable expiry deadline, Runtime MUST prevent new dependent operations.
 It MUST terminate dependent provider sessions and subscriptions when their continued use would exceed current authority.
@@ -1166,9 +1196,22 @@ Grant expiry and policy change have no invoking contract consumer in the common 
 
 Capability Authority MUST produce an audit record for each evaluation result or failure, grant issuance,
 grant revocation, grant expiry, and policy change.
+The deterministic-CBOR encoding of the `scopes` array of an evaluation request or a grant request MUST NOT exceed 4194304 bytes; Capability Authority MUST reject a larger array with `invalid-request` before evaluation begins.
+If evaluation would produce `allowed_scopes` whose encoding exceeds that limit, Capability Authority MUST NOT issue the decision and MUST return `authority-unavailable`; the failure audit record omits `scopes`.
+These limits keep every single decision, grant, audit record, and change notification within the Transport message limit.
 Retention duration and storage realization are deployment or audit-profile policy.
 Rejection before evaluation begins, including rejection by a deadline, size limit, or queue limit, is an admission failure and does not require an audit record.
+A failure to retain such an optional record MUST NOT change the outcome reported to the caller.
 Once evaluation begins, every result or failure remains subject to the audit requirement.
+
+For `evaluate`, Capability Authority MUST NOT return an allow or deny decision until its required audit record has been produced and retention has been acknowledged under the applicable deployment or audit-profile policy.
+That policy MUST define the point at which retention of an evaluation audit record is acknowledged.
+This specification does not prescribe a common storage medium or durability level.
+If required retention cannot be acknowledged, Capability Authority MUST fail closed without an allow or deny decision.
+Capability Authority MUST attempt to retain every required evaluation-failure record.
+Only when an audit-storage failure prevents retention of the required evaluation-failure record MAY that record be absent.
+This exception does not apply when omission of unauthorized sensitive values permits the failure record to be retained.
+Failure to retain the required allow or deny record MUST be reported in `evaluate_response.error.code` as `authority-unavailable`.
 
 When an applied allow decision requires request or response retention for a call,
 the Runtime-controlled invocation boundary MUST produce a `call` audit record
@@ -1176,6 +1219,7 @@ after the corresponding enforcement outcome.
 The record MUST contain the `decision_id` of the allow decision actually applied to authorize the call and the exact enforced call scope.
 At successful call admission, Runtime MUST capture that decision, the enforced scope, and its applicable retention requirements as one consistent snapshot and retain them through the enforcement outcome.
 The enforced scope MUST be covered by that decision's allowed scopes and include every applicable narrowing constraint.
+When several allowed scopes apply to a call, the enforced call scope is the requested call scope narrowed by every one of them.
 A still-valid cached call decision MAY be used; a decision authorizing only route establishment or renewal does not authorize a call.
 Subsequent renewal or revocation MUST NOT replace the captured decision or scope in the call record.
 This recording rule does not defer required revocation enforcement.
@@ -1191,6 +1235,7 @@ The record MUST contain the `request` or `response` commitment
 for each applicable `retain-root` requirement whose value was produced and successfully committed.
 If a required value was not produced or could not be committed,
 the record MUST use the `failure` outcome and MUST NOT claim a commitment for that value.
+A call that ends with an invocation failure MUST use the `failure` outcome, even when every required value was committed.
 A successful call record MUST contain non-empty `commitments`.
 A failed call record MAY omit `commitments` when no required value was successfully produced and committed.
 If a failed call record contains `commitments`, they MUST contain only successfully retained sides.
@@ -1248,8 +1293,7 @@ This profile uses the application-context mechanism in RFC 9052 Appendix A and a
 The protected header map MUST contain exactly `kid`, with COSE label `4` and a `logos.capability_authority.evidence_key_id` value.
 An explicit `alg` header MUST be rejected, including one that identifies the algorithm fixed by this profile.
 The unprotected header map MUST be empty.
-The outer object and serialized protected header map MUST use the core deterministic encoding requirements
-of RFC 8949 Section 4.2.1.
+The outer object and serialized protected header map MUST use the core deterministic encoding requirements of RFC 8949 Section 4.2.1.
 
 The payload MUST be embedded as a byte string containing the exact deterministic-CBOR claim.
 Detached payloads, additional protected or unprotected headers,
@@ -1339,7 +1383,7 @@ If authorized disclosure cannot produce such a record, Capability Authority MUST
 Audit records MUST NOT contain full route tickets, bearer credentials, private keys, or secrets.
 Sensitive constraint values require protection and explicit audit authorization before retention.
 Protected deployment or audit-profile policy supplies that authorization; permission to invoke `evaluate` does not by itself authorize retention.
-If an admitted evaluation cannot produce its required allow or deny audit record without retaining unauthorized sensitive constraint values, Capability Authority MUST fail the evaluation without issuing an allow or deny decision.
+If an admitted evaluation cannot produce its required allow or deny audit record without retaining unauthorized sensitive constraint values, Capability Authority MUST fail the evaluation with `authority-unavailable` without issuing an allow or deny decision.
 The failure record MUST omit those values and preserve its otherwise required attribution.
 The existing evaluation-error and diagnostic-disclosure rules apply.
 If a grant-issuance request cannot produce its required success or denial audit record without violating these retention restrictions, Capability Authority MUST fail the request with `authority-unavailable` without issuing a grant or grant denial.
@@ -1374,6 +1418,7 @@ The contract defines these events:
 Runtime MUST be authorized to invoke it through the protected system-service binding defined by LOGOS-MODULE-RUNTIME Section 9.
 Ordinary consumers MUST NOT gain direct authority to call `evaluate`
 merely because they can request a provider route or invoke another Capability Authority method.
+A provider-access grant for `evaluate` permits an ordinary consumer to request evaluation only with itself as `consumer`.
 
 `grant_changed` and `policy_changed` are restricted to the protected engine notification path in Section 8.
 Ordinary consumers observe changes through `watch_changes` and `observed_change` under Section 8.1.
@@ -1407,8 +1452,7 @@ When the profile uses a one-time route ticket, the ticket is consumed to establi
 it is not consumed separately by each call on that session.
 The provider-side invocation boundary validates that material before dispatch
 and enforces the bound scope for the session.
-Missing, empty, invalid, expired, revoked, replayed, or incorrectly bound authorization material
-MUST produce no usable protected session and no ordinary module dispatch.
+Missing, empty, invalid, expired, revoked, replayed, or incorrectly bound authorization material MUST produce no usable protected session and no ordinary module dispatch.
 After session establishment, ordinary module data flows between the consumer and the provider-side boundary
 without passing through Capability Authority.
 The mandatory remote-transport profiles use
@@ -1417,8 +1461,7 @@ for provider-session establishment.
 Logos Core defines no generic bearer capability, signed authority decision, or COSE authorization token.
 Package-signature and call-evidence COSE objects MUST NOT be accepted as authorization material.
 
-Runtime MUST NOT place secret route tickets, private keys, or reusable bearer credentials
-in grant, decision, audit, Module Loader realization, package, or module lifecycle records.
+Runtime MUST NOT place secret route tickets, private keys, or reusable bearer credentials in grant, decision, audit, Module Loader realization, package, or module lifecycle records.
 
 Runtime-owned local system-service credentials instead follow LOGOS-MODULE-TRANSPORT Section 8.1.2.
 Their authority comes from the protected binding policy, without creating a module consumer or substituting for any execution or permission authorization.
@@ -1458,10 +1501,415 @@ and apply the same authority checks to query results as to the underlying operat
 Full route tickets, proof-of-possession secrets, private keys, and reusable credentials MUST NOT be logged.
 Diagnostic correlation SHOULD use non-secret decision, grant, route, and consumer references.
 
-Capability Authority policy does not make direct same-address-space code safe
-against memory corruption or deliberate policy bypass.
+Capability Authority policy does not make direct same-address-space code safe against memory corruption or deliberate policy bypass.
 Untrusted code requires a selected execution and isolation profile
 whose controls can enforce the permissions granted to it.
+
+---
+
+## Appendix A. Complete Contract Schema (Normative)
+
+This appendix lists the complete `logos.capability_authority` contract schema in one CDDL block.
+The CDDL blocks in the preceding sections are excerpts of it, in the same order.
+If an excerpt differs from this appendix, this appendix governs.
+
+```cddl
+_module = "logos_capability_authority"
+
+logos.capability_authority.decision_id = tstr .size (1..128)
+
+logos.capability_authority.route_access = {
+    ? methods: [* bstr .size 32],
+    ? publish_events: [* bstr .size 32],
+    ? subscribe_events: [* bstr .size 32],
+}
+
+logos.capability_authority.execution_mode =
+    "direct" /
+    "local-transport"
+
+logos.capability_authority.hosted_placement =
+    "process" /
+    "sandbox" /
+    "container"
+
+logos.capability_authority.artifact_id = tstr .size (1..128)
+
+logos.capability_authority.provider_access_scope = {
+    kind: "provider-access",
+    contract: logos.schema_commitment,
+    actions: [* (
+        "discover" /
+        "establish-route" /
+        "renew-route" /
+        "call" /
+        "publish-event" /
+        "subscribe-event"
+    )],
+    ? providers: [* logos.runtime.module_provider_address],
+    ? routes: [* logos.runtime.route_id],
+    ? access: logos.capability_authority.route_access,
+}
+
+logos.capability_authority.runtime_control_scope = {
+    kind: "runtime-control",
+    runtime: logos.runtime.runtime_instance_id,
+    contract: logos.schema_commitment,
+    ? methods: [* bstr .size 32],
+    ? events: [* bstr .size 32],
+    ? modules: [* logos.runtime.module_name],
+    ? instances: [* logos.runtime.module_instance_id],
+    ? providers: [* logos.runtime.module_provider_address],
+    ? routes: [* logos.runtime.route_id],
+}
+
+logos.capability_authority.module_execution_scope = {
+    kind: "module-execution",
+    runtime: logos.runtime.runtime_instance_id,
+    module: logos.runtime.module_name,
+    ? instance: logos.runtime.module_instance_id,
+    actions: [* ("start" / "stop")],
+    ? modes: [* logos.capability_authority.execution_mode],
+    ? placements: [* logos.capability_authority.hosted_placement],
+    ? package: tstr .size (1..128),
+    ? version: tstr .size (1..128),
+    ? artifact: logos.capability_authority.artifact_id,
+}
+
+logos.capability_authority.remote_enrollment_scope = {
+    kind: "remote-enrollment",
+    remote_runtime: logos.runtime.runtime_instance_id,
+    actions: [* ("enroll" / "refresh" / "remove")],
+    uses: [* ("runtime-control" / "provider-access")],
+}
+
+logos.capability_authority.permission_scope = {
+    kind: "permission",
+    permission: tstr .size (1..128),
+    constraints: bstr .size (1..1048576),
+}
+
+logos.capability_authority.scope =
+    logos.capability_authority.provider_access_scope /
+    logos.capability_authority.runtime_control_scope /
+    logos.capability_authority.module_execution_scope /
+    logos.capability_authority.remote_enrollment_scope /
+    logos.capability_authority.permission_scope
+
+logos.capability_authority.commitment_retention = "retain-root"
+
+logos.capability_authority.commitment_requirements = {
+    ? request: logos.capability_authority.commitment_retention,
+    ? response: logos.capability_authority.commitment_retention,
+}
+
+logos.capability_authority.timestamp = uint64
+logos.capability_authority.grant_id = tstr .size (1..128)
+logos.capability_authority.cursor = tstr .size (1..512)
+
+logos.capability_authority.decision_result = "allow" / "deny"
+
+logos.capability_authority.denial_code =
+    "not-granted" /
+    "scope-denied" /
+    "consumer-denied" /
+    "target-denied" /
+    "approval-required" /
+    "grant-expired" /
+    "grant-revoked"
+
+logos.capability_authority.denial = {
+    code: logos.capability_authority.denial_code,
+    ? message: tstr .size (0..512),
+}
+
+logos.capability_authority.evaluate_request = {
+    consumer: logos.runtime.module_instance_address,
+    scopes: [* logos.capability_authority.scope],
+    ? execution_renewal: true,
+    ? commitment: logos.capability_authority.commitment_requirements,
+}
+
+logos.capability_authority.decision = {
+    decision_id: logos.capability_authority.decision_id,
+    policy_revision: uint64,
+    result: logos.capability_authority.decision_result,
+    consumer: logos.runtime.module_instance_address,
+    requested_scopes: [* logos.capability_authority.scope],
+    ? allowed_scopes: [* logos.capability_authority.scope],
+    issued_at: logos.capability_authority.timestamp,
+    ? valid_until: logos.capability_authority.timestamp,
+    ? grant_ids: [* logos.capability_authority.grant_id],
+    ? commitment: logos.capability_authority.commitment_requirements,
+    ? denial: logos.capability_authority.denial,
+}
+
+logos.capability_authority.evaluate_response =
+    { decision: logos.capability_authority.decision } /
+    { error: logos.capability_authority.error }
+
+logos.capability_authority.grant_status = "active" / "expired" / "revoked"
+
+logos.capability_authority.grant_issuer =
+    {
+        kind: "module",
+        module: logos.runtime.module_instance_address,
+    } /
+    {
+        kind: "protected-policy",
+        source: tstr .size (1..128),
+    }
+
+logos.capability_authority.grant = {
+    grant_id: logos.capability_authority.grant_id,
+    issuer: logos.capability_authority.grant_issuer,
+    target: logos.runtime.module_instance_address,
+    scopes: [* logos.capability_authority.scope],
+    issued_at: logos.capability_authority.timestamp,
+    ? expires_at: logos.capability_authority.timestamp,
+    status: logos.capability_authority.grant_status,
+    ? commitment: logos.capability_authority.commitment_requirements,
+    ? revoked_at: logos.capability_authority.timestamp,
+    ? revocation_reason: tstr .size (0..512),
+}
+
+logos.capability_authority.issue_grant_request = {
+    consumer: logos.runtime.module_instance_address,
+    target: logos.runtime.module_instance_address,
+    scopes: [* logos.capability_authority.scope],
+    ? expires_at: logos.capability_authority.timestamp,
+    ? commitment: logos.capability_authority.commitment_requirements,
+}
+
+logos.capability_authority.issue_grant_response =
+    { grant: logos.capability_authority.grant } /
+    { denial: logos.capability_authority.denial } /
+    { error: logos.capability_authority.error }
+
+logos.capability_authority.revoke_grant_request = {
+    consumer: logos.runtime.module_instance_address,
+    grant_id: logos.capability_authority.grant_id,
+    ? reason: tstr .size (0..512),
+}
+
+logos.capability_authority.revoke_grant_response =
+    { grant: logos.capability_authority.grant } /
+    { error: logos.capability_authority.error }
+
+logos.capability_authority.get_grant_request = {
+    consumer: logos.runtime.module_instance_address,
+    grant_id: logos.capability_authority.grant_id,
+}
+
+logos.capability_authority.get_grant_response =
+    { grant: logos.capability_authority.grant } /
+    { error: logos.capability_authority.error }
+
+logos.capability_authority.list_grants_request = {
+    consumer: logos.runtime.module_instance_address,
+    ? target: logos.runtime.module_instance_address,
+    ? status: logos.capability_authority.grant_status,
+    ? cursor: logos.capability_authority.cursor,
+    ? limit: uint16,
+}
+
+logos.capability_authority.list_grants_response =
+    {
+        grants: [* logos.capability_authority.grant],
+        ? next_cursor: logos.capability_authority.cursor,
+    } /
+    { error: logos.capability_authority.error }
+
+logos.capability_authority.error_code =
+    "invalid-request" /
+    "not-authorised" /
+    "unsupported-scope" /
+    "unknown-permission" /
+    "invalid-constraints" /
+    "grant-not-found" /
+    "grant-not-active" /
+    "authority-unavailable" /
+    "internal-error"
+
+logos.capability_authority.error = {
+    code: logos.capability_authority.error_code,
+    ? message: tstr .size (0..512),
+}
+
+logos.capability_authority.grant_changed_event = {
+    grant: logos.capability_authority.grant,
+}
+
+logos.capability_authority.policy_changed_event = {
+    changed_at: logos.capability_authority.timestamp,
+    previous_policy_revision: uint64,
+    policy_revision: uint64,
+    ? affected_executions: [* logos.runtime.module_instance_address],
+}
+
+logos.capability_authority.watch_changes_request = {
+    consumer: logos.runtime.module_instance_address,
+}
+
+logos.capability_authority.watch_changes_response =
+    {} /
+    { error: logos.capability_authority.error }
+
+logos.capability_authority.observed_change_event =
+    { grant: logos.capability_authority.grant } /
+    {
+        changed_at: logos.capability_authority.timestamp,
+        previous_policy_revision: uint64,
+        policy_revision: uint64,
+        ? affected_executions: [* logos.runtime.module_instance_address],
+    }
+
+logos.capability_authority.audit_value_commitment = {
+    schema_subtree_root: bstr .size 32,
+    value_root: bstr .size 32,
+}
+
+logos.capability_authority.call_commitments = {
+    request: logos.capability_authority.audit_value_commitment,
+    ? response: logos.capability_authority.audit_value_commitment,
+} / {
+    response: logos.capability_authority.audit_value_commitment,
+}
+
+logos.capability_authority.audit_record =
+    {
+        timestamp: logos.capability_authority.timestamp,
+        operation: "evaluate",
+        outcome: "allow",
+        consumer: logos.runtime.module_instance_address,
+        decision_id: logos.capability_authority.decision_id,
+        scopes: [* logos.capability_authority.scope],
+    } /
+    {
+        timestamp: logos.capability_authority.timestamp,
+        operation: "evaluate",
+        outcome: "deny",
+        consumer: logos.runtime.module_instance_address,
+        decision_id: logos.capability_authority.decision_id,
+        scopes: [* logos.capability_authority.scope],
+        denial: logos.capability_authority.denial,
+    } /
+    {
+        timestamp: logos.capability_authority.timestamp,
+        operation: "evaluate",
+        outcome: "failure",
+        consumer: logos.runtime.module_instance_address,
+        ? scopes: [* logos.capability_authority.scope],
+        error: logos.capability_authority.error_code,
+    } /
+    {
+        timestamp: logos.capability_authority.timestamp,
+        operation: "call",
+        outcome: "success",
+        consumer: logos.runtime.module_instance_address,
+        decision_id: logos.capability_authority.decision_id,
+        scopes: [logos.capability_authority.scope],
+        commitments: logos.capability_authority.call_commitments,
+    } /
+    {
+        timestamp: logos.capability_authority.timestamp,
+        operation: "call",
+        outcome: "failure",
+        consumer: logos.runtime.module_instance_address,
+        decision_id: logos.capability_authority.decision_id,
+        scopes: [logos.capability_authority.scope],
+        ? commitments: logos.capability_authority.call_commitments,
+    } /
+    {
+        timestamp: logos.capability_authority.timestamp,
+        operation: "issue-grant",
+        outcome: "success",
+        ? consumer: logos.runtime.module_instance_address,
+        target: logos.runtime.module_instance_address,
+        grant_id: logos.capability_authority.grant_id,
+        scopes: [* logos.capability_authority.scope],
+    } /
+    {
+        timestamp: logos.capability_authority.timestamp,
+        operation: "issue-grant",
+        outcome: "deny",
+        consumer: logos.runtime.module_instance_address,
+        target: logos.runtime.module_instance_address,
+        scopes: [* logos.capability_authority.scope],
+        denial: logos.capability_authority.denial,
+    } /
+    {
+        timestamp: logos.capability_authority.timestamp,
+        operation: "issue-grant",
+        outcome: "failure",
+        consumer: logos.runtime.module_instance_address,
+        target: logos.runtime.module_instance_address,
+        ? scopes: [* logos.capability_authority.scope],
+        error: logos.capability_authority.error_code,
+    } /
+    {
+        timestamp: logos.capability_authority.timestamp,
+        operation: "revoke-grant",
+        outcome: "success",
+        ? consumer: logos.runtime.module_instance_address,
+        target: logos.runtime.module_instance_address,
+        grant_id: logos.capability_authority.grant_id,
+    } /
+    {
+        timestamp: logos.capability_authority.timestamp,
+        operation: "revoke-grant",
+        outcome: "failure",
+        consumer: logos.runtime.module_instance_address,
+        ? target: logos.runtime.module_instance_address,
+        grant_id: logos.capability_authority.grant_id,
+        error: logos.capability_authority.error_code,
+    } /
+    {
+        timestamp: logos.capability_authority.timestamp,
+        operation: "grant-expired",
+        outcome: "success",
+        target: logos.runtime.module_instance_address,
+        grant_id: logos.capability_authority.grant_id,
+    } /
+    {
+        timestamp: logos.capability_authority.timestamp,
+        operation: "policy-change",
+        outcome: "success",
+    }
+
+logos.capability_authority.query_audit_request = {
+    consumer: logos.runtime.module_instance_address,
+    ? record_consumer: logos.runtime.module_instance_address,
+    ? target: logos.runtime.module_instance_address,
+    ? decision_id: logos.capability_authority.decision_id,
+    ? grant_id: logos.capability_authority.grant_id,
+    ? since: logos.capability_authority.timestamp,
+    ? until: logos.capability_authority.timestamp,
+}
+
+logos.capability_authority.query_audit_response =
+    {
+        records: [* logos.capability_authority.audit_record],
+    } /
+    { error: logos.capability_authority.error }
+
+logos.capability_authority.call_evidence_profile =
+    "logos.call-evidence.cose-sign1-slh-dsa-sha2-192s"
+
+logos.capability_authority.evidence_key_id = bstr .size (1..128)
+
+logos.capability_authority.call_evidence_proofs = {
+    ? request: [* bstr],
+    ? response: [* bstr],
+}
+
+logos.capability_authority.call_evidence_claim = {
+    profile: logos.capability_authority.call_evidence_profile,
+    producer: logos.runtime.runtime_instance_id,
+    record: logos.capability_authority.audit_record,
+    ? proofs: logos.capability_authority.call_evidence_proofs,
+}
+```
 
 ---
 
@@ -1488,5 +1936,4 @@ whose controls can enforce the permissions granted to it.
 
 ## Copyright
 
-Copyright and related rights waived via
-[CC0](https://creativecommons.org/publicdomain/zero/1.0/).
+Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).

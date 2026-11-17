@@ -237,7 +237,7 @@ Runtime is suited to lifecycle, routing, provider visibility, call, event, subsc
 Transport is suited to connection, framing, replay, and pressure constraints.
 Module Loader, deployment controls, and operating-system mechanisms enforce constraints on selected execution forms.
 
-Conforming implementations MUST fail closed when they cannot realize the selected profile; these specifications do not require identical sandbox strength across platforms.
+Conforming implementations fail closed when they cannot realize the selected profile, as required by LOGOS-MODULE-SYSTEM-BCP Section 5.4; these specifications do not require identical sandbox strength across platforms.
 A deployment that cannot satisfy the selected profile must reject the dependent operation or explicitly select a different profile through trusted configuration.
 
 ### 5.1 Containment Of Malicious Modules
@@ -336,8 +336,7 @@ It does not expose an unrelated backing-provider contract, route, or registry st
 Every Transport Request, successful Response, and Event carries a compact payload commitment containing the applicable schema subtree root and value root.
 The sender computes the commitment from the schema-typed value.
 Before dispatch, acceptance, or delivery,
-the schema-aware receiving boundary validates the value and independently
-recomputes both roots under the fixed commitment-model revision,
+the schema-aware receiving boundary validates the value and independently recomputes both roots under the fixed commitment-model revision,
 hash profile, and BLAKE3-256 hash suite.
 Commitment failure is fail-closed.
 `response-err` and ProtocolError messages do not carry payload commitments.
@@ -389,8 +388,10 @@ Conformance reduces ambiguity, unauthorized access, substitution, replay, and do
 - **Credential theft:** valid stolen credentials can satisfy authentication until revocation or another control detects the compromise.
 - **In-process compromise:** code sharing the Runtime address space can corrupt memory, steal secrets, call host functions, or bypass route enforcement.
 - **Time-of-check/time-of-use mismatch:** mutable paths, replaced files, symlinks, or external resources can differ between verification and use unless the deployment preserves the exact-byte and resource bindings.
+- **Unverified dependent libraries:** Module Loader verifies the selected implementation artifact, not the libraries the dynamic linker loads for it; a packaged library is protected only by the binding of installed paths to verified bytes, and a platform library only by the platform. A future revision may add load-time verification of packaged libraries.
 - **Audit-window exhaustion:** malicious activity can move an older record outside the bounded audit-query result even when deployment storage retains it.
 - **Resource exhaustion:** frame-size and event-buffering limits do not by themselves bound connection, call, route, ticket, subscription, or queued-response state.
+- **Shared-pool exhaustion:** one consumer or provider acting within its authority can exhaust a finite admission pool shared with others, such as prepared calls, native borrows, sessions, routes, route tickets, grants, or audit storage, until capacity is released.
 - **Pre-verification realization compromise:** Package-controlled Nix evaluation or building can exploit defects in the selected isolation mechanism or consume resources permitted within that boundary before the package signature is available.
 - **Configuration or state disclosure:** authorization protects the Logos operations that expose configuration and persistent-state assignments, but confidentiality and integrity also depend on the selected storage, handoff, isolation, and operating-system controls.
 - **Incorrect computation:** schema and value roots identify what was supplied and returned; they do not prove that the result is correct.
@@ -400,7 +401,7 @@ They are optional external mechanisms unless a selected profile defines and enfo
 
 Deterministic value commitments do not provide confidentiality.
 An observer who knows the schema can test guessed values against an exposed commitment, and equal commitments can reveal repeated values.
-Implementations MUST apply LOGOS-MODULE-INTERFACE sensitive-payload restrictions to value-derived identifiers as well as payload bytes.
+LOGOS-MODULE-INTERFACE Section 1.4.1 applies sensitive-payload restrictions to value-derived identifiers as well as payload bytes.
 
 ## 11. Platform Security Models
 
@@ -472,7 +473,7 @@ Process separation, executable signing, or a granted application permission alon
   Background execution is limited to declared modes and scheduled or system-managed work.
 - **Logos consequence:** The normal iOS baseline is statically linked or bundled trusted module code using direct mode inside one application.
   Separate application or extension providers require an iOS-specific transport and lifecycle profile.
-  A deployment conforming to these specifications MUST NOT assume that arbitrary post-install native module loading is available.
+  A deployment conforming to these specifications cannot rely on arbitrary post-install native module loading.
 
 ### 11.6 Security And Operational Tradeoffs
 
@@ -584,6 +585,7 @@ The following table summarizes required security treatment and the owning specif
 - LOGOS-MODULE-CONFIGURATION;
 - LOGOS-MODULE-PACKAGE-MANAGER;
 - LOGOS-MODULE-LOADER;
+- LOGOS-MODULE-CREDENTIAL-STORE;
 - LOGOS-MODULE-SYSTEM-BCP.
 
 ### Platform Documentation
@@ -597,5 +599,4 @@ The following table summarizes required security treatment and the owning specif
 
 ## Copyright
 
-Copyright and related rights waived via
-[CC0](https://creativecommons.org/publicdomain/zero/1.0/).
+Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).

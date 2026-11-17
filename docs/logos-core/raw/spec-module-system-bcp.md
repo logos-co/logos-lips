@@ -78,15 +78,17 @@ The following upward dependencies are exceptions to the layer direction in this 
 
 | Referencing specification | Higher-layer owner | Required definitions or behavior |
 |---|---|---|
-| Interface §§1.2, 1.4, 1.5, 2.8, 2.9 and 5.2 | Runtime | Module-name grammar, module/schema binding, protected caller and invocation-scoped event semantics, Runtime Control operation ordering, and remote-binding endpoint, consumer and authorization semantics. |
-| Interface §§1.5, 2.5, 2.8, 2.9, 4 and 5.2 | Transport | Transported subscription, delivery and cancellation semantics, message-validation failures, and remote-binding authentication and Hello validation. |
-| Runtime §§2.4, 3.6, 4.3 and 9 | Capability Authority | Discovery decisions, authenticated consumer and authority-decision records, and contract-specific policy mappings when authority is externalized. |
+| Interface §§1.2–1.5, 2.8, 2.9, 5.1 and 5.2 | Runtime | Module-name grammar, module/schema binding, protected caller and invocation-scoped event semantics, Runtime Control listings and operation ordering, and remote-binding endpoint, consumer and authorization semantics. |
+| Interface §§1.5, 2.1, 2.5, 2.8, 2.9, 4, 5.1 and 5.2 | Transport | Method-name carriage, transported subscription, delivery and cancellation semantics, message-validation failures, response-envelope and frame-capacity definitions, and remote-binding authentication and Hello validation. |
+| Interface §5.1 | Configuration | Accepted configuration-schema semantics for `configuration-schema-mismatch` validation detail. |
+| Runtime §§2.4, 3.6, 4.3, 8, 9 and 10.1 | Capability Authority | Discovery decisions, authenticated consumer and authority-decision records, execution-authorization renewal and invalidation, and contract-specific policy mappings when authority is externalized. |
 | Runtime §§3.5–3.7, 8 and 9.3 | Package Manager | Package facts, retained package and signer provenance, acceptance evidence and authenticated Runtime handoff records when Package Manager supplies a module. |
-| Runtime §§3.4, 5.1, 9 and 13.3 | Module Loader | Realization evidence, hosted listener handoff, strategy and placement definitions, and static binding identifiers. |
+| Runtime §§3.4, 4.2.1, 5.1, 9, 10.1, 10.2 and 13.3 | Module Loader | Realization evidence, binding loss and cleanup, release ordering, hosted listener handoff, strategy and placement definitions, Loader error codes, and static binding identifiers. |
 | Runtime §9 and Transport §4.1 | Capability Authority | The `call` audit record and baseline call-evidence container, including the types and verification rules needed to produce and verify those records. |
 
 These dependencies require the referenced definitions where applicable; they do not by themselves require deployment of higher-layer service providers.
 In particular, call-audit and evidence support does not require a Capability Authority provider or calls to its module contract.
+This exception keeps the call-audit and call-evidence definitions out of the shared Runtime types schema: every contract that imports that schema, including Runtime Control, commits to its complete schema root, so a change to those definitions would otherwise change the Runtime Control contract identity.
 The complete-system composition requirements remain separate.
 
 > **Caution:** Future revisions will review these exceptions for removal or relocation to the appropriate layer.
@@ -199,8 +201,7 @@ direct dynamic loading, and hosted dynamic loading in a process, sandbox, or con
 LOGOS-MODULE-CREDENTIAL-STORE defines authenticated creation and presence queries for encrypted credentials in protected deployment-assigned slots.
 It leaves backend selection and protected startup delivery to the host and does not extend Runtime Control.
 
-A module implemented in a language that does not directly export the canonical C ABI
-uses generated or handwritten adapter code in its static binding or dynamic library.
+A module implemented in a language that does not directly export the canonical C ABI uses generated or handwritten adapter code in its static binding or dynamic library.
 A module kit can generate that adapter from the canonical contract.
 The adapter is part of the module implementation and does not define another contract,
 participant, lifecycle, or realization strategy.
@@ -269,6 +270,9 @@ The following identifiers are assigned by their normative owners:
 | Package signature | `logos.package-signing.cose-sign1-slh-dsa-sha2-192s` |
 | Provenance signature | `logos.provenance-signing.dsse-slh-dsa-sha2-192s` |
 | Call evidence | `logos.call-evidence.cose-sign1-slh-dsa-sha2-192s` |
+| Package provenance | `logos.package-provenance.slsa-v1.2` |
+| Package realization | `lgx` |
+| Package realization | `nix` |
 | Runtime Control | `logos_runtime_control` |
 | Capability Authority module | `logos_capability_authority` |
 | Module Loader module | `logos_module_loader` |
@@ -279,6 +283,7 @@ The following identifiers are assigned by their normative owners:
 
 An implementation may claim conformance to an individual Core specification without implementing a module contract from a later layer.
 Accordingly, conformance to LOGOS-MODULE-RUNTIME or LOGOS-MODULE-TRANSPORT does not require implementation of LOGOS-MODULE-LOADER.
+A claim of conformance to LOGOS-MODULE-RUNTIME covers a Runtime instance including its orchestration module; an engine supplied without that module claims conformance jointly with the orchestration module that the deployment supplies.
 Credential Store is optional to implement and deploy.
 Neither lower-layer conformance nor complete-system conformance to this BCP requires it.
 Its contract requirements apply when conformance to LOGOS-MODULE-CREDENTIAL-STORE is claimed.
@@ -366,9 +371,8 @@ At minimum, that documentation MUST identify:
 - Runtime directories, module state realization, retention, cleanup, recovery, and explicit upgrade or migration policy;
 - accepted-declaration selection and exact package/version pinning for package-backed module creation;
 - any protected attribute-source integration required by Capability Authority policy;
-- concrete resource bounds required by Package Manager, including dependency-resolution limits,
-  and by Runtime, Transport, Module Loader, and schema processing;
-
+- when Credential Store is deployed, its credential, format and sealing profiles, backend durability and recovery, operation-record retention, and protected delivery and activation;
+- concrete resource bounds required by Package Manager, including dependency-resolution limits, and by Runtime, Transport, Module Loader, and schema processing;
 - startup, application-attempt, drain and cleanup deadline policies, their start points, covered phases, logical failure effects and permitted escalation, including shared-process limitations;
 - configuration-preserving upgrade responsibility and verified-default acquisition;
 - any selected presentation profile and its platform integration.
@@ -376,6 +380,7 @@ At minimum, that documentation MUST identify:
 The documentation MUST also identify Package Manager installation and inventory scope, shared-state coordination, and the protected administration of required operating-system integration material.
 Package installation does not grant device consent or authorize applying package-supplied privileged system rules.
 A required facility or enforcement constraint that cannot be supplied MUST fail the dependent realization; installation success does not prove that every placement can realize the package.
+For each finite admission pool shared by more than one consumer or provider, the documentation MUST state whether a per-consumer or per-provider limit applies.
 
 For user-facing approval that changes protected policy or grants, the deployment MUST document how its administrative path authenticates the approving principal and authorizes changes to protected inputs.
 An approval presentation MUST distinguish authenticated operation and scope identifiers from caller-supplied or publisher-supplied descriptions.
@@ -395,7 +400,7 @@ Deployment documentation MUST state module-state protection at rest, access by o
 Instance retirement and package removal MUST NOT be described as state deletion unless a separate authorized operation performs that deletion.
 This specification requires neither blanket backup exclusion nor a guarantee of physical erasure from snapshots or storage media.
 
-Use of the non-production mechanisms identified in LOGOS-MODULE-SECURITY-CONSIDERATIONS Section 13 MUST be selected explicitly through protected deployment configuration.
+Use of development trust anchors, relaxed debugging entitlements, implementation-local Transport test hooks under LOGOS-MODULE-TRANSPORT Section 8.5, or unknown-artifact analysis MUST be selected explicitly through protected deployment configuration.
 A deployment enabling any such mechanism MUST identify itself as non-production in its deployment documentation and operator-facing diagnostics.
 Build mode alone MUST NOT enable development trust or exemptions.
 A non-production designation MUST NOT waive requirements of the claimed Core specifications or selected profiles.
@@ -421,6 +426,8 @@ A generic string, opaque byte string, configuration key, backend name, or policy
 Implementation-local diagnostics and test hooks are not Core profiles and do not require Core identifiers.
 They MUST NOT appear in addresses, discovery results, or negotiation fields defined by these specifications.
 Unknown or unsupported profile identifiers MUST fail the dependent operation unless the owning specification explicitly permits the identifier to be ignored.
+Identifiers beginning with `logos.` are reserved for assignment by a Logos specification.
+An implementation or deployment MUST NOT define a profile, permission, format, or other identifier with that prefix.
 A future profile does not affect current conformance until a normative specification assigns its identifier and complete semantics.
 
 ## 6. Module Kit (Informative)
@@ -549,7 +556,7 @@ This section defines no observer contract or additional Core conformance require
 
 Optional diagnostic logging can be supplied through ordinary module contracts and deployment integration.
 Such an integration must define attribution, authorized access, sensitive-data handling, retention and delivery bounds; diagnostic text is not evidence of another module's identity.
-Failure of optional logging MUST NOT waive required audit or enforcement.
+Failure of optional logging does not waive required audit or enforcement.
 When mandatory audit cannot be satisfied, the owning audit failure rules continue to apply.
 
 ## References
@@ -565,5 +572,4 @@ When mandatory audit cannot be satisfied, the owning audit failure rules continu
 
 ## Copyright
 
-Copyright and related rights waived via
-[CC0](https://creativecommons.org/publicdomain/zero/1.0/).
+Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).

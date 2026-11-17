@@ -13,23 +13,17 @@
 
 This specification defines the `logos.transport` message envelope and protocol semantics for inter-process and remote Logos module communication.
 
-The message types and their CBOR encodings are fully defined by the CDDL
-schema in Section 1. This specification adds only the non-CDDL parts that CDDL
-cannot express:
+The message types and their CBOR encodings are fully defined by the CDDL schema in Section 1.
+This specification adds only the non-CDDL parts that CDDL cannot express:
 
-1. **Directional message semantics** — which party may send each message and
-   how replies correlate to requests (section 1.4)
-2. **Stream binding** — how directional messages are carried over a
-   bidirectional byte stream (sections 2 and 3)
-3. **Transport binding** — Unix domain socket and TCP stream bindings
-   (section 9)
+1. **Directional message semantics** — which party may send each message and how replies correlate to requests (section 1.4)
+2. **Stream binding** — how directional messages are carried over a bidirectional byte stream (sections 2 and 3)
+3. **Transport binding** — Unix domain socket and TCP stream bindings (sections 8 and 9)
 
 Everything else — message types, field names, value types, error codes —
 is defined in the CDDL below.
 
 The CDDL blocks in Section 1 collectively define the `logos.transport` protocol grammar.
-`logos_transport.cddl` is an extracted machine-readable mirror.
-If the extracted artifact differs from this specification, this specification governs.
 This protocol CDDL is not a concrete module schema, interface contract schema, or supporting schema under LOGOS-MODULE-INTERFACE.
 It does not participate in Logos schema construction and does not have a Logos schema root.
 The `logos.transport.request`, `logos.transport.response`, and `logos.transport.event` declarations are directional Transport messages and do not declare callable module operations.
@@ -38,23 +32,18 @@ Those references do not make the envelope a supporting-schema dependency.
 The envelope may use RFC 8610 constructs that LOGOS-MODULE-INTERFACE reserves for protocol use or prohibits in Logos schema documents.
 
 This spec is intentionally thin.
-The Logos transport protocol is defined as directional Logos deterministic
-CBOR messages.
+The Logos transport protocol is defined as directional Logos deterministic CBOR messages.
 A stream transport is one binding of those messages onto a bidirectional,
 long-lived byte stream; it is not the only possible binding.
-Future revisions may add streaming, multiplexed channels, compression, or
-additional bindings.
+Future revisions may add streaming, multiplexed channels, compression, or additional bindings.
 
-This spec is ONLY relevant when modules communicate over sockets (inter-
-process or remote). In direct mode (in-process), calls go through C function
-pointers and this protocol is not used. See LOGOS-MODULE-INTERFACE for the
-interface definition format and LOGOS-MODULE-RUNTIME for module admission, lifecycle, routing, and the process model.
+This spec is ONLY relevant when modules communicate over sockets (inter-process or remote).
+In direct mode (in-process), calls go through C function pointers and this protocol is not used.
+See LOGOS-MODULE-INTERFACE for the interface definition format and LOGOS-MODULE-RUNTIME for module admission, lifecycle, routing, and the process model.
 
-This transport does **not** define a different module contract. It is one
-runtime realization of the same interface contract defined in
-LOGOS-MODULE-INTERFACE. A conforming implementation MUST preserve the same
-method names, event names, schema-defined payload shapes, and success/error
-semantics that would apply in direct mode.
+This transport does **not** define a different module contract.
+It is one runtime realization of the same interface contract defined in LOGOS-MODULE-INTERFACE.
+A conforming implementation MUST preserve the same method names, event names, schema-defined payload shapes, and success/error semantics that would apply in direct mode.
 
 ## Requirements Language
 
@@ -64,8 +53,7 @@ Lowercase forms retain their ordinary English meanings.
 ## 1. Message Envelope
 
 All messages are CBOR-encoded maps.
-Each top-level message map carries a required compact message-kind field at
-integer key `0`.
+Each top-level message map carries a required compact message-kind field at integer key `0`.
 This field identifies the transport message type.
 All other top-level keys defined by this specification are text-string keys.
 Under the mandatory deterministic map-key order,
@@ -93,7 +81,7 @@ logos.transport.value-root        = bstr .size 32
 
 ; This block is the owning registry for transport message-kind values.
 ; Other Logos specifications may cite these values but do not allocate them.
-logos.transport.message-kind      = 0..8
+logos.transport.message-kind      = 0..9
 
 logos.transport.message-kind-hello       = 0
 logos.transport.message-kind-request     = 1
@@ -104,6 +92,7 @@ logos.transport.message-kind-event       = 5
 logos.transport.message-kind-error       = 6
 logos.transport.message-kind-cancel      = 7
 logos.transport.message-kind-subscription-result = 8
+logos.transport.message-kind-subscription-end = 9
 ```
 
 ### 1.2 Message Types
@@ -119,6 +108,7 @@ logos.transport.message-kind-subscription-result = 8
 | 6    | ProtocolError | Either           | Protocol-level error               |
 | 7    | Cancel      | Caller -> Callee | Abort an in-flight request         |
 | 8    | SubscriptionResult | Callee -> Caller | Complete Subscribe or Unsubscribe |
+| 9    | SubscriptionEnd | Callee -> Caller | End one active subscription |
 
 ### 1.3 Message Definitions
 
@@ -235,6 +225,16 @@ logos.transport.subscription-result-err = {
 }
 
 
+; -- Subscription End --
+; End one active subscription while the session continues.
+
+logos.transport.subscription-end = {
+    0:     logos.transport.message-kind-subscription-end,
+    id:    logos.transport.subscription-id,
+    error: logos.transport.error-payload,
+}
+
+
 ; -- Event --
 ; Async event notification to a subscriber. Data is a CBOR map whose
 ; concrete schema is defined by the module's .cddl file (see
@@ -293,6 +293,7 @@ logos.transport.message = logos.transport.hello
         / logos.transport.subscribe
         / logos.transport.unsubscribe
         / logos.transport.subscription-result
+        / logos.transport.subscription-end
         / logos.transport.event
         / logos.transport.protocol-error
         / logos.transport.cancel
@@ -309,9 +310,7 @@ A message containing disallowed or invalid detail is invalid.
 
 ### 1.4 Directional Message Semantics
 
-The Logos transport protocol is defined as directional Logos deterministic
-CBOR messages between
-a caller and a callee.
+The Logos transport protocol is defined as directional Logos deterministic CBOR messages between a caller and a callee.
 The caller is the party invoking methods or subscribing to events.
 The callee is the party exposing the module interface.
 
@@ -329,25 +328,21 @@ Callee-to-caller messages:
 - `Hello`
 - `Response`
 - `SubscriptionResult`
+- `SubscriptionEnd`
 - `Event`
 - `ProtocolError`
 
 `Request` and `Response` messages are correlated by `id`.
-The caller assigns the request `id`; the callee echoes that `id` in exactly
-one `Response`.
+The caller assigns the request `id`; the callee echoes that `id` in exactly one `Response`.
 
 `Subscribe`, `Unsubscribe`, `SubscriptionResult`, and `Event` messages
 are correlated by subscription `id`.
-The caller assigns the subscription `id`; the callee includes that value in
-the corresponding `SubscriptionResult` and matching `Event` messages.
+The caller assigns the subscription `id`; the callee includes that value in the corresponding `SubscriptionResult` and matching `Event` messages.
 `SubscriptionResult.operation` identifies the completed control operation.
 
 These directional semantics are independent of the carrier.
-The stream binding defined in this specification carries both directions over
-one long-lived bidirectional byte stream.
-Other bindings, such as an HTTP-style request-oriented binding, would need a
-separate specification to define how these directional messages are mapped to
-that carrier.
+The stream binding defined in this specification carries both directions over one long-lived bidirectional byte stream.
+Other bindings, such as an HTTP-style request-oriented binding, would need a separate specification to define how these directional messages are mapped to that carrier.
 
 ---
 
@@ -355,11 +350,9 @@ that carrier.
 
 ### 2.1 Stream Framing
 
-The stream binding carries directional transport messages over a
-bidirectional byte stream such as a Unix domain socket or TCP connection.
+The stream binding carries directional transport messages over a bidirectional byte stream such as a Unix domain socket or TCP connection.
 Messages over a stream binding MUST be length-prefixed.
-Each message is preceded by a 4-byte big-endian unsigned integer indicating
-the byte length of the following CBOR-encoded message:
+Each message is preceded by a 4-byte big-endian unsigned integer indicating the byte length of the following CBOR-encoded message:
 
 ```
 +--------+--------+--------+--------+------- ... -------+
@@ -367,18 +360,19 @@ the byte length of the following CBOR-encoded message:
 +--------+--------+--------+--------+------- ... -------+
 ```
 
-The 4-byte length prefix can represent frame lengths up to 4,294,967,295
-bytes.
+The 4-byte length prefix can represent frame lengths up to 4,294,967,295 bytes.
 This is the framing ceiling, not a recommended operational message size.
 
-Implementations MUST enforce a configured maximum accepted frame size for
-resource safety.
+Implementations MUST enforce a configured maximum accepted frame size for resource safety.
 On reading a length prefix greater than that configured maximum, the receiver MUST NOT allocate or read the declared body.
 The receiver MUST send ProtocolError `INVALID_PARAMS` when the connection remains writable and MUST then close the connection.
 Every in-flight call on that connection fails locally with `TRANSPORT_ERROR` as defined in Section 3.2.
 
 The active configured maximum accepted frame-body size of a conforming stream binding MUST be at least 16 MiB.
 Logos module interfaces MUST NOT require single Transport messages larger than 16 MiB unless deployment-specific configuration, a Transport binding, or a future protocol extension specifies a larger supported size.
+A schema that admits larger values does not raise that limit.
+A schema-valid value whose message exceeds the limit fails under the sender rules below even when the same call succeeds in direct mode; that failure reports a resource limit and does not change the meaning of the contract's results.
+A contract whose values can exceed the limit should bound them with `.size` or transfer them in parts.
 
 Before writing any part of a frame, the sender MUST ensure that its complete deterministic-CBOR body fits the peer-supported maximum, including the envelope and commitments but excluding the four-byte prefix.
 Absent separately established support for a larger limit, the sender MUST use 16 MiB.
@@ -394,15 +388,14 @@ These stream limits do not impose a new direct-mode payload limit.
 
 ### 2.2 Message Ordering
 
-Messages on a single stream connection are processed in order. However,
-multiple requests may be in flight simultaneously (multiplexed by `logos.transport.call-id`).
+Messages on a single stream connection are processed in order.
+However, multiple requests may be in flight simultaneously (multiplexed by `logos.transport.call-id`).
 The callee MAY send responses out of order relative to requests (e.g. a
 fast synchronous call may return before a slow one started earlier).
 
 ### 2.3 Deterministic CBOR
 
-All messages MUST be encoded using Logos deterministic CBOR as specified in
-LOGOS-MODULE-INTERFACE section 4.4.
+All messages MUST be encoded using Logos deterministic CBOR as specified in LOGOS-MODULE-INTERFACE section 4.4.
 The transport layer MUST validate the message envelope:
 frame length, deterministic CBOR, payload depth, known message-kind, required envelope fields, envelope field types, message direction, and connection state.
 Payload-depth validation MUST apply LOGOS-MODULE-INTERFACE Section 4.5.1 to `params`, `result`, and `data`.
@@ -416,12 +409,11 @@ For a rejection caused solely by exceeding the payload-depth limit, the Protocol
 
 The receiver MUST enforce the message directions in Section 1.4.
 Before the receiving endpoint has completed its part of the Hello exchange, it MUST accept only the Hello or ProtocolError messages permitted by Section 3.1.
-A wrong-direction message or an ordinary message received before that point MUST produce ProtocolError `INVALID_PARAMS` when the connection remains writable, followed by connection closure without dispatch or delivery.
+A wrong-direction message or an ordinary message processed before that point MUST produce ProtocolError `INVALID_PARAMS` when the connection remains writable, followed by connection closure without dispatch or delivery.
 Post-establishment Hello follows Section 3.3.
 A well-formed ProtocolError is permitted in either direction during establishment or after establishment; its recipient MUST close the connection without sending another ProtocolError in response.
 
-The transport layer treats schema payload fields (`params`, `result`, and
-`data`) as opaque CBOR maps after envelope validation.
+The transport layer treats schema payload fields (`params`, `result`, and `data`) as opaque CBOR maps after envelope validation.
 Payload validation against the target method or event declaration under its defining contract occurs at the schema-aware sending and receiving boundaries.
 
 ---
@@ -450,8 +442,7 @@ Caller                                  Callee
 2. **Caller sends Hello.** Fields:
    - `module`: the callee's selected flat runtime module or endpoint name.
      In this transport specification, "module" includes ordinary modules,
-     Logos-defined system modules, runtime-control surfaces, and runtime-host
-     endpoints that expose a Logos interface.
+     Logos-defined system modules, runtime-control surfaces, and runtime-host endpoints that expose a Logos interface.
    - `token`: authorization or consumer-binding material defined for this connection
    - `schema`: the selected contract for this provider session.
      Both peers MUST provide the same exact structural schema identity.
@@ -462,10 +453,8 @@ Caller                                  Callee
      If the route selects the provider's primary concrete module contract,
      the field identifies that concrete contract.
      If the route selects an implemented interface contract,
-     the field identifies that interface contract rather than the provider's
-     full concrete module contract.
-     It does not identify every module provider, facade, or route known behind a
-     runtime.
+     the field identifies that interface contract rather than the provider's full concrete module contract.
+     It does not identify every module provider, facade, or route known behind a runtime.
 3. **Callee validates the Hello.**
    After validating framing, deterministic CBOR, the message kind, and the absence of unknown fields,
    the callee MUST perform the following checks in the listed order.
@@ -475,8 +464,7 @@ Caller                                  Callee
      If it is missing or malformed, the callee MUST send ProtocolError `INVALID_PARAMS` when the connection remains writable
      and MUST close the connection without consuming authorization material.
      On a remote intrinsic Runtime Control endpoint, a well-formed `module` that differs from the endpoint name is treated the same way.
-     On an ordinary protected provider endpoint or a Runtime-owned local system-service endpoint, a well-formed `module` that differs from the provider selected for this connection
-     MUST fail the following ticket check with the non-revealing `NOT_AUTHORISED` outcome required by Section 8.1.
+     On an ordinary protected provider endpoint or a Runtime-owned local system-service endpoint, a well-formed `module` that differs from the provider selected for this connection MUST fail the following ticket check with the non-revealing `NOT_AUTHORISED` outcome required by Section 8.1.
    - The `token` field MUST be present and satisfy the selected endpoint and transport profile.
      A remote intrinsic Runtime Control endpoint uses the consumer-binding rules in LOGOS-MODULE-RUNTIME Section 9.
      An ordinary protected provider route uses the route-ticket validation defined in Section 8.1.
@@ -488,12 +476,9 @@ Caller                                  Callee
    - The caller's `schema` MUST equal the selected contract exposed by the callee.
      For a Runtime-established ordinary module route,
      this is the selected contract exposed by that invocation path.
-     A provider selected through an implemented interface contract validates
-     against that interface contract for this connection.
-     Its primary concrete module contract remains provider metadata exposed by
-     Runtime Control.
-     It is not the Transport Hello identity for the interface-selected
-     connection.
+     A provider selected through an implemented interface contract validates against that interface contract for this connection.
+     Its primary concrete module contract remains provider metadata exposed by Runtime Control.
+     It is not the Transport Hello identity for the interface-selected connection.
      The comparison includes `commitment_model`, `schema_root`,
      `hash_profile`, and `hash_suite`.
      If the callee cannot compute structural schema identity for the selected schema,
@@ -527,18 +512,17 @@ Caller                                  Callee
    The caller MUST verify that the callee response includes the same selected contract in `schema`.
    For Runtime-established ordinary module routes,
    this verifies the selected contract for the invocation path.
-   It does not validate unrelated contracts implemented by the same backing
-   provider.
+   It does not validate unrelated contracts implemented by the same backing provider.
    If `schema` differs,
    the caller MUST send ProtocolError `VERSION_MISMATCH` when the connection remains writable
    and MUST close the connection.
 
-6. **Connection is established.** Both parties may now send directional
-   transport messages allowed for their role.
+6. **Connection is established.** Both parties may now send directional transport messages allowed for their role.
 
 ### 3.2 Connection Termination
 
-Either party may close the socket at any time. On close:
+Either party may close the socket at any time.
+On close:
 
 - All in-flight requests receive a synthetic `TRANSPORT_ERROR` response.
 - All active subscriptions are cancelled.
@@ -582,6 +566,8 @@ A SubscriptionResult MUST match both the identifier and the operation of an outs
 An Event MUST identify a subscription active according to the received successful SubscriptionResults and MUST name that subscription's selected event.
 An Event before successful Subscribe completion or after successful Unsubscribe completion is invalid.
 An Event while Unsubscribe is outstanding remains valid until successful completion.
+A SubscriptionEnd MUST identify a subscription active according to the received successful SubscriptionResults.
+An Event for that identifier after its SubscriptionEnd is invalid.
 
 A message violating these correlation rules, including an unsolicited or duplicate Response or SubscriptionResult, MUST NOT be delivered.
 The recipient MUST send ProtocolError `INVALID_PARAMS` when the connection remains writable and MUST close the connection.
@@ -638,8 +624,8 @@ when it represents an expected domain or application failure.
 `response-err.error.code` MUST be nonzero.
 An error response MUST NOT contain `commitment`.
 
-The caller MUST generate unique `id` values within a connection. The callee
-MUST echo the `id` verbatim.
+The caller MUST generate unique `id` values within a connection.
+The callee MUST echo the `id` verbatim.
 
 Every Request, `logos.transport.response-ok`, and Event carries a `logos.transport.payload-commitment`.
 The commitment covers only the schema-typed `params`, `result`, or `data` value,
@@ -649,8 +635,7 @@ The defining schema root is the session's selected contract root except for the 
 The message's method or event declaration identifies the exact request, response, or event-data type.
 `schema_subtree_root` MUST equal the subtree root of that type,
 and `value_root` MUST be the root of the transmitted value under those exact inputs.
-Both roots MUST have the 32-byte digest length required by
-`logos.hash-suite.blake3-256`.
+Both roots MUST have the 32-byte digest length required by `logos.hash-suite.blake3-256`.
 
 The schema-aware sending boundary MUST compute the commitment from the validated schema-typed value.
 A missing, malformed, or incorrectly sized commitment is an envelope failure under Section 2.3.
@@ -699,8 +684,7 @@ Caller                                  Callee
 If the callee cannot produce a valid contract response,
 it returns `logos.transport.response-err` with an `error` field
 instead of `logos.transport.response-ok` with a `result` field.
-An expected domain or application failure defined by the selected response schema
-MUST be returned in `response-ok.result`
+An expected domain or application failure defined by the selected response schema MUST be returned in `response-ok.result`
 and MUST NOT be converted to `logos.transport.response-err`.
 The error code MUST be nonzero.
 When `detail` is present,
@@ -732,8 +716,7 @@ After envelope validation, the callee MUST apply the overlap and identifier chec
 
 For a Subscribe, the callee MUST resolve the event name only under the session's selected contract
 and enforce the route's event-subscription access before activation.
-An event name outside the selected contract and a selected-contract event outside the route's allowed event-subscription scope
-MUST both produce a failed `SubscriptionResult` with error code `NOT_AUTHORISED` and leave the subscription state unchanged.
+An event name outside the selected contract and a selected-contract event outside the route's allowed event-subscription scope MUST both produce a failed `SubscriptionResult` with error code `NOT_AUTHORISED` and leave the subscription state unchanged.
 The callee MUST NOT resolve the event name against the backing provider's other contracts.
 
 For this section, a message is committed when the callee accepts it into the connection's ordered output sequence.
@@ -766,6 +749,11 @@ Handler execution and successful unsubscription return follow LOGOS-MODULE-INTER
 
 Closing the connection terminates all of its subscriptions
 without requiring individual results.
+The callee ends one active subscription while the session continues by committing a SubscriptionEnd for its identifier after the last Event it commits for that subscription.
+The callee MUST do so, with error code `NOT_AUTHORISED`, when the caller's authority to receive that event ends while the route remains usable; this revision defines no other cause.
+A SubscriptionEnd carries no payload commitment, and the identifier remains used.
+An Unsubscribe for a subscription that the callee has ended with a SubscriptionEnd MUST produce a successful SubscriptionResult.
+The caller's binding reports the end under LOGOS-MODULE-INTERFACE Section 2.5.
 Ordering is scoped to one connection.
 Transport defines no ordering between a subscription operation on one connection
 and an event-triggering action on another connection.
@@ -805,7 +793,7 @@ When output capacity is exhausted, the callee MUST do one of the following:
 
 - delay commitment of additional Events until capacity is available,
   applying backpressure to the publication boundary; or
-- send `logos.transport.protocol-error` with `LOGOS_ERR_TRANSPORT`
+- send `logos.transport.protocol-error` with `TRANSPORT_ERROR`
   when the connection remains writable and close the connection.
 
 If the connection is no longer writable, the callee MUST close it.
@@ -828,13 +816,10 @@ The `data` field is a CBOR map matching the event's `_event` schema
 The `commitment` field is mandatory
 and binds `data` according to the payload-commitment rules in Section 4.1.
 
-Events are an asynchronous one-way notification mechanism with schema-defined
-payloads, not a second RPC channel.
-They are intended for progress, completion, state-change, and other one-way
-notifications.
+Events are an asynchronous one-way notification mechanism with schema-defined payloads, not a second RPC channel.
+They are intended for progress, completion, state-change, and other one-way notifications.
 Methods remain request/response.
-A callee MUST NOT require an Event message as a reply path for a method
-invocation.
+A callee MUST NOT require an Event message as a reply path for a method invocation.
 
 ### 5.3 Long-Running Operations
 
@@ -917,8 +902,7 @@ Rules:
 - The callee need not execute Requests in transmission order.
 - The callee MAY respond out of order.
 - Cancel identifiers refer to their target Requests and are not part of the Request `id` sequence.
-- Event messages for different subscriptions may be interleaved with
-  responses.
+- Event messages for different subscriptions may be interleaved with responses.
 
 ---
 
@@ -935,8 +919,7 @@ The base envelope permits an empty value only for a profile
 that explicitly does not claim protected route authorization.
 An empty value MUST NOT establish a protected local-transport or remote-transport session.
 
-The protected ordinary-provider route profile uses a non-empty, opaque, one-time route ticket
-issued or bound by the Runtime that owns the target provider.
+The protected ordinary-provider route profile uses a non-empty, opaque, one-time route ticket issued or bound by the Runtime that owns the target provider.
 The ticket is consumed once to establish one transport session;
 it is not consumed separately for each call on that session.
 The caller MUST place the ticket in the first Hello and MUST NOT reuse it in a later Hello or another connection.
@@ -954,8 +937,7 @@ Validation MUST bind the session to:
 - expiry and revocation state.
 
 Only one concurrent redemption of the same ticket may succeed.
-A missing, empty, malformed, invalid, expired, revoked, replayed, or incorrectly bound ticket
-MUST produce ProtocolError `NOT_AUTHORISED`, close the connection, create no usable session,
+A missing, empty, malformed, invalid, expired, revoked, replayed, or incorrectly bound ticket MUST produce ProtocolError `NOT_AUTHORISED`, close the connection, create no usable session,
 and dispatch no ordinary module message.
 A Hello failure before successful ticket redemption MUST NOT consume a live ticket.
 Failure after successful redemption MUST NOT restore the ticket.
@@ -984,13 +966,15 @@ It MUST NOT forward that request to `logos_<module-C>_MODULE_dispatch()`
 or a schema-derived per-method C function.
 It MUST NOT return the provider's complete call-surface descriptor or disclose a contract document outside the selected contract's required construction input.
 Returning a required interface document does not select that interface contract for the session or widen route access.
-When the route expires or is revoked, that Runtime MUST stop admitting new operations and terminate affected subscriptions and the protected session.
+When route authority expires or is revoked, that Runtime MUST stop admitting new operations and terminate affected subscriptions and the protected session.
 In-flight work remains subject to the applicable policy in LOGOS-MODULE-RUNTIME Section 9.3.
 A new Request processed during termination MUST receive a correlated `logos.transport.response-err` with `NOT_AUTHORISED`, without dispatch.
+A Subscribe or Unsubscribe processed during termination MUST receive a failed SubscriptionResult with `NOT_AUTHORISED` and MUST NOT change subscription state.
 Termination MUST NOT wait for another Request or require processing every unread Request.
 After any permitted bounded completion of in-flight work, the Runtime MUST send ProtocolError `NOT_AUTHORISED` when the connection remains writable and close the session.
 The diagnostic MUST NOT disclose the underlying authorization condition beyond the permitted observation scope.
 Sending the error MUST be bounded by the implementation's Transport output and timeout limits; failure to send it MUST NOT delay termination indefinitely.
+When the route ends through a loss of route readiness, including `route-timeout`, the same termination rules apply with `NOT_READY` in place of `NOT_AUTHORISED`.
 No peer acknowledgement is required.
 The recipient MUST follow Section 3.2, so requests without a terminal Response still fail with `TRANSPORT_ERROR`; the session error does not prove that those operations had no effects.
 A known authorization failure governs subsequent new local operations under LOGOS-MODULE-RUNTIME Section 7.5.
@@ -1000,8 +984,7 @@ The response `token` is empty unless the selected profile defines distinct sessi
 
 Capability Authority decisions and grant references are not route tickets.
 Capability Authority does not issue the final provider-session credential or participate in ordinary module data flow.
-The baseline ticket encoding, proof of possession, issuer validation, and lifetime
-are defined by the profile below.
+The baseline ticket encoding, proof of possession, issuer validation, and lifetime are defined by the profile below.
 Another selected security profile MUST define equivalent behavior and a maximum authorization-material size.
 Operating-system peer credentials and TLS authentication may strengthen the ordinary provider profile,
 but they do not replace route-ticket validation for an ordinary provider session.
@@ -1026,13 +1009,11 @@ It is not CBOR, COSE, a Capability Authority decision, or a self-contained autho
 
 The Runtime that owns the target provider is the ticket issuer.
 After it has fixed the route constraints and accepted the required allow decision,
-it generates 32 uniformly random bytes with a cryptographically secure random generator
-meeting the requirements of RFC 4086.
+it generates 32 uniformly random bytes with a cryptographically secure random generator meeting the requirements of RFC 4086.
 If the resulting ticket collides with an unexpired ticket issued by that Runtime,
 the Runtime MUST discard it and generate another.
 
-The issuer stores the `logos.hash-suite.blake3-256` digest of the ticket
-with the complete route constraints listed in Section 8.1.
+The issuer stores the `logos.hash-suite.blake3-256` digest of the ticket with the complete route constraints listed in Section 8.1.
 It MUST protect that record as Runtime authority state
 and MUST NOT persist the raw ticket as the lookup key.
 The raw ticket may exist transiently only where needed to return the invocation descriptor,
@@ -1177,17 +1158,15 @@ All incoming CBOR MUST be validated before processing:
 
 - Reject malformed CBOR with `INVALID_PARAMS`
 - Reject a length prefix exceeding the size limit before body allocation, send `INVALID_PARAMS` when the connection remains writable, and close the connection as defined in Section 2.1
-- Reject non-deterministic envelope CBOR (unsorted keys, non-shortest integers)
-  with `INVALID_PARAMS`
+- Reject non-deterministic CBOR anywhere in the message, including `params`, `result`, and `data` (unsorted keys, non-shortest integers), with `INVALID_PARAMS`
 - Reject unknown or unallocated message-kind values with `INVALID_PARAMS`
 - Validate required envelope fields and envelope field types
 
 For a Hello, required-field and field-type failures are evaluated in the field order defined in Section 3.1.
 The framing, deterministic-CBOR, message-kind, and unknown-field checks above take precedence over those field checks.
+The unknown-field check applies to the top-level Hello map; an unknown key inside `schema` or a wrongly typed `token` is a failure of that field's check.
 
-LOGOS-MODULE-TRANSPORT does not require validation of `params`, `result`, or
-`data` against the module's CDDL schema as part of local or remote transport
-message handling.
+Envelope validation under Section 2.3 does not include validation of `params`, `result`, or `data` against their declarations.
 Those payload maps MUST be validated against the target method or event declaration under its defining contract at the schema-aware receiving boundary.
 Schema validation at any of those boundaries describes payload shape only.
 It MUST occur after the target method and its allowed declaration root are established,
@@ -1201,9 +1180,13 @@ These profiles require the caller to establish the carrier to the provider-side 
 Reachability through NAT, rendezvous, or a relay is deployment-specific unless a separately specified profile defines it.
 An intermediary MUST NOT replace required target Runtime authentication or provider-session channel binding.
 
-The `profile` field of a remote Runtime address selects
-the complete remote transport and security profile.
+For the remote Runtime addresses defined by LOGOS-MODULE-RUNTIME, `tls-tcp` selects `logos.remote.tls-tcp` and `quic` selects `logos.remote.quic`.
+If the optional `profile` field is present, it MUST name the profile selected by `transport`; a peer MUST reject a mismatch.
+A remote-transport invocation endpoint MUST carry the selected profile as required by LOGOS-MODULE-RUNTIME Section 9.3.
 An implementation MUST NOT silently substitute another profile or use an unauthenticated carrier.
+
+An ordinary provider session under `logos.remote.tls-tcp` or `logos.remote.quic` MUST NOT be established for a route that permits a method whose request or response is marked `_sensitive` under LOGOS-MODULE-INTERFACE Section 1.4.1.
+Another remote profile may carry marked payloads when it satisfies that section.
 
 Production remote profiles MUST bind every accepted provider session
 to the authenticated TLS or QUIC connection on which it is established.
@@ -1231,6 +1214,7 @@ or authorized provisioning before the connection is accepted.
 for production remote transport.
 It uses a `tls-tcp` Runtime address
 and the stream framing defined in Section 2.
+This profile MUST NOT send, negotiate, or require ALPN.
 
 Both peers MUST use TLS 1.3 as specified by [RFC 8446]
 and MUST reject negotiation of an earlier TLS version.
@@ -1258,6 +1242,7 @@ TLS certificate validation authenticates the enrolled Runtime.
 Certificate path validation MUST follow RFC 5280 Section 6.1 under the active enrollment's trust anchor and protected certificate policy.
 The verifier MUST check the presented end-entity certificate's validity period using accepted current time, including when that certificate is itself the directly provisioned anchor.
 The direct-anchor case requires equality with the provisioned certificate's complete DER encoding; an SPKI match alone does not establish that case.
+Support for the direct-anchor case is optional; an implementation that does not support it MUST refuse to provision an end-entity certificate as an anchor.
 If end-entity Key Usage is present, it MUST permit digital signatures.
 If Extended Key Usage is present, it MUST include `serverAuth` for a TLS server or `clientAuth` for a TLS client, as applicable.
 An absent Extended Key Usage imposes no additional purpose restriction; `anyExtendedKeyUsage` alone does not satisfy this profile's explicit-role rule.
@@ -1309,8 +1294,9 @@ and applies the certificate-chain and public-key matching rules from Section 8.4
 It also uses the same RFC 9266 `tls-exporter` value
 and provider-session binding defined in Section 8.4.1.
 
-The endpoint address MUST use transport `quic`
-and ALPN [RFC 7301] value `logos.remote.quic`.
+The endpoint address MUST use transport `quic`.
+The connection MUST negotiate ALPN [RFC 7301] value `logos.remote.quic`.
+If the address carries `alpn`, it MUST equal that value; otherwise the selected profile supplies the value for connection establishment.
 One QUIC connection carries one Logos provider session
 on its first client-initiated bidirectional stream.
 The profile does not use additional Logos application streams or QUIC datagrams.
@@ -1361,8 +1347,7 @@ An implementation MUST NOT promise that Cancel can overtake a frame already comm
 
 ## 9. Transport Selection
 
-This specification defines stream bindings for local transport mode and remote
-transport mode:
+This specification defines stream bindings for local transport mode and remote transport mode:
 
 ### 9.1 Unix Domain Sockets (Local Transport Mode)
 
@@ -1384,13 +1369,10 @@ The carrier does not change module contracts, authority decisions, or route acce
 
 ### 9.3 Future Request-Oriented Bindings
 
-HTTP-style or other request-oriented bindings are not defined by this
-specification.
-Such bindings would need a separate interoperability specification that maps
-the directional message semantics from section 1.4 onto the carrier,
+HTTP-style or other request-oriented bindings are not defined by this specification.
+Such bindings would need a separate interoperability specification that maps the directional message semantics from section 1.4 onto the carrier,
 including authorization and contract-binding metadata, request/response correlation, cancellation,
-subscriptions, event delivery, and error handling without assuming a
-long-lived bidirectional stream session.
+subscriptions, event delivery, and error handling without assuming a long-lived bidirectional stream session.
 
 ---
 
@@ -1443,8 +1425,6 @@ There is no hash-suite negotiation.
 - LOGOS-MODULE-CAPABILITY-AUTHORITY -- Call-evidence container and disclosure requirements.
 - LOGOS-MODULE-HASH-PROFILE -- Payload commitments, the required hash profile and suite, and ticket lookup digests.
 
-- [RFC 5280] -- Internet X.509 Public Key Infrastructure Certificate and Certificate Revocation List (CRL) Profile.
-  https://www.rfc-editor.org/rfc/rfc5280
 - [RFC 6066] -- Transport Layer Security (TLS) Extensions: Extension Definitions.
   https://www.rfc-editor.org/rfc/rfc6066
 
@@ -1457,5 +1437,4 @@ There is no hash-suite negotiation.
 
 ## Copyright
 
-Copyright and related rights waived via
-[CC0](https://creativecommons.org/publicdomain/zero/1.0/).
+Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).

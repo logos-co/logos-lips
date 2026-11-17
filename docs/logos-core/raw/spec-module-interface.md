@@ -36,25 +36,18 @@ Conformance to this specification does not require conformance to a higher-layer
 
 In this specification, an **ABI caller** is the implementation component that invokes a native module ABI entry point.
 
-Unless otherwise qualified, references to encoded payloads and wire bytes in
-this specification mean Logos deterministic CBOR as defined in section 4.4.
+Unless otherwise qualified, references to encoded payloads and wire bytes in this specification mean Logos deterministic CBOR as defined in section 4.4.
 For brevity, some later sections may still say "CBOR" in explanatory prose.
-In this specification, those references MUST be read as Logos deterministic
-CBOR unless the text is explicitly talking about generic CBOR concepts such as
-major types, RFC terminology, or envelope-level compatibility with CBOR
-itself.
+In this specification, those references MUST be read as Logos deterministic CBOR unless the text is explicitly talking about generic CBOR concepts such as major types, RFC terminology, or envelope-level compatibility with CBOR itself.
 
 ### Execution-Boundary Invariance
 
-The module contract defined by this specification is **execution-boundary
-invariant**.
+The module contract defined by this specification is **execution-boundary invariant**.
 
-That means the same logical Logos method/event interface MUST remain valid
-across all supported runtime realizations:
+That means the same logical Logos method/event interface MUST remain valid across all supported runtime realizations:
 
 - **Direct mode** — in-process C calls using the derived/generated C API
-- **Local transport mode** — the same contract carried over local IPC using
-  Logos deterministic CBOR transport
+- **Local transport mode** — the same contract carried over local IPC using Logos deterministic CBOR transport
 - **Remote transport mode** — the same contract carried over remote transport
 
 The execution boundary may change how a call is routed, serialised, scheduled,
@@ -65,9 +58,8 @@ or authorised, but it MUST NOT change:
 - the meaning of success and error results
 - the exact selected schema identity
 
-In other words, transport and process placement are runtime concerns. The
-interface contract itself remains the same object regardless of whether a
-caller reaches a module by direct C invocation, local IPC, or remote RPC.
+In other words, transport and process placement are runtime concerns.
+The interface contract itself remains the same object regardless of whether a caller reaches a module by direct C invocation, local IPC, or remote RPC.
 
 ## Requirements Language
 
@@ -83,7 +75,7 @@ This section defines the CDDL authoring form;
 Section 3 defines how the equivalent form is recovered from canonical C.
 
 Each CDDL-authored concrete module MUST have a single `.cddl` file that contains the canonical CDDL representation of its primary module contract.
-The file is named `<module-name>.cddl` (e.g. `storage_module.cddl`).
+The file is conventionally named `<module-name>.cddl` (e.g. `storage_module.cddl`).
 
 The concrete module schema file defines:
 
@@ -102,6 +94,15 @@ It has no schema-role metadata marker.
 Concrete module and interface contract schemas MAY reference named types from explicitly supplied supporting schemas.
 A supporting schema MUST NOT reference a concrete module schema, interface contract schema, or another supporting schema.
 
+> **Note:** A future revision may permit a supporting schema to import named types from another supporting schema, provided that the imports form no cycle and that all imports of one schema within a construction resolve to the same document.
+> Shared record types could then reuse the declarations of another supporting schema instead of restating them.
+> This revision does not permit it because of four costs.
+> Schemas built against different versions of a schema they both import could not be combined until one of them is rebuilt.
+> The dependencies of every declaration in an imported schema, including declarations the importer does not use, would become required construction input and would be disclosed by schema introspection.
+> A change to a transitively imported schema would change the identity of existing declarations and could prevent a contract from extending an earlier contract.
+> Provider descriptors and schema introspection responses would carry complete import chains.
+> Permitting such imports later would not change the identity of any schema that is valid under this revision.
+
 Concrete module, interface contract, and supporting schemas implicitly have access to the Logos prelude fixed-width integer aliases.
 They MAY reference the common Logos schema definitions in Section 5.
 
@@ -119,11 +120,9 @@ An external named-type reference in a concrete module or interface contract sche
 An `_implements` entry is a whole-interface dependency and not a named-type import.
 No schema document, filename, package location, network resource, or ambient resolver outside the explicit input set participates in schema resolution or identity.
 
-Note: this spec uses `storage.*` names repeatedly as a convenient running
-example for method, event, codegen, and transport-shape illustrations. Those
-snippets are explanatory examples unless they are explicitly being used to
-state a general module-interface rule. They do not, by themselves, define
-the real Storage module interface.
+Note: this spec uses `storage.*` names repeatedly as a convenient running example for method, event, codegen, and transport-shape illustrations.
+Those snippets are explanatory examples unless they are explicitly being used to state a general module-interface rule.
+They do not, by themselves, define the real Storage module interface.
 
 ### 1.2 Schema Metadata
 
@@ -147,10 +146,8 @@ a document that declares neither marker is a supporting schema and MUST NOT decl
 
 The `_module` field is the module's flat runtime module name.
 It is used for runtime lookup, socket naming, and C ABI symbol derivation.
-Its syntax is the module-name grammar defined by LOGOS-MODULE-RUNTIME
-section 1.3.
-It is not, by itself, a complete global package identity or cryptographic
-schema identity.
+Its syntax is the module-name grammar defined by LOGOS-MODULE-RUNTIME section 1.3.
+It is not, by itself, a complete global package identity or cryptographic schema identity.
 
 An interface contract schema MUST declare `_interface` instead of `_module`.
 The `_interface` field names the reusable interface namespace.
@@ -171,8 +168,7 @@ The roots MUST appear in strictly ascending lexicographic order by their raw 32-
 
 Each root is an exact by-reference interface contract identity.
 Unlike ordinary imports or references,
-`_implements` makes the referenced interface's methods and events part of the
-concrete module's exposed callable surface.
+`_implements` makes the referenced interface's methods and events part of the concrete module's exposed callable surface.
 
 The root MUST match exactly one explicitly supplied interface document after that document is parsed and its schema root is recomputed.
 The referenced document MUST declare `_interface`.
@@ -196,14 +192,16 @@ Two different schema roots are not interchangeable unless another specification 
 This specification defines no such transformation.
 Package and implementation release metadata is outside the schema contract and does not alter this rule.
 
-A concrete module that declares `_implements` MUST implement the full Logos ABI
-for its primary contract, when present, and for every implemented interface contract.
+A concrete module that declares `_implements` MUST implement the full Logos ABI for its primary contract, when present, and for every implemented interface contract.
 That ABI MAY be generated from CDDL or implemented by hand,
-but handwritten implementations MUST expose behavior equivalent to the same
-contract set.
+but handwritten implementations MUST expose behavior equivalent to the same contract set.
 
 An implementation may preserve an existing exact interface contract while exposing additional interfaces whose method names satisfy the uniqueness rules in Section 1.4.
 Changing a concrete primary contract does not preserve that primary contract's identity.
+A provider whose contract extends an earlier contract under LOGOS-MODULE-COMMITMENT-MODEL MAY additionally offer that earlier contract as an exact contract view.
+Such a view selects the earlier schema root and contains only its declarations; each of its methods and events is the same declaration, with the same implementation, as in the extending contract.
+The binding MUST retain the earlier contract's document for schema validation and `logos.schema` introspection on routes that select it.
+Adding declarations is the only change an extension permits.
 Even unchanged source that references a different pinned common schema has a different constructed identity when its imported commitments change.
 Overlapping contract revisions may be supplied by separate admitted providers or explicit adapters.
 An adapter invokes its dependencies under its own authenticated module identity and separately authorized access; forwarding does not implicitly transfer the original consumer's authority.
@@ -230,8 +228,7 @@ It is not a request field or a caller-controlled flag.
 
 Every module schema is interpreted with a small Logos prelude in scope.
 The prelude defines fixed-width integer aliases.
-Reusable Logos-defined common types and well-known method surfaces are defined
-by the Logos common schema surface in Section 5.
+Reusable Logos-defined common types and well-known method surfaces are defined by the Logos common schema surface in Section 5.
 Module schemas MUST NOT redefine prelude names.
 
 ```cddl
@@ -246,47 +243,32 @@ int32 = -2147483648..2147483647
 int64 = -9223372036854775808..9223372036854775807
 ```
 
-The unprefixed integer aliases are provided for brevity because module
-schemas are also ABI/codegen inputs.
-They make integer width explicit without requiring every schema to repeat
-CDDL range expressions.
+The unprefixed integer aliases are provided for brevity because module schemas are also ABI/codegen inputs.
+They make integer width explicit without requiring every schema to repeat CDDL range expressions.
 
 Reserved Logos names:
 
-- CDDL names beginning with `logos.`, `logos-`, or `logos_` are reserved for
-  Logos-defined common-schema, runtime, and ABI surfaces unless this
-  specification explicitly allows their use.
-- `_module` values beginning with `logos_` are reserved for Logos-defined
-  runtime and system modules.
+- CDDL names beginning with `logos.`, `logos-`, or `logos_` are reserved for Logos-defined common-schema, runtime, and ABI surfaces unless this specification explicitly allows their use.
+- `_module` values beginning with `logos_` are reserved for Logos-defined runtime and system modules.
 - `_module` values containing `_call_` or `_publish_` are invalid under the Runtime module-name grammar.
 - Exact flat module names assigned by a Logos specification, package catalog,
   or registry are reserved for that assigned module.
-  For example, a Logos-defined module named `delivery` owns the flat runtime
-  name `delivery`.
+  For example, a Logos-defined module named `delivery` owns the flat runtime name `delivery`.
 - The exported C symbol prefix `logos_` is owned by the Logos ABI.
-  Module authors MUST NOT define additional exported `logos_*` symbols as
-  module-specific API outside the symbols derived by this specification or by
-  Logos-defined extension specifications.
+  Module authors MUST NOT define additional exported `logos_*` symbols as module-specific API outside the symbols derived by this specification or by Logos-defined extension specifications.
 
-The reserved Logos namespace is for system, runtime, ABI, and common-schema
-surfaces.
+The reserved Logos namespace is for system, runtime, ABI, and common-schema surfaces.
 It is not automatically assigned to every module authored by a Logos project.
-An ordinary domain module, such as a Storage implementation, SHOULD use the
-normal module namespace unless a Logos specification explicitly assigns it a
-system/runtime surface.
+An ordinary domain module, such as a Storage implementation, SHOULD use the normal module namespace unless a Logos specification explicitly assigns it a system/runtime surface.
 
-Logos module schema identifiers that project to generated C identifiers use
-lowercase `snake_case`.
-This is intentionally less idiomatic CDDL than hyphenated names, but Logos
-module schemas are also ABI and code-generation inputs.
+Logos module schema identifiers that project to generated C identifiers use lowercase `snake_case`.
+This is intentionally less idiomatic CDDL than hyphenated names, but Logos module schemas are also ABI and code-generation inputs.
 The identifier grammar supports deterministic C naming while preserving schema spellings.
 
 Such identifiers MUST use lowercase ASCII letters, digits, and underscores.
-They MUST begin with a lowercase ASCII letter, MUST end with a lowercase
-ASCII letter or digit, and MUST NOT contain consecutive underscores.
+They MUST begin with a lowercase ASCII letter, MUST end with a lowercase ASCII letter or digit, and MUST NOT contain consecutive underscores.
 For a qualified schema name, these requirements apply separately to each dot-separated segment; the dot separates segments and is not part of any segment.
-This rule applies to method names, event names, field names, and named type
-names.
+This rule applies to method names, event names, field names, and named type names.
 The metadata names `_module`, `_interface`, `_implements`, and `_sensitive`, the underscore-based runtime module name carried in `_module`, prelude aliases such as `uint64`, and exported C ABI symbols are not Logos module schema identifiers.
 The complete schema namespace, including its dot separators, MUST contain at most 128 ASCII bytes.
 
@@ -319,12 +301,10 @@ A concrete module or interface contract MUST NOT declare a method whose bare met
 In this revision, `schema`, derived from `logos.schema`, is the only such reserved bare method name.
 Such a declaration makes the contract invalid.
 
-The `<module>.` prefix is the schema namespace for the module's own
-schema-defined methods, events, and types.
+The `<module>.` prefix is the schema namespace for the module's own schema-defined methods, events, and types.
 It SHOULD correspond to the module's logical name.
 The flat runtime module name carried in `_module` is distinct from the schema namespace and is used for Runtime realization, routing, and C ABI symbol derivation.
-Runtime bindings between `_module`, schema namespace, and schema commitment
-are defined by LOGOS-MODULE-RUNTIME.
+Runtime bindings between `_module`, schema namespace, and schema commitment are defined by LOGOS-MODULE-RUNTIME.
 This revision defines one primary schema namespace per module schema.
 Every local method, event, and named-type declaration MUST contain that explicit namespace prefix.
 A reference to a local named type MUST use its qualified name.
@@ -394,7 +374,7 @@ A remote path whose participating implementations cannot satisfy these requireme
 
 Marked payloads and their value-derived identifiers MUST NOT enter logs, audit records, or diagnostics.
 Ordinary transient payload commitments remain required.
-If active policy requires retaining a marked payload's value commitment, Runtime MUST reject the invocation before dispatch rather than retain it or omit the policy requirement.
+If active policy requires retaining a marked payload's value commitment, Runtime MUST reject the invocation with `NOT_AUTHORISED` before dispatch rather than retain it or omit the policy requirement.
 
 These requirements do not prohibit intentional storage or subsequent use explicitly defined by the method's contract.
 Each implementation remains responsible for the temporary copies it owns.
@@ -415,10 +395,6 @@ storage.upload_progress_event = {
     bytes_sent: uint64,
     bytes_total: uint64,
 }
-
-storage.upload_done_event = {
-    cid: tstr,
-}
 ```
 
 The complete schema event identifier, including its namespace and `_event` suffix, MUST contain at most 128 ASCII bytes.
@@ -437,9 +413,7 @@ It does not require deferred execution, an intermediate queue, or a dedicated de
 They are used for progress updates, completion notifications, state changes,
 and similar one-way signals.
 They are NOT a second method system:
-events do not return values, do not carry per-call correlation semantics
-beyond subscription, and MUST NOT be used as a general replacement for
-request/response methods.
+events do not return values, do not carry per-call correlation semantics beyond subscription, and MUST NOT be used as a general replacement for request/response methods.
 
 Progress is an application meaning assigned to an intermediate event payload, not a distinct schema type.
 A method used to watch a resource remains an ordinary method; it may publish invocation-scoped events before producing its final Response.
@@ -502,8 +476,7 @@ The byte-range commitment rules remain applicable.
 A `tstr` schema type excludes U+0000 at every position.
 This additional value constraint is required by the canonical NUL-terminated C representation defined in Section 2.2.
 
-RFC 8610, Sections 1.1 through 1.7 of this specification,
-and the resolution boundary in Section 5.3 determine whether source text is a valid Logos schema document.
+RFC 8610 with the string-literal grammar required by `cdCDDLe` Section 5, Sections 1.1 through 1.7 of this specification, and the resolution boundary in Section 5.3 determine whether source text is a valid Logos schema document.
 After parsing and resolution,
 `cdCDDLe` defines the canonical CDDL schema-as-data representation.
 LOGOS-MODULE-COMMITMENT-MODEL applies the Logos domain interpretation to that representation
@@ -513,8 +486,7 @@ Source validity, canonical schema representation, schema identity,
 and deterministic value encoding are distinct conformance boundaries.
 
 Commitment-model note:
-LOGOS-MODULE-COMMITMENT-MODEL does not define schema identity or canonical
-value roots for floating-point values in this revision.
+LOGOS-MODULE-COMMITMENT-MODEL does not define schema identity or canonical value roots for floating-point values in this revision.
 Floating-point types are reserved for a future deterministic numeric profile.
 
 ### 1.8 Complete Example
@@ -532,9 +504,8 @@ metrics_provider.snapshot_response = {
 }
 ```
 
-This complete `storage` schema is illustrative only. It demonstrates the
-module-interface format; it is not the normative specification of the real
-Storage module API.
+This complete `storage` schema is illustrative only.
+It demonstrates the module-interface format; it is not the normative specification of the real Storage module API.
 
 ```cddl
 ; -- metadata --
@@ -570,10 +541,11 @@ storage.destroy_response = {}
 
 storage.upload_url_request = {
     chunk_size: uint64,
+    session: tstr,
     url: tstr,
 }
 storage.upload_url_response = {
-    accepted: bool,
+    cid: tstr,
 }
 
 storage.start_request = {}
@@ -584,10 +556,6 @@ storage.upload_progress_event = {
     session: tstr,
     bytes_sent: uint64,
     bytes_total: uint64,
-}
-
-storage.upload_done_event = {
-    cid: tstr,
 }
 
 storage.started_event = {}
@@ -611,6 +579,8 @@ A binding MUST NOT change any supplied document or its schema identity.
 Schema-derived C identifiers MUST have the same spelling in C17, C23, C++17, C++20, and C++23.
 ABI function declarations and function types MUST have C language linkage when compiled as C++.
 Native ABI participants MUST use compatible target C ABIs and calling conventions for all exchanged types, entry points, and callbacks.
+`logos_error_code_t` uses the target C ABI's default enumeration representation and has the size of `int`.
+Compiler options that change enumeration storage are outside the supported native ABI.
 Generated headers, including `logos_types.h`, MUST enclose those declarations in the following conditional linkage wrapper:
 
 ```c
@@ -647,16 +617,16 @@ Consequently, a module may be authored from a conforming C contract without requ
 The metadata-extended form preserves schema facts that the declaration-only C form cannot represent.
 
 `LOGOS_C_MAPPING_REVISION` identifies the compatibility generation of the canonical C declarations and fixed common-header environment.
-Its value in this specification is `3u`.
+Its value in this specification is `4u`.
 An incompatible change to those declarations or their ABI semantics requires a new value.
 A generator release or a change that preserves that compatibility MUST NOT by itself change the value.
 
 Generated contract headers MUST include `logos_types.h` and check the generation they target before any declaration-suppressing guard.
-For generation `3u`, the check is:
+For generation `4u`, the check is:
 
 ```c
 #include "logos_types.h"
-#if !defined(LOGOS_C_MAPPING_REVISION) || LOGOS_C_MAPPING_REVISION != 3u
+#if !defined(LOGOS_C_MAPPING_REVISION) || LOGOS_C_MAPPING_REVISION != 4u
 #error "Incompatible Logos C mapping"
 #endif
 ```
@@ -733,8 +703,7 @@ Implementation and sensitivity indices use decimal without leading zeros, except
 An unmarked contract emits no sensitivity constants.
 These constants select the metadata-extended C form without changing method signatures.
 
-**Method symbols.** A schema method uses
-`logos_<module-C>_CALL_<namespace>_<Method>`.
+**Method symbols.** A schema method uses `logos_<module-C>_CALL_<namespace>_<Method>`.
 The `<namespace>` component is the C namespace projection of the contract that defines the method, including when the concrete module implements that contract by reference.
 The `<Method>` component capitalizes only the first ASCII letter of the bare schema method name and preserves all remaining characters.
 The `<module-C>` component uses the module-name projection above.
@@ -749,8 +718,7 @@ The explicit components make the exported ABI self-describing without a non-C an
 The bare method name, for example `"upload_url"`,
 is the method-name string exposed by this specification.
 It does not include the schema namespace prefix.
-LOGOS-MODULE-TRANSPORT defines how this method-name string is carried
-in transport envelopes.
+LOGOS-MODULE-TRANSPORT defines how this method-name string is carried in transport envelopes.
 For a concrete module that declares `_implements`,
 the same bare method-name space covers the primary module contract
 and all implemented interface contracts.
@@ -769,8 +737,7 @@ The final C function component uses the `<Method>` spelling above; the schema me
 **Reserved ABI names.** The `MODULE` component separates standard module exports from schema methods, which use the `CALL` component.
 Schema methods such as `init` or `destroy` therefore do not collide with lifecycle symbols.
 This affects only the generated C symbol names.
-The wire method name remains the bare schema method name, for example
-`"version"`.
+The wire method name remains the bare schema method name, for example `"version"`.
 
 **Semantic stems.** Capitalizing a schema atom changes only its first ASCII letter to uppercase and preserves every remaining character.
 A named declaration's stem is its C namespace component, one underscore, and its capitalized local declaration name.
@@ -837,10 +804,15 @@ Types from the pinned Logos common schema use their exact predefined names from 
 | --- | --- |
 | `logos.error_code` | `logos_error_code_t` |
 | `logos.error_detail` | `logos_error_detail_t` |
+| `logos.invalid_params_reason` | `logos_invalid_params_reason_t` |
+| `logos.invalid_params_path_segment` | `logos_invalid_params_path_segment_t` |
+| `logos.invalid_params_detail` | `logos_invalid_params_detail_t` |
 | `logos.schema_commitment` | `logos_schema_commitment_t` |
 
 `logos.error_code` reuses the shared `logos_error_code_t` status enum instead of receiving a separate choice declaration.
-The fixed common declarations retain their specified names and layouts rather than receiving generated stem names.
+The fixed common declarations, including their aggregate tags, discriminant types, arm constants, and literal constants, are those listed in Section 5.2.
+They retain those names and layouts rather than receiving generated stem names.
+`logos.schema_request` and `logos.schema_response` have no C declaration; the C interface carries a `logos.schema_response` value as Logos deterministic CBOR.
 This exception applies only to the pinned common document and the fixed mapping environment.
 A non-common namespace such as `logos.runtime_control` retains its complete namespace projection.
 
@@ -913,11 +885,8 @@ An accepted schema set MUST NOT produce two identical C identifiers or a namespa
 | `tstr`     | 3 (text string)           | `const char*`                   | UTF-8, NUL-terminated              |
 | `bstr`     | 2 (byte string)           | `const uint8_t*` + `size_t`    | Always pointer + length pair       |
 
-The generated decoder MUST reject integer values outside the selected alias's
-range.
-The deterministic CBOR wire representation still uses the shortest integer
-encoding; fixed-width aliases define the valid value range and C ABI type, not
-a fixed wire width.
+The generated decoder MUST reject integer values outside the selected alias's range.
+The deterministic CBOR wire representation still uses the shortest integer encoding; fixed-width aliases define the valid value range and C ABI type, not a fixed wire width.
 
 **Underlying CDDL definitions:**
 
@@ -1206,12 +1175,10 @@ storage.record = {
 ```
 
 the map at field path `sub` uses `logos_storage_Record_Sub_t`,
-and the choice at field path `sub.inner` uses `logos_storage_Record_Sub_Inner_t`
-with discriminant typedef `logos_storage_Record_Sub_Inner_KIND_t`.
+and the choice at field path `sub.inner` uses `logos_storage_Record_Sub_Inner_t` with discriminant typedef `logos_storage_Record_Sub_Inner_KIND_t`.
 
 The tag field is normal schema data.
-It is encoded as part of the selected map alternative and is not an extra
-transport wrapper.
+It is encoded as part of the selected map alternative and is not an extra transport wrapper.
 The canonical C representation MUST retain a required literal tag field as a writable member of its map struct.
 Encoders MUST still emit the literal tag field in the CBOR map.
 
@@ -1279,6 +1246,8 @@ logos_result_t logos_storage_module_CALL_storage_Exists(
    `result.code == LOGOS_OK` indicates that the invocation produced the valid empty response.
 8. Unbounded and ranged `bstr` fields expand to adjacent pointer-and-length parameters.
    A ranged byte string uses its canonical constrained pointer typedef.
+   An unbounded byte-string response field uses `const uint8_t** out_<name>` and `size_t* out_<name>_len`.
+   A ranged byte-string response field uses a pointer to its constrained pointer typedef, such as `logos_bstr_size_1_4096_t* out_<name>`, and `size_t* out_<name>_len`.
    A positive exact-size byte-string input uses `const uint8_t (*in_<name>)[N]`, and its caller-allocated output uses `uint8_t (*out_<name>)[N]`.
    An exact-size byte string has no length parameter.
 9. A variable-length list input uses adjacent `const <type>* in_<name>` and `size_t in_<name>_count` parameters.
@@ -1317,8 +1286,7 @@ typedef logos_result_t (*logos_storage_Resolve_FN_t)(
 );
 ```
 
-Every method generates a defining-contract function typedef named
-`logos_<namespace>_<Method>_FN_t`.
+Every method generates a defining-contract function typedef named `logos_<namespace>_<Method>_FN_t`.
 An interface contract header contains this typedef without claiming a concrete provider symbol.
 A concrete provider header declares `logos_<module-C>_CALL_<namespace>_<Method>` with exactly the typedef's return type and parameters.
 The provider declaration attaches that complete contract method to the concrete module;
@@ -1344,13 +1312,10 @@ The ABI caller MUST treat any other result/output combination as a module failur
 and MUST NOT dereference or free an output pointer written by the failing call.
 It MUST NOT invoke a release callback supplied by the failing call.
 
-**Note on authoring convenience:** Module authors using a module kit may write
-simpler implementation functions with native return types, existing state
-parameters, or language-specific bindings.
+**Note on authoring convenience:** Module authors using a module kit may write simpler implementation functions with native return types, existing state parameters, or language-specific bindings.
 The module kit wraps these into the canonical `logos_result_t`-returning form.
 This is an implementation convenience:
-the exported Logos module C functions MUST conform to the signatures specified
-here.
+the exported Logos module C functions MUST conform to the signatures specified here.
 
 **More examples:**
 
@@ -1371,11 +1336,12 @@ logos_result_t logos_storage_module_CALL_storage_Space(
 
 ```cddl
 storage.upload_url_request = {
+    session: tstr,
     url: tstr,
     chunk_size: uint64,
 }
 storage.upload_url_response = {
-    accepted: bool,
+    cid: tstr,
 }
 ```
 
@@ -1384,8 +1350,9 @@ logos_result_t logos_storage_module_CALL_storage_Upload_url(
     logos_module_context_t* module,
     logos_response_owner_t* response_owner,
     uint64_t               in_chunk_size,
+    const char*            in_session,
     const char*            in_url,
-    bool*                  out_accepted
+    const char**           out_cid
 );
 ```
 
@@ -1426,6 +1393,7 @@ The event MUST be allowed by the route's allowed event scope.
 
 The route `subscribe` operation returns `LOGOS_OK` only after the subscription is active.
 On success, it MUST write an identifier scoped to that route into `*out_subscription_id` before activation.
+The subscription is operated only through the route handle whose `subscribe` operation created it.
 The caller MUST make `handler` and `user_data` ready for concurrent use before calling `subscribe`.
 After activation, another thread MAY begin a handler invocation before `subscribe` returns.
 The `subscribe` operation MUST NOT invoke that subscription's handler synchronously on the subscribing thread.
@@ -1434,8 +1402,10 @@ On failure, it creates no subscription, MUST NOT invoke `handler`, and MUST NOT 
 For each subscription, handler invocations MUST begin in direct publication order or in Event commitment order for Transport delivery.
 The binding MUST NOT begin a handler invocation on one thread
 while an invocation for the same subscription remains active on another thread.
-Same-thread handler re-entry is permitted only when an action during a callback
-synchronously causes nested direct publication for the same subscription.
+Same-thread handler re-entry is permitted only when an action during a callback synchronously causes nested direct publication for the same subscription.
+When a direct publication reaches a subscription whose handler invocation is active on another thread, the binding MUST queue that delivery with a copy of its event data instead of waiting.
+The thread running the active invocation MUST run the queued deliveries for that subscription in publication order before another thread may begin a handler invocation for it.
+Deactivation of the subscription discards its queued deliveries.
 Handlers for distinct subscriptions MAY run concurrently.
 
 The callback's `event_name` and `cbor_data` are borrowed only for that invocation.
@@ -1451,8 +1421,7 @@ While an external unsubscription is pending, the binding MAY pause handler admis
 If unsubscription succeeds, the binding MAY discard received events whose handler invocation has not begun.
 If it fails while the route remains ready, the pending operation MUST NOT itself discard those events or remove their eligibility for handler delivery.
 Transport protocol validation and correlation remain required even when local handler delivery is suppressed.
-If a handler invokes the route `unsubscribe` operation
-for its own subscription through the same route handle,
+If the route `unsubscribe` operation is invoked for a subscription while a handler invocation of that subscription is active on the calling thread,
 the binding MUST deactivate the subscription before returning
 but MUST NOT wait for handler frames already active on the calling thread.
 Those frames remain valid until they return.
@@ -1468,8 +1437,7 @@ The caller MUST keep `handler` and `user_data` valid until an external unsubscri
 a self-unsubscription returns `LOGOS_OK` and every handler frame active during it has returned, or route-handle release returns.
 
 Direct delivery follows Section 2.8.
-A transported binding maps these operations to the subscription lifecycle
-defined by LOGOS-MODULE-TRANSPORT.
+A transported binding maps these operations to the subscription lifecycle defined by LOGOS-MODULE-TRANSPORT.
 
 The route handle also provides `observe_end` for local termination notification.
 This binding operation reports loss of the handle's invocation path; it is not a provider event declaration or privileged Runtime Control observation.
@@ -1500,6 +1468,19 @@ The callback MAY run on the thread that detects termination, including during an
 It MUST NOT invoke operations on or release its own handle.
 
 There is no separate unregister operation; callback state MUST remain valid until handle release returns.
+
+A binding MUST NOT discard an individual event admitted to an active subscription; it delivers every such event in order or ends the subscription.
+A binding MAY end a subscription when its pending deliveries reach an implementation-documented bound.
+A subscription that ends for a reason other than unsubscription, the terminal state of its route, or release of its binding or handle is a binding-ended subscription.
+
+The Runtime Control binding and the route handle each provide `observe_subscription_end` to report binding-ended subscriptions.
+It accepts one non-null `logos_subscription_end_handler_t` and its user state, and follows the registration rules of `observe_end`: one registration, no synchronous invocation on the registering thread, `INVALID_PARAMS` for a null handler or a second registration, and `MODULE_ERROR` for unavailable registration capacity.
+When the binding ends a subscription, it MUST stop admitting handler invocations for that subscription and invoke the registered callback exactly once with the subscription identifier and a nonzero reason.
+The reason is `NOT_AUTHORISED` when authority to receive the event has ended or can no longer be established, and `MODULE_ERROR` for every other cause, including a reached pending-delivery bound.
+The callback MUST NOT invoke operations on or release the binding or handle that reports the end.
+An end that occurs while no registration is installed is not reported later.
+`unsubscribe` for a binding-ended subscription returns `LOGOS_OK`.
+There is no separate unregister operation; callback state MUST remain valid until release of the binding or handle returns.
 Release MUST suppress terminal callbacks that have not begun and wait for active terminal callbacks as well as active event handlers.
 It MUST NOT be invoked from an event or terminal callback for that handle or while holding a resource needed by those callbacks.
 Local handle release does not itself emit a termination notification or close the logical route.
@@ -1532,10 +1513,8 @@ This section classifies the C symbols that belong to the module ABI.
 
 Every native module implementation MUST make these module identity and lifecycle symbols available to its ABI caller:
 
-- `logos_<module-C>_MODULE_name()` returns the module name as a static string that
-  remains valid for the implementation-binding lifetime.
-- `logos_<module-C>_MODULE_init()` receives one structured initialization input and
-  creates one module-owned context for one module instance.
+- `logos_<module-C>_MODULE_name()` returns the module name as a static string that remains valid for the implementation-binding lifetime.
+- `logos_<module-C>_MODULE_init()` receives one structured initialization input and creates one module-owned context for one module instance.
 - `logos_<module-C>_MODULE_destroy()` destroys one successfully initialized context.
 The identity and lifecycle symbols do not make the module a provider.
 `logos_<module-C>_MODULE_apply_configuration()` is the optional standard ABI hook for applying configuration after initialization.
@@ -1546,12 +1525,10 @@ For native ABI classification, a provider contract is a concrete module or inter
 
 A native module that exposes at least one provider contract MUST additionally make these provider symbols available to its ABI caller:
 
-- `logos_<module-C>_MODULE_call_surface()` returns one deterministic-CBOR provider
-  call-surface descriptor containing the module's optional primary contract
+- `logos_<module-C>_MODULE_call_surface()` returns one deterministic-CBOR provider call-surface descriptor containing the module's optional primary contract
   and every implemented interface contract;
 - `logos_<module-C>_MODULE_free()` releases serialized response buffers transferred by this module instance through `_MODULE_dispatch()`;
-- `logos_<module-C>_MODULE_dispatch()` dispatches a schema method name and deterministic
-  CBOR request payload to the corresponding schema-defined method.
+- `logos_<module-C>_MODULE_dispatch()` dispatches a schema method name and deterministic CBOR request payload to the corresponding schema-defined method.
   It is a module ABI symbol, not a schema method.
 
 Such a provider module MUST also make the schema-derived per-method C functions specified in section 2.4 available to its ABI caller.
@@ -1563,8 +1540,7 @@ Provider modules MUST expose both surfaces,
 which MUST implement the same request, response, error, and selected-contract semantics.
 An events-only provider contract generates no schema-derived per-method functions.
 For a provider whose complete contract set declares no methods, `_MODULE_dispatch()` MUST return `LOGOS_ERR_METHOD_NOT_FOUND` for every method argument.
-A module with no provider contract MUST NOT be required to export
-`_MODULE_call_surface()`, `_MODULE_free()`, `_MODULE_dispatch()`, or a schema-derived per-method function.
+A module with no provider contract MUST NOT be required to export `_MODULE_call_surface()`, `_MODULE_free()`, `_MODULE_dispatch()`, or a schema-derived per-method function.
 
 If a concrete module declares `_implements`,
 its full Logos ABI MUST cover the primary module methods
@@ -1591,12 +1567,10 @@ Runtime Control access, the provider event-publication callback,
 and the module-visible persistent-state directory are supplied in the structured initialization input.
 Startup configuration, when present, is supplied in the structured initialization input.
 The module MUST NOT export post-initialization callback setters.
-Providing these bindings before initialization establishes one sequencing point and
-prevents callback replacement while the module instance is processing work.
+Providing these bindings before initialization establishes one sequencing point and prevents callback replacement while the module instance is processing work.
 
 One accepted native implementation binding MAY be initialized more than once.
-Each successful initialization creates a distinct live module instance and MUST
-return a distinct non-null `logos_module_context_t*`.
+Each successful initialization creates a distinct live module instance and MUST return a distinct non-null `logos_module_context_t*`.
 The module owns the context and its ABI callers treat it as opaque.
 The same pointer MUST be passed to every instance-dependent ABI call for that module instance.
 During graceful release, the ABI caller MUST pass that pointer exactly once to `logos_<module-C>_MODULE_destroy()` and retain the implementation binding until the call returns.
@@ -1611,8 +1585,7 @@ Passing a null context, a context belonging to another instance or implementatio
 or a context whose destruction has begun violates the caller's ABI precondition.
 This specification assigns no `logos_error_code_t` value to that misuse
 because no conforming ABI invocation occurs.
-A higher-level binding MAY reject an invalid handle that it can identify
-using its own precondition mechanism before entering the C ABI.
+A higher-level binding MAY reject an invalid handle that it can identify using its own precondition mechanism before entering the C ABI.
 The native ABI does not require safe detection of an arbitrary forged or stale pointer.
 
 The initialization input is borrowed only for the duration of `_MODULE_init()`.
@@ -1620,7 +1593,7 @@ The Runtime Control binding, publish callback, and opaque publish state remain v
 The state-directory string is borrowed only for the duration of `_MODULE_init()`.
 The module MAY copy it into its context,
 but it MUST NOT retain the supplied pointer.
-The corresponding module-visible directory mapping remains established until destruction begins.
+The corresponding module-visible directory mapping remains established until `_MODULE_destroy()` returns.
 Configuration bytes are borrowed only for the duration of `_MODULE_init()`.
 The module MAY copy or decode them into its module context, but it MUST NOT retain their pointer.
 A module MAY copy those fields into its module context,
@@ -1638,8 +1611,7 @@ The initialization input and returned context are instance state.
 They MUST NOT change the implementation name, provider call-surface descriptor, or exact contract set reported by the context-free metadata symbols.
 Native ABI concurrency is defined in Section 2.8.
 
-The following declarations show the mandatory and recommended symbol
-signatures:
+The following declarations show the mandatory and recommended symbol signatures:
 
 ```c
 /* Module name (static string, valid for implementation-binding lifetime) */
@@ -1676,13 +1648,13 @@ logos_result_t logos_<module-C>_MODULE_dispatch(
 );
 ```
 
-`logos_<module-C>_MODULE_call_surface()` returns the deterministic-CBOR encoding of
-exactly one `provider-call-surface` value:
+`logos_<module-C>_MODULE_call_surface()` returns the deterministic-CBOR encoding of exactly one `provider-call-surface` value:
 
 ```cddl
 provider-call-surface = {
     ? primary: provider-contract-schema,
     interfaces: [* provider-contract-schema],
+    ? extends: [+ provider-contract-schema],
 }
 
 provider-contract-schema = {
@@ -1701,7 +1673,7 @@ provider-supporting-schema = {
 The field names shown above are the deterministic-CBOR map keys.
 The value MUST use the Logos deterministic CBOR profile in Section 4.4.
 The complete encoded descriptor MUST be no larger than 8,388,608 bytes,
-and `interfaces` MUST contain no more than 256 entries.
+and `interfaces` and `extends` MUST each contain no more than 256 entries.
 The descriptor MUST contain a `primary` value, at least one `interfaces` entry, or both.
 
 The caller MUST pass a non-null `out_len`.
@@ -1709,17 +1681,19 @@ The function writes the descriptor length there and returns a non-null pointer t
 Its concurrency requirements are defined in Section 2.8.
 It MUST return the same bytes on every call for one native provider implementation binding.
 The caller MUST NOT modify or free those bytes.
-A null return, a zero length, malformed deterministic CBOR, or a value that
-violates the descriptor limits makes the provider invalid.
+A null return, a zero length, malformed deterministic CBOR, or a value that violates the descriptor limits makes the provider invalid.
 
 Each `provider-contract-schema` carries one complete UTF-8 CDDL contract document,
 the exact schema commitment claimed for that document,
 and the complete ordered set of supporting schemas required to construct it.
-The `primary` document MUST be a concrete module schema whose `_module` value
-matches `logos_<module-C>_MODULE_name()`.
+The `primary` document MUST be a concrete module schema whose `_module` value matches `logos_<module-C>_MODULE_name()`.
 Each `interfaces` document MUST be an interface contract schema.
 Its `_interface` value MUST equal its derived primary schema namespace.
 Interface documents MUST NOT declare `_implements`.
+Each `extends` entry carries an earlier contract that the `primary` contract or one `interfaces` contract of this descriptor extends under LOGOS-MODULE-COMMITMENT-MODEL.
+An entry for an earlier concrete module contract follows the rules for `primary`, and an entry for an earlier interface contract follows the rules for `interfaces`.
+An `extends` entry adds no method or event: each of its declarations is a declaration of the contract that extends it.
+The `extends` entries MUST have distinct schema roots and MUST be ordered by derived namespace UTF-8 bytes and then schema-root bytes.
 
 An interface entry's `supporting_schemas` array MUST contain all and only the supporting schemas referenced by that interface document.
 The primary entry's `supporting_schemas` array MUST contain all and only the supporting schemas referenced by its module document or its implemented interfaces.
@@ -1734,37 +1708,30 @@ and MUST be ordered by namespace UTF-8 bytes and then schema-root bytes.
 The ABI caller MUST parse and resolve every contract and supporting document under Section 5.3,
 recompute every schema root,
 and compare each result with its descriptor commitment before the provider is registered or invoked.
-It MUST reject an unknown profile identifier, a root mismatch, duplicate
-contract identity, duplicate interface namespace, missing or unused supporting schema,
+For each `extends` entry it MUST also establish the extension relation against the described contract that has the same schema namespace, and it MUST treat the provider as invalid when that contract is absent or the relation does not hold.
+It MUST reject an unknown profile identifier, a root mismatch, duplicate contract identity, duplicate interface namespace, missing or unused supporting schema,
 invalid schema-role metadata, a reserved common-schema bare method name,
-a bare method-name collision across the described contracts,
+a bare method-name collision across the `primary` and `interfaces` contracts,
 or an interface list that is not ordered by derived namespace UTF-8 bytes and then schema-root bytes.
-The interface entries provide the exact resolved `_implements` set used when
-constructing and validating the primary contract.
-When a package, Runtime input, static registration, or protected built-in
-declaration supplies contract references, its optional primary contract and
-implemented-interface set MUST exactly match the validated descriptor.
+The interface entries provide the exact resolved `_implements` set used when constructing and validating the primary contract.
+When a package, Runtime input, static registration, or protected built-in declaration supplies contract references, its optional primary contract, implemented-interface set, and extended-contract set MUST exactly match the validated descriptor.
 
 The descriptor is provider metadata.
 It is not a module schema, a route, a schema method, or an additional commitment input.
 The complete descriptor has no synthetic schema root.
-Every method, event, request, and response retains the defining contract root
-of its own `provider-contract-schema` entry.
+Every method, event, request, and response retains the defining contract root of its own `provider-contract-schema` entry.
 
 In **direct mode** (in-process), the ABI caller MAY call per-method functions directly.
 In deterministic-CBOR and transport invocation paths, the ABI caller MAY call `logos_<module-C>_MODULE_dispatch()`.
-For dispatch calls, `method` is the bare schema method name after the target
-module has already been selected.
-`params_cbor` is the deterministic CBOR request map for that method, not the
-full Transport Request envelope.
+For dispatch calls, `method` is the bare schema method name after the target module has already been selected.
+`params_cbor` is the deterministic CBOR request map for that method, not the full Transport Request envelope.
 Before calling `_MODULE_dispatch()`, the ABI caller MUST set `*out_response_cbor` to `NULL` and `*out_response_len` to zero.
 Success requires `result.code == LOGOS_OK`, a non-null response buffer, and a nonzero length containing exactly one valid deterministic-CBOR response map for the selected method.
 Failure requires a nonzero result code, a null response buffer, and a zero response length.
 Before returning such a failure, the module MUST release any response allocation created while processing the call.
 The ABI caller MUST treat any other result/output combination as a module failure
 and MUST NOT dereference or free an output pointer written by the failing call.
-The returned response buffer is released with
-`logos_<module-C>_MODULE_free(module, out_response_cbor)`.
+The returned response buffer is released with `logos_<module-C>_MODULE_free(module, out_response_cbor)`.
 
 Dispatch itself is synchronous.
 An ABI invocation path handles independent requests asynchronously by invoking separate dispatch calls concurrently, commonly on a worker pool.
@@ -1772,9 +1739,7 @@ It correlates each returned response with its originating request.
 Those calls may return in any order.
 Both direct and dispatch paths are equivalent
 only when they preserve the same target schema method and defining contract root.
-They are not equivalent if they change the request value,
-response value,
-error behavior,
+They are not equivalent if they change the request value, response value, error behavior,
 or authorization boundary.
 
 **Important distinction: lifecycle `_MODULE_init()` vs schema method `init`.**
@@ -1783,11 +1748,8 @@ The lifecycle symbol `logos_<module-C>_MODULE_init(input, out_context)` is part 
 The ABI caller calls it after binding the native implementation and before any instance-dependent ABI entry point is invoked.
 It creates instance state and receives the Runtime services available to that instance.
 
-If a module schema also declares an ordinary method named `init` (for example
-`storage.init_request` / `storage.init_response`), that method is a normal
-schema-defined request/response method with C symbol
-`logos_<module-C>_CALL_<namespace>_Init` and wire method name `"init"`. It is distinct from
-the lifecycle symbol and MAY perform application-level setup
+If a module schema also declares an ordinary method named `init` (for example `storage.init_request` / `storage.init_response`), that method is a normal schema-defined request/response method with C symbol `logos_<module-C>_CALL_<namespace>_Init` and wire method name `"init"`.
+It is distinct from the lifecycle symbol and MAY perform application-level setup
 that remains necessary after lifecycle `_MODULE_init()` has succeeded.
 
 Successful lifecycle `_MODULE_init()` therefore means:
@@ -1804,10 +1766,8 @@ It MUST NOT use `LOGOS_ERR_NOT_READY` for application state.
 
 ### 2.7 Memory Management
 
-Memory-management behavior is normative wherever ownership crosses the module
-boundary.
-Without this, independently implemented runtimes and modules cannot safely
-interoperate.
+Memory-management behavior is normative wherever ownership crosses the module boundary.
+Without this, independently implemented runtimes and modules cannot safely interoperate.
 
 The provider ABI uses response owners for typed response storage and a module-owned deallocation function for serialized dispatch response buffers:
 
@@ -1849,9 +1809,7 @@ void logos_<module-C>_MODULE_free(logos_module_context_t* module, void* ptr);
 
 The response owner selects the release operation for typed response storage.
 Serialized dispatch response buffers use the deallocator from the same module instance that produced them.
-Across process, sandbox, container, or remote boundaries, raw pointers do not
-cross the boundary; the side that decodes serialized data owns and frees its
-own decoded allocations.
+Across process, sandbox, container, or remote boundaries, raw pointers do not cross the boundary; the side that decodes serialized data owns and frees its own decoded allocations.
 
 ### 2.7.1 Response Owners
 
@@ -1930,8 +1888,7 @@ The common `logos_response_owner_clear` helper releases ownership without resett
 This section defines the complete concurrency contract visible to native module implementations and ABI callers.
 Runtime scheduling mechanisms do not add requirements to that contract.
 
-The context-free `_MODULE_name()` and `_MODULE_call_surface()` entry points MAY be called concurrently
-with one another and with operations on any context from the same implementation binding.
+The context-free `_MODULE_name()` and `_MODULE_call_surface()` entry points MAY be called concurrently with one another and with operations on any context from the same implementation binding.
 The implementation MUST make those calls safe without caller-side serialization.
 
 Distinct `_MODULE_init()` calls for the same implementation binding MAY execute concurrently.
@@ -1958,11 +1915,9 @@ while preserving the operation ordering defined by LOGOS-MODULE-RUNTIME.
 The module MAY invoke its publish callback concurrently from multiple threads while its context remains live.
 The callback implementation MUST be thread-safe.
 
-In direct mode, a publish call MUST invoke every applicable direct subscriber callback synchronously
-on the publishing thread before the publish call returns.
+In direct mode, a publish call MUST invoke every applicable direct subscriber callback synchronously on the publishing thread before the publish call returns.
 The callback interval therefore applies natural backpressure to the publisher.
-An implementation MUST NOT move a direct subscriber callback to another thread
-or return from publication before that callback completes.
+Except for a delivery queued under Section 2.5, an implementation MUST NOT move a direct subscriber callback to another thread or return from publication before that callback completes.
 For invocation-scoped publication, applicability is determined separately before each callback admission under LOGOS-MODULE-RUNTIME Section 7.3.1.
 An invocation cutoff reached during a re-entrant callback prevents admission of subsequent callbacks through that destination.
 
@@ -1996,6 +1951,7 @@ the ABI caller MUST finish the deferred-invocation drain defined in Section 2.9.
 stop new instance-dependent calls,
 wait for every in-flight call to return,
 and release every transferred output associated with the context.
+It MUST also suppress every subscription-end callback of the initialization Runtime Control binding that has not begun and wait for an active one to return; no such callback begins afterwards.
 `_MODULE_destroy()` MUST NOT execute concurrently with another call using that context.
 Before `_MODULE_destroy()` returns,
 the module MUST stop or join internal work
@@ -2010,7 +1966,7 @@ After `_MODULE_destroy()` returns, none of those values remains valid.
 ### 2.9 Asynchronous Invocation and Protected Context
 
 Asynchronous invocation changes native execution and completion, not the selected method, contract identity, payload schemas or commitment rules.
-Runtime Control and route bindings MUST provide `prepare_call` through the version-2 vtables in Section 5.2.
+Runtime Control and route bindings MUST provide `prepare_call` through the vtables in Section 5.2.
 The optional provider `_MODULE_async_api()` capability permits native provider completion after submission returns.
 A Runtime MUST support asynchronous consumer calls even when a provider supplies only the synchronous provider ABI.
 It MAY adapt that ABI using implementation-owned scheduling; it MUST NOT implement asynchronous submission by waiting for synchronous provider execution on the submitting thread.
@@ -2033,6 +1989,7 @@ A consumer expecting invocation-scoped events for a call should subscribe and pr
 Pooling separately materialized handles does not itself establish a shared invocation path.
 
 `prepare_call` accepts the same method and deterministic-CBOR request as the binding's synchronous `call`, plus options, completion callback state and a caller-allocated output handle.
+A null `options` or `callbacks` pointer is malformed input.
 The caller MUST initialize the output handle's vtable and state pointers to null.
 Preparation MUST copy the method, request bytes, options and callback descriptor that it retains.
 It MUST NOT execute provider code or invoke the completion callback.
@@ -2065,6 +2022,8 @@ The timeout begins at submission, not preparation, and does not require clock sy
 Runtime MUST serialize acceptance of a valid final result with local cancellation, timeout and binding-failure outcomes for the call.
 Only the first terminal decision may begin its completion callback.
 Local cancellation produces `CANCELLED`; expiration of the caller-selected duration produces `TIMEOUT`.
+Expiration of any other deadline imposed on that invocation also produces `TIMEOUT`.
+A binding failure that ends an admitted call produces `TRANSPORT_ERROR`, which does not prove that the provider did not execute the call.
 Neither outcome waits for a remote acknowledgement or provider termination.
 An already selected terminal outcome is not replaced by a later cancellation or timeout.
 Cancelling an unsubmitted call records cancellation; subsequent submission completes it as cancelled without dispatch.
@@ -2184,15 +2143,18 @@ For `LOGOS_CALLER_SYSTEM_SERVICE`, the Runtime identifier identifies the invokin
 Runtime defines these identity semantics; the native views do not create a schema declaration or another participant kind.
 Identifier views contain UTF-8 bytes, without requiring a terminating null byte, and remain borrowed for the context lifetime.
 A copied identity is factual information, not retained permission, a delegated capability or proof that a route remains usable.
+The caller view does not describe placement: neither equal nor different Runtime identifiers establish that consumer and provider share a process, a host, a filesystem or another local namespace.
+Whether a value that refers to a local namespace, such as a file path, is meaningful to both sides is defined by the contract that carries it.
 Engine invocations retain their protected system-service binding authority and MUST NOT acquire a fabricated module identity.
 
 The context's `publish` operation performs invocation-scoped publication under LOGOS-MODULE-RUNTIME Section 7.3.1.
 It borrows its event identifier and payload only for the call.
 `LOGOS_OK` means a valid publication was admitted through a live destination; zero matching subscriptions is permitted and success does not prove receipt.
 Every direct callback actually admitted by this publication MUST return before `publish` returns.
-A valid event outside the selected contract or permitted event scope produces `NOT_AUTHORISED`.
+A valid event outside the selected contract or the route's `publish_events` scope produces `NOT_AUTHORISED`.
 Malformed identifiers or payloads produce `INVALID_PARAMS`.
-A known authority failure produces `NOT_AUTHORISED`; otherwise a closed invocation destination produces `NOT_READY`.
+An event identifier that does not satisfy Section 1.5, including its namespace and `_event` suffix, is malformed.
+A known failure of the publisher's authority produces `NOT_AUTHORISED`; otherwise a closed invocation destination produces `NOT_READY`.
 A surfaced connection failure uses `TRANSPORT_ERROR`, and an internal processing failure uses `MODULE_ERROR`.
 A failure does not roll back delivery already committed to an earlier subscriber.
 When the destination closes during fan-out, the operation reports the applicable failure after completing any active direct callback.
@@ -2280,6 +2242,8 @@ The reusable header contains that document's schema declarations and required do
 Provider-specific module metadata, lifecycle symbols, and provider function declarations belong to the provider header.
 
 Schema reconstruction MUST identify one subject document and its complete required dependency set.
+The subject document is selected by its exact schema namespace, and a module by its runtime module name; the selection is mapper input and MUST NOT be inferred from the supplied headers.
+The mapper MUST reject a selection that matches no supplied document.
 Module reconstruction MUST identify one module and reconstruct its optional primary document and each implemented interface with their complete required dependency sets.
 The mapper MUST retain the recovered module binding alongside those documents.
 Including multiple provider headers in a consumer compilation does not merge their subject documents.
@@ -2451,8 +2415,9 @@ logos_result_t logos_storage_module_CALL_storage_Upload_url(
     logos_module_context_t* module,
     logos_response_owner_t* response_owner,
     uint64_t               in_chunk_size,
+    const char*            in_session,
     const char*            in_url,
-    bool*                  out_accepted
+    const char**           out_cid
 );
 ```
 
@@ -2461,10 +2426,11 @@ Generates:
 ```cddl
 storage.upload_url_request = {
     chunk_size: uint64,
+    session: tstr,
     url: tstr,
 }
 storage.upload_url_response = {
-    accepted: bool,
+    cid: tstr,
 }
 ```
 
@@ -2502,8 +2468,7 @@ A trailing underscore is an escape only when removing it yields a spelling in th
 The mapper MUST reject an unescaped spelling from that set or an unnecessary trailing underscore.
 Presence, length, count, tuple, and field-order checks MUST use the decoded identifiers and reconstructed schema field names.
 
-Optional fields (those with a preceding `bool has_<field>`) generate
-`? key: type` in CDDL.
+Optional fields (those with a preceding `bool has_<field>`) generate `? key: type` in CDDL.
 Adjacent pointer-and-length or pointer-and-count members generate one byte-string or list field.
 Members MUST appear in canonical field-name order, with each presence, length, or count member adjacent to the value it qualifies.
 A struct member identifier beginning with `has_` MUST have type `bool`
@@ -2928,6 +2893,7 @@ typedef struct logos_recursive_Branch_MAP {
 The `node` self-loop and both edges between `left` and `right` are recursive by-value edges and therefore use pointers.
 The edge from `branch` to `node` crosses recursive components and remains an embedded value.
 Generating C from the schema and then reconstructing CDDL from the generated declarations MUST reproduce the same canonical schema model.
+The conformance set MUST also cover an aggregate whose type name is used through a variable-length list before its complete definition, which requires the forward typedef of Section 2.3.
 
 #### 3.9.4 Choice-Valued Method Halves
 
@@ -2967,7 +2933,7 @@ typedef uint64_t logos_a_NS_b_Value_t;
 typedef uint64_t logos_a_b_Value_t;
 ```
 
-The mapper MUST distinguish the exact namespaces `a.b` and `a_b` and reconstruct either document when selected as the subject.
+The mapper MUST distinguish the exact namespaces `a.b` and `a_b`, and MUST reconstruct each document when it is selected as the subject and supplied with exactly its required dependency set.
 Replacing the first constant's name with `LOGOS_INTERFACE_NAMESPACE_a_b` MUST be rejected because its name no longer matches the projection of its string value.
 
 #### 3.9.6 Keyword Escaping and C Linkage
@@ -3020,19 +2986,16 @@ A types-only interface still requires its explicit interface-role constant.
 
 ## 4. CDDL-to-CBOR Canonical Encoding
 
-When a method call is serialised for socket transport, the mapping from the
-CDDL schema to Logos deterministic CBOR bytes is defined here.
+When a method call is serialised for socket transport, the mapping from the CDDL schema to Logos deterministic CBOR bytes is defined here.
 This section and section 2 are two views of the same schema:
-the C API is the in-process view, and Logos deterministic CBOR encoding is the
-on-the-wire value view.
+the C API is the in-process view, and Logos deterministic CBOR encoding is the on-the-wire value view.
 
 Logos deterministic CBOR is the module-boundary value encoding profile defined by this specification.
 It is based on the CBOR data model and core deterministic encoding requirements in RFC 8949 Section 4.2.1.
 This specification states the complete profile so two conforming implementations do not need another encoding specification to agree on bytes.
 
 It is the normative Logos profile for module request, response, event, error,
-transport-envelope, normalized-value, and commitment hash-input bytes unless a
-more specific Logos specification explicitly defines a narrower profile.
+transport-envelope, normalized-value, and commitment hash-input bytes unless a more specific Logos specification explicitly defines a narrower profile.
 
 ### 4.1 Primitive Encoding
 
@@ -3046,8 +3009,7 @@ more specific Logos specification explicitly defines a narrower profile.
 
 ### 4.2 Composite Encoding
 
-**Maps (structs):** deterministic CBOR map (major type 5) with text string
-keys.
+**Maps (structs):** deterministic CBOR map (major type 5) with text string keys.
 Keys MUST be sorted using the map-order rule defined in section 4.4.
 
 ```
@@ -3063,23 +3025,18 @@ Encoders apply the deterministic-CBOR map order, and decoders match fields by ke
 
 **Arrays:** deterministic CBOR array (major type 4), definite length.
 
-**Optional fields:** Absent keys are simply omitted from the deterministic
-CBOR map.
-The `has_<field>` flag in the C struct is the decoded representation of key
-presence.
+**Optional fields:** Absent keys are simply omitted from the deterministic CBOR map.
+The `has_<field>` flag in the C struct is the decoded representation of key presence.
 
-**Choices:** Encoded as the raw deterministic CBOR value of the selected
-alternative.
+**Choices:** Encoded as the raw deterministic CBOR value of the selected alternative.
 The decoder determines the selected alternative by applying the schema-defined structural selection plan.
 It validates the complete decoded value against the selected arm.
 Choice selection MUST NOT depend on source declaration order.
 
 ### 4.3 Method Call and Event Encoding
 
-Method params, response results, and event data are each encoded as
-deterministic CBOR maps per sections 4.1 and 4.2.
-The Transport envelope wraps these maps; see LOGOS-MODULE-TRANSPORT section
-1.3 for the full envelope format.
+Method params, response results, and event data are each encoded as deterministic CBOR maps per sections 4.1 and 4.2.
+The Transport envelope wraps these maps; see LOGOS-MODULE-TRANSPORT section 1.3 for the full envelope format.
 
 **Example — `storage.exists` request params:**
 ```
@@ -3106,10 +3063,10 @@ It requires:
    This includes integer values and the lengths of byte strings, text strings, arrays, and maps.
 3. Indefinite-length encodings MUST NOT be used.
 4. Duplicate map keys MUST NOT appear.
-5. Floating-point data items MUST NOT appear at any nesting depth.
+5. Only CBOR major types 0 through 5 and the simple values `false` and `true` are permitted.
+   Tags, floating-point items, `null`, `undefined`, and all other simple values MUST NOT appear at any nesting depth.
 
-The Logos deterministic CBOR profile is a Logos-owned application profile over
-the CBOR data model and core deterministic encoding requirements in RFC 8949.
+The Logos deterministic CBOR profile is a Logos-owned application profile over the CBOR data model and core deterministic encoding requirements in RFC 8949.
 
 ### 4.5 Validation
 
@@ -3127,16 +3084,13 @@ An incoming CBOR major-type-3 item whose content bytes are not well-formed UTF-8
 When `logos.invalid_params_detail` is returned for this failure, its `reason` MUST be `schema-mismatch`.
 The rejected bytes MUST NOT be passed to provider code as a C text value.
 
-For module method payloads, schema validation is owned by the module dispatch
-layer generated from or implemented against the module's CDDL schema.
-The runtime and transport layers validate envelopes and routing fields.
-They MUST NOT be required to introspect module payload schemas while forwarding
-local or remote transport calls.
+Module method and event payloads MUST be validated against their declarations before provider method code executes or an event is delivered.
+The specification that defines an invocation or delivery boundary assigns that validation; the module dispatch layer MAY repeat it.
 
 A module dispatch rejection is reported as an invocation failure under Section 4.6.
 Failure of Transport message validation is reported under LOGOS-MODULE-TRANSPORT Section 2.3.
 Transport deterministic-CBOR validation includes the embedded payload maps and does not require their schemas.
-A floating-point data item in `params`, `result`, or `data` is a Transport validation failure and MUST NOT be deferred to schema validation.
+A value prohibited by Section 4.4 item 5 in `params`, `result`, or `data` is a Transport validation failure and MUST NOT be deferred to schema validation.
 
 Contract-defined value constraints that are not expressed in the schema remain requirements of that contract.
 The contract MUST define their enforcement and failure outcomes consistently with Section 4.6.
@@ -3177,7 +3131,7 @@ the caller-side adapter MUST return the corresponding nonzero invocation status 
 
 In direct mode, the per-method function returns `logos_result_t` directly.
 No encoding or Transport message is involved.
-The invocation status passes through unchanged.
+The invocation status passes through unchanged after the provider-result validation required by Section 5.1.
 
 Protocol errors are distinct from correlated invocation failures.
 A protocol error reports a connection or framing failure,
@@ -3192,13 +3146,8 @@ For example, `LOGOS_ERR_METHOD_NOT_FOUND` is an invocation failure and not a pro
 The CDDL in this section defines the normative Logos prelude aliases and reusable Logos common schema surface.
 The pinned common schema surface is the sole unmarked schema document that is not a supporting schema.
 Its well-known callable declarations and named types are fixed by this section.
-`logos_common.cddl` is an extracted machine-readable mirror for source-authoring convenience.
-If the extracted artifact differs from this specification, this specification governs.
-For schema identity, LOGOS-MODULE-COMMITMENT-MODEL treats those two groups
-differently:
-prelude integer aliases normalize to built-in primitive schema leaves, while
-common schema definitions are referenced definitions in the Logos common schema
-surface.
+For schema identity, LOGOS-MODULE-COMMITMENT-MODEL treats those two groups differently:
+prelude integer aliases normalize to built-in primitive schema leaves, while common schema definitions are referenced definitions in the Logos common schema surface.
 For schema construction, the pinned common schema document consists exactly of the Section 5.1 rules whose qualified names belong to the `logos` namespace.
 The fixed-width integer aliases belong to the Logos prelude and are not rules of that document.
 
@@ -3273,8 +3222,7 @@ A separate namespace field is not part of schema identity.
 `logos.schema` is the well-known selected-contract introspection method.
 Concrete module and interface contract schemas MUST NOT declare its bare method name `schema`, as required by Section 1.4.
 The provider-side Runtime boundary supplies this method rather than dispatching it to module code.
-It is callable only through a ready route whose method access includes the
-`logos.schema` declaration root from the pinned Logos common schema surface.
+It is callable only through a ready route whose method access includes the `logos.schema` declaration root from the pinned Logos common schema surface.
 
 The response MUST contain the CDDL schema document for the route's selected contract and every interface and supporting schema document required to reconstruct that contract.
 For a route selected through the provider's primary concrete contract,
@@ -3302,15 +3250,12 @@ A route-level `logos.schema` implementation MUST use the exact contract selected
 It MUST NOT return the complete provider descriptor or disclose a contract that is not required to reconstruct the selected contract merely because the backing provider implements it.
 
 Module introspection is schema-first:
-method listings, event listings, request/response shapes, and type information
-are derived from the module schema and its canonical schema model.
-Runtime module listings are runtime introspection state and are exposed through
-the runtime-control contract defined by LOGOS-MODULE-RUNTIME.
+method listings, event listings, request/response shapes, and type information are derived from the module schema and its canonical schema model.
+Runtime module listings are runtime introspection state and are exposed through the runtime-control contract defined by LOGOS-MODULE-RUNTIME.
 
 `logos.error_code` is the shared Logos module-boundary status-code registry.
 LOGOS-MODULE-INTERFACE owns allocation of this registry.
-Other Logos specifications may cite these values, but they do not allocate
-additional shared status codes.
+Other Logos specifications may cite these values, but they do not allocate additional shared status codes.
 
 For a schema-defined method invocation,
 value `0` means that the invocation produced a valid contract response.
@@ -3319,15 +3264,11 @@ The registry is not a vocabulary for schema-defined domain or application outcom
 A contract MUST represent those outcomes in its response schema.
 
 Values `0` through `9` are allocated in this revision.
-A conforming implementation of this revision MUST NOT emit any other
-`logos.error_code` value.
+A conforming implementation of this revision MUST NOT emit any other `logos.error_code` value.
 When a serialized Logos value contains an unknown shared error-code value,
-the receiver MUST treat the enclosing value or message as invalid for this
-revision.
-For local or remote transport, that invalid value is handled through the
-transport or method validation path that rejected the message.
-When a provider returns or completes with an integer outside the allocated
-`logos_error_code_t` range,
+the receiver MUST treat the enclosing value or message as invalid for this revision.
+For local or remote transport, that invalid value is handled through the transport or method validation path that rejected the message.
+When a provider returns or completes with an integer outside the allocated `logos_error_code_t` range,
 the ABI invocation path or generated adapter MUST treat the invocation as a module failure and MUST NOT serialize the unknown integer as a shared Logos error code.
 
 An invocation failure MAY include a human-readable diagnostic message containing at most 512 UTF-8 bytes.
@@ -3350,6 +3291,7 @@ The encoded byte string MUST contain between 1 and 4096 bytes.
 `logos.invalid_params_detail.reason` classifies the validation failure.
 `malformed-cbor` means that the input is not one complete CBOR value.
 `non-deterministic-cbor` means that it violates Section 4.4.
+An otherwise well-formed CBOR value prohibited by Section 4.4 item 5 uses `non-deterministic-cbor`.
 `schema-mismatch` means that a deterministic value does not conform to the selected request schema.
 `configuration-schema-mismatch` means that a decoded deterministic configuration value fails the accepted configuration schema under LOGOS-MODULE-CONFIGURATION.
 It applies only to that configuration validation, not to arbitrary opaque byte-string fields.
@@ -3363,6 +3305,8 @@ and an unsigned-integer segment identifies an array index.
 
 An implementation MUST validate detail before forwarding it or presenting it as structured data.
 It MUST reject an enclosing result or error payload whose detail is not allowed or does not validate.
+Provider code MAY return or complete with `LOGOS_OK`, `LOGOS_ERR_METHOD_NOT_FOUND`, `LOGOS_ERR_INVALID_PARAMS`, or `LOGOS_ERR_MODULE`.
+It MAY use `LOGOS_ERR_CANCELLED` only for an invocation whose cancellation is known at the provider boundary, and any other status code violates these rules.
 An ABI caller MUST validate a native provider result's status code, message and detail before forwarding them.
 A provider result violating these rules MUST be treated as `LOGOS_ERR_MODULE`, without forwarding its diagnostics or contract-response outputs.
 This rule applies to synchronous, dispatch and asynchronous completion paths and does not remove the cleanup obligations for transferred response ownership in Sections 2.7 and 2.9.
@@ -3374,13 +3318,11 @@ They MUST NOT use this detail channel.
 
 ### 5.2 C Definitions (`logos_types.h`)
 
-These C definitions are the C-side common ABI surface used by generated and
-hand-written modules and caller-side bindings.
-For C-first modules, the reverse mapping in section 3 recognizes these shared
-C types and maps them to the corresponding schema or ABI concepts defined by this specification.
+These C definitions are the C-side common ABI surface used by generated and hand-written modules and caller-side bindings.
+For C-first modules, the reverse mapping in section 3 recognizes these shared C types and maps them to the corresponding schema or ABI concepts defined by this specification.
 
-`logos_types.h` also supplies the canonical C declarations for every named type in the pinned common schema surface from Section 5.1 and any constraint or inline support declarations required by those types.
-Those declarations are derived by Sections 2.1 through 2.3, including the dedicated common-name projection and the `logos.error_code` exception.
+`logos_types.h` also supplies the canonical C declarations for the six common types named in Section 2.1 and the support declarations those types require.
+The listing below states those declarations completely; a tool copies them and does not derive them.
 Generated contract headers include `logos_types.h` and MUST NOT redeclare its fixed common types.
 The common declarations are mapping inputs in the same sense as `uint64_t`: a reverse mapper recognizes their fixed names but does not reconstruct their definitions as part of the authored C contract.
 
@@ -3406,6 +3348,8 @@ The common declarations are mapping inputs in the same sense as `uint64_t`: a re
   It supports generic deterministic-CBOR calls, response release, event subscription, unsubscription, route-handle materialization, remote binding acquisition, and owned-binding release.
 - The Runtime Control binding identifies the initialized module instance as consumer but grants no authority by itself.
 - The publish callback attributes published events to the initialized module instance and does not transfer the authority of an inbound caller.
+- The publish callback returns `LOGOS_OK` when the event name is declared by the publishing module's contracts and the event data conforms to that event's data type and size limits, and `INVALID_PARAMS` otherwise.
+  The result does not report delivery to any subscriber.
 - `logos_module_init_input_t.state_dir`, when non-null, identifies the module-visible persistent-state directory assigned to this module instance.
   It is a NUL-terminated UTF-8 string without an embedded NUL.
   A null value means that no persistent-state directory was assigned.
@@ -3414,12 +3358,9 @@ The common declarations are mapping inputs in the same sense as `uint64_t`: a re
   Callers MUST NOT inspect or modify the state.
 - A route handle is a process-local representation of one consumer-bound, exact-contract route.
 - A language binding constructs it from a ready route returned by Runtime Control.
-- In direct mode, a handle may wrap function pointers or equivalent
-  in-process dispatch state.
-  In local transport mode, it may wrap a transport connection or equivalent
-  runtime state.
-- The execution mode behind a handle is runtime-internal and MUST NOT change
-  the module contract seen by callers.
+- In direct mode, a handle may wrap function pointers or equivalent in-process dispatch state.
+  In local transport mode, it may wrap a transport connection or equivalent runtime state.
+- The execution mode behind a handle is runtime-internal and MUST NOT change the module contract seen by callers.
 - Releasing a route handle releases only the local binding state.
   Logical route closure remains the Runtime Control `close_route` operation.
 - Route-handle concurrency is defined in Section 2.8.
@@ -3433,7 +3374,7 @@ The common declarations are mapping inputs in the same sense as `uint64_t`: a re
 #include <stdbool.h>
 #include <stddef.h>
 
-#define LOGOS_C_MAPPING_REVISION 3u
+#define LOGOS_C_MAPPING_REVISION 4u
 
 #define LOGOS_C_CONTEXT_MODEL_6c6f676f732e636f6d6d69746d656e742d6d6f64656c2e323032362d3130 1
 #define LOGOS_C_CONTEXT_PROFILE_6c6f676f732e686173682d70726f66696c652e323032362d30382e63686f6963652d696e646578 1
@@ -3457,6 +3398,79 @@ typedef enum {
     LOGOS_ERR_NOT_READY         = 8,
     LOGOS_ERR_CANCELLED         = 9,
 } logos_error_code_t;
+
+#ifdef __cplusplus
+static_assert(sizeof(logos_error_code_t) == sizeof(int),
+              "logos_error_code_t must have the size of int");
+#else
+_Static_assert(sizeof(logos_error_code_t) == sizeof(int),
+               "logos_error_code_t must have the size of int");
+#endif
+
+/* -- Common schema value types -- */
+
+typedef struct logos_bstr_size_0 {
+    uint8_t _empty;
+} logos_bstr_size_0_t;
+
+typedef struct logos_tuple_size_0 {
+    uint8_t _empty;
+} logos_tuple_size_0_t;
+
+#define LOGOS_INVALID_PARAMS_REASON_ARM_0_LITERAL "malformed-cbor"
+#define LOGOS_INVALID_PARAMS_REASON_ARM_1_LITERAL "schema-mismatch"
+#define LOGOS_INVALID_PARAMS_REASON_ARM_2_LITERAL "non-deterministic-cbor"
+#define LOGOS_INVALID_PARAMS_REASON_ARM_3_LITERAL "configuration-schema-mismatch"
+
+#define LOGOS_SCHEMA_COMMITMENT_COMMITMENT_MODEL_LITERAL \
+    "logos.commitment-model.2026-10"
+#define LOGOS_SCHEMA_COMMITMENT_HASH_PROFILE_LITERAL \
+    "logos.hash-profile.2026-08.choice-index"
+#define LOGOS_SCHEMA_COMMITMENT_HASH_SUITE_LITERAL \
+    "logos.hash-suite.blake3-256"
+
+typedef const uint8_t* logos_bstr_size_1_4096_t;
+
+typedef struct logos_bstr_error_detail {
+    logos_bstr_size_1_4096_t data;
+    size_t len;
+} logos_error_detail_t;
+
+typedef uint32_t logos_invalid_params_reason_kind_t;
+#define LOGOS_INVALID_PARAMS_REASON_ARM_0 0u
+#define LOGOS_INVALID_PARAMS_REASON_ARM_1 1u
+#define LOGOS_INVALID_PARAMS_REASON_ARM_2 2u
+#define LOGOS_INVALID_PARAMS_REASON_ARM_3 3u
+
+typedef struct logos_choice_invalid_params_reason {
+    logos_invalid_params_reason_kind_t kind;
+} logos_invalid_params_reason_t;
+
+typedef uint32_t logos_invalid_params_path_segment_kind_t;
+#define LOGOS_INVALID_PARAMS_PATH_SEGMENT_ARM_0 0u
+#define LOGOS_INVALID_PARAMS_PATH_SEGMENT_ARM_1 1u
+
+typedef struct logos_choice_invalid_params_path_segment {
+    logos_invalid_params_path_segment_kind_t kind;
+    union {
+        const char* arm_0;
+        uint64_t arm_1;
+    } value;
+} logos_invalid_params_path_segment_t;
+
+typedef struct logos_map_invalid_params_detail {
+    bool has_path;
+    const logos_invalid_params_path_segment_t* path;
+    size_t path_count;
+    logos_invalid_params_reason_t reason;
+} logos_invalid_params_detail_t;
+
+typedef struct logos_map_schema_commitment {
+    const char* commitment_model;
+    const char* hash_profile;
+    const char* hash_suite;
+    uint8_t schema_root[32];
+} logos_schema_commitment_t;
 
 /* -- Result type -- */
 
@@ -3613,9 +3627,9 @@ typedef struct {
     );
 } logos_async_provider_api_t;
 
-#define LOGOS_MODULE_INIT_ABI_VERSION 2u
+#define LOGOS_MODULE_INIT_ABI_VERSION 3u
 
-typedef void (*logos_publish_fn)(
+typedef logos_error_code_t (*logos_publish_fn)(
     void*          user_data,
     const char*    event_name,
     const uint8_t* cbor_data,
@@ -3636,8 +3650,8 @@ typedef struct {
 
 /* -- Runtime Control binding and route handle -- */
 
-#define LOGOS_RUNTIME_CONTROL_VTABLE_ABI_VERSION 2u
-#define LOGOS_ROUTE_VTABLE_ABI_VERSION 2u
+#define LOGOS_RUNTIME_CONTROL_VTABLE_ABI_VERSION 3u
+#define LOGOS_ROUTE_VTABLE_ABI_VERSION 3u
 
 typedef uint64_t logos_subscription_id_t;
 
@@ -3651,6 +3665,12 @@ typedef void (*logos_event_handler_t)(
 typedef void (*logos_route_end_handler_t)(
     logos_error_code_t reason,
     void* user_data
+);
+
+typedef void (*logos_subscription_end_handler_t)(
+    logos_subscription_id_t subscription_id,
+    logos_error_code_t      reason,
+    void*                   user_data
 );
 
 struct logos_runtime_control_binding {
@@ -3725,6 +3745,12 @@ struct logos_runtime_control_vtable {
         const logos_async_callbacks_t* callbacks,
         logos_async_call_t* out_call
     );
+
+    logos_result_t (*observe_subscription_end)(
+        const logos_runtime_control_binding_t* binding,
+        logos_subscription_end_handler_t       handler,
+        void*                                  user_data
+    );
 };
 
 struct logos_route_vtable {
@@ -3776,6 +3802,12 @@ struct logos_route_vtable {
         logos_route_end_handler_t handler,
         void* user_data
     );
+
+    logos_result_t (*observe_subscription_end)(
+        logos_route_handle_t*            route,
+        logos_subscription_end_handler_t handler,
+        void*                            user_data
+    );
 };
 
 /* Optional provider completion capability. */
@@ -3794,7 +3826,7 @@ Throughout Logos specifications and conformance assertions, a bare error name de
 
 Memory lifetime rules: see section 2.7.
 
-The versioned initialization struct uses `abi_version == 2` in this revision.
+The versioned initialization struct uses `abi_version == 3` in this revision.
 `struct_size` is the number of initialized bytes available in that struct.
 A receiver MUST NOT read beyond `struct_size`.
 Future compatible revisions MAY append fields and increase `struct_size`,
@@ -3803,18 +3835,17 @@ An incompatible layout requires a new `abi_version`.
 
 Before calling `_MODULE_init()`, the ABI caller MUST populate the ABI version and structure size.
 A module that does not support the version or receives a structure too
-small to contain the fields defined by that version MUST return
-`LOGOS_ERR_VERSION_MISMATCH` and a null context.
+small to contain the fields defined by that version MUST return `LOGOS_ERR_VERSION_MISMATCH` and a null context.
 Unknown appended fields within a supported version are ignored.
 
-The Runtime Control and route vtables use ABI version `2` in this revision.
+The Runtime Control and route vtables use ABI version `3` in this revision.
 Each `struct_size` is the number of initialized bytes available in that vtable.
 A binding consumer MUST reject a null vtable, a null state pointer, an unsupported version, a structure too small to contain every field defined by that version, or a null required operation pointer.
 A binding consumer MUST NOT read beyond `struct_size`.
 Future compatible revisions MAY append fields and increase `struct_size`, but MUST NOT reorder, remove, or change the meaning of existing fields.
 An incompatible layout requires a new vtable ABI version.
 The vtable and state pointers remain valid and unchanged for the complete binding or handle lifetime.
-The current route vtable includes the required `observe_end` operation; a shorter version-2 vtable MUST be rejected with `VERSION_MISMATCH`.
+The current route vtable includes the required `observe_end` and `observe_subscription_end` operations, and the current Runtime Control vtable includes the required `observe_subscription_end` operation; a shorter vtable MUST be rejected with `VERSION_MISMATCH`.
 
 When a binding-validation failure is reported through the shared result channel, an unsupported vtable version or insufficient versioned structure extent MUST use `VERSION_MISMATCH`.
 A null vtable, null state, or null required operation in a binding supplied by its producer MUST use `MODULE_ERROR`.
@@ -3931,8 +3962,7 @@ The Runtime Control binding, callback, and opaque state are process-local and MU
 ### 5.3 Dynamic Schema Validation
 
 Schema text obtained from a module, package, catalog, Runtime, or remote peer is untrusted structured input.
-Successful artifact acceptance, provider authorization, or Transport authentication
-does not make that text valid and does not authorize any method described by it.
+Successful artifact acceptance, provider authorization, or Transport authentication does not make that text valid and does not authorize any method described by it.
 
 Before using dynamic schema text for dispatch, call-helper generation, validation, routing, or user presentation, an implementation MUST parse and resolve it under the following limits:
 
@@ -3979,11 +4009,9 @@ select a provider, or establish trust in code or data.
 
 ## Appendix A. Generated Artifacts (Informative)
 
-The mapping rules in sections 2 through 4 can be applied mechanically to
-produce C headers, adapter implementations, event helpers, and typed call helpers.
+The mapping rules in sections 2 through 4 can be applied mechanically to produce C headers, adapter implementations, event helpers, and typed call helpers.
 This appendix describes common derived artifacts and implementation patterns.
-The normative requirements are the ABI, mapping, method-call, and encoding
-rules defined in the main body of this specification.
+The normative requirements are the ABI, mapping, method-call, and encoding rules defined in the main body of this specification.
 
 ### A.1 CDDL-to-C Artifacts
 
@@ -4010,8 +4038,7 @@ Only the canonical contract headers and their required dependencies are supplied
 ### A.2 C-to-CDDL Artifacts
 
 A generator may also derive the primary module schema and implemented interface schemas from a C header set that conforms to Section 3.
-After deriving those schemas, it may produce the same artifact family listed
-in Appendix A.1.
+After deriving those schemas, it may produce the same artifact family listed in Appendix A.1.
 
 ### A.3 Generated Dispatch Implementation
 
@@ -4024,10 +4051,8 @@ It calls the corresponding per-method provider function or equivalent provider l
 and encodes responses according to the target method response schema.
 
 The dispatch function is not a schema method.
-It is a generic ABI entrypoint for hosts that carry method names and encoded
-payloads.
-The typed per-method C functions remain mandatory and form the native provider
-surface for direct/static integrations and generated bindings.
+It is a generic ABI entrypoint for hosts that carry method names and encoded payloads.
+The typed per-method C functions remain mandatory and form the native provider surface for direct/static integrations and generated bindings.
 
 For each exposed method `M`,
 such an adapter commonly has a branch with this shape:
@@ -4046,34 +4071,28 @@ Such an adapter commonly:
 
 - looks up the method in a generated dispatch table,
 - returns `LOGOS_ERR_METHOD_NOT_FOUND` for an unknown method,
-- decodes the deterministic CBOR request payload according to the method
-  request schema,
+- decodes the deterministic CBOR request payload according to the method request schema,
 - returns `LOGOS_ERR_INVALID_PARAMS` if decode fails,
 - calls the corresponding per-method C function,
-- encodes a valid contract response as a deterministic CBOR map matching the
-  method response schema, and
+- encodes a valid contract response as a deterministic CBOR map matching the method response schema, and
 - returns a nonzero invocation status without response bytes
   when the typed provider returns an invocation failure.
 
 A generated adapter may handle the `logos.schema` well-known method only when it receives the route's selected contract from the Runtime-controlled invocation boundary.
 It MUST return that selected contract as specified in Section 5.1
-and MUST NOT substitute the backing module's complete call-surface descriptor
-for the route-selected contract.
+and MUST NOT substitute the backing module's complete call-surface descriptor for the route-selected contract.
 Unknown methods return `LOGOS_ERR_METHOD_NOT_FOUND`.
 
 Because dispatch is an ABI entrypoint rather than a schema method,
-commitment-model, hash-profile, authorization, audit, and conformance material
-MUST identify the target schema method and the defining contract root.
+commitment-model, hash-profile, authorization, audit, and conformance material MUST identify the target schema method and the defining contract root.
 That material MUST also identify the request/response values for that method.
 They MUST NOT identify a synthetic dispatch method.
 
 The generated `_MODULE_init()` implementation creates a distinct module context,
 copies the Runtime Control binding and event-publication fields used by the generated adapter,
 and invokes an optional author-provided initialization hook.
-The generated `_MODULE_destroy()` implementation invokes an optional author-provided
-cleanup hook and releases that context.
-Even a stateless module needs a distinct live context token for each successful
-initialization so instance lifetime can be enforced unambiguously.
+The generated `_MODULE_destroy()` implementation invokes an optional author-provided cleanup hook and releases that context.
+Even a stateless module needs a distinct live context token for each successful initialization so instance lifetime can be enforced unambiguously.
 
 ### A.4 Generated Event Publish Helpers
 
@@ -4081,7 +4100,7 @@ For each event `<namespace>.<name>_event` exposed by a concrete module, a genera
 
 ```c
 /* From: storage.upload_progress_event = { session: tstr, bytes_sent: uint64, bytes_total: uint64 } */
-void logos_storage_module_publish_storage_upload_progress(
+logos_error_code_t logos_storage_module_publish_storage_upload_progress(
     logos_module_context_t* module,
     uint64_t                bytes_sent,
     uint64_t                bytes_total,
@@ -4093,11 +4112,9 @@ The helper name is illustrative and is not used for schema reconstruction.
 
 The implementation deterministic-CBOR-encodes
 `{bytes_sent, bytes_total, session}` per section 4.2
-and calls the `publish` callback and `publish_user_data` retained in `module`
-with event name `"storage.upload_progress_event"`.
+and calls the `publish` callback and `publish_user_data` retained in `module` with event name `"storage.upload_progress_event"`, returning its result.
 
-Module authors call the typed helper instead of encoding deterministic CBOR
-manually.
+Module authors call the typed helper instead of encoding deterministic CBOR manually.
 The module context remains process-local as defined in Section 5.2.
 
 ### A.5 Generated Typed Call Helpers
@@ -4139,10 +4156,8 @@ For compound responses, the generated helper also resets all output locations wi
 
 ### A.6 Framework-Specific UI Bindings
 
-Generators may produce UI-framework-facing bindings derived from the same CDDL
-schema.
-Such bindings are derived views over the canonical module contract, not
-parallel interfaces.
+Generators may produce UI-framework-facing bindings derived from the same CDDL schema.
+Such bindings are derived views over the canonical module contract, not parallel interfaces.
 
 The Logos canonical schema model remains the contract definition.
 Framework-specific binding details are out of scope for this specification.
@@ -4176,5 +4191,4 @@ Framework-specific binding details are out of scope for this specification.
 
 ## Copyright
 
-Copyright and related rights waived via
-[CC0](https://creativecommons.org/publicdomain/zero/1.0/).
+Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).

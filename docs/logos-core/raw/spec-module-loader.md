@@ -12,6 +12,8 @@
 ## Abstract
 
 This specification defines the Module Loader module contract.
+The contract standardizes realization requests, records, and observation between a Runtime and its Module Loader provider.
+It does not make a Module Loader provider substitutable across Runtime implementations, because the private realization handoffs are implementation-defined.
 
 Module Loader realizes one canonical native module ABI through direct static binding,
 direct dynamic loading, or hosted dynamic loading.
@@ -24,8 +26,7 @@ Every Module Loader provider MUST be a local module provider backed by a local m
 Runtime MUST maintain ordinary provider and lifecycle records for that instance.
 An implementation MAY co-locate or statically link Module Loader code,
 but Runtime MUST represent that code as a direct local module instance.
-Remote facades and host or deployment services that are not module providers
-MUST NOT be bound as Module Loader providers.
+Remote facades and host or deployment services that are not module providers MUST NOT be bound as Module Loader providers.
 
 Implementing the Module Loader contract does not grant authority.
 Runtime or deployment policy binds a provider to the Module Loader responsibility
@@ -35,8 +36,7 @@ LOGOS-MODULE-SYSTEM-BCP defines protected bootstrap and complete-system composit
 The canonical flat runtime module name is `logos_module_loader`.
 The canonical schema namespace is `logos.module_loader`.
 The CDDL blocks in this specification collectively define the normative machine-readable contract.
-`logos_module_loader.cddl` is an extracted machine-readable mirror.
-If the extracted artifact differs from this specification, this specification governs.
+Appendix A lists the complete contract schema in one block.
 
 ```cddl
 _module = "logos_module_loader"
@@ -129,8 +129,7 @@ Realization descriptors do not grant those constraints or authorize execution.
 - **Module instance:**
   the logical module instance owned and identified by Runtime.
 - **Module Host:**
-  the Loader-controlled execution envelope that applies the native module ABI
-  for one hosted module realization.
+  the Loader-controlled execution envelope that applies the native module ABI for one hosted module realization.
 - **State assignment:**
   the abstract Runtime-owned persistent-state assignment for one module instance.
 - **Deployment configuration:**
@@ -140,8 +139,8 @@ Realization descriptors do not grant those constraints or authorize execution.
 ## 3. Realization Descriptors
 
 `logos.module_loader.realization_descriptor` is the canonical realization handoff type.
-Other specifications may consume it by schema reference,
-but this specification owns its field semantics.
+Other specifications use it only through the Module Loader contract or define their own wire projections of it.
+This specification owns its field semantics; a projection has its own schema subtree root and keeps the meaning defined here.
 
 ```cddl
 logos.module_loader.realization_descriptor =
@@ -198,9 +197,10 @@ When the module provides a provider contract,
 the Module Host exposes it through `logos.local.unix-stream`.
 It dispatches requests for declared schema methods through the generic native ABI
 and serves subscriptions and Event delivery for declared schema events.
+In this revision a Module Host serves exactly one module instance.
+A future revision will allow deployment configuration to place several module instances in one Module Host, with the same contracts and authorization between them.
 
-A language implementation that cannot directly export the canonical C ABI
-MUST include generated or handwritten adapter code that exports that ABI.
+A language implementation that cannot directly export the canonical C ABI MUST include generated or handwritten adapter code that exports that ABI.
 The adapter is part of the module implementation.
 It does not create another module identity, contract, lifecycle, or realization strategy.
 
@@ -478,8 +478,7 @@ Rebinding the service MUST NOT transfer that authority or establish absence of t
 LOGOS-MODULE-RUNTIME Section 10.1 governs unresolved cleanup and replacement after loss of the owning Loader.
 
 An active realization has completed native initialization and every requested Loader-owned handoff.
-For a provider, `call_surface` contains the exact deterministic-CBOR bytes
-returned by `logos_<module-C>_MODULE_call_surface()`.
+For a provider, `call_surface` contains the exact deterministic-CBOR bytes returned by `logos_<module-C>_MODULE_call_surface()`.
 Module Loader MUST NOT rewrite or combine the contained contracts.
 A provider realization MUST contain `call_surface`.
 A consumer-only realization MUST omit it.
@@ -532,8 +531,7 @@ An unknown or nonmatching realization produces `realization-not-found`.
 An invalid request for a realization without declared live-reconfiguration support produces `invalid-request`.
 Those cases MUST NOT invoke module behavior.
 
-For direct realization, Module Loader invokes `logos_<module-C>_MODULE_apply_configuration()`
-through the retained context.
+For direct realization, Module Loader invokes `logos_<module-C>_MODULE_apply_configuration()` through the retained context.
 For hosted realization, the Module Host invokes the same ABI hook under Loader control.
 
 `LOGOS_OK` produces `succeeded` and leaves the realization active.
@@ -575,8 +573,7 @@ Beginning destruction consumes the live context.
 A later cleanup attempt MUST NOT invoke destruction again for that context.
 
 `force` is valid only when the Loader advertised `force_release`.
-A request containing `force` when the Loader did not advertise `force_release`
-MUST return a failed response with `invalid-request`.
+A request containing `force` when the Loader did not advertise `force_release` MUST return a failed response with `invalid-request`.
 It MUST NOT begin cleanup or mutate a retained realization.
 It requests the strongest available local termination and cleanup path.
 Successful force release MUST establish that no instance-dependent work remains and no binding or execution envelope retains cleanup obligations for the realization.
@@ -658,6 +655,8 @@ subject to the Interface concurrency contract and active resource policy.
 
 Module Loader MUST verify dynamic-library bytes before mapping them
 and MUST prevent path replacement between verification and mapping.
+This verification covers the selected implementation artifact only.
+Libraries that the dynamic linker loads on its behalf are not verified by Module Loader; they are deployment inputs, or packaged artifacts whose installed paths the installer keeps bound to verified bytes.
 It MUST reject unsupported strategies before artifact-controlled code executes.
 
 Direct realization places module code in the ABI caller's address space.
@@ -730,6 +729,190 @@ permission grants, revocation, and security audit material.
 
 LOGOS-MODULE-SECURITY-CONSIDERATIONS and security profiles own the integrated threat model,
 platform mappings, containment claims, and residual-risk analysis.
+
+---
+
+## Appendix A. Complete Contract Schema (Normative)
+
+This appendix lists the complete `logos.module_loader` contract schema in one CDDL block.
+The CDDL blocks in the preceding sections are excerpts of it, in the same order.
+If an excerpt differs from this appendix, this appendix governs.
+
+```cddl
+_module = "logos_module_loader"
+
+logos.module_loader.realization_descriptor =
+  {
+    strategy: "direct_static",
+    module: logos.runtime.module_name,
+    static_binding: logos.module_loader.static_binding,
+  } /
+  {
+    strategy: "direct_dynamic",
+    module: logos.runtime.module_name,
+    artifact: logos.module_loader.artifact,
+  } /
+  {
+    strategy: "hosted_dynamic",
+    module: logos.runtime.module_name,
+    artifact: logos.module_loader.artifact,
+    placement: logos.module_loader.hosted_placement,
+  }
+
+logos.module_loader.hosted_placement =
+  "process" /
+  "sandbox" /
+  "container"
+
+logos.module_loader.artifact = {
+  id: tstr .size (1..128),
+  local_path: tstr .size (1..4096),
+  hash: bstr .size 32,
+  hash_suite: "logos.hash-suite.blake3-256",
+}
+
+logos.module_loader.static_binding = {
+  binding: tstr .size (1..128),
+}
+
+logos.module_loader.capabilities = {
+  ? direct_static: true,
+  ? direct_dynamic: true,
+  ? hosted_dynamic: {
+    ? process: true,
+    ? sandbox: true,
+    ? container: true,
+  },
+  ? force_release: true,
+}
+
+logos.module_loader.list_capabilities_request = {}
+
+logos.module_loader.list_capabilities_response = {
+  capabilities: logos.module_loader.capabilities,
+}
+
+logos.module_loader.state_context = {
+  assignment: logos.runtime.module_state_assignment_id,
+}
+
+logos.module_loader.configuration_handoff = {
+  input: logos.module_configuration.configuration_input,
+  ? live_reconfiguration: true,
+}
+
+logos.module_loader.provider_endpoint = {
+  profile: "logos.local.unix-stream",
+  address: tstr .size (1..4096),
+}
+
+logos.module_loader.realize_request = {
+  module_instance: logos.runtime.module_instance_id,
+  descriptor: logos.module_loader.realization_descriptor,
+  ? state: logos.module_loader.state_context,
+  ? configuration: logos.module_loader.configuration_handoff,
+}
+
+logos.module_loader.realize_response =
+  {
+    status: "succeeded",
+    realization: logos.module_loader.active_realization,
+  } /
+  {
+    status: "failed",
+    error: logos.module_loader.error,
+  } /
+  {
+    status: "failed",
+    realization: logos.module_loader.failed_realization,
+  }
+
+logos.module_loader.realization =
+  logos.module_loader.active_realization /
+  logos.module_loader.failed_realization
+
+logos.module_loader.active_realization = {
+  realization: logos.module_loader.realization_id,
+  module_instance: logos.runtime.module_instance_id,
+  status: "active",
+  ? call_surface: bstr .size (1..8388608),
+  ? provider_endpoint: logos.module_loader.provider_endpoint,
+}
+
+logos.module_loader.failed_realization = {
+  realization: logos.module_loader.realization_id,
+  module_instance: logos.runtime.module_instance_id,
+  status: "failed",
+  failure: logos.module_loader.error,
+}
+
+logos.module_loader.realization_id = tstr .size (1..128)
+
+logos.module_loader.get_status_request = {
+  ? realization: logos.module_loader.realization_id,
+  module_instance: logos.runtime.module_instance_id,
+}
+
+logos.module_loader.get_status_response =
+  {
+    status: "succeeded",
+    realization: logos.module_loader.realization,
+  } /
+  {
+    status: "failed",
+    error: logos.module_loader.error,
+  }
+
+logos.module_loader.apply_configuration_request = {
+  realization: logos.module_loader.realization_id,
+  module_instance: logos.runtime.module_instance_id,
+  configuration: logos.module_configuration.configuration_input,
+}
+
+logos.module_loader.apply_configuration_response =
+  { status: "succeeded" } /
+  {
+    status: "failed",
+    error: logos.module_loader.error,
+  } /
+  {
+    status: "failed",
+    realization: logos.module_loader.failed_realization,
+  }
+
+logos.module_loader.release_request = {
+  realization: logos.module_loader.realization_id,
+  module_instance: logos.runtime.module_instance_id,
+  ? force: true,
+}
+
+logos.module_loader.release_response =
+  { status: "succeeded" } /
+  {
+    status: "failed",
+    error: logos.module_loader.error,
+  } /
+  {
+    status: "failed",
+    realization: logos.module_loader.failed_realization,
+  }
+
+logos.module_loader.error = {
+  code: logos.module_loader.error_code,
+  ? message: tstr .size (0..512),
+}
+
+logos.module_loader.error_code =
+  "invalid-request" /
+  "unsupported-strategy" /
+  "artifact-unavailable" /
+  "artifact-integrity-failed" /
+  "abi-invalid" /
+  "realization-failed" /
+  "instance-conflict" /
+  "realization-not-found" /
+  "configuration-rejected"
+```
 
 ---
 

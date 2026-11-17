@@ -48,6 +48,7 @@ Configuration state is bound to the module-instance identity and is not shared m
 A module declaration MAY contain one configuration-schema binding.
 A declaration without that binding defines a module with no configuration value under this specification.
 Runtime MUST reject configuration operations other than `get_configuration_summary` for such a module instance.
+For such a module instance, `get_configuration_summary` reports `state_revision` zero and omits the other summary fields.
 
 A configuration value MUST be one complete value under the bound configuration root.
 Core defines no field patch, implicit merge, or partially applied configuration value.
@@ -110,8 +111,7 @@ For this check, Runtime MUST use maximum-length legal target identifiers and the
 so state admission does not depend on a particular caller or short identifier.
 Runtime MUST reject without mutation any source or state transition whose resulting complete state would violate this limit.
 While a startup or live-reconfiguration attempt is in flight,
-Runtime MUST admit a concurrent staged-value replacement only when a complete `get_configuration` response
-would fit for each possible resulting current record:
+Runtime MUST admit a concurrent staged-value replacement only when a complete `get_configuration` response would fit for each possible resulting current record:
 the retained current record, when present, and the immutable attempted record.
 
 Each retained value record includes its configuration-schema commitment, value commitment, value revision, and provenance.
@@ -138,7 +138,7 @@ This specification defines no default-retrieval method or implicit default fallb
 Runtime determines the next-start value in the following order:
 
 1. Runtime restores retained current and staged records.
-2. If neither record exists, Runtime MAY accept a package default as the staged value.
+2. If neither record exists and no configuration record has existed for the instance before, Runtime MAY accept a package default as the staged value.
 3. Runtime commits each accepted protected provisioning input or authorized Runtime Control replacement as a complete staged-value mutation in its configuration-state mutation order.
 4. Runtime selects the staged value when one exists and otherwise selects the current value.
 
@@ -192,12 +192,15 @@ After ordinary target authorization and non-disclosure checks, configuration ope
 | Condition | Invocation status and detail |
 | --- | --- |
 | The target has no accepted configuration binding, for an operation other than `get_configuration_summary`. | `INVALID_PARAMS`, without validation detail. |
-| The expected configuration-state revision is stale. | `INVALID_PARAMS`, without validation detail. |
 | The expected accepted configuration-schema commitment does not match. | `VERSION_MISMATCH`, without validation detail. |
 | An embedded configuration value is malformed, has trailing bytes, or is not Logos deterministic CBOR. | `INVALID_PARAMS`, without validation detail. |
 | A decoded deterministic configuration value does not conform to the bound configuration root. | `INVALID_PARAMS`, optionally with `configuration-schema-mismatch` detail under LOGOS-MODULE-INTERFACE. |
+| The resulting complete state would violate the response-size limit of Section 3. | `INVALID_PARAMS`, without validation detail. |
 
 For `configuration-schema-mismatch`, any supplied path starts at the decoded configuration value's root, not the outer Runtime Control request or its byte-string field.
+A stale expected configuration-state revision is not an invocation failure; it MUST produce the `stale-revision` error defined by LOGOS-MODULE-RUNTIME.
+When more than one condition in this table applies, Runtime MUST report the first applicable row.
+Runtime evaluates the first row before the revision comparison and the remaining rows after it.
 A failure to obtain a configuration application outcome remains governed by Section 8.
 These classifications do not authorize disclosure of schema or configuration information the caller may not observe.
 For a replacement, Runtime MUST validate the complete value and compute its value commitment before committing it as staged.
@@ -239,6 +242,7 @@ If initialization or readiness fails, Runtime MUST preserve the previous current
 It MUST leave staged state as established by the latest accepted mutation, so the attempted record remains staged only when it was not subsequently replaced or discarded.
 
 Any mutation of current or staged state caused by successful startup MUST be atomic and advance the configuration-state revision.
+Successful startup with an attempted record that is already current, and with no staged record cleared, is not a mutation.
 A failed startup using the current record does not remove or revise that record.
 
 ## 7. Configuration-Schema Changes
@@ -251,6 +255,7 @@ It MUST NOT silently reset values or reapply a package default.
 An upgrade that changes or removes the configuration-schema binding or changes the live-reconfiguration declaration MUST establish a new module instance under the replacement declaration.
 This specification does not define in-place replacement of an existing instance's accepted declaration.
 The existing instance retains its declaration and configuration records until independently authorized lifecycle or configuration operations change its state.
+A binding, staged record, or realization that differs from the instance's accepted binding can arise only from restored or inconsistent retained state, and the checks in this specification apply to it.
 Runtime MUST NOT reinterpret or automatically transfer those records to the replacement instance.
 Successful structural validation under the replacement schema does not establish unchanged meaning.
 A replacement requiring configuration needs a complete value accepted under its own schema before initialization.
@@ -291,11 +296,13 @@ For an authorized request whose target may be disclosed, Runtime MUST classify a
 
 | Condition | Error code |
 | --- | --- |
-| The expected configuration-state revision is stale, no staged record exists, or either applicable binding is absent or does not declare live reconfiguration. | `INVALID_PARAMS` |
+| No staged record exists, or either applicable binding is absent or does not declare live reconfiguration. | `INVALID_PARAMS` |
 | The module instance is not `ready`, or another live-reconfiguration attempt is in progress. | `NOT_READY` |
 | The accepted binding, staged record, and current realization do not have the same configuration-schema commitment. | `VERSION_MISMATCH` |
 
 A failed precondition MUST NOT invoke the application hook or mutate configuration state.
+A stale expected configuration-state revision is such a failed precondition and MUST produce the `stale-revision` error defined by LOGOS-MODULE-RUNTIME.
+After the first row of the table in Section 5, Runtime compares the revision before the conditions of this table; when more than one condition in this table applies, Runtime MUST report the first applicable row.
 These `INVALID_PARAMS` failures MUST omit validation detail because they are not CBOR decoding or schema-validation failures.
 
 Runtime snapshots the staged record as the immutable value for the application attempt.
@@ -305,6 +312,7 @@ Generated application glue MUST perform the same configuration-schema-commitment
 The callback MUST report success only after the complete attempted value governs module behavior.
 On rejection, it MUST leave behavior governed by the previous current value.
 On success accepted before terminal indeterminacy, Runtime MUST make the attempted record current.
+The successful `apply_configuration` response reports the resulting configuration-state revision in `state_revision` and the value revision of the record made current in `applied_value_revision`.
 It MUST clear the staged record only when that record still has the attempted value revision.
 A concurrently replaced staged record remains staged, and a concurrently discarded staged record remains absent.
 
@@ -312,10 +320,13 @@ On rejection, Runtime preserves the previous current record and the latest stage
 If the application outcome is indeterminate, Runtime MUST place the module instance in `error` and prevent further provider work through that realization.
 Runtime preserves the previous current record and latest staged state for a later startup or re-realization.
 
-A valid nonzero application-hook result is a rejection and MUST be reported by the Runtime Control `apply_configuration` invocation as `MODULE_ERROR`.
+A valid nonzero application-hook result is a rejection and MUST be reported in the `apply_configuration` response as the `configuration-rejected` error.
 Runtime MUST NOT forward that hook result as a Runtime readiness or authorization failure.
 If Runtime cannot obtain a valid application-hook result, it MUST report `TRANSPORT_ERROR` when the cause is failure to exchange the required transport messages, and `MODULE_ERROR` otherwise.
 That distinction MUST NOT change the required transition to `error` for an indeterminate application outcome.
+After a rejection the module instance remains in its previous lifecycle state, while after an indeterminate outcome it is in `error` with the `configuration-indeterminate` classification.
+A module instance that is `stopping` when the outcome becomes indeterminate remains `stopping`.
+The stop in progress continues under LOGOS-MODULE-RUNTIME Section 3.4, and the indeterminate outcome is reported only in the `apply_configuration` response.
 A caller-side timeout, cancellation, or lost Runtime Control response does not by itself establish the application outcome; Runtime MUST update configuration and lifecycle state using the outcome of the application attempt.
 
 Every live-reconfiguration mutation of current or staged state MUST be atomic and advance the configuration-state revision.
@@ -345,6 +356,7 @@ and Runtime Control remains the callable module contract for configuration opera
 Importing a type from this schema does not create a configuration service, module instance, or provider.
 The complete supporting schema has its own schema root,
 and each imported declaration retains its schema subtree root within that schema.
+The following CDDL block is the complete supporting schema.
 
 ```cddl
 logos.module_configuration.schema_commitment = {
@@ -415,9 +427,6 @@ logos.module_configuration.configuration_input = {
   value_revision: uint64,
 }
 ```
-
-`logos_module_configuration_types.cddl` is an extracted machine-readable mirror of this block.
-If the extracted artifact differs from this specification, this specification governs.
 
 `document` contains the accepted CDDL text, and `root` names its configuration root.
 Within `schema_commitment`, `schema_root` commits to the complete document and `schema_subtree_root` commits to that selected root.

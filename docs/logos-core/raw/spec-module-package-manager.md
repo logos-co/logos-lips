@@ -16,8 +16,7 @@ This specification defines the Package Manager module contract.
 The Package Manager contract is an intentionally limited Core baseline.
 It provides the package verification, dependency-closure, materialization,
 installed-state, and Runtime-handoff behavior needed by the Core architecture.
-It defines a bounded dependency solver, not a general package ecosystem or
-an arbitrary dependency-constraint language.
+It defines a bounded dependency solver, not a general package ecosystem or an arbitrary dependency-constraint language.
 More advanced catalog policy, alternative or optional dependencies,
 general transactions, rollback operations, and lifecycle automation may be defined separately.
 The contract supplies installed-state change hints and optional invocation-scoped operation progress.
@@ -40,21 +39,16 @@ It may grant the operations needed for that deployment.
 
 The canonical flat runtime module name is `logos_package_manager`.
 The canonical schema namespace is `logos.package_manager`.
-The `logos.package_manager` CDDL blocks in this specification collectively
-define the normative module contract.
-`logos_package_manager.cddl` is an extracted machine-readable mirror of those blocks.
-If the extracted artifact differs from this specification,
-this specification governs.
+The `logos.package_manager` CDDL blocks in this specification collectively define the normative module contract.
+Appendix A lists the complete contract schema in one block.
 The Package Manager module schema imports two supporting schemas: Package Manifest from Section 4 and Module Configuration Types from LOGOS-MODULE-CONFIGURATION.
 
 Package Manager exposes Logos-level package records and operations.
 It does not expose the internals of the underlying build or package tool.
 
-This specification defines a small author-facing package manifest and an
-expanded installed package record.
+This specification defines a small author-facing package manifest and an expanded installed package record.
 Package authors provide the manifest.
-Package Manager derives installed records, local artifact records, and
-Runtime handoff records after resolution or installation.
+Package Manager derives installed records, local artifact records, and Runtime handoff records after resolution or installation.
 
 The package manifest is a CDDL-defined supporting schema.
 It has schema identity and value commitment support.
@@ -138,13 +132,11 @@ It answers questions such as:
 
 - which Logos packages are available or installed;
 - which Logos modules a package declares;
-- which optional primary module contract and implemented interface contracts
-  are declared for a module;
+- which optional primary module contract and implemented interface contracts are declared for a module;
 - which package dependencies, module requirements, and requested permissions are declared by the package manifest;
 - which local artifacts were produced or materialized for a package;
 - which Runtime handoff records are derived for installed artifacts;
-- which install, update, remove, and package method results are visible to
-  the runtime host.
+- which install, update, remove, and package method results are visible to the runtime host.
 
 Package producers own the mechanics of building and assembling package artifacts.
 The LGX profile consumes prebuilt packages.
@@ -218,9 +210,7 @@ The Nix profile defines the manifest location within a realized Nix output.
 ## 4. Manifest Schema Identity
 
 `logos.package_manifest.manifest` is a CDDL-defined Logos data type.
-It is authored in CDDL, processed through the Logos canonical schema model, and
-assigned a Logos schema root according to LOGOS-MODULE-COMMITMENT-MODEL and
-LOGOS-MODULE-HASH-PROFILE.
+It is authored in CDDL, processed through the Logos canonical schema model, and assigned a Logos schema root according to LOGOS-MODULE-COMMITMENT-MODEL and LOGOS-MODULE-HASH-PROFILE.
 
 The package manifest schema namespace is:
 
@@ -246,7 +236,7 @@ It defines no methods, events, provider surface, module identity, or lifecycle.
 Keeping it separate from the Package Manager module schema gives manifest values an independent schema root,
 so a Package Manager API change does not change the schema identity of signed manifests.
 
-The following CDDL defines the normative canonical manifest schema:
+The following CDDL block is the complete normative Package Manifest schema:
 
 ```cddl
 logos.package_manifest.package_name = tstr .size (1..128)
@@ -260,6 +250,13 @@ logos.package_manifest.manifest = {
   modules: [* logos.package_manifest.module_declaration],
   variants: [* logos.package_manifest.package_variant],
   ? dependencies: [* logos.package_manifest.package_dependency],
+  ? contract_documents: [* logos.package_manifest.contract_document],
+}
+
+logos.package_manifest.contract_document = {
+  commitment: logos.schema_commitment,
+  schema_artifact: logos.package_manifest.artifact_id,
+  ? input_artifacts: [* logos.package_manifest.artifact_id],
 }
 
 logos.package_manifest.module_declaration = {
@@ -267,6 +264,7 @@ logos.package_manifest.module_declaration = {
   artifact: logos.package_manifest.artifact_id,
   ? primary_contract: logos.schema_commitment,
   ? implements: [* logos.schema_commitment],
+  ? extends: [* logos.schema_commitment],
   ? requires: [* logos.package_manifest.provider_requirement],
   ? requested_permissions: [* logos.package_manifest.requested_permission],
   ? configuration: logos.package_manifest.configuration_declaration,
@@ -294,6 +292,7 @@ logos.package_manifest.requested_permission = {
 logos.package_manifest.package_dependency = {
   package: logos.package_manifest.package_name,
   requirement: logos.package_manifest.package_version_requirement,
+  ? contracts: [* logos.schema_commitment],
 }
 
 logos.package_manifest.package_version_requirement = {
@@ -321,10 +320,6 @@ logos.package_manifest.manifest_artifact = {
 }
 ```
 
-`logos_package_manifest.cddl` is an extracted machine-readable mirror of this block.
-If the extracted artifact differs from this specification,
-this specification governs.
-
 `configuration`, when present, declares one configuration schema for the module.
 `schema_artifact` identifies a `schema` artifact containing the UTF-8 CDDL document, and `root` names the configuration root in that document.
 `schema_commitment` binds the complete schema document.
@@ -341,7 +336,7 @@ A schema commitment identifies one exact module or interface contract by schema 
 The schema root already commits to the contract namespace.
 Package release versions do not form part of contract identity.
 
-Within one module declaration, implemented contract commitments, required contract commitments, and requested permission names MUST each be unique.
+Within one module declaration, implemented contract commitments, extended contract commitments, required contract commitments, and requested permission names MUST each be unique.
 The implementation artifact referenced by each module declaration MUST occur in at least one package variant
 and MUST have kind `module-binary` wherever it occurs.
 The `constraints` field contains the exact deterministic-CBOR encoding of one value owned by the named permission definition.
@@ -352,21 +347,32 @@ All other manifest arrays use canonical order:
 - module declarations by `module` UTF-8 bytes;
 - artifacts within each variant by `id` UTF-8 bytes;
 - dependencies by `package` UTF-8 bytes;
-- implemented contracts and provider requirements by the deterministic-CBOR bytes of their schema commitment; and
+- implemented contracts, extended contracts, provider requirements, a dependency's contracts, and contract documents by the deterministic-CBOR bytes of their schema commitment; and
 - requested permissions by `permission` UTF-8 bytes.
 
 Package Manager MUST reject a manifest with `invalid-package` when its arrays violate these ordering or uniqueness rules.
 
+`contract_documents`, when present, MUST be non-empty and MUST contain at most one entry for each commitment.
+Each entry names the `schema` artifact that holds the contract document for that commitment and, in `input_artifacts`, the `schema` artifacts that hold the interface and supporting schema documents needed to construct it.
+Those artifacts MUST exist in every package variant.
+Package Manager MUST construct the schema root from those documents of the selected variant and MUST fail with `invalid-package` when it differs from the commitment.
+A document that defines a contract under a name reserved by LOGOS-MODULE-INTERFACE Section 1.3 is validated as a Logos-defined contract, and every other document as an ordinary contract; carrying such a document grants no authority to provide that contract.
+When a module declaration's contract and a commitment in its `extends` both have entries, Package Manager MUST verify the extension under LOGOS-MODULE-COMMITMENT-MODEL and fail with `invalid-package` when it does not hold.
+A manifest does not select a realization strategy or placement.
+A future revision may add an advisory placement preference to module declarations; it would not bind deployment configuration.
+
 Package Manager MUST verify each referenced artifact against its signed manifest hash before parsing or validating its content.
-A missing artifact, incorrect artifact kind, or hash mismatch MUST fail with `artifact-integrity-failed`.
+A missing artifact or hash mismatch MUST fail with `artifact-integrity-failed`.
 Invalid CDDL, a document schema-commitment mismatch, an absent or invalid root, an unresolved non-common schema reference, or an invalid default value MUST fail with `invalid-package`.
 
-Under the fixed commitment and hash identifiers, the assigned schema root is `b3a53cea950337515b843333795c53c58288702e5bf72ad98930e02c7581e0eb`,
-and the `logos.package_manifest.manifest` subtree root is `fbee48aef4b669bd9e4dfec0126f56513f8c626da858121082e5f25b0e236879`.
+Under the fixed commitment and hash identifiers, the assigned schema root is `d517cf20219ced88528df307c1631b2785abf04157a8b3caa9ac351e95a705f6`,
+and the `logos.package_manifest.manifest` subtree root is `23de138c1edb5437388a419928f73901ad7ada309b9a357c35ff6690c06f6d78`.
 These hexadecimal values decode to 32-byte roots and are normative.
+Package Manager selects the manifest schema by the `schema_root` and `schema_subtree_root` of the signed manifest commitment and validates `manifest.cbor` against that schema.
+A Package Manager conforming to this revision MUST support the manifest schema identified by the roots above.
+A later revision that changes the manifest schema lists the earlier manifest schema roots that remain accepted and defines how their manifests are presented through the Package Manager contract.
 
-When a manifest value commitment is required, the value commitment MUST bind
-the decoded deterministic CBOR value to:
+When a manifest value commitment is required, the value commitment MUST bind the decoded deterministic CBOR value to:
 
 - the semantic commitment-model revision identifier;
 - the schema root for `logos.package_manifest`;
@@ -411,9 +417,9 @@ to its public key or other profile-defined verification material.
 It MUST also bind each accepted signer to a non-empty set of exact package names for which that signer is authorized.
 Package-name authorization uses byte-for-byte equality of the package-name UTF-8 encoding.
 It MUST NOT use case folding, Unicode normalization, prefixes, wildcard patterns, or an authorization covering every package name.
+Adding an exact package name to an accepted signer's set is a change of protected trust input and requires a later trust revision under the continuity rules above.
 A bare identifier, package field, catalog entry, or downloaded key does not establish a trust anchor.
-The concrete key encoding, signature algorithms, and signature-container processing
-are defined by the selected package-signing profile.
+The concrete key encoding, signature algorithms, and signature-container processing are defined by the selected package-signing profile.
 
 Package Manager MUST verify each package against the currently accepted package-signing trust anchors
 and require the authenticated signer to be authorized for the exact package name in the signed manifest.
@@ -440,25 +446,19 @@ replace, or reactivate a package-signing trust anchor.
 Package-signing trust, remote Runtime enrollment trust,
 and Capability Authority execution authorization are distinct decisions.
 Configuring the same key material for more than one purpose does not merge those decisions.
-A local development deployment MAY configure its own package-signing trust anchor
-through the same protected trust-input path.
+A local development deployment MAY configure its own package-signing trust anchor through the same protected trust-input path.
 
 ### 4.2 Catalog, External Anchoring, And Freshness
 
-Protected package-signing trust input and verification of each package signature
-are the mandatory baseline trust mechanism.
+Protected package-signing trust input and verification of each package signature are the mandatory baseline trust mechanism.
 The baseline does not require an online catalog, transparency log, consensus system,
 or other network trust service.
 
-A selected package-signing or catalog profile MAY additionally require
-transparency-log inclusion, a consensus checkpoint, or equivalent external anchoring.
-The profile MUST identify the accepted external trust root and verification rules
-through protected trust input.
-An address, log name, catalog field, downloaded key, or package-supplied checkpoint
-MUST NOT establish that trust.
+A selected package-signing or catalog profile MAY additionally require transparency-log inclusion, a consensus checkpoint, or equivalent external anchoring.
+The profile MUST identify the accepted external trust root and verification rules through protected trust input.
+An address, log name, catalog field, downloaded key, or package-supplied checkpoint MUST NOT establish that trust.
 
-Verified external anchoring can show that an exact signed manifest commitment
-was included, ordered, or finalized under the selected mechanism.
+Verified external anchoring can show that an exact signed manifest commitment was included, ordered, or finalized under the selected mechanism.
 It does not by itself authorize the signer, make the package safe,
 approve its requested permissions, or authorize installation or execution.
 Catalog and external-anchor evidence MUST remain bound to the exact package signature
@@ -482,8 +482,7 @@ but Package Manager MUST NOT produce a result or handoff whose active trust requ
 
 ### 4.3 Baseline Package-Signature Profile
 
-Every conforming Package Manager MUST implement
-`logos.package-signing.cose-sign1-slh-dsa-sha2-192s`.
+Every conforming Package Manager MUST implement `logos.package-signing.cose-sign1-slh-dsa-sha2-192s`.
 This profile uses tagged `COSE_Sign1` from RFC 9052 with the fixed implicit algorithm `SLH-DSA-SHA2-192s` from FIPS 205.
 It uses the application-context mechanism in RFC 9052 Appendix A and assigns no COSE algorithm identifier.
 The algorithm, parameter set, key purpose, and container are fixed by this profile and MUST NOT be selected from received package material.
@@ -491,6 +490,8 @@ The algorithm, parameter set, key purpose, and container are fixed by this profi
 The signed payload is this deterministic-CBOR claim:
 
 ```cddl
+_module = "logos_package_manager"
+
 logos.package_manager.package_signing_profile =
   "logos.package-signing.cose-sign1-slh-dsa-sha2-192s"
 
@@ -561,9 +562,10 @@ an invalid protected signing context, an invalid public-key or signature length,
 or a failed signature verification.
 It MUST then decode the signed claim,
 require the exact profile identifier,
+fail with `unsupported-manifest` when the claim names a manifest schema that Package Manager does not support,
 recompute `manifest_commitment` from `manifest.cbor`,
 and require every commitment field to match the signed value.
-Any failure produces `signature-verification-failed`
+Any other failure produces `signature-verification-failed`
 and MUST occur before artifact material is accepted or a Runtime handoff is produced.
 
 This signature profile contains no signing time, expiry, or validity interval.
@@ -609,8 +611,7 @@ For an LGX source accepted under this profile, `provenance_object` MUST be prese
 Package Manager MUST retrieve the identified object from the Logos Storage provider selected by `storage`
 and MUST use that detached object as the profile's provenance evidence.
 It MUST NOT use an attestation embedded in the LGX archive to satisfy this profile.
-An absent locator, an unavailable object, a retrieval failure, or an object that does not satisfy every profile requirement
-MUST cause rejection without baseline-only fallback.
+An absent locator, an unavailable object, a retrieval failure, or an object that does not satisfy every profile requirement MUST cause rejection without baseline-only fallback.
 
 The provenance object for this profile MUST be a standard DSSE v1 JSON envelope [DSSE v1]
 whose `payloadType` is exactly `application/vnd.in-toto+json`.
@@ -743,8 +744,7 @@ When protected deployment policy selects a package-provenance profile,
 Package Manager MUST enforce every requirement of that profile before a successful inspection, resolution, installation, update, or Runtime handoff.
 An implementation that does not support the selected profile MUST reject the protected policy configuration before accepting package material under it.
 
-Missing, malformed, untrusted, stale, revoked, or otherwise non-qualifying provenance evidence
-MUST NOT cause fallback to baseline-only acceptance while a package-provenance profile remains selected.
+Missing, malformed, untrusted, stale, revoked, or otherwise non-qualifying provenance evidence MUST NOT cause fallback to baseline-only acceptance while a package-provenance profile remains selected.
 Successful provenance verification does not replace the baseline package signature,
 artifact-hash verification, signer authorization, or Runtime's load-boundary digest check.
 
@@ -772,8 +772,7 @@ Package identity uses the complete version text,
 while version selection uses SemVer precedence.
 
 The expanded installed package record is Package Manager output.
-It is derived from a manifest, a source record, the realization backend, and the
-local install state.
+It is derived from a manifest, a source record, the realization backend, and the local install state.
 
 ```cddl
 logos.package_manager.installed_package_record = {
@@ -816,8 +815,7 @@ The `modules` array contains only module declarations whose implementation artif
 in manifest declaration order.
 It MUST NOT contain a module declaration whose implementation artifact is absent from the selected variant.
 
-The source record gives Package Manager enough information to locate or realize
-the package.
+The source record gives Package Manager enough information to locate or realize the package.
 It does not expose backend evaluation as a Logos module API.
 An installed record is installed by definition.
 Package Manager MUST retain the selected artifact bytes while their installed record remains present.
@@ -907,7 +905,6 @@ Only `manifest.cbor`, `manifest.cose`, and `variants/` may appear at the archive
 The `variants/` directory MUST contain exactly one directory for each manifest variant.
 It MUST NOT contain files directly.
 Directory entries MAY be omitted when their existence follows from descendant entries.
-A manifest variant with no descendant entry MUST have an explicit variant-directory entry.
 Every explicit directory entry MUST use USTAR directory type `5` and size zero.
 Each variant directory name MUST equal the corresponding manifest `id`.
 Variant ids MUST be lowercase ASCII strings containing only letters, digits, `.`, `_`, and `-`.
@@ -959,10 +956,13 @@ Package Manager evaluates manifest variants in their declared order and selects 
 It MUST return `incompatible-platform` when no variant is compatible.
 Cross-deployment use of a package requires compatible platform-value definitions and matching rules; this specification defines no global registry or additional runtime-profile selector.
 The selected variant id is recorded in the installed package record.
+A package MAY declare a single variant.
+A producer MAY publish separately signed packages with the same package identity for different platforms, each declaring only the variants for those platforms.
+Such packages have different manifest commitments and are distinct candidates under Section 11; platform eligibility and protected catalog commitment selection determine which one a host uses.
 
-Artifact paths are relative to the selected variant directory.
+Artifact paths are relative to the directory of the variant that declares them.
 Every regular file in a variant directory MUST be declared by exactly one artifact record in that variant.
-Every declared artifact path MUST identify one regular file.
+Every declared artifact path of every variant MUST identify one regular file in that variant's directory.
 A module declaration whose implementation artifact occurs in the selected variant is a selected module declaration.
 Every artifact referenced by a selected module declaration MUST occur exactly once in the selected variant.
 A module declaration whose implementation artifact is absent from the selected variant is not selected.
@@ -1038,9 +1038,7 @@ share/logos/package.cose
 ```
 
 The decoded manifest MUST validate as `logos.package_manifest.manifest`.
-The manifest is the authoritative source for package identity, module
-declarations, contracts, variants, artifacts, dependencies, requested
-permissions, and handoff derivation.
+The manifest is the authoritative source for package identity, module declarations, contracts, variants, artifacts, dependencies, requested permissions, and handoff derivation.
 Flake attributes and Nix package metadata MUST NOT define a second Logos package manifest.
 They MUST NOT override the embedded manifest.
 
@@ -1064,8 +1062,7 @@ A package produced with Nix but distributed and installed as an LGX archive uses
 
 ## 8. Validation Rules
 
-Package Manager MUST validate package material before exposing it as installable
-or installed.
+Package Manager MUST validate package material before exposing it as installable or installed.
 
 Package Manager MAY stop at the first detected validation failure and return its assigned error, subject to the validation-order requirements in this specification.
 
@@ -1075,14 +1072,14 @@ A package MUST be rejected with `invalid-package` when the manifest:
 
 - is not Logos deterministic CBOR;
 - does not validate against `logos.package_manifest.manifest`;
-- declares a package name or version that conflicts with the selected package
-  reference;
-- declares a package version or dependency requirement version that is not a
-  permitted `package_version`;
+- declares a package name or version that conflicts with the selected package reference;
+- declares a package version or dependency requirement version that is not a permitted `package_version`;
 - declares duplicate variant ids;
 - declares duplicate artifact ids within a variant;
 - references a module implementation artifact that is absent from every manifest variant;
 - references a schema or default artifact that is not present exactly once in every manifest variant containing the referencing module's implementation artifact;
+- references an artifact whose kind differs from the kind that the reference requires;
+- contains an artifact path that violates the artifact path rules of this section or of the selected realization profile;
 - declares duplicate package dependency names;
 - declares duplicate module identities;
 - assigns one implementation artifact to more than one module declaration;
@@ -1090,6 +1087,7 @@ A package MUST be rejected with `invalid-package` when the manifest:
 
 An LGX package MUST be rejected with `invalid-package`
 when its archive structure, entry types, paths, or encoding do not satisfy Section 7.1.
+An absent `manifest.cose` is a missing signature and not a structure failure.
 
 A package MUST be rejected with `incompatible-platform` when no manifest variant is compatible with the target execution environment under Section 7.1.
 
@@ -1097,9 +1095,9 @@ A package MUST be rejected with `package-unavailable` when the selected profile 
 
 A package MUST be rejected with `artifact-integrity-failed` when:
 
-- a required artifact is missing from the selected variant or realized output;
-- a manifest artifact path escapes its selected variant or realized output;
-- an artifact omits its required hash;
+- an LGX archive lacks the file of an artifact declared by any manifest variant;
+- a required artifact is missing from the realized output;
+- the resolved location of a manifest artifact path lies outside its variant directory or realized output;
 - an artifact hash does not match the materialized artifact.
 
 A package MUST be rejected with `signature-verification-failed` when its required signature is missing,
@@ -1115,8 +1113,7 @@ They MUST NOT identify remote resources.
 
 A package manifest declares zero or more canonical `logos.package_manifest.module_declaration` values.
 
-The `module` field is the flat runtime module name used by
-LOGOS-MODULE-RUNTIME.
+The `module` field is the flat runtime module name used by LOGOS-MODULE-RUNTIME.
 It identifies the module independently of any contract.
 `artifact` identifies the one selected realization artifact for that packaged module.
 Two module declarations in one manifest MUST NOT identify the same module or artifact.
@@ -1132,32 +1129,27 @@ When `implements` is present, its schema commitments MUST be unique.
 `requires` declares provider requirements for the module.
 `requested_permissions` declares permissions requested for that module.
 Neither field grants authority or creates a route.
-The `implements`, `requires`, and `requested_permissions` arrays MUST be non-empty when present.
+The `implements`, `extends`, `requires`, and `requested_permissions` arrays MUST be non-empty when present.
 
 `configuration` is the signed package declaration from which Package Manager constructs Runtime configuration input.
 It preserves the schema and default artifact identifiers, root, schema commitment, and live-reconfiguration declaration until that construction.
 
 Schema commitments and provider requirements use their canonical Package Manifest shapes.
 Runtime, Interface, Transport, Commitment Model, and Hash Profile do not depend on Package Manager to define them.
-If `primary_contract` is present and Package Manager can compute or obtain that
-contract's schema identity,
+If `primary_contract` is present and Package Manager can compute or obtain that contract's schema identity,
 Package Manager MUST reject any `implements` entry that is not committed by that concrete contract.
-If Package Manager cannot validate the declared contract metadata during
-inspection, Runtime still MUST validate selected providers before exposing
-ready invocation paths.
+When Package Manager can construct both contracts from supplied schema documents, it MUST reject an `extends` entry that the declaring module's contracts do not extend under LOGOS-MODULE-COMMITMENT-MODEL.
+Package Manager MUST reject a module declaration that has `extends` and has neither `primary_contract` nor `implements`.
+If Package Manager cannot validate the declared contract metadata during inspection, Runtime still MUST validate selected providers before exposing ready invocation paths.
 
 The schema commitments in a module declaration are exact signed expectations.
-They do not contain the CDDL schema documents or deterministic provider
-call-surface descriptor defined by LOGOS-MODULE-INTERFACE.
-A package may carry declared schema artifacts as ordinary hashed package
-material, but Package Manager MUST NOT treat a schema commitment or schema
-artifact as proof that the selected executable exposes that call surface.
+They do not contain the CDDL schema documents or deterministic provider call-surface descriptor defined by LOGOS-MODULE-INTERFACE.
+A package may carry declared schema artifacts as ordinary hashed package material, but Package Manager MUST NOT treat a schema commitment or schema artifact as proof that the selected executable exposes that call surface.
 
 ## 10. Artifact Records
 
 Manifest artifact records describe author-declared artifact references.
-Installed artifact records describe local or source-addressed package outputs in
-Logos terms.
+Installed artifact records describe local or source-addressed package outputs in Logos terms.
 
 ```cddl
 logos.package_manager.installed_artifact = {
@@ -1189,7 +1181,8 @@ Package Manager MUST keep each installed path bound to the verified bytes while 
 `local_path` is an installation location, not a guaranteed module-visible path.
 Module-visible access to packaged resources and data is established by protected deployment configuration and the selected realization, subject to active permissions.
 The access convention is implementation-defined and MUST be documented; a module may receive resource locations through its schema-typed configuration.
-Native library dependencies are resolved through the deployment-selected dynamic-linker integration defined by LOGOS-MODULE-LOADER.
+Native library dependencies are resolved through the deployment-selected dynamic-linker integration, which LOGOS-MODULE-LOADER does not define.
+A packaged native library is a declared artifact of the selected variant, and the verified-byte binding above applies to its installed path.
 The Runtime handoff and Interface initialization input do not provide a package-root directory or artifact lookup table.
 
 A `resource` artifact supplies auxiliary content and a `data` artifact supplies application-defined data, including declared configuration defaults.
@@ -1218,13 +1211,18 @@ logos.package_manager.resolved_package_dependency = {
 The `dependencies` array MUST be non-empty when present.
 Dependency package names MUST be unique within one manifest.
 Each dependency identifies one package name and one structured version requirement.
+A dependency MAY also list the contracts it needs from that package in `contracts`, which MUST be non-empty and contain unique commitments when present.
+A package provides a contract when one of its module declarations declares that commitment as its `primary_contract`, in `implements`, or in `extends`.
+A candidate for a package name MUST provide every contract listed by any accumulated requirement for that name; a candidate that does not is ineligible.
+A candidate whose signed manifest commitment names a manifest schema that Package Manager does not support is ineligible.
+An installed record whose retained manifest commitment names such a schema is ineligible in the same way and is not an artifact-integrity failure.
+When a root request other than an `update_package` request without a fixed target version has satisfying root candidates and each of them is ineligible only for this reason, the root operation MUST fail with `unsupported-manifest`.
 Manifest dependencies are unconditional and apply to every variant.
 Package Manager MUST NOT omit a declared dependency because of platform selection or because a module declaration is not selected.
 Package producers MAY use separate packages when supported platforms require different dependency sets.
 
 An `exact` requirement is satisfied only by identical package-version text.
-A `compatible` requirement names a normal-release minimum version and is
-satisfied by a normal release at or above that minimum
+A `compatible` requirement names a normal-release minimum version and is satisfied by a normal release at or above that minimum
 without changing the left-most non-zero version component.
 For example, `1.2.3` accepts versions from `1.2.3` up to but excluding `2.0.0`,
 `0.2.3` accepts versions up to but excluding `0.3.0`,
@@ -1232,6 +1230,13 @@ and `0.0.3` accepts only `0.0.3`.
 The `0.0.0` minimum accepts only `0.0.0`.
 A `compatible` requirement MUST NOT contain a pre-release version.
 An `exact` requirement may select a pre-release version.
+
+Package release versions order the releases of one package and do not identify a contract; a schema commitment does.
+A release that differs from an earlier release only in its patch component MUST provide exactly the contracts that the earlier release provides.
+A release within the range that a `compatible` requirement on an earlier release accepts MUST provide every contract that the earlier release provides and MAY provide additional contracts.
+A release outside that range MAY cease to provide a contract.
+Releases that provide the same contract are interchangeable for consumers of that contract.
+Package Manager does not verify these producer obligations across releases; a dependency that needs a specific contract lists it in `contracts`.
 
 Protected deployment policy MUST supply a resolver-limit set containing positive integer limits for:
 
@@ -1244,15 +1249,19 @@ A deployment may provision those values as one preset or policy bundle.
 The resolved values are protected policy input,
 not another named Core profile.
 Package Manager MUST reject a protected policy configuration that omits a limit or supplies a non-positive value.
+An implementation MUST document the maximum value it supports for each resolver limit.
+Package Manager MUST reject a protected policy configuration containing a limit above that maximum before it accepts any root operation.
 A package, manifest, catalog, source, or caller MUST NOT select, raise, or disable a resolver limit.
 
 The root package counts toward the partial-closure limit and has dependency depth zero.
-Dependency depth is the number of manifest dependency edges from the root.
+The dependency depth of a package name is the greatest number of manifest dependency edges on any path from the root to that name in the partial closure.
 Before adding a package name to a partial closure or inspecting a manifest at a greater depth,
 Package Manager MUST verify that the corresponding limit permits the operation.
+When an added dependency edge increases the depth of a package name already in the partial closure, Package Manager MUST verify the depth limit for that name and for the names it requires.
 
-A candidate consideration occurs when Package Manager examines one satisfying candidate in the required order
-for possible assignment and dependency exploration.
+A candidate consideration occurs when Package Manager examines one record whose version satisfies the accumulated requirements, in the required order, for eligibility, possible assignment, or dependency exploration.
+A record that the examination finds ineligible is charged like any other.
+The root package name is charged in the same way: examining a root candidate is a candidate consideration, and binding the root is a candidate-assignment attempt.
 Each candidate record is charged at most once for that package name in one root operation,
 including when a cached result is reused after backtracking.
 Package Manager MUST consider candidates in the order defined below
@@ -1277,23 +1286,30 @@ One closure MUST select at most one version of each package name.
 Package Manager MUST reject a partial closure containing a dependency cycle.
 It MUST continue resolution by backtracking under the candidate ordering and resolver limits specified in this section.
 
-A candidate is an installed package record or catalog package whose version
-satisfies every accumulated requirement for its package name.
+A candidate is an installed package record or catalog package whose version satisfies every accumulated requirement for its package name.
 A candidate MUST also satisfy the applicable manifest-commitment,
 realization-profile, platform-variant, signature, and artifact rules for the requested operation.
 Its signature MUST validate under an accepted trust anchor,
 and its authenticated signer MUST be authorized for its exact package name.
-Package Manager MUST exclude a candidate that fails this requirement before ordering candidate versions by SemVer precedence or exploring its dependency closure.
+Package Manager MUST establish a candidate's eligibility when it reaches that candidate in the required order, and MUST exclude a candidate that fails before assigning it or exploring its dependency closure.
+A candidate that is not reached is not examined, and its material MUST NOT be required or cause the root operation to fail.
 After applying candidate eligibility and protected catalog commitment selection, Package Manager MUST check each dependency candidate reached under the required candidate order and resolver limits against the installed record for its exact package identity before assigning it.
 If the manifest commitments differ, the root operation MUST fail with `dependency-unavailable` without changing installed state.
 An encountered installed-identity conflict MUST NOT be skipped or resolved by backtracking to another version.
 This check does not require inspecting lower candidates after a complete solution is selected.
 Conflicts involving the selected root package follow the requested operation's rules, regardless of how the root material was selected.
-An installed candidate with matching exact identity and manifest commitment
-MAY satisfy a dependency without being materialized again.
+An installed candidate with matching exact identity and manifest commitment MAY satisfy a dependency without being materialized again.
+If Package Manager finds that retained artifact bytes of an installed candidate are absent or do not match the signed digest, the root operation MUST fail with `artifact-integrity-failed` without changing the installed package set.
+Such a record MUST NOT be treated as an ineligible candidate.
+When Package Manager assigns a candidate whose exact package identity is installed, that record's `resolved_dependencies` entries replace its manifest dependency requirements and become accumulated requirements for exactly the recorded version and manifest commitment.
+A version or commitment excluded by such a requirement is not a satisfying candidate and is neither considered nor charged.
+A record is excluded by commitment without charge only when its commitment is already known; a record whose commitment is not yet known is examined and charged like any other.
+If such a requirement conflicts with another accumulated requirement, the assignment cannot produce a complete closure and resolution backtracks.
 If material needed to determine a candidate's eligibility or resolve its dependency closure cannot be located or materialized, the root operation MUST fail with `package-unavailable` without changing the installed package set.
 Unavailable material MUST NOT be treated as proof that the candidate is invalid or its dependency closure is unsatisfiable.
 This rule does not require materializing lower candidates after a complete solution has been selected under the required ordering.
+Package Manager MAY exclude a catalog candidate before obtaining its material when implementation-defined catalog metadata indicates that the candidate has no variant compatible with the target execution environment.
+Such metadata is untrusted; exclusion has the effect of the catalog omitting that candidate and MUST NOT establish the eligibility of another candidate.
 
 Resolution MUST be deterministic for the same installed state,
 catalog inputs, and protected policy.
@@ -1301,6 +1317,7 @@ When an operation supplies a package source,
 the verified source manifest fixes the root package's exact version.
 When a root package reference omits `version` and no source is supplied,
 Package Manager MUST select the highest available normal release under SemVer precedence.
+That release is the highest eligible one reached in descending order, and Package Manager MUST NOT select a lower root version because the dependency closure of that release cannot be resolved.
 A pre-release root version MUST be selected by an explicit version or source.
 When a choice is required,
 Package Manager MUST select the unresolved package name that is first in UTF-8 byte order.
@@ -1311,6 +1328,7 @@ If multiple acceptable manifests claim the same package name and version with di
 protected catalog policy MUST select one exact commitment,
 or the root operation MUST fail with `dependency-unavailable`.
 When the operation has not fixed the source explicitly, equivalent acceptable sources for the same exact package identity and full manifest commitment MUST be selected by ascending bytewise lexicographic order of their complete Logos deterministic-CBOR source-record encoding.
+The retained source of an installed record is an acceptable source for this selection only while the protected catalog lists that source record.
 Equal advertised package names and versions alone do not establish commitment equality.
 Source selection MUST preserve the recorded dependency edges of installed packages.
 It does not authorize fallback to an unverified source when required material is unavailable.
@@ -1338,8 +1356,7 @@ an LGX operation can resolve a dependency only from a satisfying installed packa
 otherwise it MUST fail with `dependency-unavailable`.
 
 Requested permissions are declared module data.
-Their approval, denial, grant scope, revocation, and enforcement semantics are
-defined by Capability Authority, Runtime, and security profiles.
+Their approval, denial, grant scope, revocation, and enforcement semantics are defined by Capability Authority, Runtime, and security profiles.
 Package Manager MUST preserve requested permission declarations as module facts,
 but it MUST NOT convert them into runtime authority.
 A requested permission declaration is not evidence that the permission has been reviewed, approved, or granted.
@@ -1347,6 +1364,9 @@ A requested permission declaration is not evidence that the permission has been 
 `permission` identifies the specification or selected profile that defines the permission.
 `constraints` contains one Logos deterministic-CBOR value
 that MUST conform to the CDDL owned by that definition.
+Package Manager MUST verify that `constraints` is one Logos deterministic-CBOR value
+and MUST NOT reject a declaration because its permission definition is unknown to Package Manager.
+Capability Authority verifies conformance to that definition's CDDL and rejects an unknown permission or invalid constraints.
 A permission without parameters uses the deterministic-CBOR encoding of an empty map.
 The defining permission maps the declaration to one or more Capability Authority scopes.
 `reason` is explanatory package metadata and MUST NOT change the requested or granted scope.
@@ -1378,6 +1398,7 @@ logos.package_manager.runtime_handoff = {
   manifest_commitment: logos.package_manager.manifest_commitment,
   ? primary_contract: logos.schema_commitment,
   ? implements: [* logos.schema_commitment],
+  ? extends: [* logos.schema_commitment],
   ? requires: [* logos.package_manifest.provider_requirement],
   ? requested_permissions: [* logos.package_manifest.requested_permission],
   ? configuration: logos.module_configuration.configuration_declaration,
@@ -1411,14 +1432,13 @@ It may also consume isolation requirements, resource bounds, and local deploymen
 This specification does not define the policy language, consent flow, grant record, or audit record for that decision.
 
 The handoff MUST preserve the module declaration's `primary_contract`,
-`implements`, `requires`, and `requested_permissions` without adding or widening any declaration.
+`implements`, `extends`, `requires`, and `requested_permissions` without adding or widening any declaration.
 Its `module` field MUST equal the module declaration's flat runtime module name.
 Runtime consumes the handoff fields directly and combines them with Runtime-owned decisions and state.
 The handoff record is not the source of runtime truth.
-Runtime MUST validate selected providers against the relevant contract
-expectations before exposing ready invocation paths.
+Runtime MUST validate selected providers against the relevant contract expectations before exposing ready invocation paths.
 For every local provider realized through Module Loader, Runtime MUST obtain the complete descriptor from the `call_surface` field of an active Module Loader realization record.
-It MUST require the descriptor's optional primary contract and implemented-interface set to match the handoff exactly.
+It MUST require the descriptor's optional primary contract, implemented-interface set, and extended-contract set to match the handoff exactly.
 Package Manager does not construct, modify, or authorize that provider descriptor.
 
 The handoff does not select Runtime execution mode, provider identity, module instance identity,
@@ -1441,10 +1461,8 @@ Protected deployment input MAY supply accepted module facts and local artifacts 
 Runtime MUST apply its artifact-acceptance and execution-authorization rules, and a complete system MUST preserve the Module Loader realization requirements in LOGOS-MODULE-SYSTEM-BCP Section 5.1.
 Provisioning these inputs does not itself create installed package records or establish Package Manager verification.
 
-Package Manager is responsible for converting Storage-retrieved package material
-into local installed artifacts before Runtime or Module Loader uses it.
-Runtime and Module Loader MUST consume local resolved artifacts, not remote
-Storage objects.
+Package Manager is responsible for converting Storage-retrieved package material into local installed artifacts before Runtime or Module Loader uses it.
+Runtime and Module Loader MUST consume local resolved artifacts, not remote Storage objects.
 
 ## 14. Results And Errors
 
@@ -1468,7 +1486,8 @@ logos.package_manager.package_error_code =
   "incompatible-platform" /
   "dependency-unavailable" /
   "artifact-integrity-failed" /
-  "signature-verification-failed"
+  "signature-verification-failed" /
+  "unsupported-manifest"
 ```
 
 `invalid-request` identifies a semantically invalid request that MUST NOT be retried unchanged.
@@ -1483,6 +1502,7 @@ logos.package_manager.package_error_code =
 or resolution exhausted a protected resolver limit.
 `artifact-integrity-failed` means required artifact bytes were absent, escaped their realization root, or did not match the signed digest.
 `signature-verification-failed` means the signature container, signer trust, freshness requirement, signed manifest commitment, or required provenance authentication or trust binding was not accepted.
+`unsupported-manifest` means the signed manifest commitment names a manifest schema that this Package Manager does not support; a Package Manager implementing a later revision may accept the package.
 
 When `logos.package-provenance.slsa-v1.2` is selected, an absent required provenance locator or a malformed or structurally nonconforming provenance envelope or Statement MUST produce `invalid-package`.
 Failure to retrieve the identified provenance object MUST produce `package-unavailable`.
@@ -1515,8 +1535,6 @@ This contract defines these methods:
 The contract defines `installed_packages_changed` and `operation_progress` events.
 
 ```cddl
-_module = "logos_package_manager"
-
 logos.package_manager.cursor = tstr .size (1..512)
 logos.package_manager.progress_key = tstr .size (1..128)
 logos.package_manager.progress_phase =
@@ -1665,14 +1683,17 @@ that dependency MAY remain installed,
 but the root package MUST remain uninstalled.
 Automatically installed dependencies are visible through `list_installed_packages`.
 Installing an already-installed package identity with the same manifest commitment succeeds with the current installed record and creates no duplicate.
+When that request's package signature validates under a currently accepted signer whose `package_signer` differs from the retained one, Package Manager MUST atomically replace the retained `package_signer` with the newly verified signer.
+For a request without `source`, that signature is the signature of the source selected under Section 11.
+The replacement applies to the package identity named by the request and not to installed dependencies in its closure.
+That replacement MUST NOT change the installed manifest, artifacts, or recorded dependency edges.
+The replacement is an installed-state change under Section 15.1.
 Installing the same package identity with another commitment fails with `package-conflict`.
 
-`remove_package` removes the selected package from the Logos installed package
-set.
+`remove_package` removes the selected package from the Logos installed package set.
 It MUST fail with `package-in-use` when another installed package has the selected exact package and manifest commitment in its recorded dependency closure.
 It MUST NOT automatically remove dependencies that become unused.
-It MAY leave backend cache or store material reachable through backend-specific
-garbage-collection policy.
+It MAY leave backend cache or store material reachable through backend-specific garbage-collection policy.
 Removing an absent package identity succeeds and MUST NOT affect another identity.
 Package removal does not retire Runtime module instances or delete their assigned persistent state.
 Instance retirement is a separately authorized Runtime Control operation; physical state disposal remains a separate authorized storage or deployment operation.
@@ -1683,6 +1704,7 @@ When `source` is present, its verified manifest MUST identify the same package n
 A target fixed by either field that is not strictly greater than `current` is an `invalid-request`.
 When neither fixes a target version, Package Manager selects the highest available newer normal release.
 If no applicable newer version exists, the operation succeeds with the current installed record and changes nothing.
+A newer version that is ineligible because its manifest schema is unsupported is not applicable.
 
 If the selected target identity is already installed with a different manifest commitment, the update MUST fail with `package-conflict` without changing installed state.
 Before replacement, Package Manager MUST resolve and validate the selected update's complete transitive dependency closure.
@@ -1700,6 +1722,10 @@ Package Manager MUST serialize installed-state mutations whose affected package 
 An observer sees either the complete installed state before such a mutation or the complete state after it.
 It MUST NOT observe a partially created, removed, or replaced root record.
 Operations over disjoint package identities and dependency closures MAY proceed concurrently.
+Before reporting success for an installed-state mutation,
+Package Manager MUST durably commit the complete resulting state, including the artifact bytes of an installed or updated package,
+under the deployment's documented storage failure model.
+After restart, Package Manager MUST expose only completely committed installed state and MUST NOT expose a partially created, removed, or replaced root record.
 
 Package Manager MUST account retained snapshot count and storage to the authenticated ordinary consumer or exact protected system-service binding and enforce finite per-origin and aggregate limits.
 Its documented retention policy MUST define reclamation and overload behavior.
@@ -1758,6 +1784,8 @@ The provider MUST echo the supplied key unchanged; it is correlation data, not a
 Consumers distinguish concurrent operations by choosing distinct keys within the initiating invocation path.
 
 Each event reports the actual phase being observed.
+`resolving` covers dependency resolution and candidate selection, `fetching` covers obtaining package material from a source, and `verifying` covers signature, hash, and structural verification.
+`installing` covers committing artifacts and installed state, and `removing` covers removing them; the phases have no required order.
 Counters, when supplied, describe measured bytes for that phase; `bytes_total` MAY be omitted when the total is unknown.
 `bytes_completed` MUST NOT exceed a supplied `bytes_total`.
 A phase may recur for separate package/dependency work, so counters do not define a monotonic total for the whole operation.
@@ -1774,10 +1802,10 @@ Existing transaction, dependency, trust, and installed-state rules continue to g
 ## 16. Shared Type Ownership
 
 Package-specific records are owned by this specification.
-Other Core specs consume them by schema reference when they need package facts.
+Other specifications obtain package facts through the Package Manager contract or define their own wire projections of these records.
+A projection has its own schema subtree root and keeps the meaning defined here.
 
-The Package Manifest supporting schema is owned by the `logos.package_manifest` schema
-namespace.
+The Package Manifest supporting schema is owned by the `logos.package_manifest` schema namespace.
 Package Manager catalog, inspect, source, installed-artifact, resolved-dependency, error, and handoff records are owned by the `logos.package_manager` schema namespace.
 
 Package Manager records reference canonical Package Manifest declarations when they report signed package facts.
@@ -1786,11 +1814,9 @@ That consumption does not make Package Manifest subtree roots Runtime type roots
 
 Runtime consumes `logos.package_manager.runtime_handoff` records as Package Manager output.
 Runtime supplies Module Loader realization requests after applying placement and authorization decisions.
-Capability Authority and security profiles consume signed `logos.package_manifest.requested_permission`
-values as package-declared inputs to authorization policy.
+Capability Authority and security profiles consume signed `logos.package_manifest.requested_permission` values as package-declared inputs to authorization policy.
 
-Runtime, Interface, Transport, Commitment Model, and Hash Profile MUST NOT depend on Package Manager
-to define contract identity, implemented interfaces, or provider requirements.
+Runtime, Interface, Transport, Commitment Model, and Hash Profile MUST NOT depend on Package Manager to define contract identity, implemented interfaces, or provider requirements.
 
 This specification does not move additional package-specific fields into the Logos common schema surface defined by LOGOS-MODULE-INTERFACE.
 
@@ -1801,14 +1827,240 @@ Runtime Control, and runtime enforcement points.
 
 LOGOS-MODULE-LOADER owns the contract for realizing Runtime-selected artifacts as concrete execution forms.
 
-LOGOS-MODULE-CAPABILITY-AUTHORITY owns authorization decisions, permission
-grants, denial reasons, grant revocation, and security audit material.
+LOGOS-MODULE-CAPABILITY-AUTHORITY owns authorization decisions, permission grants, denial reasons, grant revocation, and security audit material.
 
 LOGOS-MODULE-PACKAGE-MANAGER owns package-signing trust input,
 signature verification, and package and artifact integrity semantics.
 LOGOS-MODULE-SECURITY-CONSIDERATIONS summarizes the integrated threat model.
 Selected security and platform profiles own only the additional trust,
 permission-mapping, sandbox, or deployment requirements that they explicitly define.
+
+---
+
+## Appendix A. Complete Contract Schema (Normative)
+
+This appendix lists the complete `logos.package_manager` contract schema in one CDDL block.
+The CDDL blocks in the preceding sections are excerpts of it, in the same order.
+The Package Manifest supporting schema in Section 4 is a separate schema and is not repeated here.
+If an excerpt differs from this appendix, this appendix governs.
+
+```cddl
+_module = "logos_package_manager"
+
+logos.package_manager.package_signing_profile =
+  "logos.package-signing.cose-sign1-slh-dsa-sha2-192s"
+
+logos.package_manager.package_signing_key_id = bstr .size (1..128)
+
+logos.package_manager.package_signer = {
+  profile: logos.package_manager.package_signing_profile,
+  public_key: bstr .size 48,
+}
+
+logos.package_manager.package_signature_claim = {
+  profile: logos.package_manager.package_signing_profile,
+  manifest_commitment: logos.package_manager.manifest_commitment,
+}
+
+logos.package_manager.package_identity = {
+  package: logos.package_manifest.package_name,
+  version: logos.package_manifest.package_version,
+}
+
+logos.package_manager.installed_package_record = {
+  signer: logos.package_manager.package_signer,
+  identity: logos.package_manager.package_identity,
+  source: logos.package_manager.package_source,
+  variant: logos.package_manifest.package_variant_id,
+  manifest_commitment: logos.package_manager.manifest_commitment,
+  modules: [* logos.package_manifest.module_declaration],
+  artifacts: [* logos.package_manager.installed_artifact],
+  resolved_dependencies: [* logos.package_manager.resolved_package_dependency],
+}
+
+logos.package_manager.package_source =
+  {
+    kind: "lgx",
+    storage: tstr .size (1..128),
+    object: bstr .size (1..4096),
+    ? provenance_object: bstr .size (1..4096),
+  } /
+  {
+    kind: "nix",
+    flake_ref: tstr .size (1..4096),
+    ? attr: tstr .size (1..255),
+    ? locked_ref: tstr .size (1..4096),
+  }
+
+logos.package_manager.manifest_commitment = {
+  commitment_model: "logos.commitment-model.2026-10",
+  schema_root: bstr .size 32,
+  schema_subtree_root: bstr .size 32,
+  value_root: bstr .size 32,
+  hash_profile: "logos.hash-profile.2026-08.choice-index",
+  hash_suite: "logos.hash-suite.blake3-256",
+}
+
+logos.package_manager.package_catalog_entry = {
+  identity: logos.package_manager.package_identity,
+  source: logos.package_manager.package_source,
+}
+
+logos.package_manager.package_inspect_record = {
+  signer: logos.package_manager.package_signer,
+  source: logos.package_manager.package_source,
+  manifest: logos.package_manifest.manifest,
+  manifest_commitment: logos.package_manager.manifest_commitment,
+}
+
+logos.package_manager.installed_artifact = {
+  id: logos.package_manifest.artifact_id,
+  kind: "module-binary" / "resource" / "schema" / "data",
+  local_path: tstr .size (1..4096),
+  hash: bstr .size 32,
+}
+
+logos.package_manager.resolved_package_dependency = {
+  identity: logos.package_manager.package_identity,
+  manifest_commitment: logos.package_manager.manifest_commitment,
+}
+
+logos.package_manager.runtime_artifact = {
+  id: logos.package_manifest.artifact_id,
+  local_path: tstr .size (1..4096),
+  hash: bstr .size 32,
+  hash_suite: "logos.hash-suite.blake3-256",
+}
+
+logos.package_manager.runtime_handoff = {
+  signer: logos.package_manager.package_signer,
+  module: tstr .size (1..64),
+  package: logos.package_manager.package_identity,
+  artifact: logos.package_manager.runtime_artifact,
+  manifest_commitment: logos.package_manager.manifest_commitment,
+  ? primary_contract: logos.schema_commitment,
+  ? implements: [* logos.schema_commitment],
+  ? extends: [* logos.schema_commitment],
+  ? requires: [* logos.package_manifest.provider_requirement],
+  ? requested_permissions: [* logos.package_manifest.requested_permission],
+  ? configuration: logos.module_configuration.configuration_declaration,
+}
+
+logos.package_manager.package_error = {
+  code: logos.package_manager.package_error_code,
+  ? message: tstr .size (0..512),
+}
+
+logos.package_manager.package_error_code =
+  "invalid-request" /
+  "unsupported-source" /
+  "package-unavailable" /
+  "package-not-installed" /
+  "package-conflict" /
+  "package-in-use" /
+  "invalid-package" /
+  "incompatible-platform" /
+  "dependency-unavailable" /
+  "artifact-integrity-failed" /
+  "signature-verification-failed" /
+  "unsupported-manifest"
+
+logos.package_manager.cursor = tstr .size (1..512)
+logos.package_manager.progress_key = tstr .size (1..128)
+logos.package_manager.progress_phase =
+  "resolving" / "fetching" / "verifying" / "installing" / "removing"
+
+logos.package_manager.watch_installed_packages_request = {}
+
+logos.package_manager.watch_installed_packages_response =
+  {} /
+  { error: logos.package_manager.package_error }
+
+logos.package_manager.installed_packages_changed_event = {}
+
+logos.package_manager.operation_progress_event = {
+  progress_key: logos.package_manager.progress_key,
+  phase: logos.package_manager.progress_phase,
+  ? bytes_completed: uint64,
+  ? bytes_total: uint64,
+}
+
+logos.package_manager.list_packages_request = {
+  ? package: logos.package_manifest.package_name,
+  ? cursor: logos.package_manager.cursor,
+  ? limit: uint16,
+}
+
+logos.package_manager.list_packages_response =
+  {
+    packages: [* logos.package_manager.package_catalog_entry],
+    ? next_cursor: logos.package_manager.cursor,
+  } /
+  { error: logos.package_manager.package_error }
+
+logos.package_manager.inspect_package_request = {
+  ? package: logos.package_manifest.package_name,
+  ? version: logos.package_manifest.package_version,
+  ? source: logos.package_manager.package_source,
+}
+
+logos.package_manager.inspect_package_response =
+  { inspection: logos.package_manager.package_inspect_record } /
+  { error: logos.package_manager.package_error }
+
+logos.package_manager.install_package_request = {
+  package: logos.package_manifest.package_name,
+  ? version: logos.package_manifest.package_version,
+  ? source: logos.package_manager.package_source,
+  ? progress_key: logos.package_manager.progress_key,
+}
+
+logos.package_manager.install_package_response =
+  { installed: logos.package_manager.installed_package_record } /
+  { error: logos.package_manager.package_error }
+
+logos.package_manager.remove_package_request = {
+  identity: logos.package_manager.package_identity,
+  ? progress_key: logos.package_manager.progress_key,
+}
+
+logos.package_manager.remove_package_response =
+  {} /
+  { error: logos.package_manager.package_error }
+
+logos.package_manager.update_package_request = {
+  current: logos.package_manager.package_identity,
+  ? target_version: logos.package_manifest.package_version,
+  ? source: logos.package_manager.package_source,
+  ? progress_key: logos.package_manager.progress_key,
+}
+
+logos.package_manager.update_package_response =
+  { installed: logos.package_manager.installed_package_record } /
+  { error: logos.package_manager.package_error }
+
+logos.package_manager.list_installed_packages_request = {
+  ? package: logos.package_manifest.package_name,
+  ? cursor: logos.package_manager.cursor,
+  ? limit: uint16,
+}
+
+logos.package_manager.list_installed_packages_response =
+  {
+    packages: [* logos.package_manager.installed_package_record],
+    ? next_cursor: logos.package_manager.cursor,
+  } /
+  { error: logos.package_manager.package_error }
+
+logos.package_manager.get_runtime_handoff_request = {
+  package: logos.package_manager.package_identity,
+  module: tstr .size (1..64),
+}
+
+logos.package_manager.get_runtime_handoff_response =
+  { handoff: logos.package_manager.runtime_handoff } /
+  { error: logos.package_manager.package_error }
+```
 
 ---
 
@@ -1846,15 +2098,10 @@ permission-mapping, sandbox, or deployment requirements that they explicitly def
 [FIPS 205]: https://csrc.nist.gov/pubs/fips/205/final
 [RFC 8949]: https://www.rfc-editor.org/rfc/rfc8949
 [RFC 9052]: https://www.rfc-editor.org/rfc/rfc9052
-[DSSE v1]: https://github.com/secure-systems-lab/dsse/blob/master/envelope.md
-[DSSE Protocol]: https://github.com/secure-systems-lab/dsse/blob/master/protocol.md
-[in-toto Attestation v1]: https://github.com/in-toto/attestation/blob/main/spec/v1/
-[SLSA v1.2]: https://slsa.dev/spec/v1.2/
-[SLSA Source v1.2]: https://slsa.dev/spec/v1.2/source-requirements
+[DSSE v1]: https://github.com/secure-systems-lab/dsse/blob/master/envelope.md [DSSE Protocol]: https://github.com/secure-systems-lab/dsse/blob/master/protocol.md [in-toto Attestation v1]: https://github.com/in-toto/attestation/blob/main/spec/v1/ [SLSA v1.2]: https://slsa.dev/spec/v1.2/ [SLSA Source v1.2]: https://slsa.dev/spec/v1.2/source-requirements
 
 ---
 
 ## Copyright
 
-Copyright and related rights waived via
-[CC0](https://creativecommons.org/publicdomain/zero/1.0/).
+Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).

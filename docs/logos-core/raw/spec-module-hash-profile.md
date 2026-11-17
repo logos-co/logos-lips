@@ -11,17 +11,12 @@
 
 ## Abstract
 
-This specification defines the canonical physical hash profile for Logos
-schema and value commitments.
-It consumes the semantic schema and value trees defined by
-LOGOS-MODULE-COMMITMENT-MODEL and uses that specification's semantic path
-language for verified-view proofs.
+This specification defines the canonical physical hash profile for Logos schema and value commitments.
+It consumes the semantic schema and value trees defined by LOGOS-MODULE-COMMITMENT-MODEL and uses that specification's semantic path language for verified-view proofs.
 
 This specification defines how semantic commitments are hashed.
-It covers physical layout, packing, chunking, hash suite binding, domain
-separation, exact hash inputs, and proof material.
-It does not redefine the semantic schema model, normalized value model, or
-semantic value tree.
+It covers physical layout, packing, chunking, hash suite binding, domain separation, exact hash inputs, and proof material.
+It does not redefine the semantic schema model, normalized value model, or semantic value tree.
 
 ## Requirements Language
 
@@ -31,31 +26,23 @@ Lowercase forms retain their ordinary English meanings.
 ## 1. Introduction
 
 LOGOS-MODULE-COMMITMENT-MODEL defines what Logos commits to.
-This specification defines the canonical physical hash profile for those
-commitments.
+This specification defines the canonical physical hash profile for those commitments.
 
-The semantic commitment model and the physical hash profile are versioned
-separately.
+The semantic commitment model and the physical hash profile are versioned separately.
 The commitment model defines two semantic trees:
 the semantic schema tree and the semantic value tree.
-This hash profile defines one physical hash layout over both trees, with
-separate domain tags and payload shapes for schema objects and value objects.
+This hash profile defines one physical hash layout over both trees, with separate domain tags and payload shapes for schema objects and value objects.
 A hash profile MUST state which semantic commitment-model revision it supports
 and which value-model revision it supports if the commitment model defines one.
 Changing a module schema does not require changing this specification.
 Changing the semantic commitment model in a way that adds new node kinds,
 changes normalization, or changes semantic paths may require a new hash profile
 or an explicit extension of an existing profile.
-Changing the semantic commitment-model revision supported by this profile does
-not by itself require changing the hash profile identifier, as long as the
-physical hash inputs and verification rules defined by this profile remain
-unchanged.
+Changing the semantic commitment-model revision supported by this profile does not by itself require changing the hash profile identifier, as long as the physical hash inputs and verification rules defined by this profile remain unchanged.
 
-A direct semantic-tree hash is useful as an explanatory and conformance
-reference.
+A direct semantic-tree hash is useful as an explanatory and conformance reference.
 It is not the canonical production value-root profile in this revision.
-The canonical root is produced by the physical layout defined by this
-specification.
+The canonical root is produced by the physical layout defined by this specification.
 
 ## 2. Profile Scope And Version Binding
 
@@ -72,14 +59,10 @@ logos.commitment-model.2026-10
 ```
 
 This specification does not define a separate value-model revision identifier.
-The value-model rules are the rules in LOGOS-MODULE-COMMITMENT-MODEL for the
-same semantic commitment-model revision.
-A future commitment-model revision may introduce an explicit value-model
-revision identifier.
-Any change to a normative numeric constant, canonical payload shape, or domain
-tag in this profile MUST be accompanied by a new hash profile identifier.
-This includes chunk sizes, branch fanout, direct-list thresholds, and
-verified-view payload shapes.
+The value-model rules are the rules in LOGOS-MODULE-COMMITMENT-MODEL for the same semantic commitment-model revision.
+A future commitment-model revision may introduce an explicit value-model revision identifier.
+Any change to a normative numeric constant, canonical payload shape, or domain tag in this profile MUST be accompanied by a new hash profile identifier.
+This includes chunk sizes, branch fanout, direct-list thresholds, and verified-view payload shapes.
 
 The hash profile defines:
 
@@ -101,10 +84,8 @@ They do not change the semantic value tree.
 
 Chunking splits one large ordered value into canonical contiguous ranges.
 It applies to long lists, large byte strings, and large text strings.
-Chunks are ordered, contiguous, non-overlapping, and determined by canonical
-rules rather than implementation choice.
-Chunk labels include the start index or byte offset and the element count or
-byte count.
+Chunks are ordered, contiguous, non-overlapping, and determined by canonical rules rather than implementation choice.
+Chunk labels include the start index or byte offset and the element count or byte count.
 The semantic value remains the original list or string, not a list of chunks.
 
 Packing groups multiple small semantic values into one physical hash unit.
@@ -113,13 +94,11 @@ Each packed item retains the label, type, and schema identity needed to recover
 or verify the semantic item being proven.
 
 Packing and chunking MUST preserve semantic addressability.
-A verifier must be able to reason about the same semantic path whether the
-underlying physical layout is direct, packed, chunked, or balanced.
+A verifier must be able to reason about the same semantic path whether the underlying physical layout is direct, packed, chunked, or balanced.
 
 ## 4. Canonical Packing And Chunking Rules
 
-Scalar leaves are the default physical representation for scalar semantic
-values.
+Scalar leaves are the default physical representation for scalar semantic values.
 This revision keeps scalar packing narrow.
 It defines chunking for large ordered values and permits scalar packing only
 where semantic proof boundaries remain clear.
@@ -133,36 +112,23 @@ Physical layout MUST NOT pack across these boundaries:
 - unrelated parent semantic nodes.
 
 Map fields remain individually committed semantic proof targets.
-Even when a later profile packs scalar payloads inside maps, a verified view
-for a single field must preserve the field semantic path and must not require
-the verifier to treat the field as an unlabelled offset inside an opaque packed
-blob.
+Even when a later profile packs scalar payloads inside maps, a verified view for a single field must preserve the field semantic path and must not require the verifier to treat the field as an unlabelled offset inside an opaque packed blob.
 This revision does not pack map fields.
 
 Tuple elements remain individually committed semantic proof targets.
 This revision does not pack tuple elements.
 
 Future hash profiles may define an atomic whole-object layout for small maps,
-requests, responses, events, tuples, or other bounded values where full-value
-commitments are more important than field-level verified views.
-Such a layout would hash a canonical whole-value payload under the relevant
-schema root and schema subtree root instead of committing every field or tuple
-position as a separate child record.
-This revision deliberately does not define that optimization because it would
-change value roots and proof material.
-If added, the atomic-versus-structured choice MUST be a deterministic rule of
-the hash profile, so the same schema, value, and hash profile always produce
-the same root.
-Implementations MUST NOT choose atomic or structured layout adaptively under
-the same hash profile.
+requests, responses, events, tuples, or other bounded values where full-value commitments are more important than field-level verified views.
+Such a layout would hash a canonical whole-value payload under the relevant schema root and schema subtree root instead of committing every field or tuple position as a separate child record.
+This revision deliberately does not define that optimization because it would change value roots and proof material.
+If added, the atomic-versus-structured choice MUST be a deterministic rule of the hash profile, so the same schema, value, and hash profile always produce the same root.
+Implementations MUST NOT choose atomic or structured layout adaptively under the same hash profile.
 
-Commitment-layout hints SHOULD NOT be added to module CDDL merely as an
-implementation optimization.
+Commitment-layout hints SHOULD NOT be added to module CDDL merely as an implementation optimization.
 Putting atomic/tree/chunk preferences into the module contract would make a commitment-view concern affect module-contract schema identity.
-Such hints are appropriate only if proof granularity is intentionally part of
-the module contract.
-Otherwise, layout policy belongs in the hash profile or in a separately bound
-commitment profile that verifiers can identify explicitly.
+Such hints are appropriate only if proof granularity is intentionally part of the module contract.
+Otherwise, layout policy belongs in the hash profile or in a separately bound commitment profile that verifiers can identify explicitly.
 
 The packable scalar kinds are `bool`, `uint8`, `uint16`, `uint32`, `uint64`, `int8`, `int16`, `int32`, and `int64`.
 A homogeneous packable scalar list has a primitive or literal element schema with a packable scalar kind.
@@ -184,14 +150,12 @@ Packed scalar list chunks MUST commit to:
 - the ordered scalar values in the chunk.
 
 A packed scalar list chunk is labelled in its parent by its start index and element count.
-A verified view for a packed scalar list element still uses the semantic path
-to the list element index.
+A verified view for a packed scalar list element still uses the semantic path to the list element index.
 The proof discloses the complete packed chunk that contains the element.
 
 Every list that is not a homogeneous packable scalar list uses ordinary element commitments.
 The canonical list chunk size is 256 elements.
-Lists with length less than or equal to 256 elements use direct ordered element
-commitments.
+Lists with length less than or equal to 256 elements use direct ordered element commitments.
 Lists with length greater than 256 elements use chunk nodes containing exactly 256 element records.
 The final chunk contains the remaining one to 256 records.
 Each list chunk commits to:
@@ -208,8 +172,7 @@ A verified view for a list element still uses the semantic list index.
 
 Large byte strings are chunked by bytes.
 The canonical byte-string chunk size is 4096 bytes.
-Byte strings with length less than or equal to 4096 bytes use a direct scalar
-byte-string node.
+Byte strings with length less than or equal to 4096 bytes use a direct scalar byte-string node.
 Byte strings with length greater than 4096 bytes use byte-range chunks.
 Each byte-string chunk commits to:
 
@@ -227,41 +190,29 @@ Verified views over chunked byte strings may expose byte ranges.
 
 Large text strings are chunked by bytes of their canonical UTF-8 encoding.
 The canonical text-string chunk size is 4096 bytes.
-Text strings with UTF-8 byte length less than or equal to 4096 bytes use a
-direct text-string node.
-Text strings with UTF-8 byte length greater than 4096 bytes use byte-range
-chunks.
+Text strings with UTF-8 byte length less than or equal to 4096 bytes use a direct text-string node.
+Text strings with UTF-8 byte length greater than 4096 bytes use byte-range chunks.
 The full text value MUST be validated as UTF-8 before text-string chunking.
 Chunks are byte ranges of the canonical UTF-8 encoding.
-Chunks do not independently claim Unicode scalar, grapheme, normalization, or
-substring semantics.
+Chunks do not independently claim Unicode scalar, grapheme, normalization, or substring semantics.
 Every chunk except the final chunk contains exactly 4096 bytes.
 The final chunk contains the remaining one to 4096 bytes.
 The chunk records are combined by one `logos.value.tstr` aggregate node.
 
-A verified view over a chunked text string may expose a byte range of the
-canonical UTF-8 encoding.
-A future Unicode-aware profile may define semantic substring paths, but this
-revision does not.
+A verified view over a chunked text string may expose a byte range of the canonical UTF-8 encoding.
+A future Unicode-aware profile may define semantic substring paths, but this revision does not.
 
 Chunk sizes are canonical constants in this profile.
 Implementations MUST NOT choose adaptive chunk sizes for the same profile.
-Adaptive chunking, alternative arities, or proof-system-specific chunk sizes
-require a distinct hash profile or explicit extension.
+Adaptive chunking, alternative arities, or proof-system-specific chunk sizes require a distinct hash profile or explicit extension.
 
 ## 5. Physical Layout Nodes
 
-The physical layout is the canonical hashable arrangement of semantic schema
-and value objects.
-It preserves the semantic identities and semantic paths defined by
-LOGOS-MODULE-COMMITMENT-MODEL, but it may introduce physical nodes that do not
-exist in the semantic value tree.
+The physical layout is the canonical hashable arrangement of semantic schema and value objects.
+It preserves the semantic identities and semantic paths defined by LOGOS-MODULE-COMMITMENT-MODEL, but it may introduce physical nodes that do not exist in the semantic value tree.
 
-Schema objects use the schema object domains defined by
-LOGOS-MODULE-COMMITMENT-MODEL and the structured hash input framework defined
-in Section 6.
-This section defines the physical value-object domains used by this hash
-profile.
+Schema objects use the schema object domains defined by LOGOS-MODULE-COMMITMENT-MODEL and the structured hash input framework defined in Section 6.
+This section defines the physical value-object domains used by this hash profile.
 These domains are hash-layout objects.
 They do not add semantic value-node kinds to
 LOGOS-MODULE-COMMITMENT-MODEL.
@@ -289,10 +240,8 @@ LOGOS-MODULE-COMMITMENT-MODEL.
 | Branch node | `logos.value.branch` |
 
 Each physical value object commits to its domain tag, hash profile identifier,
-hash suite identifier, semantic commitment-model revision identifier, and typed
-payload.
-The payload includes the schema root and schema subtree identity needed to
-interpret the node.
+hash suite identifier, semantic commitment-model revision identifier, and typed payload.
+The payload includes the schema root and schema subtree identity needed to interpret the node.
 
 The physical node-kind values are:
 
@@ -343,8 +292,7 @@ Chunked byte-string and text-string aggregates with at most 256 chunks commit di
 Choice nodes commit directly to the selected canonical arm index and selected child record.
 
 Large child collections use canonical branch nodes.
-A branch node groups an ordered child-record sequence into contiguous groups
-of at most 256 child records.
+A branch node groups an ordered child-record sequence into contiguous groups of at most 256 child records.
 Every group except the final group contains exactly 256 records.
 The final group contains the remaining one to 256 records.
 No empty branch node is encoded.
@@ -353,8 +301,7 @@ It then recursively applies the same grouping rule to the resulting branch recor
 The collection payload contains only the branch records from that final grouping level.
 
 Branch nodes are physical layout nodes only.
-They are not semantic value-tree nodes and do not introduce semantic path
-segments.
+They are not semantic value-tree nodes and do not introduce semantic path segments.
 A verified view path continues to use fields, list indices, tuple positions,
 choice arms, byte ranges, and text UTF-8 byte ranges.
 Proof material carries branch metadata only to reconstruct the physical root.
@@ -373,16 +320,13 @@ They cover the complete base-record sequence exactly once and appear in increasi
 The branch record in its parent uses a `branch-label` with the same base-record start index and represented count as the branch payload.
 These rules determine one branch tree for every ordered child-record sequence.
 
-For map branches, child-record indices are positions in canonical field-name
-order.
+For map branches, child-record indices are positions in canonical field-name order.
 For list branches, child-record indices are element indices for direct lists
 or chunk indices for chunked lists.
-For byte-string and text-string branches, child-record indices are chunk
-indices.
+For byte-string and text-string branches, child-record indices are chunk indices.
 For tuple branches, child-record indices are tuple positions.
 
-Direct scalar nodes commit to the scalar schema identity, scalar kind, and
-canonical scalar value.
+Direct scalar nodes commit to the scalar schema identity, scalar kind, and canonical scalar value.
 Direct byte-string and text-string nodes are used only at or below the chunking thresholds from Section 4.
 Chunk nodes commit to the relevant total length, start offset or index, count, schema identities, and ordered payload or child commitments described in Section 4.
 A semantic `scalar-value` of kind `bstr` is realized physically as `bstr-direct` if its total byte length is less than or equal to 4096 bytes, otherwise as one `bstr` aggregate whose children are `bstr-chunk` or branch records.
@@ -390,20 +334,16 @@ A semantic `scalar-value` of kind `tstr` is realized physically as `tstr-direct`
 Other scalar kinds are realized physically as `logos.value.scalar`.
 
 This layout is intentionally simple.
-It gives small values shallow proofs, gives large values deterministic bounded
-fanout, and keeps alternative arities or proof-system-specific layouts behind
-future hash profiles or explicit extensions.
+It gives small values shallow proofs, gives large values deterministic bounded fanout, and keeps alternative arities or proof-system-specific layouts behind future hash profiles or explicit extensions.
 
 ## 6. Hashing And Domain Separation
 
 The hash profile uses structured, domain-separated hash inputs.
 It does not define hashes by ad hoc byte concatenation.
 
-A hash suite defines the concrete digest algorithm and digest size used by a
-hash profile.
+A hash suite defines the concrete digest algorithm and digest size used by a hash profile.
 This specification defines one hash suite.
-The suite is identified by the stable ASCII token
-`logos.hash-suite.blake3-256`.
+The suite is identified by the stable ASCII token `logos.hash-suite.blake3-256`.
 It applies BLAKE3 with a 256-bit output and therefore produces a 32-byte digest.
 Every conforming implementation MUST use this suite.
 There is no hash-suite selection or negotiation.
@@ -418,31 +358,21 @@ Every canonical hash input commits to:
 
 Hash domain tags are ASCII text tokens.
 They identify the semantic or physical object being hashed.
-A digest computed for one domain MUST NOT be accepted as a digest for another
-domain, even if the payloads are otherwise identical.
+A digest computed for one domain MUST NOT be accepted as a digest for another domain, even if the payloads are otherwise identical.
 
-The hash profile identifier is an ASCII text token assigned by this
-specification.
-It identifies the physical layout, packing rules, chunking rules, domain
-rules, and hash input framing used to produce roots and proofs.
-For this specification, the hash profile identifier is
-`logos.hash-profile.2026-08.choice-index`.
-Implementations MUST NOT compare roots across different hash profile
-identifiers unless an explicit compatibility profile defines that comparison.
+The hash profile identifier is an ASCII text token assigned by this specification.
+It identifies the physical layout, packing rules, chunking rules, domain rules, and hash input framing used to produce roots and proofs.
+For this specification, the hash profile identifier is `logos.hash-profile.2026-08.choice-index`.
+Implementations MUST NOT compare roots across different hash profile identifiers unless an explicit compatibility profile defines that comparison.
 
 The hash suite identifier is an ASCII text token fixed by this specification.
-It identifies the concrete hash function, digest length, and any suite-specific
-constraints needed to interpret digest bytes.
+It identifies the concrete hash function, digest length, and any suite-specific constraints needed to interpret digest bytes.
 Implementations MUST reject an unknown hash suite identifier.
-Implementations MUST reject a digest whose length does not match the declared
-hash suite.
+Implementations MUST reject a digest whose length does not match the declared hash suite.
 
-The semantic commitment-model revision identifier is the revision identifier from
-LOGOS-MODULE-COMMITMENT-MODEL.
+The semantic commitment-model revision identifier is the revision identifier from LOGOS-MODULE-COMMITMENT-MODEL.
 It binds the hash input to the semantic schema and value model being committed.
-Implementations MUST reject an unknown semantic commitment-model revision unless
-their verifier policy explicitly supports it or an applicable compatibility
-profile exists.
+Implementations MUST reject an unknown semantic commitment-model revision unless their verifier policy explicitly supports it or an applicable compatibility profile exists.
 
 Hash inputs are structured records.
 The canonical hash input record has this logical shape:
@@ -463,44 +393,30 @@ semantic-commitment-model-revision = tstr
 payload = hash-payload
 ```
 
-The hash input record is encoded using the Logos deterministic CBOR profile
-required by LOGOS-MODULE-INTERFACE Section 4.4 before hashing.
-The canonical digest is the mandatory BLAKE3-256 hash suite applied to that
-deterministic CBOR encoding.
-An implementation MAY stream, cache, precompute, or otherwise optimize hash
-construction, but the resulting digest MUST be identical to hashing the
-canonical deterministic-CBOR hash input record.
-A profile-conformant implementation MAY precompute a constant-prefix hash
-state for fixed hash-input fields such as the domain tag, hash profile
-identifier, hash suite identifier, and semantic commitment-model revision
-identifier, then apply only payload-specific bytes per node.
-The resulting digest MUST match canonical hashing of the full structured hash
-input.
+The hash input record is encoded using the Logos deterministic CBOR profile required by LOGOS-MODULE-INTERFACE Section 4.4 before hashing.
+The canonical digest is the mandatory BLAKE3-256 hash suite applied to that deterministic CBOR encoding.
+An implementation MAY stream, cache, precompute, or otherwise optimize hash construction, but the resulting digest MUST be identical to hashing the canonical deterministic-CBOR hash input record.
+A profile-conformant implementation MAY precompute a constant-prefix hash state for fixed hash-input fields such as the domain tag, hash profile identifier, hash suite identifier, and semantic commitment-model revision identifier, then apply only payload-specific bytes per node.
+The resulting digest MUST match canonical hashing of the full structured hash input.
 
-Pre-seeded hash states, custom initialization vectors, implementation-private
-prefix states, or equivalent shortcuts are not canonical hash inputs.
+Pre-seeded hash states, custom initialization vectors, implementation-private prefix states, or equivalent shortcuts are not canonical hash inputs.
 They are implementation optimizations only.
-They MUST NOT change the digest and MUST NOT appear in proofs or root
-identifiers as independent consensus data.
+They MUST NOT change the digest and MUST NOT appear in proofs or root identifiers as independent consensus data.
 
 Child digests are structured payload values.
 Branch-like payloads MUST encode child digests together with the labels,
-indices, field names, offsets, schema identities, or other typed metadata that
-make those child digests meaningful.
-They MUST NOT rely on unlabelled digest concatenation to define child order or
-boundary semantics.
+indices, field names, offsets, schema identities, or other typed metadata that make those child digests meaningful.
+They MUST NOT rely on unlabelled digest concatenation to define child order or boundary semantics.
 
 Verifiers MUST reject:
 
 - unknown hash profile identifiers;
 - unknown hash suite identifiers;
-- unknown semantic commitment-model revision identifiers unless explicitly allowed
-  by verifier policy;
+- unknown semantic commitment-model revision identifiers unless explicitly allowed by verifier policy;
 - digest lengths that do not match the hash suite;
 - hash inputs with the wrong domain tag for the object being verified;
 - malformed hash input records;
-- non-deterministic or non-canonical CBOR encodings where a canonical hash
-  input is required.
+- non-deterministic or non-canonical CBOR encodings where a canonical hash input is required.
 
 ### 6.1 Mandatory BLAKE3-256 Hash Suite
 
@@ -518,18 +434,15 @@ A future specification may assign another suite identifier but MUST NOT change t
 
 ## 7. Canonical Hash Payload Shapes
 
-This section defines the exact deterministic CBOR payload shapes for the hash
-domains defined by this profile.
+This section defines the exact deterministic CBOR payload shapes for the hash domains defined by this profile.
 These shapes are independent of BLAKE3's internal processing.
 The mandatory BLAKE3-256 suite determines the digest algorithm and the 32-byte digest length.
 
 All payload records use deterministic CBOR maps with unsigned integer keys.
-Unknown keys are invalid unless a later hash profile or explicit extension
-defines them.
+Unknown keys are invalid unless a later hash profile or explicit extension defines them.
 Optional fields MUST be omitted when not applicable.
 Arrays whose ordering is semantic MUST preserve that order.
-Arrays whose ordering is canonicalized by LOGOS-MODULE-COMMITMENT-MODEL or
-this profile MUST be encoded in canonical order.
+Arrays whose ordering is canonicalized by LOGOS-MODULE-COMMITMENT-MODEL or this profile MUST be encoded in canonical order.
 
 The following common aliases are used in this section:
 
@@ -548,18 +461,13 @@ uint64 = uint .size 8
 int64 = -9223372036854775808..9223372036854775807
 ```
 
-The length of `digest`, `schema-root`, and `schema-subtree-root` is 32 bytes
-under the mandatory BLAKE3-256 suite.
+The length of `digest`, `schema-root`, and `schema-subtree-root` is 32 bytes under the mandatory BLAKE3-256 suite.
 The `uint64` and `int64` definitions are repeated here for reading convenience
-and MUST be identical in meaning to the Logos prelude aliases of the same
-names defined by LOGOS-MODULE-INTERFACE.
-The Logos prelude integer-alias rule from LOGOS-MODULE-INTERFACE governs
-module schemas.
-The integer aliases in this section describe canonical hash payload shapes,
-not module schemas.
+and MUST be identical in meaning to the Logos prelude aliases of the same names defined by LOGOS-MODULE-INTERFACE.
+The Logos prelude integer-alias rule from LOGOS-MODULE-INTERFACE governs module schemas.
+The integer aliases in this section describe canonical hash payload shapes, not module schemas.
 Counters, indices, lengths, and offsets in these shapes use `uint64`.
-Integer scalar values use `uint64` or `int64` at the CDDL level and are further
-constrained by their `scalar-kind`.
+Integer scalar values use `uint64` or `int64` at the CDDL level and are further constrained by their `scalar-kind`.
 `node-kind` is the closed registry defined in Section 5.
 
 ### 7.1 Canonical Hash Input
@@ -583,11 +491,9 @@ Field `2` is `logos.hash-suite.blake3-256` in this revision.
 
 ### 7.2 Schema Payloads
 
-Schema hash domains use the semantic schema identity payloads defined by
-LOGOS-MODULE-COMMITMENT-MODEL Section 9.2.
+Schema hash domains use the semantic schema identity payloads defined by LOGOS-MODULE-COMMITMENT-MODEL Section 9.2.
 This profile wraps those payloads in `hash-input`.
-It does not redefine the Logos canonical schema model or the schema identity
-objects:
+It does not redefine the Logos canonical schema model or the schema identity objects:
 
 | Domain tag | Payload shape |
 |------------|---------------|
@@ -686,23 +592,16 @@ so an implementation never infers it from a local schema traversal.
 Each record's schema identity MUST equal field `2` of the complete payload whose digest that record carries.
 
 The schema identity field is always present.
-It re-binds the child digest to its schema identity even when that identity
-would be unambiguous from the child label and parent schema identity.
-This intentional redundancy prevents a verifier from inferring schema identity
-from implementation-local traversal state.
+It re-binds the child digest to its schema identity even when that identity would be unambiguous from the child label and parent schema identity.
+This intentional redundancy prevents a verifier from inferring schema identity from implementation-local traversal state.
 
 ### 7.4 Value Payloads
 
-Value payloads are physical hash payloads derived from the normalized value
-objects defined by LOGOS-MODULE-COMMITMENT-MODEL Section 9.3.
+Value payloads are physical hash payloads derived from the normalized value objects defined by LOGOS-MODULE-COMMITMENT-MODEL Section 9.3.
 They are not an alternate normalized value model.
-Their purpose is to bind each digest to its physical layout domain, schema
-root, schema subtree identity, child labels, and any chunk or branch metadata
-required by this profile.
+Their purpose is to bind each digest to its physical layout domain, schema root, schema subtree identity, child labels, and any chunk or branch metadata required by this profile.
 
-Unless a field explicitly names a referenced schema identity, each
-`schema-subtree-root` in this section is the schema identity for the semantic
-value object represented by the physical payload.
+Unless a field explicitly names a referenced schema identity, each `schema-subtree-root` in this section is the schema identity for the semantic value object represented by the physical payload.
 
 Field `1` of every value payload MUST be the root of the schema document that defines the schema identity in field `2`.
 For a `value-root-payload`, this is the schema root of the committed value.
@@ -895,8 +794,7 @@ reference-value-payload = {
 ```
 
 For `tstr-chunk-payload`, field `6` is a byte string rather than a text string
-because chunks are byte ranges of the already validated canonical UTF-8
-encoding and may not independently form valid UTF-8 text.
+because chunks are byte ranges of the already validated canonical UTF-8 encoding and may not independently form valid UTF-8 text.
 
 Branch payloads are:
 
@@ -986,8 +884,7 @@ value-hash-payload =
 | `logos.value.reference` | `reference-value-payload` |
 | `logos.value.branch` | `branch-payload` |
 
-Verifiers MUST reject a hash input whose domain tag and payload shape do not
-match this table.
+Verifiers MUST reject a hash input whose domain tag and payload shape do not match this table.
 
 ### 7.6 Verified-View Data Shapes
 
@@ -1039,22 +936,17 @@ disclosed-tstr-utf8-range = {
 }
 ```
 
-`normalized-value-root` and `value-node` are defined by
-LOGOS-MODULE-COMMITMENT-MODEL Section 9.3.
+`normalized-value-root` and `value-node` are defined by LOGOS-MODULE-COMMITMENT-MODEL Section 9.3.
 `semantic-path` is the path shape defined by
 LOGOS-MODULE-COMMITMENT-MODEL Section 9.4.
 The disclosed value is a semantic value object from the commitment model.
-It is converted to the physical hash payloads in this specification only when
-the verifier recomputes the proof.
-When `disclosed-item` is a `disclosed-value` containing a
-`normalized-value-root`, its schema root and schema subtree root MUST equal
-the verified-view envelope's fields 1 and 2 respectively.
+A `disclosed-value` MUST contain a `normalized-value-root` when the path is empty and a `value-node` otherwise.
+It is converted to the physical hash payloads in this specification only when the verifier recomputes the proof.
+When `disclosed-item` is a `disclosed-value` containing a `normalized-value-root`, its schema root and schema subtree root MUST equal the verified-view envelope's fields 1 and 2 respectively.
 Its semantic commitment-model revision MUST equal the envelope's field 6.
-These are the verified-view envelope fields, not the per-child-record
-rebinding field.
+These are the verified-view envelope fields, not the per-child-record rebinding field.
 
-Proof material is an ordered sequence of reconstruction steps from the
-disclosed item toward the value root:
+Proof material is an ordered sequence of reconstruction steps from the disclosed item toward the value root:
 
 ```cddl
 proof-material = [* proof-step]
@@ -1078,53 +970,41 @@ The proof therefore discloses the whole packed chunk without adding another disc
 
 For a byte-string or text-string range proof, the first proof step contains the complete direct-string or string-chunk payload that contains the selected range.
 The verifier checks that the disclosed bytes equal the exact selected range within that complete payload before hashing it.
-For branch proofs, proof steps include the relevant `branch-payload` objects
-needed to ascend from the disclosed child to the collection root.
+For branch proofs, proof steps include the relevant `branch-payload` objects needed to ascend from the disclosed child to the collection root.
 
 ## 8. Verified Views
 
 Verified views are typed partial disclosures over a committed value root.
-A verified view proves that a disclosed semantic value, byte range, text byte
-range, or absence marker exists at a typed semantic path under a specific
-schema, hash profile, hash suite, and value root.
+A verified view proves that a disclosed semantic value, byte range, text byte range, or absence marker exists at a typed semantic path under a specific schema, hash profile, hash suite, and value root.
 
 Verified views are intentionally limited in this specification.
-They are conventional Merkle inclusion or absence proofs over the semantic
-value tree and physical hash layout defined by this profile.
+They are conventional Merkle inclusion or absence proofs over the semantic value tree and physical hash layout defined by this profile.
 They do not define zero-knowledge proofs, encrypted selective disclosure,
-range predicates, semantic Unicode substring proofs, multi-root aggregate
-proofs, or trust policy.
+range predicates, semantic Unicode substring proofs, multi-root aggregate proofs, or trust policy.
 
 Every verified view contains:
 
 - the schema root;
-- the schema definition or schema subtree root under which the whole value was
-  decoded;
+- the schema definition or schema subtree root under which the whole value was decoded;
 - the value root;
 - the hash profile identifier;
 - the hash suite identifier;
 - the semantic commitment-model revision identifier;
 - the typed path being proven;
-- the disclosed value, disclosed byte range, disclosed text byte range, or
-  disclosed absence marker;
+- the disclosed value, disclosed byte range, disclosed text byte range, or disclosed absence marker;
 - the proof material needed to recompute the value root.
 
 For method request and response values,
-the schema root is the method's defining schema root specified by
-LOGOS-MODULE-COMMITMENT-MODEL.
+the schema root is the method's defining schema root specified by LOGOS-MODULE-COMMITMENT-MODEL.
 For a primary concrete method, that root is the concrete module schema root.
 For an implemented interface method, that root is the implemented interface schema root.
-This remains true when external system records attribute the call to a concrete
-provider or to other runtime, package, authority, audit, or launch context.
-Those attribution records are outside the verified view and outside the value
-root payload defined by this profile.
+This remains true when external system records attribute the call to a concrete provider or to other runtime, package, authority, audit, or launch context.
+Those attribution records are outside the verified view and outside the value root payload defined by this profile.
 
 The typed path is an ordered list of semantic path segments.
 Path segments are structured values, not slash-delimited strings.
-The canonical path segment data shapes and their semantic meaning are defined
-by LOGOS-MODULE-COMMITMENT-MODEL Section 9.4.
-This profile consumes those path segment kinds when selecting the physical
-payloads and proof steps needed to verify a view:
+The canonical path segment data shapes and their semantic meaning are defined by LOGOS-MODULE-COMMITMENT-MODEL Section 9.4.
+This profile consumes those path segment kinds when selecting the physical payloads and proof steps needed to verify a view:
 
 | Segment kind | Meaning |
 |--------------|---------|
@@ -1140,11 +1020,9 @@ A `list-index` segment contains the zero-based element index.
 A `tuple-position` segment contains the zero-based fixed tuple position.
 A `choice-arm` segment contains the selected canonical arm index.
 A `bstr-range` segment contains a start byte offset and byte length.
-A `tstr-utf8-range` segment contains a start byte offset and byte length in
-the canonical UTF-8 encoding of the text string.
+A `tstr-utf8-range` segment contains a start byte offset and byte length in the canonical UTF-8 encoding of the text string.
 
-Text-string byte ranges do not claim Unicode scalar, grapheme, normalization,
-or substring semantics.
+Text-string byte ranges do not claim Unicode scalar, grapheme, normalization, or substring semantics.
 They prove bytes of the canonical UTF-8 encoding only.
 
 When a path ends in a `field`, `list-index`, or `tuple-position` segment selecting a present value,
@@ -1156,15 +1034,11 @@ For a whole-value verified view, the disclosed value is the full normalized valu
 The verifier MUST recompute the value root directly from the disclosed value and MUST reject a whole-value view that carries proof material.
 
 Absence proofs use the same path language.
-Because absent optional fields are explicit semantic nodes in
-LOGOS-MODULE-COMMITMENT-MODEL, a proof of absence is a verified view whose path
-selects the optional field and whose disclosed item is the absent marker.
+Because absent optional fields are explicit semantic nodes in LOGOS-MODULE-COMMITMENT-MODEL, a proof of absence is a verified view whose path selects the optional field and whose disclosed item is the absent marker.
 Absence is different from non-disclosure:
-a field omitted from a verified view is not proven absent unless an explicit
-absent marker is disclosed and verified.
+a field omitted from a verified view is not proven absent unless an explicit absent marker is disclosed and verified.
 
-Proof material is profile-specific, but it MUST be sufficient for a verifier
-to recompute the value root from the disclosed item and the typed path.
+Proof material is profile-specific, but it MUST be sufficient for a verifier to recompute the value root from the disclosed item and the typed path.
 Each proof step carries the complete canonical payload for one physical node.
 Across the ordered steps, those payloads carry:
 
@@ -1186,8 +1060,7 @@ For a list element proof in an unchunked list, the proof material includes the c
 
 For a list element proof in a chunked list, the proof material also includes the complete containing chunk, branch, and list payloads needed by the canonical layout.
 The semantic path remains the list element index.
-Chunk indices and offsets are physical proof details, not semantic path
-segments.
+Chunk indices and offsets are physical proof details, not semantic path segments.
 
 Byte-string and text-string range paths MUST select a non-empty range whose end does not exceed the total byte length.
 For a direct string, the first proof step discloses the complete direct-string payload.
@@ -1200,16 +1073,13 @@ Later steps include the complete aggregate, branch, and ancestor payloads needed
 The semantic path uses a `bstr-range` segment.
 
 For a text-string byte-range proof, the proof material includes the total UTF-8 byte length, the complete direct value or containing chunk bytes, and the remaining complete payloads needed to reconstruct the value root.
-The verifier checks the proof as a byte-range proof over the canonical UTF-8
-encoding.
+The verifier checks the proof as a byte-range proof over the canonical UTF-8 encoding.
 This specification does not define semantic substring proofs.
 
-For a packed scalar list proof, this specification requires disclosure of the
-whole packed scalar chunk that contains the requested element.
+For a packed scalar list proof, this specification requires disclosure of the whole packed scalar chunk that contains the requested element.
 The verifier validates the packed chunk, extracts the requested list index from
 that chunk, and then reconstructs the parent list commitment.
-A future profile may define finer-grained private proofs inside packed scalar
-chunks, but this profile does not.
+A future profile may define finer-grained private proofs inside packed scalar chunks, but this profile does not.
 
 Verification requires the schema construction input defined by LOGOS-MODULE-COMMITMENT-MODEL Section 3.1, including its required dependency documents, separately from the verified view.
 The verifier MUST validate that input and compute the schema root and selected schema subtree root for comparison with the view in step 2.
@@ -1217,19 +1087,15 @@ Previously validated construction results and computed roots MAY be reused under
 
 The verification procedure is:
 
-1. Reject unknown hash profile identifiers, hash suite identifiers, or semantic
-   commitment-model revision identifiers unless verifier policy explicitly allows
-   them.
+1. Reject unknown hash profile identifiers, hash suite identifiers, or semantic commitment-model revision identifiers unless verifier policy explicitly allows them.
 2. Check that the schema root and schema subtree root identify the schema under
    which the value root is interpreted.
    For method request and response values,
    this schema root is the method's defining schema root.
-   A concrete provider schema root is checked here only when the method itself
-   is defined by that concrete provider schema.
+   A concrete provider schema root is checked here only when the method itself is defined by that concrete provider schema.
 3. Validate the typed path against the schema.
    Derive the expected document context from the selected schema and its resolved imports according to LOGOS-MODULE-COMMITMENT-MODEL Section 5 and Section 7.4 above.
-4. Normalize the disclosed value, disclosed range, or absent marker under the
-   schema selected by the typed path.
+4. Normalize the disclosed value, disclosed range, or absent marker under the schema selected by the typed path.
 5. For an ordinary disclosed value or absence marker, recompute its physical leaf or subtree digest using Sections 4 through 7.
    For a packed scalar element or string range, validate and hash the complete containing payload in the first proof step as specified above.
 6. Apply each remaining proof step from the reconstructed node toward the root.
@@ -1243,69 +1109,47 @@ A document root supplied in proof material MUST NOT override the context derived
 
 If any check fails, the verified view is invalid.
 If the recomputed root equals the value root and all schema, profile, suite,
-path, and proof checks succeed, the verified view is valid relative to that
-value root.
+path, and proof checks succeed, the verified view is valid relative to that value root.
 
 Validity relative to a value root does not imply that the root is trusted.
-Trust in roots, signers, packages, runtimes, remote providers, audit logs, or
-consensus systems is outside this specification.
+Trust in roots, signers, packages, runtimes, remote providers, audit logs, or consensus systems is outside this specification.
 Those systems may link their own evidence to the verified view's schema root,
 schema subtree root, and value root.
 They do not change the proof checked by this profile.
 
 ## 9. Conformance
 
-A conforming implementation of this hash profile MUST construct canonical hash
-inputs and payloads according to Sections 6 and 7, encode them using the Logos
-deterministic CBOR profile required by LOGOS-MODULE-INTERFACE Section 4.4, and
-apply `logos.hash-suite.blake3-256` exactly as defined in Section 6.1.
-It MUST reject malformed hash inputs, unknown identifiers, wrong digest
-lengths, wrong domain tags, non-canonical CBOR encodings, and mismatched
-domain-to-payload shapes as described by this specification.
+A conforming implementation of this hash profile MUST construct canonical hash inputs and payloads according to Sections 6 and 7, encode them using the Logos deterministic CBOR profile required by LOGOS-MODULE-INTERFACE Section 4.4, and apply `logos.hash-suite.blake3-256` exactly as defined in Section 6.1.
+It MUST reject malformed hash inputs, unknown identifiers, wrong digest lengths, wrong domain tags, non-canonical CBOR encodings, and mismatched domain-to-payload shapes as described by this specification.
 It MUST produce the Appendix A schema-root vector and every Appendix B physical-layout digest exactly.
 A verified-view implementation MUST accept the valid Appendix B views and reject mutations that change a disclosed value, path, range, label, count, schema identity, payload schema root, node kind, child digest, payload discriminator, domain tag, step order, or expected value root.
 
 ## 10. Comparison And Non-Goals
 
 The Logos commitment model and hash profile are intentionally narrow.
-They define canonical commitments and verified views for schema-defined Logos
-module values.
-They do not define a general semantic object envelope, a blockchain state
-tree, a trust system, a remote-computation protocol, or a zero-knowledge proof
-system.
+They define canonical commitments and verified views for schema-defined Logos module values.
+They do not define a general semantic object envelope, a blockchain state tree, a trust system, a remote-computation protocol, or a zero-knowledge proof system.
 
 Gordian Envelope is a general semantic envelope and selective-disclosure model.
 Logos deliberately uses a narrower commitment model for module contracts.
 In Logos, the module schema is part of the committed interpretation:
 it defines the allowed value shape, method/event meaning, field identity,
 choice-arm selection, and semantic path language.
-This lets Logos define roots and verified-view proof material directly over
-schema-bound module values instead of first representing every value as a
-general envelope object.
+This lets Logos define roots and verified-view proof material directly over schema-bound module values instead of first representing every value as a general envelope object.
 
-The tradeoff is that Logos puts more contract-specific rules into the
-specifications.
+The tradeoff is that Logos puts more contract-specific rules into the specifications.
 The benefit is that roots, paths, proof material, runtime validation, and module-interface compatibility all refer to the same schema-bound contract objects.
-Logos may interoperate with envelope-like systems through later profiles, but
-this specification does not adopt Gordian Envelope as the primary commitment
-object model.
+Logos may interoperate with envelope-like systems through later profiles, but this specification does not adopt Gordian Envelope as the primary commitment object model.
 
-Ethereum SSZ is a serialization and merkleization format for Ethereum
-consensus objects.
-Logos shares the goal of stable typed commitments and proof paths, but the
-types, paths, and roots are defined by Logos module schemas rather than by
-Ethereum consensus containers.
-Logos also separates the semantic commitment model from the physical hash
-profile so future environments can define different hash suites or layouts
+Ethereum SSZ is a serialization and merkleization format for Ethereum consensus objects.
+Logos shares the goal of stable typed commitments and proof paths, but the types, paths, and roots are defined by Logos module schemas rather than by Ethereum consensus containers.
+Logos also separates the semantic commitment model from the physical hash profile so future environments can define different hash suites or layouts
 without redefining the schema and value semantics.
 
 External systems may anchor, wrap, translate, or attest to Logos roots.
-Examples include blockchains, transparency logs, trusted-execution
-attestations, zero-knowledge proof systems, consensus protocols, package trust
-systems, and remote runtime trust profiles.
+Examples include blockchains, transparency logs, trusted-execution attestations, zero-knowledge proof systems, consensus protocols, package trust systems, and remote runtime trust profiles.
 Those systems are outside this specification.
-This specification defines the roots and verified-view proof material those
-systems may consume.
+This specification defines the roots and verified-view proof material those systems may consume.
 
 Non-goals:
 
@@ -1321,13 +1165,10 @@ Non-goals:
 
 ## Appendix A. Normative Schema-Root Vector
 
-This appendix gives a normative hash-profile vector for the construction
-vector in LOGOS-MODULE-COMMITMENT-MODEL Appendix A.
+This appendix gives a normative hash-profile vector for the construction vector in LOGOS-MODULE-COMMITMENT-MODEL Appendix A.
 It uses the mandatory BLAKE3-256 suite from Section 6.1.
 
-The vector hashes one `logos.schema.root` hash input whose payload is the
-`normalized-schema-root` object from LOGOS-MODULE-COMMITMENT-MODEL
-Appendix A.
+The vector hashes one `logos.schema.root` hash input whose payload is the `normalized-schema-root` object from LOGOS-MODULE-COMMITMENT-MODEL Appendix A.
 
 Hash input fields:
 
@@ -1335,8 +1176,7 @@ Hash input fields:
 - field `1`: `logos.hash-profile.2026-08.choice-index`;
 - field `2`: `logos.hash-suite.blake3-256`;
 - field `3`: `logos.commitment-model.2026-10`;
-- field `4`: the Appendix A `normalized-schema-root` object from
-  LOGOS-MODULE-COMMITMENT-MODEL.
+- field `4`: the Appendix A `normalized-schema-root` object from LOGOS-MODULE-COMMITMENT-MODEL.
 
 The deterministic CBOR hash-input byte length is `796` bytes.
 The deterministic CBOR hash-input bytes, in hexadecimal, are:
@@ -1390,6 +1230,11 @@ The vectors in Sections B.1 through B.3 use these synthetic 32-byte schema ident
 | List schema subtree root | `1111111111111111111111111111111111111111111111111111111111111111` |
 | List-element schema subtree root | `1212121212121212121212121212121212121212121212121212121212121212` |
 | Byte-string schema subtree root | `1313131313131313131313131313131313131313131313131313131313131313` |
+
+These identities are not computed from schema construction input.
+For the verified views in Sections B.1 and B.2, the verifier MUST use them as the computed roots compared in step 2 of the procedure in Section 8.
+In steps 3 and 4, the schema selected by the typed path is a list of `uint16` values in B.1 and a byte string in B.2.
+All other checks of Section 8 apply unchanged.
 
 ### B.1 Packed Scalar List Boundary
 
@@ -1567,5 +1412,4 @@ The partial-view column names the field sequence from the table above; `range` s
 
 ## Copyright
 
-Copyright and related rights waived via
-[CC0](https://creativecommons.org/publicdomain/zero/1.0/).
+Copyright and related rights waived via [CC0](https://creativecommons.org/publicdomain/zero/1.0/).
