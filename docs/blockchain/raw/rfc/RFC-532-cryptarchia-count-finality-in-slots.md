@@ -7,8 +7,9 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-10 |
-| v2 | Merged master, and applied the wording again to its rewritten oracle zone document | 2026-11-14 |
+| v2 | Merged master, and applied the wording again to its rewritten oracle zone document | 2026-11-17 |
 | | The last round before the switch takes each tip from the peer that returned it, repeats its steps for each peer, names in its requests blocks that an honest peer is likely to hold, and waits at most `T_offline` for a peer that is not an IBD peer. Qualified the claim that one honest answer closes the case | |
+| | A node restarts with the Bootstrap rule if it stopped under it, or if it cannot tell how long it was offline. It stores `c_loc`, `B_imm` and its fork choice rule together, where v1 recorded the switch with the result of its `commit` | |
 | | `2·s_gen ≤ K` replaces `s_gen < K`. The `K` row states what `K` must hold. The Online rule visits forks by block ID | |
 | | [The epoch nonce](#the-epoch-nonce) states what each nonce design gives, that 18 hours takes a nonce with a delay, what the nonce's RFC is to propose, and when it should be adopted | |
 | | Corrected the floor's count by one honest uncle, "does not worsen", the restart path against the 15 s case, and two figures: 6.5 hours for 30 % after a deflated inference, and the limit of 2.628 on joining stake. Added honest stake offline, a split in halves, and the participation the epoch's waits need | |
@@ -22,7 +23,7 @@ Read the PR's Motivation first.
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here** — [Cryptarchia Protocol](#affected-specifications): [the rule](#1-the-latest-immutable-block-is-counted-in-slots) | the `commit` loop, its first slot and its last slot; `K`, what it must hold, and `φ` ([What the finality window holds](#what-the-finality-window-holds), [The finality floor](#the-finality-floor)) |
 | 2 | Critical | [Fork Choice Rule](#affected-specifications), [Cryptarchia Protocol](#affected-specifications): [both rules](#2-the-fork-choice-rules-read-the-age-of-a-fork-in-slots) | the Bootstrap test runs on every block; both rules visit forks by block ID; the Online rule's only bound is descent from `B_imm` ([Comparing forks](#comparing-forks)) |
-| 3 | Critical | **Start here** — [Bootstrapping & Synchronization](#affected-specifications): [the switch](#3-the-switch-to-online-runs-a-last-round-and-commit) | the last round takes each tip from the peer that returned it, and waits at most `T_offline` for a peer that is not an IBD peer; a fork whose divergence block `commit` passes must not win after the switch, even across a restart ([The switch to Online](#the-switch-to-online)) |
+| 3 | Critical | **Start here** — [Bootstrapping & Synchronization](#affected-specifications): [the switch](#3-the-switch-to-online-runs-a-last-round-and-commit) | the last round takes each tip from the peer that returned it, and waits at most `T_offline` for a peer that is not an IBD peer; a fork whose divergence block `commit` passes must not win after the switch, even across a restart; the rule a restart takes, and what it loads ([The switch to Online](#the-switch-to-online)) |
 | 4 | High | [Cryptarchia Protocol](#affected-specifications): [the epoch schedule](#4-the-finality-window-sets-the-epoch-schedule) | every epoch value stays as it is |
 | 5 | Medium | [Cryptarchia Protocol, Fork Choice Rule, Bootstrapping & Synchronization](#affected-specifications): [three periods](#5-three-periods-stay-within-the-finality-window) | the bound on the uncle window, and two density windows within `K` |
 | 6 | Medium | [Total Stake Inference](#affected-specifications): [the count](#6-the-count-of-occupied-slots-takes-a-chain) | the inference's own count does not change |
@@ -232,6 +233,19 @@ After a restart within `T_offline`, the fork runs over `K` slots and the node's 
 
 **Open question.** Deferring `commit` to the end of Initial Block Download would close the head start for a node with an honest IBD peer, a peer configured for Initial Block Download, with no stall. It would not cover a node with no IBD peers, and a malicious IBD peer could prolong IBD. Today's rule has the same exposure, so this RFC leaves it out.
 
+### What a restart loads
+
+A start decides the rule from what the node stored. Today's text lets a restart reach the Online rule on a chain that the Bootstrap rule has not finished with, in two ways.
+
+- **A node that stopped under the Bootstrap rule.** Today's cases read `B_imm`, the operator's flag and the time offline. None reads the rule the node used when it stopped. A node that is started with the flag, and restarted without it within `T_offline` of its last use of the Online rule, starts with the Online rule. It has run no Prolonged Bootstrap Period, no last round and no `commit`, while Initial Block Download may have moved its chain by days. Such a node now restarts with the Bootstrap rule.
+- **A node that cannot tell how long it was offline.** Today the Bootstrap rule is selected only if it is certain that the node was offline for longer than `T_offline`. A lost record of that time therefore selects the Online rule after any outage. Now the Online rule needs the certainty.
+
+Both cases read what the node stored. So the node stores `c_loc`, `B_imm` and the rule it uses together, and a restart loads the three as the node held them at one moment. Stored apart, a restart can find the Online rule with the `B_imm` from before the switch, or a tip that does not descend from `B_imm`. The node software already keeps the three in one record, and restarts with the recorded rule within the grace period.
+
+**Alternative: run `commit` at every start with the Online rule.** It repairs a `B_imm` that was stored before the `commit` of the switch. It runs on the tip as stored, so it does not help a node whose stored tip is older than its stored rule. With the three stored together it never changes anything.
+
+**What is left.** The rule does not cover the block tree. A node that stored a block, and not the three values after it, restarts on the earlier tip. Under the Bootstrap rule it compares the stored block when the next block arrives. If none arrives before the switch, `commit` runs on the earlier tip.
+
 ### The last round
 
 After Initial Block Download a node receives new blocks only from its connected peers. An adversary that fills those can withhold the honest chain even when the IBD peers are honest, and a fork the Bootstrap rule rejected then wins after the switch ([Comparing forks](#comparing-forks)). So the node fetches the tip of every IBD peer and of every other connected peer once more before the switch.
@@ -433,9 +447,15 @@ def last_round(ibd_peers, local_tree, recorded):
 - `download_blocks` gains the arguments `peers` and `known`. Without them it behaves as before.
 - The rows of `T_offline` and `T_round` state these second uses.
 
-The node then switches to the Online rule and runs `commit` on `c_loc` before it processes any further block. It must store the `B_imm` that `commit` returns before it stores anything that lets a restart select the Online rule. Otherwise a node that restarts between the two runs the Online rule with the old `B_imm`, once that `B_imm` is past the Genesis block or the checkpoint, and a fork the Bootstrap rule rejected can win by length.
+The node then switches to the Online rule and runs `commit` on `c_loc` before it processes any further block.
 
 The sentence that the node does not wait `s_gen` slots after Initial Block Download is removed.
+
+[Setting the Fork Choice Rule](../cryptarchia-v1-bootstr-sync.md#setting-the-fork-choice-rule) changes in three places ([What a restart loads](#what-a-restart-loads)):
+
+- A new case selects the Bootstrap rule: the node is restarting after it stopped under the Bootstrap rule.
+- The offline case selects the Bootstrap rule unless it is certain that the node has been offline for at most `T_offline` since it last used the Online rule. It selected that rule only if it was certain that the node had been offline for longer.
+- The node stores `c_loc`, `B_imm` and the fork choice rule it uses together. A restart loads the three as the node held them at one moment: after it processed a block, or after it switched to the Online rule.
 
 ## 4. The finality window sets the epoch schedule
 
@@ -490,14 +510,16 @@ The range stays `[s, s + p)`. `commit` passes `s = sl_C + 1` and `p = sl_tip −
 - [ ] Record, when the Prolonged Bootstrap Period starts, the block `K` behind the local tip, and name it in every request of the last round. Name with it the last valid block the peer delivered in an earlier download, or the three blocks behind the local tip if it delivered none
 - [ ] As a responder, ignore a known block that is not held
 - [ ] In the last round, end the handling of an IBD peer when `T_offline` passes without a valid block it has not delivered before, and the handling of any other peer `T_offline` after the round started
-- [ ] At the switch, run `commit` before any further block, and store its `B_imm` before anything that lets a restart select the Online rule
+- [ ] At the switch, run `commit` before any further block
+- [ ] Store the tip, `B_imm` and the fork choice rule as one record, and restart with the Bootstrap rule when the record holds it
+- [ ] Restart with the Bootstrap rule when the time offline cannot be read, or when no record of it exists
 - [ ] Prune all forks below `B_imm` in one call, at every move of `B_imm` and at the switch to Online
 - [ ] Expire the wallet's leader-claim reservations after `K` slots instead of `k` immutable blocks
 - [ ] Size the kept ledger states for blocks above `B_imm`, which `k` no longer bounds
 - [ ] Update the fork monitor of the test framework
 - [ ] Review the forward step of the time service against [the clock faults](#counting-from-the-tips-slot)
 - [ ] Prove the rule in the formal model, floor included: the current theorems read a depth of `k`, or a confirmation rule beside it
-- [ ] Add tests: a fork rejected by the Bootstrap rule against the switch, a last round in which the other peers return an invalid block, a tip on a long fork, or nothing, a last round that reaches its limit with a download running from an IBD peer and from another peer, an IBD peer that sends only blocks it sent before, an IBD peer that sends a new invalid block on every request, an IBD peer whose stream starts below what the node holds, a tip request that fails once, a tip that moves during the download, a download that breaks once while the local chain is a fork, a peer that no longer holds the block it delivered, a fork that has been the local chain for more than `K` slots, one private block on the local tip, the limit of 5 on `additional_blocks`, pruning of several forks at once, the floor's first and last slot, the Bootstrap test from either branch, in any delivery order, and for tips listed in any order, and two equally long forks under the Online rule listed in either order
+- [ ] Add tests: a fork rejected by the Bootstrap rule against the switch, a restart within `T_offline` after a stop under the Bootstrap rule, a restart with no record of the time offline, a last round in which the other peers return an invalid block, a tip on a long fork, or nothing, a last round that reaches its limit with a download running from an IBD peer and from another peer, an IBD peer that sends only blocks it sent before, an IBD peer that sends a new invalid block on every request, an IBD peer whose stream starts below what the node holds, a tip request that fails once, a tip that moves during the download, a download that breaks once while the local chain is a fork, a peer that no longer holds the block it delivered, a fork that has been the local chain for more than `K` slots, one private block on the local tip, the limit of 5 on `additional_blocks`, pruning of several forks at once, the floor's first and last slot, the Bootstrap test from either branch, in any delivery order, and for tips listed in any order, and two equally long forks under the Online rule listed in either order
 - [ ] Verify the implementation matches this specification
 
 # Affected Specifications
