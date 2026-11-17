@@ -14,6 +14,8 @@
 | | [The epoch nonce](#the-epoch-nonce) states what each nonce design gives, that 18 hours takes a nonce with a delay, what the nonce's RFC is to propose, and when it should be adopted | |
 | | Corrected the floor's count by one honest uncle, "does not worsen", the restart path against the 15 s case, and two figures: 6.5 hours for 30 % after a deflated inference, and the limit of 2.628 on joining stake. Added honest stake offline, a split in halves, and the participation the epoch's waits need | |
 | | Removed the statement that the node does not wait `s_gen` slots after Initial Block Download | |
+| v3 | [The finality floor](#the-finality-floor) is sized with all of the stake building and every block `T_M` late. It is 1,291 occupied slots, where v2 had 1,019 from a third withholding at 10 s. Stake that does not build can now delay finality. Every figure that reads the floor follows | 2026-11-17 |
+| | The figures on the specification's Blend take a delay per block in place of a scaled block rate ([Reproducing the figures](#reproducing-the-figures)) | |
 
 ## Reviewer Orientation
 
@@ -141,75 +143,86 @@ The design is not settled. Three things are open:
 | 20 s | 12 | 12.5 |
 | 15 s | 9 | 20.4 |
 
-This is why the `K` row asks for its two cases to be checked again, and for `φ` to be derived again, when `k`, `f`, the slot length, `T_M`, the epoch nonce or a target of the floor changes. The first case reads `T_M` itself, 15 rounds of one slot each. `T_M` and the floor's `Δ` are counted in slots, but the analysis sizes them in seconds at 1-second slots. `T_M` is 15 rounds and leaves out the gossip after the last hop, so a strict delay bound lies past the 15 s that 18 hours holds without a deflation, and past the 11 s it holds after one.
+This is why the `K` row asks for its two cases to be checked again, and for `φ` to be derived again, when `k`, `f`, the slot length, `T_M`, the epoch nonce or one of its targets changes. The first case and the floor read `T_M` itself, 15 rounds of one slot each. `T_M` and `Δ` are counted in slots, but the analysis sizes them in seconds at 1-second slots. `T_M` is 15 rounds and leaves out the gossip after the last hop, so a strict delay bound lies past the 15 s that 18 hours holds without a deflation, and past the 11 s it holds after one.
 
 ## The finality floor
 
 Without a floor, a node fixes its chain once a block the rest of the network lacks is `K` slots behind its tip, whatever stake made it. An eclipsed node fixes the chain it is shown, or the chain it makes itself, 18 hours after that chain's first block, for every share from a tenth up. `φ` delays this: `B_imm` passes a block only once `φ` occupied slots follow it.
 
-`φ` is the lower tail of the blocks the honest chain makes in `K` slots while `α_max` withholds, with every honest block delivered `Δ` late. The tail's chance is `1e-9`. The gap between blocks is `Δ` plus a geometric wait at `p_h = 1 − (1 − f)^(1 − α_max)`, so the chance is a negative binomial tail:
+`φ` is the lower tail of the blocks the chain makes in `K` slots while all of the stake builds, with every block delivered `T_M` late, 15 s. The tail's chance is `1e-9`. The gap between blocks is `T_M` plus a geometric wait at `f`, so the chance is a negative binomial tail:
 
-| `α_max` | `Δ` | Mean blocks in `K` | `φ` | `P(N < φ)` |
+| Stake that does not build | Delay | Mean blocks in `K` | Floor | `P(N < floor)` |
 | --- | --- | --- | --- | --- |
-| 1/3 | 10 | 1,183.6 | **1,019** | 9.3e-10 |
-| 0.3 | 10 | 1,231.0 | 1,064 | 8.2e-10 |
-| 1/4 | 10 | 1,300.4 | 1,131 | 8.3e-10 |
+| none | 15 s | 1,440.0 | **1,291** | 9.9e-10 |
+| none | 10 s | 1,620.0 | 1,443 | 9.4e-10 |
+| a third | 10 s | 1,183.6 | 1,019 | 9.3e-10 |
 
-These targets size the floor. They claim nothing about Blend. Missing the floor costs time, not safety, because finality waits for the next blocks. While a third withholds:
+The first row is the specification's. The second shows that its floor holds at 10 s too. The third is the floor of v2 ([Alternatives](#alternatives-1)).
 
-| Worst-case delay | Mean blocks in `K` | `P(N < 1,019)` |
-| --- | --- | --- |
-| 10 s | 1,183.6 | 9.3e-10 |
-| 15 s | 1,084.6 | 3.4e-3 |
-| 20 s | 1,000.8 | 0.80, about 22 minutes' wait on average |
+Missing the floor costs time, not safety, because finality waits for the next blocks. The floor is what the whole stake makes, so stake that does not build makes a chain miss it, whether that stake withholds or is offline. The chance that a chain misses the floor at `K`, and the median time to finality, counting only blocks of the chain:
 
-For the floor, the specification therefore states the chance only at `Δ = 10`, and makes no statement at `T_M`. The `K` row states its own cases: one at `T_M`, 15 slots, and one at `Δ` with honest stake offline. The two delays differ on purpose: missing the floor costs time, and a `K` that is too short costs safety.
+| Stake that does not build | 10 s | 15 s | 20 s |
+| --- | --- | --- | --- |
+| none | 1.5e-29, 18.0 h | 9.9e-10, 18.0 h | 0.40, 18.0 h |
+| a tenth | 5.5e-13, 18.0 h | 0.019, 18.0 h | 1, 19.1 h |
+| a fifth | 3.6e-3, 18.0 h | 0.98, 18.8 h | 1, 20.6 h |
+| a third | 1, 19.6 h | 1, 21.4 h | 1, 23.2 h |
 
-The count covers the slots after the block, up to and including the slot of the tip, as `density_over_slots` counts them. Every canonical block occupies its own slot, so the count of occupied slots is at least the count of blocks, and a floor sized on blocks keeps its liveness. Under random delay a floor on occupied slots could stand at 1,225. Under the worst case no larger lower bound is derived, because an adversary that orphans a run of honest blocks leaves one countable uncle. An uncle counts only a genuine lottery win, and a slot counts once. So a side cut off from the rest counts the slots it won, and the slots of the honest blocks that hang from its chain, which its blocks can reference as uncles for 360 slots. In practice that is the first honest block after the divergence block.
+- The floor counts occupied slots, and a block lost to delay can return as an uncle, so these rows are the worst case. With every lottery win counted, finality is late with chance `1e-9` only when more than 30.2 % of the stake does not build, and a third's withholding gives a median of 18.0 hours and 18.8 at the latest.
+- A coalition can therefore delay finality by withholding. While a third withholds, the latest finality is 22.4 hours at 10 s and 24.2 at 15 s, where 2,160 blocks take 32.8 and 35.8 hours at the median. On the specification's Blend it is 18.0 hours at the median and 20.8 at the latest. The delay costs the coalition its rewards.
+- The delay lasts until the inference corrects to the stake that builds. A coalition that starts to withhold at the end of an observation period keeps finality late for 10.5 days, and one that tunes how much it withholds for up to 18 days. Stake that leaves for good has the same effect: a fifth to a half of the stake delays finality for 5 to 13 days at 15 s.
+- At 15 s there is no margin. With 7.5 % of the stake absent, finality is late with chance `1e-3`, and with 15 % half of the time. At 10 s the margin is 12.6 % of the stake at `1e-9`.
+- The derivation takes slots as occupied at `f` while all of the stake builds. The stake inference stores `f` at three decimals, so it settles where slots are occupied at 0.033 a slot, 1 % below `f`. At that rate the whole stake misses the floor at 15 s with chance `1e-8`, and the same derivation gives 1,281. An estimate that is 2 % high for an epoch gives `7.6e-8`. At 10 s the chance stays below `1e-20` in each of these cases. An inference that computes with `f` exactly removes the first effect, and not the noise of its estimate, about 0.9 % an epoch.
+
+The floor reads the delay of the `K` row's first case, `T_M`. It is also the deadline after which a proposer broadcasts its block directly when Blend has not delivered it ([Direct Broadcast](../blend-protocol.md#direct-broadcast)). The gossip that follows is not counted, and a delay above `T_M` raises the chance quickly: with all of the stake building, the floor is missed with chance `4.9e-7` at 16 s and `8.2e-5` at 17 s. The floor and `K` read the stake differently: `K` must hold against a third, and the floor is what the chain makes when all of the stake builds.
+
+The count covers the slots after the block, up to and including the slot of the tip, as `density_over_slots` counts them. Every canonical block occupies its own slot, so the count of occupied slots is at least the count of blocks, and a floor sized on blocks is met whenever the blocks are there. Under the worst case no larger lower bound is derived, because an adversary that orphans a run of honest blocks leaves one countable uncle. An uncle counts only a genuine lottery win, and a slot counts once. So a side cut off from the rest counts the slots it won, and the slots of the honest blocks that hang from its chain, which its blocks can reference as uncles for 360 slots. In practice that is the first honest block after the divergence block.
 
 The floor holds back a side cut off from the rest until it has made `φ + 1` blocks, or `φ` with that uncle. The table takes `φ + 1`. With `φ`, each figure is lower by 0.1 %:
 
 | The side's share of the stake | Days to fix its fork, mean | Earliest at `1e-9` |
 | --- | --- | --- |
-| 0.1 | 3.49 | 2.87 |
-| 0.2 | 1.75 | 1.44 |
-| 0.25 | 1.40 | 1.15 |
-| 0.3 | 1.17 | 0.96 |
-| a third | 1.05 | 0.87 |
+| 0.1 | 4.42 | 3.72 |
+| 0.2 | 2.21 | 1.86 |
+| 0.25 | 1.77 | 1.49 |
+| 0.3 | 1.48 | 1.25 |
+| a third | 1.33 | 1.12 |
 
-- This is about half of the 2.2 and 7.4 days that 2,160 blocks give a third and a tenth.
-- The floor holds back past `K`, with chance `1 − 1e-9`, a side of at most 0.385 of the stake. A side of 0.4 makes its `φ + 1` blocks after 0.88 days on average.
+- This is about three fifths of the 2.2 and 7.4 days that 2,160 blocks give a third and a tenth.
+- The floor holds back past `K`, with chance `1 − 1e-9`, a side of at most 0.500 of the stake. A side of 0.6 makes its `φ + 1` blocks after 0.74 days on average.
 - The protection ends when a sparse chain's inferred stake corrects. A side keeps its thresholds for at least 3 days, and has corrected in full 7.5 to 15 days after the split.
 
 ### What the floor leaves open
 
-- **Partitions.** The adversary signs on both sides of a partition, so no floor separates one at a third. At 18 hours a side the floor holds back has at most 0.052 of honest stake when a third signs on it. A split the adversary signs on waits for operators. A network split in halves fixes the chain of each half after 18 hours, where 2,160 blocks take a half 35.7 hours. After that the split does not heal by itself.
-- **An eclipse.** A fork started at the eclipse takes a third 1.05 days. A fork prepared in advance needs the eclipse only for the last part of that. At mean rates with no delivery delay, against a node that received the honest chain until the eclipse began, a third's fork needs an eclipse of about 12.5 hours, where 2,160 blocks need about 27. With the delay of the specification's Blend, they need about 10 and 22. How long an adversary can hold an eclipse is open.
+- **Partitions.** The adversary signs on both sides of a partition, so no floor separates one at a third. At 18 hours a side the floor holds back has at most 0.167 of honest stake when a third signs on it. A split the adversary signs on waits for operators. A network split in halves fixes the chain of each half once `φ + 1` of its own blocks follow the split, on average after 21.4 hours with no delay and 23.3 on the specification's Blend, where 2,160 blocks take a half 35.7 hours. After that the split does not heal by itself.
+- **An eclipse.** A fork started at the eclipse takes a third 1.33 days. A fork prepared in advance needs the eclipse only for the last part of that. At mean rates with no delivery delay, against a node that received the honest chain until the eclipse began, a third's fork needs an eclipse of about 15.9 hours, where 2,160 blocks need about 27. With the delay of the specification's Blend, they need about 14 and 23. These are means for one attempt. A coalition can prepare many forks and start with a lucky one: in one attempt of 1,000 the eclipse is about 2.7 hours shorter. How long an adversary can hold an eclipse is open.
 
 ### Alternatives
 
-- **A floor on the density of the `K` slots after the block.** It holds a sparse side back for 8.25 days at the earliest. But it stalls finality whenever the active stake falls below 0.562 under random delay, for up to 11.25 days. The floor used here never stalls: a block made as the active stake halves is fixed after 0.75 days on average under random delay.
-- **A cap on the inference's correction.** The inference reads a side cut off as stake that left, so a cap lengthens the protection and the stall after a genuine fall alike. The floor used here gains little from a cap at 18 hours. A side of a tenth or more makes its `φ + 1` blocks within 3.5 days on average, and a correction that comes sooner reads at most a ninth of its observation period after the split. The inference's correction stays uncapped.
+- **A floor that a third cannot miss on purpose.** v2 sized the floor while a third withholds at 10 s, which gives 1,019. A third then cannot delay finality by withholding at 10 s. That floor holds back a side of at most 0.385, a split in halves fixes each half after 18 hours, and a third's prepared fork needs an eclipse of about 12.5 hours. The floor used here gives up that timeliness for the larger side, the longer split and the longer eclipse.
+- **A floor sized at 10 s only.** With all of the stake building and every block 10 s late, the floor is 1,443. At 15 s, the delay of the `K` row's first case, the whole stake then misses it about half of the time.
+- **A floor on the density of the `K` slots after the block.** It holds a sparse side back for 8.25 days at the earliest. But it stalls finality whenever the active stake falls below 0.698 under random delay, for up to 11.25 days. The floor used here never stalls: a block made as the active stake halves is fixed after 0.97 days on average under random delay.
+- **A cap on the inference's correction.** The inference reads a side cut off as stake that left, so a cap lengthens the protection and the stall after a genuine fall alike. A side of 0.15 or more makes its `φ + 1` blocks within 3 days on average, before any correction. A side of a tenth takes 4.4 days, and a correction that comes sooner reads at most a third of its observation period after the split. What a cap would add for such a side is not computed. The inference's correction stays uncapped.
 
 ## Counting from the tip's slot
 
-`K` counts back from the slot of the tip of `c_loc`, not from the clock. `commit` therefore reads no clock and needs no tick per slot. A block is final `K` slots after its slot, plus the gap to the next block.
+`K` counts back from the slot of the tip of `c_loc`, not from the clock. `commit` therefore reads no clock and needs no tick per slot. On a chain that meets the floor, a block is final `K` slots after its slot, plus the gap to the next block.
 
 | | From the clock | From the tip's slot |
 | --- | --- | --- |
 | New machinery | A tick per slot, since `B_imm` moves with no block | None. `commit` stays in `on_block` |
 | `commit` reads the wall clock | Yes, for the first time | No. Only step 6 of Block Header Validation does, as today |
-| Forged clock step of +18 h, alone (simulated) | `B_imm` goes from 18 h old to about 8.5 h old at once, about 1,019 occupied slots deep | No move until the chain gains a block in the shifted range: still 18 h old, about 2,160 occupied slots deep |
-| The same step plus one block in the last 30,540 slots of the shifted range (simulated) | As above | The same outcome: about 8.5 h old, about 1,018 occupied slots deep |
-| Node keeps running and receives nothing for `K` slots (simulated) | `B_imm` climbs to 1,019 occupied slots below its stale tip, which limits how far it can still heal | No move until the next block, about 2,160 occupied slots below the tip. That block moves `B_imm` to the floor, as the clock rule does |
+| Forged clock step of +18 h, alone (simulated) | `B_imm` goes from 18 h old to about 10.8 h old at once, about 1,291 occupied slots deep | No move until the chain gains a block in the shifted range: still 18 h old, about 2,160 occupied slots deep |
+| The same step plus one block in the last 38,700 slots of the shifted range (simulated) | As above | About the same outcome: about 10.9 h old, about 1,300 occupied slots deep |
+| Node keeps running and receives nothing for `K` slots (simulated) | `B_imm` climbs to 1,291 occupied slots below its stale tip, which limits how far it can still heal | No move until the next block, about 2,160 occupied slots below the tip. That block moves `B_imm` to the floor, as the clock rule does |
 | Lag behind the clock rule (simulated, delivery aside) | None | About 29 slots on average, about 44 while a third withholds |
 | The bounds of [What the finality window holds](#what-the-finality-window-holds) | Hold as computed | Hold on an honest clock: step 6 gives tip slot ≤ clock, so this rule fixes a subset of what the clock rule fixes |
 | Bootstrap test | Reads the clock, so nodes can differ at the boundary | Reads the later of the two tips: a function of the two chains alone |
 
 **Residual risk: clock faults.** Neither rule makes a shifted clock safe, and the study has no analysis of clock faults. A time service that applies any forward step at once lets one forged reply move a node's clock.
 
-- The floor bounds the damage under both rules: `B_imm` stays about 1,019 occupied slots deep, about 860 blocks on the specification's Blend. That is below the 1,510 blocks the study's depth bound proves against a third at 10 s, at the count of its code, so a shifted node loses that guarantee.
-- Under the tip rule the attacker needs a forged reply plus one block in the shifted range. That block may be the node's own: a staking node on a shifted clock proposes at the shifted slot. With 1 % of stake its first win takes 49 minutes on average, and that win reaches the floor. An attacker with 1 % of stake has about 10 wins in the part of the range that reaches the floor.
+- The floor bounds the damage under both rules: `B_imm` stays about 1,291 occupied slots deep, about 1,090 blocks on the specification's Blend. That is below the 1,510 blocks the study's depth bound proves against a third at 10 s, at the count of its code, so a shifted node loses that guarantee.
+- Under the tip rule the attacker needs a forged reply plus one block in the shifted range. That block may be the node's own: a staking node on a shifted clock proposes at the shifted slot. With 1 % of stake its first win takes 49 minutes on average, and that win reaches the floor. An attacker with 1 % of stake has about 13 wins in the part of the range that reaches the floor.
 - This revision adds no clock rule. The [Clocks](../cryptarchia-v1-protocol.md#clocks) annex already assumes in-sync clocks.
 
 ## The switch to Online
@@ -279,7 +292,7 @@ In the reference code of the rules, one IBD peer that returns the honest tip and
 - The floor holds `B_imm` back on a sparse chain.
 - The local tip lags the later tip, as after a restart, or while the rest of the chain has not arrived.
 
-Online then compares by length and Bootstrap by density, so a fork the Bootstrap rule rejected can survive the switch. If it is longer it wins, `B_imm` passes `D` at that block, and the honest chain is pruned. In the model, at mean rates, a third's fork of 1,020 blocks, `φ + 1`, that reaches the node before the rest of the honest chain does this with a lag of 12.5 hours with no delivery delay, and about 10 on the specification's Blend.
+Online then compares by length and Bootstrap by density, so a fork the Bootstrap rule rejected can survive the switch. If it is longer it wins, `B_imm` passes `D` at that block, and the honest chain is pruned. In the model, at mean rates, a third's fork of 1,292 blocks, `φ + 1`, that reaches the node before the rest of the honest chain does this with a lag of 15.9 hours with no delivery delay, and about 14 on the specification's Blend.
 
 The lag needs every peer that relays to the node to withhold the honest chain until the switch, which is the eclipse of [What the floor leaves open](#what-the-floor-leaves-open). With the honest chain up to the switch, the local tip is recent, and a fork must outgrow the honest chain over `K` slots to win. [The last round](#the-last-round) brings the honest chain up to the switch when one peer returns the honest tip and serves it.
 
@@ -294,8 +307,8 @@ The Online rule visits the forks in the same order. There the order decides only
 ## What else reads `K`
 
 - **The epoch.** Every epoch value stays as it is: phases of 194,400, 194,400 and 259,200 slots, an epoch of 648,000 and a `PERIOD` of 388,800. Changing `K` now changes the epoch.
-- **The epoch's waits.** A value is final when its phase ends only if `φ` occupied slots follow it by then, where it needed 2,160 blocks. At mean rates, the 54-hour phase that waits for the stake snapshot needs 15.5 % of the inferred stake to produce blocks, against 33.0 %. The 72-hour phase that waits for the nonce and the inferred stake needs 11.6 %, against 24.7 %. What a node does when a value is not final at the end of its phase is specified under neither rule.
-- **The density window.** `s_gen` stays at `⌊k/4f⌋`, 4.5 hours, against the 4.8 to 4.9 hours a third needs at `1e-9`. The chance of winning the window does not change. What a win buys does: a fork that wins the window is fixed at the switch after 1,020 blocks, where it needed 2,161.
+- **The epoch's waits.** A value is final when its phase ends only if `φ` occupied slots follow it by then, where it needed 2,160 blocks. At mean rates, the 54-hour phase that waits for the stake snapshot needs 19.7 % of the inferred stake to produce blocks, against 33.0 %. The 72-hour phase that waits for the nonce and the inferred stake needs 14.7 %, against 24.7 %. What a node does when a value is not final at the end of its phase is specified under neither rule.
+- **The density window.** `s_gen` stays at `⌊k/4f⌋`, 4.5 hours, against the 4.8 to 4.9 hours a third needs at `1e-9`. The chance of winning the window does not change. What a win buys does: a fork that wins the window is fixed at the switch after 1,292 blocks, where it needed 2,161.
 - **Two windows within `K`.** `s_gen` comes from Theorem 2 of Ouroboros Genesis. Its proof reads two windows of `s_gen` slots after the divergence block: one for the growth of the honest chain, and one for an honest block that follows it. Both must lie within the age of the fork when densities are compared. Under the depth rule that follows from `k` blocks. Here the comparison starts at `K` slots, so the bound becomes `2·s_gen ≤ K`, 9 hours against 18.
 - **The uncle window.** It is 360 slots against 64,800. A candidate's parent is above the proposer's `B_imm` exactly, not with high probability, because a `B_imm` that has moved lies at least `K` behind the slot being built. No candidate was pruned in a model of 9,000 random trees.
 - **Blocks above `B_imm`.** Their number is no longer bounded by `k`, which changes how a node sizes the ledger states it keeps. On the specification's Blend, `K` slots hold about 1,825 blocks.
@@ -309,14 +322,15 @@ Two properties of the depth rule do not carry over. `B_imm` is no longer the `k`
 
 ## Reproducing the figures
 
-The figures come from the finality study, `tools/simulators/finality` of the research repository. Its notes carry each result with its check: `SLOTS.md` phase K, `SETTLEMENT.md` B6 and B7, `DESIGNS.md` H.2, `FURTHER.md` G7, `RATE.md` and `SIGNERS.md` M.7. `make k7`, `k2`, `k3`, `k5`, `k9`, `k8` and `m7` give the waits, the shares, the splits and eclipses, the targets within reach of grinding, the floor, the cap and the limit on joining stake. The study reads `B_imm` against the clock. Its figures carry over as [Counting from the tip's slot](#counting-from-the-tips-slot) states.
+The figures come from the finality study, `tools/simulators/finality` of the research repository. Its notes carry each result with its check: `SLOTS.md` phase K, `SETTLEMENT.md` B6 and B7, `DESIGNS.md` H.2, `FURTHER.md` G7, `RATE.md` and `SIGNERS.md` M.7. `make k7`, `k2`, `k3`, `k5`, `k9`, `k8` and `m7` give the waits, the shares, the splits and eclipses, the targets within reach of grinding, the floor of v2 and its alternatives, the cap and the limit on joining stake. The study reads `B_imm` against the clock. Its figures carry over as [Counting from the tip's slot](#counting-from-the-tips-slot) states.
 
-Beyond the study's notes, the figures come from four sources:
+Beyond the study's notes, the figures come from five sources:
 
 - The study's bound, run for this RFC: the waits with a nonce that resists grinding, the deflated waits from 11 s to 15 s, the waits with honest stake offline, the waits and the share at 15 s of [The epoch nonce](#the-epoch-nonce), the limit of 2.628 on joining stake, which the study prints as 2.627, and the share of 0.295 on the restart path.
 - A model that runs the rules as the specifications print them: the counts of [Comparing forks](#comparing-forks), the two changes rejected there, and the uncle-window check of [What else reads `K`](#what-else-reads-k). The `φ` code is run as printed too.
 - Reference code of the rules with its tests: the switch, the last round, the order of visits, and the first and last slot of the floor's count. It has 49 tests, and each of 33 deliberately broken versions fails at least one of them. In it a peer starts its stream at the highest block it shares with the blocks a request names, a step delivers one block, and `T_offline` is a number of steps.
 - Small models at mean rates: the rows marked simulated, the eclipse and lag figures of [What the floor leaves open](#what-the-floor-leaves-open) and [Comparing forks](#comparing-forks), the private race of [The restart path](#the-restart-path), the days a side needs, the split in halves, the participation the epoch's waits need, and the blocks above `B_imm`.
+- The formula of Finality Floor, a delay per block and a geometric wait: the two tables of [The finality floor](#the-finality-floor) and the times to finality while stake does not build. For the specification's Blend, this formula and the small models take a delay of 5.5 slots per block, fitted so that `K` slots hold 1,825 blocks with all of the stake building. v2 scaled the block rate by 0.845 instead, which gave 22 hours for the depth rule's eclipse where this revision has 23.
 
 > **TODO (author):** the study is not on GitHub yet, so none of this can be reproduced by a reviewer. Publish its branch with the models, the reference code and the runs listed here, link that commit in the first sentence, and remove this note.
 
@@ -332,16 +346,16 @@ In [Constants](../cryptarchia-v1-protocol.md#constants), `k` stops being a depth
 -| k | security parameter | Block depth finality. Blocks deeper than k on any given chain are considered immutable. | 2160 blocks |
 +| k | security parameter | A number of blocks from which other constants are derived, each at its definition. | 2160 blocks |
 +| K | finality window | The number of slots a block must lie behind the tip of the local chain before Commit can make it immutable. ... | ⌊k/f⌋ = 64,800 slots (18 hours) |
-+| φ | finality floor | The number of occupied slots that must follow a block before Commit can make it immutable, derived in Finality Floor. ... | 1,019 occupied slots |
++| φ | finality floor | The number of occupied slots that must follow a block before Commit can make it immutable, derived in Finality Floor. ... | 1,291 occupied slots |
 ```
 
 The `K` row also states:
 
 - the three periods of [§5](#5-three-periods-stay-within-the-finality-window), each with a link to its definition;
 - what `K` must hold: the chance that a share `α_max` of the stake displaces an immutable block stays at most `ε` per block, with every honest block up to `T_M` late, or up to `Δ` late while a tenth of the honest stake is offline;
-- that `α_max`, `Δ` and `ε` are the targets of Finality Floor;
+- its targets: `α_max = 1/3`, `Δ = 10` slots and the `ε` of Finality Floor;
 - that both cases take the epoch nonce as unbiased, and that a nonce an adversary can bias lowers the share `K` holds;
-- that a change of `k`, `f`, the slot length, `T_M`, the epoch nonce or one of those targets requires both cases to be checked again and `φ` to be derived again.
+- that a change of `k`, `f`, the slot length, `T_M`, the epoch nonce or one of these targets requires both cases to be checked again and `φ` to be derived again.
 
 `commit` moves `B_imm` along `c_loc` instead of reading the block at a depth. It runs in `on_block` under the Online rule, and at the switch.
 
@@ -357,7 +371,7 @@ def commit(T, c_loc, B_imm):                    # was: commit(T, c_loc, depth)
     return prune_forks(T, B), B
 ```
 
-[Finality Floor](../cryptarchia-v1-protocol.md#finality-floor) derives `φ` from `K`, `f` and the targets `α_max = 1/3`, `Δ = 10` and `ε = 10⁻⁹`.
+[Finality Floor](../cryptarchia-v1-protocol.md#finality-floor) derives `φ` from `K`, `f`, `T_M` and the target `ε = 10⁻⁹`: it is the number of blocks the chain holds in `K` slots, but for a chance of `ε`, while all of the stake builds and every block is `T_M` slots late.
 
 An uncle's slot now also counts for the floor, in [Uncle References](../cryptarchia-v1-protocol.md#uncle-references).
 
