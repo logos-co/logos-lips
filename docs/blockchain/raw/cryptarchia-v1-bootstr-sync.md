@@ -62,7 +62,7 @@ flowchart TD
         subgraph CheckBoostrap[Any condition true?]
             direction TB
             Cond1{{LIB is set to Genesis or Checkpoint?}}
-            Cond2{{Restarting after long offline?}}
+            Cond2{{Restarting after long or unknown time offline?}}
             Cond3{{Stopped under the Bootstrap rule?}}
             Cond4{{Bootstrap flag enabled?}}
         end
@@ -121,7 +121,7 @@ Upon startup, a node sets the fork choice rule to the **Bootstrap** rule in one 
 - **A node is starting with** $`B_\text{imm}`$ **set to the Genesis block or from a checkpoint block.**
   The node is setting its latest immutable block $`B_\text{imm}`$ to the Genesis or a checkpoint, which clearly indicates that the node intends to catch up with the subsequent blocks. Regardless of how many subsequent blocks remain, the node should use the Bootstrap rule to mitigate long range attacks.
 
-- **A node is restarting after being offline longer than** $`T_\text{offline}`$ **(20 minutes).**
+- **A node is restarting after being offline longer than** $`T_\text{offline}`$ **(20 minutes), or cannot tell how long it was offline.**
   Unlike starting from Genesis or checkpoint, in the case where a node is restarted while preserving its existing block tree, the node must choose a fork choice rule depending on how long it has been offline.
 
   The node uses the Bootstrap rule upon startup unless it is certain that it has been offline for at most the offline grace period $`T_\text{offline}`$ since it last used the Online rule.
@@ -133,7 +133,7 @@ Upon startup, a node sets the fork choice rule to the **Bootstrap** rule in one 
 - **A node operator set the Bootstrap rule explicitly (e.g., by** **`--bootstrap`** **flag).**
   In any case where the node operator is clearly aware that the tip of the node's local chain is more than the finality window $`K`$ old, they should be able to start the node with the Bootstrap rule. For example, the operator may obtain the slot of the latest block from another trusted operator and realize that their node has fallen significantly behind due to some issue.
 
-A node stores $`c_{loc}`$, $`B_\text{imm}`$ and the fork choice rule it uses together. A restart loads the three as the node held them at one moment: after it processed a block, or after it switched to the Online rule.
+A node stores $`c_{loc}`$, $`B_\text{imm}`$ and the fork choice rule it uses together: after it sets the rule at startup, after each block it processes, and after it switches to the Online rule. A restart loads the three as last stored.
 
 ## Initial Block Download
 
