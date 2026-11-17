@@ -13,6 +13,7 @@
 | v3 | [The finality floor](#the-finality-floor) is sized with all of the stake building and every block `T_M` late. It is 689 occupied slots, where v2 had 560 from 30 % withholding at 10 s. Stake that does not build can now delay finality. Every figure that reads the floor follows | 2026-11-17 |
 | | The figures on the specification's Blend take a delay per block in place of a scaled block rate ([Reproducing the figures](#reproducing-the-figures)) | |
 | | The row at 64,800 slots now names 30 % as well, and three disturbances of which two must be held together. This RFC's row requires one at a time, because 10 hours holds 28 % through any two. [What the finality window holds](#what-the-finality-window-holds) gives the waits | |
+| | The epoch nonce stays as it is, where v2 waited for a nonce that resists grinding. [The epoch nonce](#the-epoch-nonce) gives what the bound proves with it at 10 hours in every state of the row, and what can be played | |
 
 ## Reviewer Orientation
 
@@ -34,42 +35,38 @@ The figures come from the finality study ([Reproducing the figures](#reproducing
 - **Worst case.** An adversary delivers every honest block as late as a bound `Δ` allows, taken at `Δ = 10` s, about the 99th percentile of delivery on the specification's Blend. The bound is the chain of Gaži, Ren and Russell ("Practical Settlement Bounds for Longest-Chain Consensus", ePrint 2022/1571) for a wait on the 1 s slot lottery. `K` binds every node, so it must hold under this model.
 - **Random delay.** Blocks take Blend's mixing delays, measured in a simulation of 1,000 nodes. Only the private attack is played, with honest relays.
 
-The figures name two cases of the epoch nonce. A nonce that **cannot be ground** gives an adversary no choice among nonces. A nonce that **resists grinding** lets an attack raise its chance by a factor of at most 1.21 when it lasts across an epoch boundary and so meets two nonces. That is the bound the study derives for its candidate ([The epoch nonce](#the-epoch-nonce)).
+The figures take the epoch nonce as unbiased, a nonce that **cannot be ground**: it gives an adversary no choice among nonces. That is the premise of the `K` row. The nonce of the specification can be ground. The two rows on today's nonce, and [The epoch nonce](#the-epoch-nonce), give what that costs.
 
-The wait that holds that chance, in hours:
+The wait that holds that chance, in hours, with an unbiased nonce unless the row names today's:
 
 | Case | 30 % | a third |
 | --- | --- | --- |
-| Worst case at 10 s, a nonce that cannot be ground | 5.9 | 10.1 |
-| Worst case at 10 s, a nonce that resists grinding | 6.0 | 10.2 |
+| Worst case at 10 s | 5.9 | 10.1 |
 | Worst case at 10 s, today's nonce, one ground nonce | 13.6–14.1 | 25.9–26.7 |
-| Worst case at 10 s, today's nonce, two ground nonces | 16.1–18.7 | 38.3–42.0 |
-| Worst case at 10 s, a nonce that cannot be ground, after a deflated inference | 6.4 | 12.4 |
-| Worst case at 10 s, a nonce that resists grinding, after a deflated inference | 6.5 | 12.5 |
-| Worst case at 10 s, a nonce that cannot be ground, 90 % of the honest stake online | 8.4 | 16.2 |
-| Worst case at 10 s, a nonce that resists grinding, 90 % of the honest stake online | 8.5 | 16.4 |
-| Worst case at 10 s, a nonce that cannot be ground, 90 % of the honest stake online, after a deflated inference | 9.8 | 23.5 |
-| Worst case at 12 s, a nonce that cannot be ground | 7.1 | 12.4 |
-| Worst case at 15 s, a nonce that cannot be ground | 9.4 | 17.4 |
-| Worst case at 15 s, a nonce that resists grinding | 9.5 | 17.5 |
-| Worst case at 15 s, a nonce that cannot be ground, after a deflated inference | 14.2 | 35.6 |
-| Worst case at 15 s, a nonce that cannot be ground, 90 % of the honest stake online | 14.0 | 30.8 |
-| Worst case at 15 s, a nonce that cannot be ground, 90 % of the honest stake online, after a deflated inference | 25.3 | 95.7 |
-| Random delay, a nonce that cannot be ground | 3.1 | 5.1 |
+| Worst case at 10 s, today's nonce, two ground nonces | 16.0–18.8 | 38.2–42.1 |
+| Worst case at 10 s, after a deflated inference | 6.4 | 12.4 |
+| Worst case at 10 s, 90 % of the honest stake online | 8.4 | 16.2 |
+| Worst case at 10 s, 90 % of the honest stake online, after a deflated inference | 9.8 | 23.5 |
+| Worst case at 12 s | 7.1 | 12.4 |
+| Worst case at 15 s | 9.4 | 17.4 |
+| Worst case at 15 s, after a deflated inference | 14.2 | 35.6 |
+| Worst case at 15 s, 90 % of the honest stake online | 14.0 | 30.8 |
+| Worst case at 15 s, 90 % of the honest stake online, after a deflated inference | 25.3 | 95.7 |
+| Random delay | 3.1 | 5.1 |
 
 - A deflated inference is what an adversary gets by withholding every block for one observation period, 4.5 days. The inferred stake falls by its share, and every lottery threshold rises by `1/(1 − α)` for the next epoch. With the honest stake alone filling slots at `f`, the fixed delay weighs more.
 - 10 hours holds 30 % through each of three disturbances alone: a deflated inference, 15 s of worst-case delay, and 90 % of the honest stake online. Without a deflation it holds up to 15 s, and not at 16 s, where the wait is 10.4 hours. After one it holds up to 12 s, where the wait is 8.6 hours, and not at 13 s, where it is 10.1.
 - These are the three disturbances of the `K` row, which requires 30 % to be held through one at a time. 10 hours also holds one pair: a tenth of the honest stake offline after a deflated inference needs 9.8 hours at 10 s. A delay of 15 s needs 14.0 hours with a tenth of the honest stake offline, and 14.2 after a deflated inference. All three together need 25.3. After 10 hours the chance of displacement is then `3.4·10^-7`, `4.6·10^-7` and `2.8·10^-4` per block. Through any two of the three, 10 hours holds 28 % of the stake, and through all three 26 %.
-- The rows on honest stake offline read the lottery once the inference has corrected to the stake that is online. At 10 s, with a nonce that resists grinding, 10 hours holds 30 % down to 87 % of the honest stake online, and not at 86 %, where the wait is 10.1 hours.
-- Stake that joins faster than the inference corrects also makes blocks come faster than `f`. At 10 s, without grinding, 10 hours holds 30 % while the true active stake stays within 2.097 times the inferred, against 2.628 times at 18 hours. At 15 s the limit is 1.094, against 1.593 at 18 hours. With the active stake at most 30 % of the supply, it holds whenever the inferred active stake is at least 14.4 % of the supply. A deflation, or a coalition of 30 % entering, makes 1.43.
-- After 10 hours against 30 %, with a nonce that resists grinding, the chance of displacement is `1.0·10^-15` at 10 s, `1.2·10^-14` after a deflated inference, `2.3·10^-13` at 12 s and `3.0·10^-10` at 15 s.
+- The rows on honest stake offline read the lottery once the inference has corrected to the stake that is online. At 10 s, 10 hours holds 30 % down to 86 % of the honest stake online, and not at 85 %, where the wait is 10.45 hours.
+- Stake that joins faster than the inference corrects also makes blocks come faster than `f`. At 10 s, 10 hours holds 30 % while the true active stake stays within 2.097 times the inferred, against 2.628 times at 18 hours. At 15 s the limit is 1.094, against 1.593 at 18 hours. With the active stake at most 30 % of the supply, it holds whenever the inferred active stake is at least 14.4 % of the supply. A deflation, or a coalition of 30 % entering, makes 1.43.
+- After 10 hours against 30 %, the chance of displacement is `8.3·10^-16` at 10 s, `9.9·10^-15` after a deflated inference, `1.9·10^-13` at 12 s and `2.5·10^-10` at 15 s.
 - The paper's attack, played against a wait on the slot lottery at waits up to 2 hours, succeeds 0.26 to 0.82 times as often as the bound allows against a third. Delivery later than `Δ` lies outside the bound.
 
 ### How 10 hours is chosen
 
-`K` is the least whole number of hours that meets every bound and each of the row's three disturbances alone. The disturbance that binds is the delay of `T_M`, 15 s. Against 30 % its wait is 9.37 hours with the epoch nonce taken as unbiased, as the row takes it, which is a nonce that cannot be ground. It is 9.46 hours with a nonce that resists grinding. Both give 10 hours. The other two need less: 8.4 hours with a tenth of the honest stake offline at 10 s, and 6.4 after a deflated inference at 10 s. Two density windows need 9.
+`K` is the least whole number of hours that meets every bound and each of the row's three disturbances alone. The disturbance that binds is the delay of `T_M`, 15 s. Against 30 % its wait is 9.37 hours with the epoch nonce taken as unbiased, as the row takes it. That gives 10 hours. The other two need less: 8.4 hours with a tenth of the honest stake offline at 10 s, and 6.4 after a deflated inference at 10 s. Two density windows need 9.
 
-At 64,800 slots the row requires two disturbances to be held together, which needs 14.2 hours against 30 %. 10 hours gives that up: through any two together it holds 28 % of the stake. The nonce's factor is taken at 10 s, where its bound is derived.
+At 64,800 slots the row requires two disturbances to be held together, which needs 14.2 hours against 30 %. 10 hours gives that up: through any two together it holds 28 % of the stake.
 
 `K` no longer follows from `k` and `f`, because the bound behind the three disturbances is a numerical computation, not a formula. The row links here, and asks for `K` to be sized again and `φ` to be derived again when `k`, `f`, the slot length, `T_M`, the epoch nonce or one of its targets changes. `α_max` is one of those targets.
 
@@ -77,51 +74,47 @@ The floor is sized at `T_M` too ([The finality floor](#the-finality-floor)).
 
 ### What a third keeps
 
-At 10 hours a third of the stake is outside the `1e-9` guarantee. The chance that it displaces a block made immutable, with a nonce that resists grinding:
+At 10 hours a third of the stake is outside the `1e-9` guarantee. The chance that it displaces a block made immutable, with an unbiased nonce:
 
 | Case | 10 hours | 18 hours |
 | --- | --- | --- |
-| Worst case at 10 s | 1.5e-9 | 1.4e-16 |
-| Worst case at 10 s, after a deflated inference | 6.2e-8 | 1.0e-13 |
-| Worst case at 12 s | 6.3e-8 | 1.2e-13 |
-| Worst case at 15 s | 7.4e-6 | 5.7e-10 |
+| Worst case at 10 s | 1.2e-9 | 1.2e-16 |
+| Worst case at 10 s, after a deflated inference | 5.1e-8 | 8.4e-14 |
+| Worst case at 12 s | 5.2e-8 | 9.6e-14 |
+| Worst case at 15 s | 6.1e-6 | 4.7e-10 |
 
 - With the active stake at 30 % of the supply, a coalition between 30 % and a third of it holds 9.0 to 10.0 % of the supply.
 - A tighter proof would not restore a third. If the attack's ratio to the bound held at 10 hours, a proof that matched the attack would lower a third's wait at 10 s from 10.1 hours to between 9.4 and 10.0, and its wait after a deflation from 12.4 to between 11.6 and 12.2.
 
 ### The epoch nonce
 
-At 15 s of delay, the case that sizes `K`, 10 hours holds 30 % only with a nonce that resists grinding. The `K` row takes the epoch nonce as unbiased, and says that a nonce an adversary can bias lowers the share `K` holds. Today's nonce is a hash chain that a coalition grinds near the cut-off, the slot at which the next epoch's nonce is read. With it, 30 % needs 13.6 to 18.7 hours at 10 s, and 10 hours holds a share of 0.272 at 10 s and 0.247 at 15 s, with two ground nonces at the upper end of the factor.
+The epoch nonce stays as it is. A coalition can bias it by withholding or forking its own blocks before the cut-off, the slot at which the next epoch's nonce is read. The `K` row takes the nonce as unbiased, and says that it can be biased and that a biased nonce lowers the share `K` holds.
 
-The least wait that holds 30 % at `1e-9` under the worst case at 15 s, for an attack that meets two nonces:
+With today's nonce the bound proves less than 30 % at 10 hours in every state of the row. For a coalition that evaluates up to `2^64` nonces at each cut-off and an attack that meets two nonces, against 30 % under the worst case, with the row's disturbance in force at both cut-offs:
 
-| Epoch nonce | Wait (hours) | In whole hours |
-| --- | --- | --- |
-| The study's candidate: the smallest contributions of 25 sub-windows, each bound to its parent's, under a sequential delay | 9.5 | 10 |
-| The same contributions without the delay | 11.1–11.4 | 12 |
-| Today's hash chain, with at most `2^8` candidates evaluated in an epoch | 12.2–13.4 | 14 |
-| Today's hash chain, with at most `2^16` | 15.6–16.7 | 17 |
-| Today's hash chain, with at most `2^24` | 19.0–20.1 | 21 |
-| Today's hash chain | 29.4–34.4 | 35 |
+| Disturbance | Wait with an unbiased nonce (hours) | Wait with today's nonce (hours) | Share 10 hours proves with today's nonce |
+| --- | --- | --- | --- |
+| None | 5.9 | 16.0–18.8 | 27.2–27.9 % |
+| 15 s | 9.4 | 29.4–34.5 | 24.7–25.5 % |
+| A tenth of the honest stake offline | 8.4 | 28.5–32.5 | 25.2–25.8 % |
+| Deflated inference | 6.4 | 19.6–23.0 | 26.7–27.4 % |
 
-- A sequential delay is a function whose steps cannot be run in parallel. A cap on candidates is what a delay function gives when a coalition can run it in parallel.
-- The candidate's factor, 1.21, and the factor without the delay are derived at 10 s. The other rows take the factor at 15 s.
-- So at 15 s, 10 hours takes a nonce with a sequential delay.
-
-**What the nonce's RFC is to propose.** The study's candidate binds each block's contribution to its parent's, takes the smallest contribution of each of 25 sub-windows before the cut-off, and passes a hash of them through a sequential delay of 4.49 hours on the fastest hardware. An honest node then computes for 13.5 to 22.4 hours once an epoch, at the speed ratios of 3 to 5 that published chips and designs give. The design is not settled. Its delay function has no measured prototype, and it has not been compared with a single delay on today's cut-off value.
-
-**When it should be adopted.** Before this RFC, which waits for it. 36,000 slots is what the rule gives for a nonce that is unbiased or resists grinding. If the nonce's RFC adopts a design of a lower row, the cases of the `K` row take that nonce's bias, the rule gives that row's `K`, and this RFC changes with it. Merged first, the specification would state a window that holds 0.247 to 0.272 of the stake where it names 30 %.
-
-Two ground nonces reach only targets past the cut-off and within `K` slots of the epoch's end: 5.6 % of targets at 10 hours, against 10 % at 18.
+- The ranges span the two bounds on the factor by which the choice among nonces raises an attack's chance. The proof holds at the upper bound, which gives the longer wait and the smaller share. Neither end is an attack.
+- The bound takes `2^64` nonces. With at most `2^8`, `2^16` and `2^24` nonces at each cut-off, 30 % needs at most 9.2, 12.4 and 15.6 hours at 10 s, and 14.4, 19.5 and 24.5 at 15 s.
+- The strongest attack on today's nonce that the study can run needs 4.75 hours at 10 s and 7.0 at 15 s against 30 %. No attack known to the study comes near 10 hours, so the table shows a loss of proof, not a known attack.
+- In the row with a deflated inference the factor is taken for the faster lottery of that state, as the wait bound takes it. The study's own runs derive the factor at `f` only.
+- Two ground nonces reach only targets past the cut-off and within `K` slots of the epoch's end: 5.6 % of targets at 10 hours, against 10 % at 18.
+- What grinding gives besides does not depend on `K`: with at most `2^16` nonces, 30 % wins 0.70 to 0.82 % more blocks on average.
+- A nonce with a sequential delay of 9 hours would restore the first column. An honest node would compute for 27 to 45 hours once an epoch, and the function has no measured prototype at this length. It is not proposed.
 
 ### Alternatives
 
 - **18 hours.** It holds 30 % through any two disturbances together, with 3.8 hours to spare, and a third through each alone. Every block waits 8 hours longer.
 - **15 hours.** It is the least whole number of hours that holds 30 % through any two disturbances together: a delay of 15 s after a deflated inference needs 14.2 hours. Every block then waits 5 hours longer, and the floor is 1,064 occupied slots.
-- **12.5 hours, the least `K` that holds a third.** With a nonce that resists grinding it holds a third at 10 s after a deflated inference, where the wait is 12.48 hours, and no other disturbance. It misses 95 % of the honest stake online, which needs 12.67 hours, and a rise of the true active stake above 1.50 times the inferred.
-- **A settled level beside `B_imm`.** A client rule that reads its own chain gives 10.2 hours against a third at 10 s with a nonce that resists grinding, and waits longer when it sees a deflation. It changes nothing in consensus. But only a client that runs it gains, and `B_imm` and every rule that waits for it keep 18 hours.
+- **12.5 hours, the least `K` that holds a third at 10 s.** It holds a third at 10 s after a deflated inference, where the wait is 12.36 hours, and no other disturbance. It misses 95 % of the honest stake online, which needs 12.55 hours, and a rise of the true active stake above about 1.5 times the inferred.
+- **A settled level beside `B_imm`.** A client rule that reads its own chain gives 10.1 hours against a third at 10 s, and waits longer when it sees a deflation. It changes nothing in consensus. But only a client that runs it gains, and `B_imm` and every rule that waits for it keep 18 hours.
 - **A block every 40 seconds.** With `f = 1/40` the wait against a third moves little when blocks speed up: 10.3 hours after a deflation, 11.9 at 12 s and 12.3 at twice the inferred stake, where a block every 30 s needs 12.4, 12.4 and 19.6. About 12.5 hours would hold a third through these. Offline stake gains nothing: 12.7 hours at 95 % online. It costs a quarter of the blocks an hour, and everything sized in blocks must be derived again.
-- **A shorter delay.** Blend at 3 hops of 2 rounds has a 99th percentile of delivery of 7.3 s. Rounded up to 8 s, a third needs 8.4 hours without grinding. Rounded up the same way, the 10.2 s of the specification's Blend is 11 s, where a third needs 11.2 hours. So like for like the gain is from 11.2 to 8.4 hours. It costs Blend's anonymity and needs its own RFC. The deflated wait at 8 s is not computed.
+- **A shorter delay.** Blend at 3 hops of 2 rounds has a 99th percentile of delivery of 7.3 s. Rounded up to 8 s, a third needs 8.4 hours with an unbiased nonce. Rounded up the same way, the 10.2 s of the specification's Blend is 11 s, where a third needs 11.2 hours. So like for like the gain is from 11.2 to 8.4 hours. It costs Blend's anonymity and needs its own RFC. The deflated wait at 8 s is not computed.
 
 ## The finality floor
 
@@ -174,8 +167,8 @@ The floor holds back a side cut off from the rest until it has made `φ + 1` blo
 
 `T_offline` stays at 20 minutes, so `K/T_offline` falls from 54 to 30. In a private race at 10 s the head start costs about 1.2 hours against 30 %, so 10 hours behaves like about 8.8. This is an estimate from a private race, not the study's bound.
 
-- With a nonce that resists grinding, this path covers 30 % at 10 s, where the wait is 6.0 hours, and after a deflated inference, where it is 6.5.
-- It does not cover 15 s of delay, where the wait is 9.5 hours, above 8.8. So on this path 10 hours keeps the deflated case and not the case that sizes `K`.
+- With an unbiased nonce, this path covers 30 % at 10 s, where the wait is 5.9 hours, and after a deflated inference, where it is 6.4.
+- It does not cover 15 s of delay, where the wait is 9.4 hours, above 8.8. So on this path 10 hours keeps the deflated inference and not the disturbance that sizes `K`.
 
 ## Comparing forks and the switch
 
@@ -204,7 +197,7 @@ The figures come from the finality study's bound, run at 10 hours: `tools/simula
 
 Beyond the study's notes, the figures come from four sources:
 
-- The study's bound, run for this RFC: every wait and chance at 10 hours, the waits at 12, 13, 15 and 16 s, the waits with honest stake offline, the waits, chances and shares with two or three of the `K` row's cases together, the limit on joining stake at 15 s, the waits and shares of [The epoch nonce](#the-epoch-nonce), and the waits with a block every 40, 20 and 15 s.
+- The study's bound, run for this RFC: every wait and chance at 10 hours, the waits at 12, 13, 15 and 16 s, the waits with honest stake offline, the waits, chances and shares with two or three of the `K` row's disturbances together, the limit on joining stake at 15 s, the waits and shares of [The epoch nonce](#the-epoch-nonce) with today's nonce, from the study's grinding bound and its attack on today's nonce, and the waits with a block every 40, 20 and 15 s.
 - The specifications as printed: the `φ` code and both fork choice rules were run as written, against the reference code's tests.
 - Small models at mean rates: the eclipse, the restart race, the switch lag, the single-window estimates, the days a side needs, the split in halves, the participation the epoch's waits need, and the blocks above `B_imm`.
 - The formula of Finality Floor, a delay per block and a geometric wait: the two tables of [The finality floor](#the-finality-floor) and the times to finality while stake does not build. For the specification's Blend, this formula and the small models take a delay of 5.5 slots per block, fitted so that 64,800 slots hold 1,825 blocks with all of the stake building. v2 scaled the block rate by 0.845 instead.
