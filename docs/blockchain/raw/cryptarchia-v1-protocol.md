@@ -35,8 +35,8 @@
 | 1.2.3 | Update the test vectors to reflect the parent added in the `CHANNEL_CONFIG` payload | 2026-08-27 |
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
-| 1.3.0 | Counted finality in slots: [Commit](#commit) makes a block immutable once it lies the finality window `K` behind the tip and the finality floor `φ` of occupied slots follows it. `K` replaces `s` and `⌊k/f⌋`. | 2026-11-13 |
-| 1.4.0 | Shortened the finality window `K` to 36,000 slots, sized against 30 % of the stake, and recomputed the finality floor `φ`. The [Epoch Schedule](#epoch-schedule) reads `⌊k/f⌋`, so its length does not change. | 2026-11-13 |
+| 1.3.0 | Counted finality in slots: [Commit](#commit) makes a block immutable once it lies the finality window `K` behind the tip and the finality floor `φ` of occupied slots follows it. `K` replaces `s` and `⌊k/f⌋`. | 2026-11-17 |
+| 1.4.0 | Shortened the finality window `K` to 36,000 slots, sized against 30 % of the stake, and recomputed the finality floor `φ`. The [Epoch Schedule](#epoch-schedule) reads `⌊k/f⌋`, so its length does not change. | 2026-11-17 |
 
 # Introduction
 
@@ -62,7 +62,7 @@ Chains that prioritize liveness generally do so by relying on fork choice rules 
 
 Additionally, due to a lack of quorums, these protocols can be quite message efficient. Thus, participation does not need to be artificially reduced to remain within bandwidth restrictions.
 
-These protocols tolerate up to 1/2 of participants becoming faulty when blocks are delivered at once, and less under delay. This document sizes immutability against the share stated in [Finality Floor](#finality-floor). The large number of participants provides for much higher resilience to corruption.
+These protocols tolerate up to 1/2 of participants becoming faulty when blocks are delivered at once, and less under delay. This document sizes immutability against the share stated in [Constants](#constants). The large number of participants provides for much higher resilience to corruption.
 
 ## Privacy
 
@@ -101,8 +101,8 @@ Our design starts from the solid foundation provided by Ouroboros Crypsinous: Pr
 | --- | --- | --- | --- |
 | $`f`$ | slot activation coefficient | The target rate of occupied slots. Not all slots contain blocks, many are empty.   (see [ANALYSIS-BLOCK-TIMES-BLEND-NETWORK](analysis-block-times-blend-network.md) for analysis leading to the choice of value) | 1/30 |
 | $`k`$ | security parameter | A number of blocks from which other constants are derived, each at its definition. | 2160 blocks |
-| $`K`$ | finality window | The number of slots a block must lie behind the tip of the local chain before [Commit](#commit) can make it immutable. It must exceed $`W\cdot f^{-1}`$ and $`T_\text{offline}`$ ([Constants](cryptarchia-v1-bootstr-sync.md#constants)), must be at least $`2s_{gen}`$ ([Definitions](fork-choice.md#definitions)), and must not exceed a phase of the [Epoch Schedule](#epoch-schedule) that waits for a value to finalize. Their definitions state what breaks otherwise. It must also keep the chance that a share $`\alpha_\text{max}`$ of the stake displaces an immutable block at most $`\varepsilon`$ per block in two cases: every honest block is delivered up to $`T_M`$ late, the message traversal time of the [Blend Protocol](blend-protocol.md), or up to $`\Delta`$ late while a tenth of the honest stake is offline. $`\alpha_\text{max}`$, $`\Delta`$ and $`\varepsilon`$ are the targets of [Finality Floor](#finality-floor). Both cases take the [epoch nonce](#epoch-nonce) as unbiased: a nonce that an adversary can bias lowers the share that $`K`$ holds. $`K`$ is the least whole number of hours that meets all of these. A change of $`k`$, $`f`$, the slot length, $`T_M`$, the epoch nonce or one of these targets requires $`K`$ to be sized again and $`\phi`$ to be derived again. (see [What the finality window holds](https://github.com/logos-co/logos-lips/blob/master/docs/blockchain/raw/rfc/RFC-533-cryptarchia-shorten-the-finality-window-to-10-hours.md#what-the-finality-window-holds) for the analysis behind the value) | 36,000 slots (10 hours) |
-| $`\phi`$ | finality floor | The number of occupied slots that must follow a block before [Commit](#commit) can make it immutable, derived in [Finality Floor](#finality-floor). A floor above what the honest chain holds in $`K`$ slots delays finality. | 560 occupied slots |
+| $`K`$ | finality window | The number of slots a block must lie behind the tip of the local chain before [Commit](#commit) can make it immutable. It must exceed $`W\cdot f^{-1}`$ and $`T_\text{offline}`$ ([Constants](cryptarchia-v1-bootstr-sync.md#constants)), must be at least $`2s_{gen}`$ ([Definitions](fork-choice.md#definitions)), and must not exceed a phase of the [Epoch Schedule](#epoch-schedule) that waits for a value to finalize. Their definitions state what breaks otherwise. It must also keep the chance that a share $`\alpha_\text{max}`$ of the stake displaces an immutable block at most $`\varepsilon`$ per block in two cases: every honest block is delivered up to $`T_M`$ late, the message traversal time of the [Blend Protocol](blend-protocol.md), or up to $`\Delta`$ late while a tenth of the honest stake is offline. The targets are $`\alpha_\text{max} = 3/10`$, $`\Delta = 10`$ slots and the $`\varepsilon`$ of [Finality Floor](#finality-floor). Both cases take the [epoch nonce](#epoch-nonce) as unbiased: a nonce that an adversary can bias lowers the share that $`K`$ holds. $`K`$ is the least whole number of hours that meets all of these. A change of $`k`$, $`f`$, the slot length, $`T_M`$, the epoch nonce or one of these targets requires $`K`$ to be sized again and $`\phi`$ to be derived again. (see [What the finality window holds](https://github.com/logos-co/logos-lips/blob/master/docs/blockchain/raw/rfc/RFC-533-cryptarchia-shorten-the-finality-window-to-10-hours.md#what-the-finality-window-holds) for the analysis behind the value) | 36,000 slots (10 hours) |
+| $`\phi`$ | finality floor | The number of occupied slots that must follow a block before [Commit](#commit) can make it immutable, derived in [Finality Floor](#finality-floor). A floor above what the chain holds in $`K`$ slots delays finality. | 689 occupied slots |
 | *none* | slot length | The duration of a single slot. | 1 second |
 | MAX_BLOCK_SIZE | max block size | The maximum size of the block body (not including the header) | 2 MiB (2,097,152 bytes) |
 | MAX_BLOCK_TXS | max block transactions | The maximum number of transactions in a block | 1024 |
@@ -523,26 +523,23 @@ $`\text{define } \textbf{commit}(T,c_{loc},B_\text{imm})\to (T', B_\text{imm}'):
 
 #### Finality Floor
 
-$`\phi`$ is the largest $`n`$ such that the chance of the honest chain holding fewer than $`n`$ blocks in $`K`$ slots is at most $`\varepsilon`$. The chance is taken while a share $`\alpha_\text{max}`$ of the stake withholds its blocks and every honest block is delivered $`\Delta`$ slots late. A block of the chain occupies its own slot, so the chain holds at least as many occupied slots as blocks.
+$`\phi`$ is the largest $`n`$ such that the chance of the chain holding fewer than $`n`$ blocks in $`K`$ slots is at most $`\varepsilon`$. The chance is taken while the stake that builds blocks equals the inferred total stake $`D`$ ([Epoch State](#epoch-state)) and every block is delivered $`T_M`$ rounds late ([Global Parameters](blend-protocol.md#global-parameters)), each round one slot long ([Time](blend-protocol.md#time)). A block of the chain occupies its own slot, so the chain holds at least as many occupied slots as blocks.
 
 ```python
 from math import exp, lgamma, log
 
-ALPHA_MAX = 3 / 10  # α_max, the share of the stake K and the floor are sized against
-DELTA = 10          # Δ, the delivery delay the floor is sized against: 10 s in slots of 1 second
-EPSILON = 1e-9      # ε, the chance allowed that the honest chain misses the floor
+EPSILON = 1e-9      # ε, the chance allowed that the chain misses the floor
 
 def blocks_short(n: int) -> float:
-    # The chance that fewer than n blocks fit in K slots. A gap between blocks is DELTA
-    # slots plus the wait for the next win of the honest stake, whose chance per slot is
-    # p_h. So n blocks fit only if the slots left after n delays hold at least n wins.
-    p_h = 1 - (1 - f) ** (1 - ALPHA_MAX)
-    slots = K - n * DELTA
+    # The chance that fewer than n blocks fit in K slots. A gap between blocks is T_M
+    # slots plus the wait for the next win, whose chance per slot is f. So n blocks fit
+    # only if the slots left after n delays hold at least n wins.
+    slots = K - n * T_M
     if slots < n:
         return 1.0
     return sum(
         exp(lgamma(slots + 1) - lgamma(i + 1) - lgamma(slots - i + 1)
-            + i * log(p_h) + (slots - i) * log(1 - p_h))
+            + i * log(f) + (slots - i) * log(1 - f))
         for i in range(n)
     )
 
@@ -553,7 +550,7 @@ def finality_floor() -> int:
     return n
 ```
 
-With $`K = 36000`$ and $`f = 1/30`$, `finality_floor()` returns $`560`$.
+With $`K = 36000`$, $`f = 1/30`$ and $`T_M = 15`$, `finality_floor()` returns $`689`$.
 
 ### Fork Pruning
 
