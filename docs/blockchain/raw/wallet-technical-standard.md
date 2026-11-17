@@ -29,7 +29,7 @@
 | 1.1.0 | Fixed the master key generation personalization string to a valid 16-byte value; aligned the public key derivation with the [Mantle specification](bedrock-v1.1-mantle-specification.md#zero-knowledge-signature-scheme-zksignature) (`KDF` DST, compression mode, applied to the Logos key); specified the final Poseidon2 step as hash mode with the `WALLET_ZK_SK_V1` DST; clarified that extended public keys derive no children | 2026-09-03 |
 | 1.2.0 | Added the note tracking a wallet keeps to spend its notes and to participate in the leadership lottery, over the note sets of depth 40, the root a wallet proves against, a fixed number of blocks below its tip, and the leader reward notes, which it keeps with their private nonce, recovery from the seed alone not finding them | 2026-10-07 |
 | 1.2.1 | The public key derives from a nullifier key derived from the spending secret key, and a note has a staking key, the wallet using the nullifier key as staking secret key and the public key of the recipient of a payment by default, and keeping the keys of a service declaration cold | 2026-11-06 |
-| 1.3.0 | Added the note encryption key derived next to the ZK key, the address a sender needs, and the discovery of notes by trial decryption of the note ciphertexts delivered off chain, with what the recovery from the seed covers. A delivered note has the public key of its recipient as staking key unless the recipient asked for another, and a sender keeps the notes it creates | 2026-11-02 |
+| 1.3.0 | Added the note encryption key derived from the ZK secret key, the address a sender needs, and the discovery of notes by trial decryption of the note ciphertexts delivered off chain, with what the recovery from the seed covers. A delivered note has the public key of its recipient as staking key unless the recipient asked for another, and a sender keeps the notes it creates | 2026-11-02 |
 
 # Introduction
 
@@ -131,18 +131,18 @@ This wallet-side step is not part of any circuit, so the DST costs nothing in pr
 
 ## Note Encryption Key and Address
 
-Next to its ZK key, a wallet derives from the same $`k_i`$ the key under which senders encrypt the contents of the notes they pay it ([Note Encryption](common-cryptographic-components.md#note-encryption-construction)). The decapsulation key is the 32-byte X-Wing seed
+From its ZK secret key $`k_{\text{logos}}`$, a wallet derives the key under which senders encrypt the contents of the notes they pay it ([Note Encryption](common-cryptographic-components.md#note-encryption-construction)). The decapsulation key is the 32-byte X-Wing seed
 
 ```python
-sk_enc = blake2b_256(b"WALLET_ENC_SK_V1" + k_i)   # the X-Wing decapsulation key, 32 bytes
-pk_enc = xwing_encapsulation_key(sk_enc)         # 1216 bytes
+sk_enc = blake2b_256(b"WALLET_ENC_SK_V1" + k_logos)   # the X-Wing decapsulation key, 32 bytes
+pk_enc = xwing_encapsulation_key(sk_enc)              # 1216 bytes
 ```
 
-so that it is recovered from the seed exactly as the ZK key is. The domain separation keeps $`sk_{\text{enc}}`$ apart from $`k_{\text{logos}}`$, which is derived from the same bytes.
+where $`k_{\text{logos}}`$ is hashed as the 32-byte little-endian encoding of the field element ([Common Cryptographic Components](common-cryptographic-components.md)). The key is recovered from the seed with the ZK key, and every holder of a ZK secret key has one, whether or not the key comes from the hierarchy. It derives from the spending secret key and not from the nullifier key, so a node given `nf_sk` to stake ([Staking Keys](#staking-keys)) opens no ciphertext.
 
 The **address** a sender needs is the pair `(public_key, pk_enc)`: the `ZkPublicKey` the notes are committed to and the encryption key their ciphertexts are encapsulated to. A wallet MAY hand out `public_key` alone; a sender holding only that gives the recipient `value` and `nonce` by other means. A sender MUST NOT fall back to another encryption when it holds `pk_enc`.
 
-$`sk_{\text{enc}}`$ is a viewing key: it opens every note ciphertext addressed to the wallet, past and future, and derives no nullifier, so it reveals what the wallet received, not what it spent or what it may spend.
+$`sk_{\text{enc}}`$ is a decryption key and nothing more: it opens every note ciphertext addressed to the wallet, past and future, and derives no nullifier, so it reveals what the wallet received, not what it spent or what it may spend.
 
 ## Note Discovery and Recovery
 
