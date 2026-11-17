@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.0.2 | Spread block download requests across connected and discovered peers instead of downloading only from the configured IBD peers, which now only provide the chain tips to catch up with. Added [Selecting Peers for Downloading](#selecting-peers-for-downloading) and the `GetTipRequest` message. | 2026-10-20 |
-| 1.1.0 | Added [Switching to the Online Rule](#switching-to-the-online-rule): a last round that downloads each peer's tip from that peer, then [Commit](cryptarchia-v1-protocol.md#commit). Bounded `T_offline` by the finality window `K`. A node that stopped under the Bootstrap rule restarts with it, and a node that starts with the Online rule runs Commit. | 2026-11-17 |
+| 1.1.0 | Added [Switching to the Online Rule](#switching-to-the-online-rule): a last round that downloads each peer's tip from that peer, then [Commit](cryptarchia-v1-protocol.md#commit). Bounded `T_offline` by the finality window `K`. A node restarts with the Bootstrap rule if it stopped under it or cannot tell how long it was offline, and stores `c_loc`, `B_imm` and its fork choice rule together. | 2026-11-17 |
 
 # Introduction
 
@@ -62,12 +62,12 @@ flowchart TD
         subgraph CheckBoostrap[Any condition true?]
             direction TB
             Cond1{{LIB is set to Genesis or Checkpoint?}}
-            Cond2{{Restarting after long offline?}}
+            Cond2{{Restarting after long or unknown time offline?}}
             Cond3{{Stopped under the Bootstrap rule?}}
             Cond4{{Bootstrap flag enabled?}}
         end
     CheckBoostrap -->|Yes| SetBootstrap[ForkChoice=BOOTSTRAP]
-    CheckBoostrap -->|No| SetOnline["ForkChoice=ONLINE, then Commit"]
+    CheckBoostrap -->|No| SetOnline[ForkChoice=ONLINE]
     end
 
     SetBootstrap --> IBD
@@ -121,10 +121,10 @@ Upon startup, a node sets the fork choice rule to the **Bootstrap** rule in one 
 - **A node is starting with** $`B_\text{imm}`$ **set to the Genesis block or from a checkpoint block.**
   The node is setting its latest immutable block $`B_\text{imm}`$ to the Genesis or a checkpoint, which clearly indicates that the node intends to catch up with the subsequent blocks. Regardless of how many subsequent blocks remain, the node should use the Bootstrap rule to mitigate long range attacks.
 
-- **A node is restarting after being offline longer than** $`T_\text{offline}`$ **(20 minutes).**
+- **A node is restarting after being offline longer than** $`T_\text{offline}`$ **(20 minutes), or cannot tell how long it was offline.**
   Unlike starting from Genesis or checkpoint, in the case where a node is restarted while preserving its existing block tree, the node must choose a fork choice rule depending on how long it has been offline.
 
-  If it is certain that a node has been offline longer than the offline grace period $`T_\text{offline}`$ since it last used the Online rule, the node uses the Bootstrap rule upon startup.
+  The node uses the Bootstrap rule upon startup unless it is certain that it has been offline for at most the offline grace period $`T_\text{offline}`$ since it last used the Online rule.
 
   Details of $`T_\text{offline}`$ are described in [Offline Grace Period](#offline-grace-period). A recommended way how to measure the offline duration is introduced in [**Offline Duration Measurement**](#offline-duration-measurement).
 
@@ -133,7 +133,7 @@ Upon startup, a node sets the fork choice rule to the **Bootstrap** rule in one 
 - **A node operator set the Bootstrap rule explicitly (e.g., by** **`--bootstrap`** **flag).**
   In any case where the node operator is clearly aware that the tip of the node's local chain is more than the finality window $`K`$ old, they should be able to start the node with the Bootstrap rule. For example, the operator may obtain the slot of the latest block from another trusted operator and realize that their node has fallen significantly behind due to some issue.
 
-A node that starts with the Online rule runs [Commit](cryptarchia-v1-protocol.md#commit) on $`c_{loc}`$ before it processes any block.
+A node stores $`c_{loc}`$, $`B_\text{imm}`$ and the fork choice rule it uses together: after it sets the rule at startup, after each block it processes, and after it switches to the Online rule. A restart loads the three as last stored.
 
 ## Initial Block Download
 
@@ -452,7 +452,7 @@ This protocol configures $`T_\text{offline}`$ to 20 minutes. Here are the advant
 
 The following example explains why $`T_\text{offline}`$ should not be set too long.
 
-- A local node stopped in the following situation. A malicious peer is building a fork that diverged a little less than the finality window $`K`$ before the tip of the local chain. The fork is a little shorter than the local chain.
+- A local node stopped under the Online rule in the following situation. A malicious peer is building a fork that diverged a little less than the finality window $`K`$ before the tip of the local chain. The fork is a little shorter than the local chain.
 - The local node has been offline shorter than $`T_\text{offline}`$ and just restarted. As defined in this protocol, the Online fork choice rule is used because the offline duration is short.
 - During the offline duration, the malicious peer extended its fork. Now the fork is longer than the local chain, its first block lies at least $`K`$ slots behind the tip of the fork, and at least the finality floor $`\phi`$ of occupied slots follows that block.
 - If the malicious peer sends the fork to the restarted node faster than the honest peer, the restarted node will switch to the fork and [Commit](cryptarchia-v1-protocol.md#commit) will move $`B_\text{imm}`$ past the divergence block. Even if the node later receives the honest chain from the honest peer, it cannot revert blocks that are already immutable.
