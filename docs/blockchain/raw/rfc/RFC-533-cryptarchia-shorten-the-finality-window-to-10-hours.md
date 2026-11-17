@@ -10,6 +10,8 @@
 | v2 | The `K` row states the rule that gives 10 hours. [The epoch nonce](#the-epoch-nonce) gives the share 10 hours holds with today's nonce and the wait each nonce design needs, and says what the nonce's RFC is to propose and that this RFC waits for it | 2026-11-14 |
 | | Added: two density windows within `K`, honest stake offline, a split in halves, the participation the epoch's waits need, and the block-times analysis | |
 | | Corrected: the cost of the restart path (1.2 hours, not 1.5), the path against the 15 s case, the edges 2.097 and 1.50 and the cases they belong to, the blocks above `B_imm`, the factor `6.9·10^6`, the delay of a shorter Blend, and 6.5 and 7.1 hours in the table | |
+| v3 | [The finality floor](#the-finality-floor) is sized with all of the stake building and every block `T_M` late. It is 689 occupied slots, where v2 had 560 from 30 % withholding at 10 s. Stake that does not build can now delay finality. Every figure that reads the floor follows | 2026-11-17 |
+| | The figures on the specification's Blend take a delay per block in place of a scaled block rate ([Reproducing the figures](#reproducing-the-figures)) | |
 
 ## Reviewer Orientation
 
@@ -64,9 +66,9 @@ The wait that holds that chance, in hours:
 
 The same rule gives 18 hours against a third, where the binding wait is 17.37 hours, or 17.53 with a nonce that resists grinding. So 10 hours keeps against 30 % the delay margin that 18 hours keeps against a third. The nonce's factor is taken at 10 s, where its bound is derived.
 
-`K` no longer follows from `k` and `f`, because the bound behind the two cases is a numerical computation, not a formula. The row links here, and asks for `K` to be sized again and `φ` to be derived again when `k`, `f`, the slot length, `T_M`, the epoch nonce or a target of the floor changes. `α_max` is one of those targets.
+`K` no longer follows from `k` and `f`, because the bound behind the two cases is a numerical computation, not a formula. The row links here, and asks for `K` to be sized again and `φ` to be derived again when `k`, `f`, the slot length, `T_M`, the epoch nonce or one of its targets changes. `α_max` is one of those targets.
 
-`K` is sized at `T_M`, 15 s, and the floor at 10 s. The two delays differ on purpose: missing the floor costs time, and a `K` that is too short costs safety.
+The floor is sized at `T_M` too ([The finality floor](#the-finality-floor)).
 
 ### What a third keeps
 
@@ -117,29 +119,50 @@ Two ground nonces reach only targets past the cut-off and within `K` slots of th
 
 ## The finality floor
 
-`φ` is sized against the same share as `K`: `α_max = 3/10`. It is the lower tail of the blocks the honest chain makes in `K` slots while 30 % withholds, with every honest block delivered `Δ = 10` slots late. The tail's chance is `1e-9`.
+`φ` is the lower tail of the blocks the chain makes in `K` slots while all of the stake builds, with every block delivered `T_M` late, 15 s. The tail's chance is `1e-9`. The floor reads `K` and not `α_max`.
 
-| `α_max` | Mean blocks in `K` | `φ` | `P(N < φ)` while 30 % withholds | `P(N < φ)` while a third withholds |
+| Stake that does not build | Delay | Mean blocks in `K` | Floor | `P(N < floor)` |
 | --- | --- | --- | --- | --- |
-| 3/10 | 683.9 | **560** | 8.0e-10 | 8.4e-7 |
-| 1/3 | 657.6 | 535 | 1.7e-13 | 7.8e-10 |
+| none | 15 s | 800.0 | **689** | 9.8e-10 |
+| none | 10 s | 900.0 | 768 | 8.3e-10 |
+| 30 % | 10 s | 683.9 | 560 | 8.0e-10 |
 
-Missing the floor costs time, not safety, because finality waits for the next block that reaches it. While 30 % withholds, the chance is 1.8e-4 at 15 s of delay and 0.18 at 20 s.
+The first row is the specification's. The second shows that its floor holds at 10 s too. The third is the floor of v2.
 
-The floor holds back a side cut off from the rest until it has made `φ + 1` blocks, or `φ` when its blocks reference the first honest block after the divergence block as an uncle. The table takes `φ + 1`. With `φ`, each figure is lower by 0.2 %:
+Missing the floor costs time, not safety, because finality waits for the next blocks. The floor is what the whole stake makes, so stake that does not build makes a chain miss it, whether that stake withholds or is offline. The chance that a chain misses the floor at `K`, and the median time to finality, counting only blocks of the chain:
+
+| Stake that does not build | 10 s | 15 s | 20 s |
+| --- | --- | --- | --- |
+| none | 1.7e-22, 10.0 h | 9.8e-10, 10.0 h | 0.025, 10.0 h |
+| a tenth | 1.7e-11, 10.0 h | 1.1e-3, 10.0 h | 0.79, 10.2 h |
+| a fifth | 4.2e-4, 10.0 h | 0.53, 10.0 h | 1, 11.0 h |
+| 30 % | 0.59, 10.1 h | 1, 11.0 h | 1, 12.0 h |
+
+- The floor counts occupied slots, and a block lost to delay can return as an uncle, so these rows are the worst case. With every lottery win counted, finality is late with chance `1e-9` only when more than 29.0 % of the stake does not build, and the withholding of 30 % gives a median of 10.0 hours and 10.1 at the latest.
+- A coalition can therefore delay finality by withholding. While 30 % withholds, the latest finality is 12.1 hours at 10 s and 13.0 at 15 s, where 2,160 blocks take 31.6 and 34.6 hours at the median. On the specification's Blend it is 10.0 hours at the median and 11.2 at the latest. The delay costs the coalition its rewards.
+- The delay lasts until the inference corrects to the stake that builds. A coalition that starts to withhold at the end of an observation period keeps finality late for 10.5 days.
+- At 15 s there is no margin. With 9.9 % of the stake absent, finality is late with chance `1e-3`, and with 19.8 % half of the time. At 10 s the margin is 12.0 % of the stake at `1e-9`. A delay above `T_M` raises the chance quickly: with all of the stake building, the floor is missed with chance `8.7e-8` at 16 s and `4.6e-6` at 17 s.
+- The derivation takes slots as occupied at `f` while all of the stake builds. The stake inference stores `f` at three decimals, so it settles where slots are occupied at 0.033 a slot, 1 % below `f`. At that rate the whole stake misses the floor at 15 s with chance `5.6e-9`, and the same derivation gives 683. An estimate that is 2 % high for an epoch gives `2.6e-8`. At 10 s the chance stays below `1e-18` in each of these cases. An inference that computes with `f` exactly removes the first effect, and not the noise of its estimate, about 0.9 % an epoch.
+
+The floor holds back a side cut off from the rest until it has made `φ + 1` blocks, or `φ` when its blocks reference the first honest block after the divergence block as an uncle. The table takes `φ + 1`. With `φ`, each figure is lower by 0.1 %:
 
 | The side's share of the stake | Days to fix its fork, mean | Earliest at `1e-9` |
 | --- | --- | --- |
-| 0.1 | 1.92 | 1.47 |
-| 0.2 | 0.96 | 0.74 |
-| 0.25 | 0.77 | 0.59 |
-| 0.3 | 0.64 | 0.49 |
-| a third | 0.58 | 0.44 |
+| 0.1 | 2.36 | 1.86 |
+| 0.2 | 1.18 | 0.93 |
+| 0.25 | 0.95 | 0.75 |
+| 0.3 | 0.79 | 0.62 |
+| a third | 0.71 | 0.56 |
 
-- This is 55 % of what the floor gives at 18 hours: 3.49 days for a tenth and 1.05 for a third.
-- The floor holds back past `K`, with chance `1 − 1e-9`, a side of at most 0.355 of the stake. With 30 % of the stake signing on both sides of a partition, that side's honest part is at most 0.055.
-- **A split in halves.** Each half fixes its own chain after 10 hours, against 18 hours at 64,800 slots and 35.7 hours with 2,160 blocks. After that the split does not heal by itself.
-- **An eclipse.** At mean rates, against a node that received the honest chain until the eclipse began, a third's fork prepared in advance needs an eclipse of about 6.9 hours with no delivery delay, and 5.6 with the delay of the specification's Blend. 18 hours needs 12.5 and 10. A fork of 30 % needs 8.8 and 7.5 hours.
+- This is 53 % of what the floor gives at 18 hours: 4.42 days for a tenth and 1.33 for a third.
+- The floor holds back past `K`, with chance `1 − 1e-9`, a side of at most 0.449 of the stake. With 30 % of the stake signing on both sides of a partition, that side's honest part is at most 0.149.
+- **A split in halves.** Each half fixes its own chain once `φ + 1` of its own blocks follow the split, on average after 11.4 hours with no delay and 12.5 on the specification's Blend, against 21.4 and 23.3 hours at 64,800 slots and 35.7 hours with 2,160 blocks. After that the split does not heal by itself.
+- **An eclipse.** At mean rates, against a node that received the honest chain until the eclipse began, a fork of 30 % prepared in advance needs an eclipse of about 10.8 hours with no delivery delay, and 9.7 with the delay of the specification's Blend. A third's fork needs 8.5 and 7.4 hours, against 15.9 and 13.9 at 18 hours. These are means for one attempt. A coalition can prepare many forks and start with a lucky one: in one attempt of 1,000 the eclipse is about 2 hours shorter.
+
+### Alternatives
+
+- **A floor that 30 % cannot miss on purpose.** v2 sized the floor while 30 % withholds at 10 s, which gives 560. A coalition of 30 % then cannot delay finality by withholding at 10 s. That floor holds back a side of at most 0.355, a split in halves fixes each half after 10 hours, and a prepared fork of 30 % needs an eclipse of about 8.8 hours. The floor used here gives up that timeliness for the larger side, the longer split and the longer eclipse.
+- **A floor sized at 10 s only.** With all of the stake building and every block 10 s late, the floor is 768. At 15 s, the delay that sizes `K`, the whole stake then misses it with chance 0.041.
 
 ## The restart path
 
@@ -151,17 +174,17 @@ The floor holds back a side cut off from the rest until it has made `φ + 1` blo
 ## Comparing forks and the switch
 
 - `s_gen` stays at 16,200 slots. `2·s_gen` is 32,400 slots, 9 hours, within `K`. The proof behind `s_gen` reads two windows after the divergence block, and 10 hours holds 2.2 of them, where 18 hours holds four.
-- The density test now decides forks from 10 to 18 hours old, which the length test decided before. Over one window of `s_gen` at 10 s, a fork of 30 % is at least as dense as the honest chain with chance `6.0·10^-14`. Against a third the same estimate is `3.9·10^-9`, the shortfall of a 4.5-hour window that counting in slots already accepts. These are single-window estimates, not the study's bound. A fork that wins the window is fixed at the switch after 561 blocks, against 1,020 at 18 hours.
-- A fork the Bootstrap rule rejected by density needs a lag to survive the switch. Against 30 % at mean rates the lag is about 8.8 hours with no delivery delay, and 7.2 at 10 s. The last round before the switch closes this when an IBD peer returns the honest tip and serves its blocks, or a peer that is not an IBD peer does so within `T_offline`.
-- The reference code of the rules passes its 49 tests at `K = 36,000` and `φ = 560`, and each of 33 deliberately broken versions fails at least one of them.
+- The density test now decides forks from 10 to 18 hours old, which the length test decided before. Over one window of `s_gen` at 10 s, a fork of 30 % is at least as dense as the honest chain with chance `6.0·10^-14`. Against a third the same estimate is `3.9·10^-9`, the shortfall of a 4.5-hour window that counting in slots already accepts. These are single-window estimates, not the study's bound. A fork that wins the window is fixed at the switch after 690 blocks, against 1,292 at 18 hours.
+- A fork the Bootstrap rule rejected by density needs a lag to survive the switch. Against 30 % at mean rates the lag is about 10.8 hours with no delivery delay, and 8.9 at 10 s. The last round before the switch closes this when an IBD peer returns the honest tip and serves its blocks, or a peer that is not an IBD peer does so within `T_offline`.
+- The reference code of the rules passes its 49 tests at `K = 36,000` and `φ = 689`, and each of 33 deliberately broken versions fails at least one of them.
 
 ## What else reads `K`
 
 - **The epoch.** Every epoch value stays as it is: phases of 194,400, 194,400 and 259,200 slots, an epoch of 648,000 and a `PERIOD` of 388,800. Each phase that waits for a value to finalize lasts at least 5.4 times `K`.
-- **The epoch's waits.** A value is final when its phase ends only if `φ` occupied slots follow it by then. At mean rates the 54-hour phase that waits for the stake snapshot needs 8.5 % of the inferred stake to produce blocks, and the 72-hour phase that waits for the nonce and the inferred stake needs 6.4 %, against 15.5 % and 11.6 % at 18 hours.
+- **The epoch's waits.** A value is final when its phase ends only if `φ` occupied slots follow it by then. At mean rates the 54-hour phase that waits for the stake snapshot needs 10.5 % of the inferred stake to produce blocks, and the 72-hour phase that waits for the nonce and the inferred stake needs 7.9 %, against 19.7 % and 14.7 % at 18 hours.
 - **The uncle window.** It is 360 slots against 36,000.
 - **Blocks above `B_imm`.** About 1,014 on the specification's Blend, against about 1,825 at 18 hours. A node keeps the ledger states of these blocks.
-- **Who waits for `B_imm`.** A Zone that credits a deposit only once the deposit is final ([CHANNEL_DEPOSIT](../bedrock-v1.1-mantle-specification.md#channel_deposit)), and a client that waits for a Zone's inscription to be final ([Sovereign Zones](../bedrock-architecture-overview.md#sovereign-zones)). Each waits `K`, 10 hours in place of 18.
+- **Who waits for `B_imm`.** A Zone that credits a deposit only once the deposit is final ([CHANNEL_DEPOSIT](../bedrock-v1.1-mantle-specification.md#channel_deposit)), and a client that waits for a Zone's inscription to be final ([Sovereign Zones](../bedrock-architecture-overview.md#sovereign-zones)). On a chain that meets the floor each waits `K`, 10 hours in place of 18.
 - **The last round.** Its requests name the block that lies `K` behind the local tip, and the block that lay `K` behind it when the Prolonged Bootstrap Period started. Each lies 10 hours behind in place of 18, so a stream starts at most 34 hours of blocks back when the round starts, against 42.
 - **The block time.** [\[Analysis\] Block Times & Blend Network](../analysis-block-times-blend-network.md) says that Cryptarchia wants shorter block times for faster finality. With `K` sized by the rule above, a shorter block time does not shorten the wait. Against 30 % at 10 s it is 5.9 hours with a block every 30 s, 6.6 with a block every 20 s and 9.5 with a block every 15 s. This RFC does not change that document.
 
@@ -173,11 +196,12 @@ This is a consensus change. Nodes with a different `K` or `φ` can fix different
 
 The figures come from the finality study's bound, run at 10 hours: `tools/simulators/finality` of the research repository. Its notes carry each result with its check: `SLOTS.md` phase K, `SETTLEMENT.md` B6 and B7, `DESIGNS.md` H.2, `SIGNERS.md` M.7 and `UNITS.md` N.2.
 
-Beyond the study's notes, the figures come from three sources:
+Beyond the study's notes, the figures come from four sources:
 
 - The study's bound, run for this RFC: every wait and chance at 10 hours, the waits at 12, 13, 15 and 16 s, the waits with honest stake offline, the waits and shares of [The epoch nonce](#the-epoch-nonce), and the waits with a block every 40, 20 and 15 s.
 - The specifications as printed: the `φ` code and both fork choice rules were run as written, against the reference code's tests.
 - Small models at mean rates: the eclipse, the restart race, the switch lag, the single-window estimates, the days a side needs, the split in halves, the participation the epoch's waits need, and the blocks above `B_imm`.
+- The formula of Finality Floor, a delay per block and a geometric wait: the two tables of [The finality floor](#the-finality-floor) and the times to finality while stake does not build. For the specification's Blend, this formula and the small models take a delay of 5.5 slots per block, fitted so that 64,800 slots hold 1,825 blocks with all of the stake building. v2 scaled the block rate by 0.845 instead.
 
 > **TODO (author):** the study is not on GitHub yet, so none of this can be reproduced by a reviewer. Publish its branch with the models, the reference code and the runs listed here, link that commit in the first sentence, and remove this note.
 
@@ -190,16 +214,10 @@ In [Constants](../cryptarchia-v1-protocol.md#constants):
 - `K` is 36,000 slots, 10 hours, in place of `⌊k/f⌋` = 64,800 slots. Its row no longer sets the Epoch Schedule.
 - The row states the rule that gives `K`: the least whole number of hours that meets its bounds and both of its cases. At 64,800 slots the row required `K` to meet them.
 - The row adds that `K` must not exceed a phase of the Epoch Schedule that waits for a value to finalize. A change that required its cases to be checked again now requires `K` to be sized again.
-- `φ` is 560 occupied slots, in place of 1,019.
+- The row's target `α_max` is 3/10, in place of 1/3.
+- `φ` is 689 occupied slots, in place of 1,291.
 
-In [Finality Floor](../cryptarchia-v1-protocol.md#finality-floor) the share that `K` and the floor are sized against changes:
-
-```diff
--ALPHA_MAX = 1 / 3   # α_max, the share of the stake K and the floor are sized against
-+ALPHA_MAX = 3 / 10  # α_max, the share of the stake K and the floor are sized against
-```
-
-With `K = 36000` and `f = 1/30`, `finality_floor()` returns 560.
+[Finality Floor](../cryptarchia-v1-protocol.md#finality-floor) reads `K` and not `α_max`, so its code does not change. With `K = 36000`, `f = 1/30` and `T_M = 15`, `finality_floor()` returns 689.
 
 ## 2. The epoch keeps its length
 
@@ -210,8 +228,8 @@ Each phase that waits for a value to finalize must still last at least `K` slots
 # Implementation
 
 - [ ] Set the finality window to 36,000 slots, apart from the epoch's unit `⌊k/f⌋`, so that the epoch stays at 648,000 slots and `PERIOD` at 388,800
-- [ ] Set the floor to 560 occupied slots, with `α_max` at 3/10
-- [ ] Add tests: the floor's first and last slot at `K = 36,000` and `φ = 560`, and the epoch's phases at their lengths with `K = 36,000`
+- [ ] Set the floor to 689 occupied slots
+- [ ] Add tests: the floor's first and last slot at `K = 36,000` and `φ = 689`, and the epoch's phases at their lengths with `K = 36,000`
 - [ ] Verify the implementation matches this specification
 
 # Affected Specifications
