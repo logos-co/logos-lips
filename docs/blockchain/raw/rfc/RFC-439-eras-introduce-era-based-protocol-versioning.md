@@ -56,6 +56,7 @@
 | v32 | Blend's Transition Period is the larger of `⌊1/f⌋` and `T_M + 1` rounds, as the implementation computes it, in place of a fixed 30 rounds, and `T ≥ T_M + T_C` follows from it. The active-message task names an epoch without blocks, whose active messages the node rejects, in place of an epoch below the minimal network size, for which no node can build one. Implementation and Discussion cite logos-blockchain#4048 for the record, `target_claims_per_block`, integer `⌊k/f⌋` and the transition period. This changes normative content, so approvals are collected again on v32. | 2026-11-10 |
 | v33 | Implementation ticks seven tasks that node master implements: the fork digest and network names from the genesis block ID, more than one era with the transition period, fork choice and `B_imm` under era k, the claim window, same-era uncles, message routing and the unknown-fork-digest warning, citing logos-blockchain#3774, #3916, #3928 and #3961. The download-failure count of a sync request dropped at the end of the transition period is now its own task, not verified in the implementation. | 2026-11-10 |
 | v34 | Implementation links the node issues that track the tasks with no implementation PR: logos-blockchain#4056 for active messages after an epoch without blocks, #4057 for the last-round proof-of-quota check, and #4058 for the mempool's era-change retirement, the halt and the migration hook. It also links #3902 for the dropped sync request. | 2026-11-10 |
+| v35 | The tests task cites logos-blockchain#4026, merged, whose two scenarios cross into an identity era. | 2026-11-17 |
 
 ## Reviewer Orientation
 
@@ -423,7 +424,7 @@ In the parameter record ([Era Parameters](../bedrock-eras.md#era-parameters)), `
 - [ ] Startup and checkpoint-import halt when an era from `era(sl_B_imm)` to the era in force is not implemented; checkpoint export and import under the checkpoint block's era ([#4058](https://github.com/logos-blockchain/logos-blockchain/issues/4058))
 - [x] Warn the operator when a peer whose identify message announces the node's own protocol version lists an identifier, other than that of Kademlia, with an unknown fork digest ([#3774](https://github.com/logos-blockchain/logos-blockchain/pull/3774))
 - [ ] Regenerate the Cryptarchia test vectors marked `TBD`, for transactions that carry the fork digest, and sign the two uncle headers of the 2-uncle vector
-- [ ] Add or extend tests / test vectors that exercise the change, including a devnet schedule such as `[0, 3]` with an identity era
+- [ ] Add or extend tests / test vectors that exercise the change, including a devnet schedule such as `[0, 3]` with an identity era ([#4026](https://github.com/logos-blockchain/logos-blockchain/pull/4026): two connected nodes cross from era 0 into an identity era 1 at epoch 1, and a node that joins in era 1 synchronizes the era-0 blocks)
 - [ ] Verify the implementation matches this specification
 
 # Affected Specifications
