@@ -12,11 +12,11 @@
 | | Corrected: the cost of the restart path (1.2 hours, not 1.5), the path against the 15 s case, the edges 2.097 and 1.50 and the cases they belong to, the blocks above `B_imm`, the factor `6.9·10^6`, the delay of a shorter Blend, and 6.5 and 7.1 hours in the table | |
 | v3 | [The finality floor](#the-finality-floor) is sized with all of the stake building and every block `T_M` late. It is 689 occupied slots, where v2 had 560 from 30 % withholding at 10 s. Stake that does not build can now delay finality. Every figure that reads the floor follows | 2026-11-17 |
 | | The figures on the specification's Blend take a delay per block in place of a scaled block rate ([Reproducing the figures](#reproducing-the-figures)) | |
-| | The `K` row names a third case, a delay of `Δ` while the inferred stake is the honest stake alone, and states that its first two cases take the inferred stake as equal to the active stake. [What the finality window holds](#what-the-finality-window-holds) gives what 10 hours holds when two of the three cases come together | |
+| | The row at 64,800 slots now names 30 % as well, and three disturbances of which two must be held together. This RFC's row requires one at a time, because 10 hours holds 28 % through any two. [What the finality window holds](#what-the-finality-window-holds) gives the waits | |
 
 ## Reviewer Orientation
 
-Read the PR's Motivation first. The rules that count finality in slots stay as they are. Only the finality window, the floor and the unit of the epoch change.
+Read the PR's Motivation first. The rules that count finality in slots stay as they are. Only the finality window, what its row requires, the floor and the unit of the epoch change.
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
@@ -58,8 +58,8 @@ The wait that holds that chance, in hours:
 | Random delay, a nonce that cannot be ground | 3.1 | 5.1 |
 
 - A deflated inference is what an adversary gets by withholding every block for one observation period, 4.5 days. The inferred stake falls by its share, and every lottery threshold rises by `1/(1 − α)` for the next epoch. With the honest stake alone filling slots at `f`, the fixed delay weighs more.
-- 10 hours holds 30 % through each disturbance that 18 hours holds a third through: a deflated inference, 15 s of worst-case delay, and 90 % of the honest stake online. Without a deflation it holds up to 15 s, and not at 16 s, where the wait is 10.4 hours. After one it holds up to 12 s, where the wait is 8.6 hours, and not at 13 s, where it is 10.1.
-- These three disturbances are the cases of the `K` row. 10 hours holds 30 % through each of them alone, and through one pair: a tenth of the honest stake offline after a deflated inference needs 9.8 hours at 10 s. A delay of 15 s needs 14.0 hours with a tenth of the honest stake offline, and 14.2 after a deflated inference. All three together need 25.3. After 10 hours the chance of displacement is then `3.4·10^-7`, `4.6·10^-7` and `2.8·10^-4` per block. Through any two of the three, 10 hours holds 28 % of the stake, and through all three 26 %.
+- 10 hours holds 30 % through each of three disturbances alone: a deflated inference, 15 s of worst-case delay, and 90 % of the honest stake online. Without a deflation it holds up to 15 s, and not at 16 s, where the wait is 10.4 hours. After one it holds up to 12 s, where the wait is 8.6 hours, and not at 13 s, where it is 10.1.
+- These are the three disturbances of the `K` row, which requires 30 % to be held through one at a time. 10 hours also holds one pair: a tenth of the honest stake offline after a deflated inference needs 9.8 hours at 10 s. A delay of 15 s needs 14.0 hours with a tenth of the honest stake offline, and 14.2 after a deflated inference. All three together need 25.3. After 10 hours the chance of displacement is then `3.4·10^-7`, `4.6·10^-7` and `2.8·10^-4` per block. Through any two of the three, 10 hours holds 28 % of the stake, and through all three 26 %.
 - The rows on honest stake offline read the lottery once the inference has corrected to the stake that is online. At 10 s, with a nonce that resists grinding, 10 hours holds 30 % down to 87 % of the honest stake online, and not at 86 %, where the wait is 10.1 hours.
 - Stake that joins faster than the inference corrects also makes blocks come faster than `f`. At 10 s, without grinding, 10 hours holds 30 % while the true active stake stays within 2.097 times the inferred, against 2.628 times at 18 hours. At 15 s the limit is 1.094, against 1.593 at 18 hours. With the active stake at most 30 % of the supply, it holds whenever the inferred active stake is at least 14.4 % of the supply. A deflation, or a coalition of 30 % entering, makes 1.43.
 - After 10 hours against 30 %, with a nonce that resists grinding, the chance of displacement is `1.0·10^-15` at 10 s, `1.2·10^-14` after a deflated inference, `2.3·10^-13` at 12 s and `3.0·10^-10` at 15 s.
@@ -67,11 +67,11 @@ The wait that holds that chance, in hours:
 
 ### How 10 hours is chosen
 
-`K` is the least whole number of hours that meets every bound and the three cases of its row. The case that binds is the delay of `T_M`, 15 s. Against 30 % its wait is 9.37 hours with the epoch nonce taken as unbiased, as the row takes it, which is a nonce that cannot be ground. It is 9.46 hours with a nonce that resists grinding. Both give 10 hours. The other cases need less: 8.4 hours with a tenth of the honest stake offline at 10 s, and 6.4 after a deflated inference at 10 s. Two density windows need 9.
+`K` is the least whole number of hours that meets every bound and each of the row's three disturbances alone. The disturbance that binds is the delay of `T_M`, 15 s. Against 30 % its wait is 9.37 hours with the epoch nonce taken as unbiased, as the row takes it, which is a nonce that cannot be ground. It is 9.46 hours with a nonce that resists grinding. Both give 10 hours. The other two need less: 8.4 hours with a tenth of the honest stake offline at 10 s, and 6.4 after a deflated inference at 10 s. Two density windows need 9.
 
-The same rule gives 18 hours against a third, where the binding wait is 17.37 hours, or 17.53 with a nonce that resists grinding. So 10 hours keeps against 30 % the delay margin that 18 hours keeps against a third. The nonce's factor is taken at 10 s, where its bound is derived.
+At 64,800 slots the row requires two disturbances to be held together, which needs 14.2 hours against 30 %. 10 hours gives that up: through any two together it holds 28 % of the stake. The nonce's factor is taken at 10 s, where its bound is derived.
 
-`K` no longer follows from `k` and `f`, because the bound behind the three cases is a numerical computation, not a formula. The row links here, and asks for `K` to be sized again and `φ` to be derived again when `k`, `f`, the slot length, `T_M`, the epoch nonce or one of its targets changes. `α_max` is one of those targets.
+`K` no longer follows from `k` and `f`, because the bound behind the three disturbances is a numerical computation, not a formula. The row links here, and asks for `K` to be sized again and `φ` to be derived again when `k`, `f`, the slot length, `T_M`, the epoch nonce or one of its targets changes. `α_max` is one of those targets.
 
 The floor is sized at `T_M` too ([The finality floor](#the-finality-floor)).
 
@@ -116,8 +116,8 @@ Two ground nonces reach only targets past the cut-off and within `K` slots of th
 
 ### Alternatives
 
-- **18 hours against a third.** With a nonce that resists grinding it holds a third at 10 s with a factor of `6.9·10^6` to spare in the chance, and every block waits 8 hours longer.
-- **15 hours against 30 %.** It holds 30 % through any two of the `K` row's three cases together: a delay of 15 s after a deflated inference needs 14.2 hours. Every block then waits 5 hours longer, and the floor is 1,064 occupied slots.
+- **18 hours.** It holds 30 % through any two disturbances together, with 3.8 hours to spare, and a third through each alone. Every block waits 8 hours longer.
+- **15 hours.** It is the least whole number of hours that holds 30 % through any two disturbances together: a delay of 15 s after a deflated inference needs 14.2 hours. Every block then waits 5 hours longer, and the floor is 1,064 occupied slots.
 - **12.5 hours, the least `K` that holds a third.** With a nonce that resists grinding it holds a third at 10 s after a deflated inference, where the wait is 12.48 hours, and no other disturbance. It misses 95 % of the honest stake online, which needs 12.67 hours, and a rise of the true active stake above 1.50 times the inferred.
 - **A settled level beside `B_imm`.** A client rule that reads its own chain gives 10.2 hours against a third at 10 s with a nonce that resists grinding, and waits longer when it sees a deflation. It changes nothing in consensus. But only a client that runs it gains, and `B_imm` and every rule that waits for it keep 18 hours.
 - **A block every 40 seconds.** With `f = 1/40` the wait against a third moves little when blocks speed up: 10.3 hours after a deflation, 11.9 at 12 s and 12.3 at twice the inferred stake, where a block every 30 s needs 12.4, 12.4 and 19.6. About 12.5 hours would hold a third through these. Offline stake gains nothing: 12.7 hours at 95 % online. It costs a quarter of the blocks an hour, and everything sized in blocks must be derived again.
@@ -218,9 +218,9 @@ Beyond the study's notes, the figures come from four sources:
 In [Constants](../cryptarchia-v1-protocol.md#constants):
 
 - `K` is 36,000 slots, 10 hours, in place of `⌊k/f⌋` = 64,800 slots. Its row no longer sets the Epoch Schedule.
-- The row states the rule that gives `K`: the least whole number of hours that meets its bounds and its three cases. At 64,800 slots the row required `K` to meet them.
-- The row adds that `K` must not exceed a phase of the Epoch Schedule that waits for a value to finalize. A change that required its cases to be checked again now requires `K` to be sized again.
-- The row's target `α_max` is 3/10, in place of 1/3.
+- The row requires its target share to be held while at most one of its three disturbances holds, in place of at most two together.
+- The row states the rule that gives `K`: the least whole number of hours that meets its bounds and each disturbance alone. At 64,800 slots the row required `K` to meet its bounds and its pairs.
+- The row adds that `K` must not exceed a phase of the Epoch Schedule that waits for a value to finalize. A change that required the pairs to be checked again now requires `K` to be sized again.
 - `φ` is 689 occupied slots, in place of 1,291.
 
 [Finality Floor](../cryptarchia-v1-protocol.md#finality-floor) reads `K` and not `α_max`, so its code does not change. With `K = 36000`, `f = 1/30` and `T_M = 15`, `finality_floor()` returns 689.
