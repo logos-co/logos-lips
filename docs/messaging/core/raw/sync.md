@@ -232,10 +232,9 @@ The initiator
 #### Frame size limit
 
 A node MUST be able to read a `RangesData` payload of up to `MaxPayloadSize`, 64 MiB (67108864 bytes), once encoded.
-The *frame size limit* of a node is the largest encoded payload it sends.
-It MUST NOT be larger than `MaxPayloadSize`, and a node MAY choose a smaller one.
+The *frame size limit* of a node is the largest encoded payload it sends, which
+MUST NOT be larger than `MaxPayloadSize`, and a node MAY choose a smaller one.
 A responder keeps each response within its frame size limit as described in ["Responding to a `RangesData` payload"](#responding-to-a-rangesdata-payload).
-The only payload that MAY go over it is one that lists the `SyncID`s of a single timestamp that do not fit on their own.
 
 #### Responding to a `RangesData` payload
 
@@ -269,14 +268,49 @@ The responder:
          - `[c, b)` as type `Fingerprint`
 
          `c` has the timestamp of the first `SyncID` that does not fit and a hash of all zero bytes, so that the bound is encoded without its hash (see ["Delta encoding for sequential SyncIDs"](#delta-encoding-for-sequential-syncids)).
-         `[a, c)` MUST contain at least all `SyncID`s with the first timestamp of the range, even if they do not fit, so that every round makes progress.
+         `[a, c)` MUST contain at least all `SyncID`s with the first timestamp of the range, even if they do not fit within the frame size limit, so that every round makes progress.
          The differences in `[c, b)` are found in a later round, and the responder SHOULD NOT transfer messages in `[c, b)` before then.
+
+         For example, the remote peer sends an `ItemSet` with `reconciled` set to `false` over `[(1000, 0), (2000, 0))`.
+         The responder holds the five `SyncID`s below in that range, and only the first three fit within its frame size limit:
+
+         | Timestamp | Hash | Fits |
+         | - | - | - |
+         | 1000 | 0x4a8a769a... | yes |
+         | 1002 | 0x351c5e86... | yes |
+         | 1002 | 0x3560d9c4... | yes |
+         | 1003 | 0xbeabef25... | no |
+         | 1500 | 0x91f0a2b7... | no |
+
+         The first `SyncID` that does not fit has timestamp 1003, so `c` is `(1003, 0)` and the response holds two ranges:
+
+         | Range | Type | Content |
+         | - | - | - |
+         | `[(1000, 0), (1003, 0))` | `ItemSet` with `reconciled` set to `true` | the three `SyncID`s at 1000 and 1002 |
+         | `[(1003, 0), (2000, 0))` | `Fingerprint` | the XOR of the hashes at 1003 and 1500 |
+
+         If only the first two fitted, `c` would be `(1002, 0)` and the `ItemSet` would list only the `SyncID` at 1000, because both `SyncID`s at 1002 must be on the same side of `c`.
       - If the received `ItemSet` has `reconciled` set to `true`, includes the corresponding local range in the response as type `Skip`.
    - When the response to the next received range would go over the frame size limit, the responder stops processing ranges.
    It includes one range of type `Fingerprint` that covers that range and all later ones, from that range's lower bound to the last range's upper bound, with the fingerprint of its local `SyncID`s in it.
    The ranges it covers are processed again in a later round.
+   An unreconciled `ItemSet` whose response does not fit is divided instead, as described above, with the room that is left in the response; the `Fingerprint` then covers only the ranges after it, from its upper bound.
+   When the room that is left cannot hold the `SyncID`s of the first timestamp of that `ItemSet`'s range, the responder stops at that range like at any other, unless it is the first range that is not of type `Skip`.
    The responder MUST process the first received range that is not of type `Skip`, so that every round makes progress.
    A difference MAY therefore be found in more than one round.
+
+     For example, the responder receives the five ranges below, shown with the timestamps of their bounds (all bound hashes are zero).
+     Its answers to the first two ranges fit, but its answer to `[2000, 3000)` would go over its frame size limit:
+
+     | Received range | Received type | Response |
+     | - | - | - |
+     | `[0, 1000)` | `Skip` | `[0, 1000)` as type `Skip` |
+     | `[1000, 2000)` | `Fingerprint` (no match) | `[1000, 2000)` as type `ItemSet` with `reconciled` set to `false` |
+     | `[2000, 3000)` | `Fingerprint` (no match) | `[2000, 5000)` as type `Fingerprint`, over its local `SyncID`s from 2000 up to 5000 |
+     | `[3000, 4000)` | `Fingerprint` | (covered by `[2000, 5000)`) |
+     | `[4000, 5000)` | `Skip` | (covered by `[2000, 5000)`) |
+
+     The response therefore holds three ranges, and the remote peer answers `[2000, 5000)` in the next round like any other `Fingerprint` range.
 5. Before encoding the response:
    - Adjacent `Skip` ranges MAY be merged.
    - A response consisting only of `Skip` ranges MUST be sent as an empty payload.
