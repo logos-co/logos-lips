@@ -20,6 +20,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-04 |
+| 1.1.0 | Added the `mempool` section, the transaction time to live and the retirement grace of [Mempool](mempool.md). | 2026-11-10 |
 
 # Introduction
 
@@ -425,6 +426,8 @@ A field holds the value of its source constant under the rules of the era. The E
 | `gas_profile` | `leader_claim` | `UINT64` | `EXECUTION_LEADER_CLAIM_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
 | `gas_profile` | `claim_pow_reward` | `UINT64` | `EXECUTION_CLAIM_POW_REWARD_GAS` of [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) |
 | `time` | `slot_duration_in_seconds` | `UINT64` | The slot length of [Constants](cryptarchia-v1-protocol.md#constants), in seconds |
+| `mempool` | `transaction_ttl_in_seconds` | `UINT64` | `TRANSACTION_TTL` of [Parameters](mempool.md#parameters) |
+| `mempool` | `retirement_grace_in_seconds` | `UINT64` | `RETIREMENT_GRACE` of [Parameters](mempool.md#parameters) |
 
 ```python
 def uint(width: int) -> Callable[[int], bytes]:
@@ -493,6 +496,8 @@ In every record, the ratios of `execution_market` and `storage_market` and `blen
 In every record, `emission_factor_scale` is at least 1. Otherwise `block_reward` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) divides by zero.
 
 In every record, `rate_den`, `share_den`, `target_claims_per_block`, `max_step` and `target_transactions_per_block` are at least 1, and `pow_share` is at most `share_den`. Otherwise a proof of work update divides by zero, a block pools a negative fee, or the Blend difficulty falls to 0.
+
+In every record, `transaction_ttl_in_seconds` and `retirement_grace_in_seconds` are at least 1. Otherwise the mempool retires every transaction as it admits it, or discards a retired transaction before a proposal that selected it can be rebuilt.
 
 Every era after the first keeps its uncle reference window within the finalization window of the era before it: $`\lfloor W_n \cdot f_n^{-1} \rfloor \le s_{n-1}/5`$, with $`W_n`$, $`f_n`$ and $`s_{n-1}`$ the $`W`$, $`f`$ and $`s`$ of [Constants](cryptarchia-v1-protocol.md#constants) of the era indicated. This adds to the bound of [Uncle Selection](cryptarchia-v1-protocol.md#uncle-selection) within each era. Otherwise, while the latest immutable block still lies in era $`n-1`$, a block of era $`n`$ can reference an uncle whose parent lies below the latest immutable block.
 
