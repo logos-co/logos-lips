@@ -41,6 +41,7 @@
 | 1.8.0 | Refused a neighbor closed as not live for $`W`$ rounds, restarting its liveness count, in place of shutting it out for the rest of the epoch. | 2026-10-30 |
 | 1.8.1 | Derived $`M_W`$ from the messages a neighbor is expected to deliver in an observation window and from the peering degree, in place of a fixed value. | 2026-10-30 |
 | 1.8.2 | Pointed from $`T_M`$ to the finality window and the finality floor in [Constants](cryptarchia-v1-protocol.md#constants), which must be checked again when it changes. | 2026-11-06 |
+| 1.9.0 | Took the epoch's length, 360,000 rounds, from the [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule). | 2026-11-18 |
 
 # Introduction
 
@@ -112,7 +113,7 @@ To have a **truly privacy-preserving system, we need to apply both techniques si
 
 ## Time
 
-- *Epoch* is a period that is defined by the consensus. It lasts for $`648,000`$ slots, each slot lasting 1 second. A new block is proposed for each slot with a probability of $`1/30`$, which translates to $`21,600`$ blocks, as on average, every $`30`$ slots a single block is proposed.
+- *Epoch* is a period that is defined by the consensus. It lasts for the epoch length of the [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule), $`360,000`$ slots, each slot lasting 1 second. A new block is proposed for each slot with a probability of $`1/30`$, which translates to $`12,000`$ blocks, as on average, every $`30`$ slots a single block is proposed.
 - *Round* is the primitive measure of time in the protocol. It defines a period during which a node can emit a new message. The definition of a round is also important for defining the message releasing logic, which handles the randomized emission delay for processed messages. In this version of the protocol, the length of the round is 1 second (an equivalent of a single slot).
 
 # Overview
@@ -473,7 +474,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 ## Global Parameters
 
 - $`\Delta_{max}=3`$, as defined in the [Delaying](#delaying) section below.
-- $E=648000$, the number of rounds per epoch.
+- $E=360000$, the number of rounds per epoch, the epoch length of the [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule).
 - $`\beta_{max} = 3`$, the maximum number of blending operations of a single message.
 - $`\beta_C=3`$, the expected number of blending operations for each cover message;
 - $`\beta_D=3`$, the expected number of blending operations for each data message;
@@ -666,10 +667,10 @@ where $`L_{Avg}`$ is the average number of leaders per epoch.
 The $`L_{Avg}`$ depends on the consensus leader election algorithm, which at the time of writing can be estimated as follows:
 
 $$
-L_{Avg} = E \cdot F_D = \dfrac{648000}{30} = 21600,
+L_{Avg} = E \cdot F_D = \dfrac{360000}{30} = 12000,
 $$
 
-where $`E=648000`$ and $`F_D=1/30`$ are taken from the [Cryptarchia Protocol](cryptarchia-v1-protocol.md). This is equivalent to the average rate of a slot having an elected leader.
+where $`E=360000`$ and $`F_D=1/30`$ are taken from the [Cryptarchia Protocol](cryptarchia-v1-protocol.md). This is equivalent to the average rate of a slot having an elected leader.
 
 Finally, let us define the leadership quota for node $`n`$ ($`Q^{n}_L`$), which can **only** be calculated by the node $`n`$:
 
@@ -910,7 +911,7 @@ At the rates above:
 
 $$
 \begin{aligned}
-(648000 + 30) \cdot \left(1 + \dfrac{130}{30}\right) \cdot 3 \cdot 32 = 331791360 \approx 332\,\mathrm{MB}
+(360000 + 30) \cdot \left(1 + \dfrac{130}{30}\right) \cdot 3 \cdot 32 = 184335360 \approx 184\,\mathrm{MB}
 \end{aligned}
 $$
 
