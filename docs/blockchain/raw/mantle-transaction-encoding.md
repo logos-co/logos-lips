@@ -192,9 +192,6 @@ OutputCount = Byte
 ```schema
 Inscribe = UINT32 1*BYTE ; Min 1 byte, max MAX_OPERATION_DATA_SIZE bytes
 ```
-
-A decoder MUST reject an `Inscribe` whose payload is empty or longer than `MAX_OPERATION_DATA_SIZE` bytes.
-
 ## Ledger
 
 ```schema
