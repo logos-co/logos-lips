@@ -7,6 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-17 |
+| v2 | An inscription holds at least one byte | 2026-11-18 |
 
 ## Reviewer Orientation
 
@@ -14,8 +15,8 @@ Read the PR's Motivation first. The private ledger of [RFC-480](RFC-480-mantle-p
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
-| 1 | Critical | **Start here**: [Mantle](#affected-specifications), [the Inscribe Operation](#1-the-inscribe-operation) | an Operation with an empty proof: what binds it to its transaction and what does not, the opcode, the size bound |
-| 2 | High | [Mantle Transaction Encoding](#affected-specifications), [encoding](#2-encoding) | the `Inscribe` production: an `Inscription`, under the bound of a channel inscription |
+| 1 | Critical | **Start here**: [Mantle](#affected-specifications), [the Inscribe Operation](#1-the-inscribe-operation) | an Operation with an empty proof: what binds it to its transaction and what does not, the opcode, the size bounds |
+| 2 | High | [Mantle Transaction Encoding](#affected-specifications), [encoding](#2-encoding) | the `Inscribe` production: an `Inscription` of at least one byte, under the bound of a channel inscription |
 | 3 | High | [Mantle](#affected-specifications), [the delivery inscription](#3-the-delivery-inscription) | what the hash covers and in which order, what a node checks, the steps signed before their transaction |
 | 4 | Medium | [Mantle](#affected-specifications), [Execution Gas](#4-execution-gas) | the Execution Gas is not determined yet |
 | 5 | Low | [Mantle](#affected-specifications) and [Cryptarchia](#affected-specifications), [test vectors](#5-test-vectors) | reproduce them |
@@ -41,7 +42,9 @@ No key signs an inscription. It is bound to its Mantle Transaction by the proofs
 
 An Inscribe Operation carries no value, so it cannot be the only Operation of a transaction: another one pays the fees.
 
-## The size bound
+## The size bounds
+
+An inscription holds at least one byte. An empty channel inscription still moves the tip of its channel and can carry steps, where an empty inscription of this Operation would do nothing at all.
 
 An inscription is bounded as a channel inscription is, by `MAX_OPERATION_DATA_SIZE`, 1,835,008 bytes, and is encoded the same way. One bound and one encoding for the data Operations carry is simpler for implementations than a second constant, and the bytes of an inscription pay the Permanent Storage fee as those of a channel do.
 
@@ -77,11 +80,11 @@ The opcode `0x02` was reserved, so no encoded transaction changes meaning. The p
 
 ```python
 class Inscribe:
-    inscription: bytes  # at most MAX_OPERATION_DATA_SIZE bytes
+    inscription: bytes  # from 1 to MAX_OPERATION_DATA_SIZE bytes
 ```
 
 - The proof is empty.
-- Validation is one check: `len(inscribe.inscription) <= MAX_OPERATION_DATA_SIZE`.
+- Validation is one check: `1 <= len(inscribe.inscription) <= MAX_OPERATION_DATA_SIZE`.
 - Execution leaves the ledger state unchanged.
 - A Mantle Transaction can hold any number of them. The ledger reads none.
 - An application should start its inscription with a tag of its own.
@@ -93,10 +96,10 @@ The list of the proofs not bound to the `mantle_txhash` gains one entry for it.
 [Inscribe Operation](../mantle-transaction-encoding.md#inscribe-operation) is new, and `Inscribe` joins the alternatives of `OpPayload`:
 
 ```schema
-Inscribe = Inscription ; at most MAX_OPERATION_DATA_SIZE bytes
+Inscribe = Inscription ; from 1 to MAX_OPERATION_DATA_SIZE bytes
 ```
 
-`Inscription` is the production channels use, a `UINT32` length and its bytes. A decoder MUST reject an `Inscribe` whose declared or decoded payload length exceeds `MAX_OPERATION_DATA_SIZE`. The proof is the `EmptyProof`.
+`Inscription` is the production channels use, a `UINT32` length and its bytes. A decoder MUST reject an `Inscribe` whose declared or decoded payload length is zero or exceeds `MAX_OPERATION_DATA_SIZE`. The proof is the `EmptyProof`.
 
 ## 3. The delivery inscription
 
@@ -137,8 +140,8 @@ No other vector changes. The ten Operation Ids, the transaction hash, the ten le
 
 # Implementation
 
-- [ ] `core`: the `Inscribe` Operation with opcode `0x02`, its codec with the rejection above `MAX_OPERATION_DATA_SIZE`, its empty proof and its Operation Id.
-- [ ] Ledger: the size check, no state change.
+- [ ] `core`: the `Inscribe` Operation with opcode `0x02`, its codec with the rejection of an empty inscription and of one above `MAX_OPERATION_DATA_SIZE`, its empty proof and its Operation Id.
+- [ ] Ledger: the size checks, no state change.
 - [ ] The Operation in the API types, the C bindings and the transaction builder.
 - [ ] Wallet: a transfer whose outputs are delivered by delivery messages adds the delivery inscription.
 - [ ] Measure the Execution Gas of the Operation with the gas benchmark, and set `EXECUTION_INSCRIBE_GAS`.

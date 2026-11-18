@@ -1818,10 +1818,10 @@ An application should start its inscription with a tag of its own, so that a rea
 
 ```python
 class Inscribe:
-    inscription: bytes  # at most MAX_OPERATION_DATA_SIZE bytes
+    inscription: bytes  # from 1 to MAX_OPERATION_DATA_SIZE bytes
 ```
 
-The bound is that of a channel inscription, the `MAX_OPERATION_DATA_SIZE` of [Mantle Transaction Encoding](mantle-transaction-encoding.md#inscribe-operation).
+An inscription holds at least one byte. The upper bound is that of a channel inscription, the `MAX_OPERATION_DATA_SIZE` of [Mantle Transaction Encoding](mantle-transaction-encoding.md#inscribe-operation).
 
 ### Proof
 
@@ -1843,9 +1843,9 @@ inscribe: Inscribe
 
   *Validate*
 
-  1. Ensure the inscription does not exceed `MAX_OPERATION_DATA_SIZE`.
+  1. Ensure the inscription is not empty and does not exceed `MAX_OPERATION_DATA_SIZE`.
       ```python
-      assert len(inscribe.inscription) <= MAX_OPERATION_DATA_SIZE
+      assert 1 <= len(inscribe.inscription) <= MAX_OPERATION_DATA_SIZE
       ```
 
 ### Execution
