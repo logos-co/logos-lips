@@ -36,6 +36,7 @@
 | 1.6.0 | Declarations are removed at `withdraw_at + 1`, one epoch after the node stops, making the last served epoch rewardable | 2026-09-03 |
 | 1.7.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a declaration covers one service, a note backs one declaration per service, and a `nonce` carries the `created` epoch of its declaration | 2026-10-01 |
 | 1.8.0 | The minimum stake is one `MinStake` of `threshold` and the block number `timestamp`, matching the implementation | 2026-10-27 |
+| 1.9.0 | The minimum stake and the service parameters are those of the era of a block's slot, and carry neither a `timestamp` nor an epoch; service-type bytes run from 0 without gaps ([Bedrock Eras](bedrock-eras.md)) | 2026-11-05 |
 
 # Introduction
 
@@ -91,18 +92,17 @@ class ServiceType(Enum):
 
 A declaration can be generated for any of the services above. Any declaration that is not one of the above must be rejected. The number of services might grow in the future.
 
-Each service type is assigned a one-byte discriminant, given by the enum value above. This byte is the canonical encoding of a `ServiceType` and is used wherever a `ServiceType` is serialized or hashed: the transaction wire form ([Mantle Transaction Encoding](mantle-transaction-encoding.md)), the `declaration_id` preimage ([Declaration Storage](#declaration-storage)), and the reward `op_id` preimage ([Service Reward Distribution](bedrock-service-reward-distribution.md)).
+Each service type is assigned a one-byte discriminant, given by the enum value above. With $`N`$ service types, the discriminants are 0 to $`N-1`$, each used once, so a new service type takes the next byte. Otherwise the service parameters of an era's parameter record, an array indexed by this byte ([Era Parameters](bedrock-eras.md#era-parameters)), have an entry with no service type. This byte is the canonical encoding of a `ServiceType` and is used wherever a `ServiceType` is serialized or hashed: the transaction wire form ([Mantle Transaction Encoding](mantle-transaction-encoding.md)), the `declaration_id` preimage ([Declaration Storage](#declaration-storage)), and the reward `op_id` preimage ([Service Reward Distribution](bedrock-service-reward-distribution.md)).
 
 ### Minimum Stake
 
-The minimum stake is a global value that defines the minimum stake a node must have to perform any service.
+The minimum stake defines the minimum stake a node must have to perform any service. It is an era parameter, the `min_stake` of the era's parameter record ([Era Parameters](bedrock-eras.md#era-parameters)). The minimum stake in force for a block is that of the era of the block's slot ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)).
 
-The minimum stake is one `MinStake`, which holds the `threshold`, a [`TokenValue`](bedrock-v1.1-mantle-specification.md#notes), and the `timestamp`, a `BlockNumber`. A `BlockNumber` is a 64-bit unsigned integer. The `timestamp` exists only to match the deployment configuration of the implementation. No rule reads it.
+The minimum stake is one `MinStake`, which holds the `threshold`, a [`TokenValue`](bedrock-v1.1-mantle-specification.md#notes).
 
 ```python
 class MinStake:
     threshold: TokenValue
-    timestamp: BlockNumber
 ```
 
 For more information on how the minimum stake is calculated, please refer to the [\[Analysis\] Static Minimum Stake Estimation for Service Declaration Protocol](analysis-static-minimum-stake-estimation-for-service-declaration-protocol.md).
@@ -112,19 +112,13 @@ For more information on how the minimum stake is calculated, please refer to the
 The service parameters structure defines the parameters set necessary for correctly handling interaction between the protocol and services. Each of the service types defined above must be mapped to a set of the following parameters:
 
 - `inactivity_period` defines the number of epochs after the epoch recorded in `active` for which the declaration remains active; after that, it is inactive and excluded from the service's participant set in the same way as a withdrawn declaration ([**Withdraw**](#withdraw)). A value of `2 + k` tolerates `k` consecutive missed reports ([Message Timing](#message-timing)). Any value below 2 excludes every declaration.
-- `epoch` defines the epoch number at which the parameter was set; it is an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch).
 
 ```python
 class ServiceParameters:
     inactivity_period: NumberOfEpochs
-    epoch: EpochNumber
 ```
 
-The `parameters` is a structure aggregating all defined `ServiceParameters` values.
-
-```python
-parameters: list[ServiceParameters]
-```
+The service parameters are an era parameter, the `service_params` of the era's parameter record ([Era Parameters](bedrock-eras.md#era-parameters)). Those in force for a block are those of the era of the block's slot ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)).
 
 ### Snapshots
 
@@ -426,5 +420,4 @@ For more information about Mantle and ZK proofs, please refer to [Mantle](bedroc
 ```python
 class BlendNetworkServiceParameters:
     inactivity_period: 2
-    epoch: 0
 ```
