@@ -15,6 +15,7 @@
 | | The row at 64,800 slots now names 30 % as well, and three disturbances of which two must be held together. This RFC's row requires one at a time, because 10 hours holds 28 % through any two. [What the finality window holds](#what-the-finality-window-holds) gives the waits | |
 | | The epoch nonce stays as it is, where v2 waited for a nonce that resists grinding. [The epoch nonce](#the-epoch-nonce) gives what the bound proves with it at 10 hours in every state of the row, and what can be played | |
 | | Corrected three figures against the study: the waits with two ground nonces, the days for which finality stays late, and the wait after a deflated inference at 8 s | |
+| | [Reproducing the figures](#reproducing-the-figures) links the published study and the folder that holds every script behind the figures | |
 
 ## Reviewer Orientation
 
@@ -195,7 +196,7 @@ This is a consensus change. Nodes with a different `K` or `φ` can fix different
 
 ## Reproducing the figures
 
-The figures come from the finality study's bound, run at 10 hours: `tools/simulators/finality` of the research repository. Its notes carry each result with its check: `SLOTS.md` phase K, `SETTLEMENT.md` B6 and B7, `DESIGNS.md` H.2, `SIGNERS.md` M.7 and `UNITS.md` N.2.
+The figures come from the finality study's bound, run at 10 hours: [`tools/simulators/finality`](https://github.com/logos-blockchain/research/tree/0df6f2bb239a8eee6f2ab9267bad3abb7d894b57/tools/simulators/finality) of the research repository at commit `0df6f2bb`. Its notes carry each result with its check: `SLOTS.md` phase K, `SETTLEMENT.md` B6 and B7, `DESIGNS.md` H.2, `SIGNERS.md` M.7 and `UNITS.md` N.2.
 
 Beyond the study's notes, the figures come from four sources:
 
@@ -204,7 +205,7 @@ Beyond the study's notes, the figures come from four sources:
 - Small models at mean rates: the eclipse, the restart race, the switch lag, the single-window estimates, the days a side needs, the split in halves, the participation the epoch's waits need, and the blocks above `B_imm`.
 - The formula of Finality Floor, a delay per block and a geometric wait: the two tables of [The finality floor](#the-finality-floor) and the times to finality while stake does not build. For the specification's Blend, this formula and the small models take a delay of 5.5 slots per block, fitted so that 64,800 slots hold 1,825 blocks with all of the stake building. v2 scaled the block rate by 0.845 instead.
 
-> **TODO (author):** the study is not on GitHub yet, so none of this can be reproduced by a reviewer. Publish its branch with the models, the reference code and the runs listed here, link that commit in the first sentence, and remove this note.
+The scripts of these four sources and their stored outputs are in the study's folder [`slot-finality`](https://github.com/logos-blockchain/research/tree/0df6f2bb239a8eee6f2ab9267bad3abb7d894b57/tools/simulators/finality/slot-finality). Its README lists each script with its command, its output and its recheck.
 
 # Details
 
