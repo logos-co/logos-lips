@@ -1649,7 +1649,7 @@ pow_nullifiers: set[zkhash]
 
 ### PROGRAM_REGISTER
 
-This Operation registers a [program](#programs) by its Groth16 verification key. Anyone can register a program: a program governs only the notes whose `program` field is its identifier, so a faulty program can only lose the notes its users gave it.
+This Operation registers a [program](#programs) by its Groth16 verification key and the ABI of its proofs. Anyone can register a program: a program governs only the notes whose `program` field is its identifier, so a faulty program can only lose the notes its users gave it.
 
 #### Payload
 
@@ -1659,27 +1659,168 @@ class Groth16VerificationKey:
     beta: G2
     gamma: G2
     delta: G2
-    ic: list[G1]  # (len = 4) one point per public input of a program proof, plus one
+    ic: list[G1]  # one point per public input of a program proof, plus one
 
 class ProgramRegister:
     verification_key: Groth16VerificationKey
+    abi: list[Expr]  # one expression per public input of a program proof, in order
 ```
 
 `G1` and `G2` are points of the groups of BN254 of these names, and `alpha`, `beta`, `gamma`, `delta` and `ic` are the points of a [Groth16](common-cryptographic-components.md#groth16-zk-snark) verification key.
 
-A program proof always has the three public inputs `program_step_id`, `program_deposits_hash` and the `op_id` of its inscription. Since the size of a Groth16 verification key depends only on its number of public inputs, every program key has the same size, and the ledger stores and verifies every program the same way.
+A program declares in its ABI, for each public input of its proofs, how the ledger builds it from public data of the Mantle Transaction ([Program ABI](#program-abi)). Program keys therefore differ in size with their number of public inputs. The Groth16 wrapper of a zkVM shares one key across all its guests, and the ABI, with its constants, tells their programs apart.
 
-The identifier of a program is derived from its key:
+The identifier of a program is derived from its key and its ABI:
 
 ```python
-def derive_program_id(key: Groth16VerificationKey) -> ProgramId:
+def derive_program_id(key: Groth16VerificationKey, abi: list[Expr]) -> ProgramId:
     h = Hasher() # /!\ This is a classic hash not a zkhash /!\
     h.update(b"PROGRAM_ID_V1")
     h.update(encode(key))
+    h.update(encode(abi))  # the ProgramAbi of the encoding, its count included
     return FiniteField(h.digest(), byte_order="little", modulus= p)
 ```
 
-The digest is reduced modulo $`p`$ as `op_id` is, since `ProgramId` is a field of the note commitment.
+The digest is reduced modulo $`p`$ as `op_id` is, since `ProgramId` is a field of the note commitment. The identifier covers the ABI and its constants, so programs sharing a key differ by their ABI.
+
+#### Program ABI
+
+The ABI of a program is a list of expressions, one per public input of its proofs, in order. An `Expr` is a tree whose leaves are constants and sources, public values of a program step and of its Mantle Transaction, and whose nodes apply a fixed operation to their children, with no loop, so the ledger knows the type of every expression from the ABI alone. A program runs its logic in its circuit: its ABI only fixes the public data its proofs see. The [encoding](mantle-transaction-encoding.md#program-operations) of each node starts with the byte of its kind.
+
+Two parameters bound an ABI:
+
+```python
+MAX_PROGRAM_INPUTS = 12  # maximum number of public inputs of a program proof
+MAX_ABI_NODES = 64       # maximum number of nodes of all the expressions of an ABI together
+```
+
+`MAX_PROGRAM_INPUTS` bounds the size of a key and the work of a verification, each public input adding a point to the key of a program and a scalar multiplication in $`\mathbb{G}_1`$ to every verification of its proofs. A decoder must reject an ABI as soon as it reads more nodes than `MAX_ABI_NODES`, so the nesting of an expression, at most its number of nodes, is bounded while the ABI is read, before it is validated.
+
+**Types.** The type of an expression is `field`, a field element, `bytes(n)`, bytes of a length `n` known from the ABI, or `bytes(*)`, bytes of a length known only at evaluation. A source has one of these types or the type of a list, `list[field]` or `list[(TokenValue, field)]`. A node reads each child as bytes or as field elements:
+
+| Type | Read as bytes | Read as field elements |
+| --- | --- | --- |
+| `field` | its 32 bytes, little-endian and canonical: `bytes(32)` | itself |
+| `bytes(n)`, `bytes(*)` | themselves | not readable |
+| `TokenValue`, in a pair | its 8 bytes, little-endian | its integer |
+| `list[field]`, `list[(TokenValue, field)]` | its count on 4 bytes, little-endian, then its elements, a pair as its two elements in order: `bytes(*)` | its count, then its elements, a pair as its two elements in order |
+
+The count of a list comes first, so two different lists never read the same.
+
+**Nodes.**
+
+| Node | Type | Value |
+| --- | --- | --- |
+| `Const(b)` | `bytes(len(b))` | the bytes `b` |
+| `FConst(x)` | `field` | the field element `x` |
+| `Src(s)` | the type of the source `s` | the value of the source `s` |
+| `Concat(es)` | `bytes(n)`, `n` the sum of the lengths of its children read as bytes if all are known, `bytes(*)` otherwise | the concatenation of its children read as bytes, in order |
+| `Sha256(e)` | `bytes(32)` | the SHA-256 digest of its child read as bytes |
+| `ZkHash(es)` | `field` | `zkhash` of its children read as field elements, in order |
+| `Fr(e)` | `field` | the little-endian integer of its child read as bytes, reduced modulo $`p`$ |
+| `Lo128(e)` | `field` | the little-endian integer of the bytes 0 to 15 of its child read as bytes |
+| `Hi128(e)` | `field` | the little-endian integer of the bytes 16 to 31 of its child read as bytes |
+| `Rev(e)` | `bytes(32)` | its child read as bytes, in reverse order |
+| `Mask253(e)` | `field` | the low 253 bits of the little-endian integer of its child read as bytes |
+
+These nodes build the public inputs of plain Groth16 circuits, which hash field elements with `zkhash`, and of the Groth16 wrappers of zkVMs, which split a SHA-256 digest into two 128-bit halves, or read it big-endian and keep its low 253 bits.
+
+`abi_type_checks(abi)` holds when every expression of `abi` has the type `field` and each of its nodes follows the rule of its kind:
+
+- A `Concat` or a `ZkHash` has at least one child.
+- Each child of a `ZkHash` has the type `field` or the type of a list.
+- The child of a `Lo128`, a `Hi128`, a `Rev` or a `Mask253` reads as exactly 32 bytes: it has the type `bytes(32)` or `field`.
+- The children of a `Concat`, a `Sha256` or an `Fr` have any type, an `Fr` reading bytes of any length.
+
+An ABI that type-checks evaluates on every program step without failing, so the program proof alone decides whether the program accepts a step.
+
+**Sources.**
+
+| Source | Type | Value |
+| --- | --- | --- |
+| `OP_ID` | `bytes(32)` | the `op_id` of the Inscribe Operation |
+| `TXHASH` | `bytes(32)` | the `mantle_txhash` of the Mantle Transaction |
+| `PROGRAM_ID` | `field` | the `program_id` of the step |
+| `PROGRAM_STEP_ID` | `field` | the `program_step_id` of the step |
+| `STEP_INPUTS` | `list[field]` | the `inputs` of the step |
+| `STEP_PROGRAM_OUTPUTS` | `list[field]` | the `program_outputs` of the step |
+| `STEP_OUTPUTS` | `list[field]` | the `outputs` of the step |
+| `STEP_INSCRIPTION` | `bytes(*)` | the `inscription` of the step |
+| `PROGRAM_DEPOSITS` | `list[(TokenValue, field)]` | the `(value, intent)` of the program deposits the step consumes, in their order in the mini-block |
+| `CHANNEL` | `bytes(32)` | the `channel` of the Inscribe |
+| `SIGNER` | `bytes(32)` | the `signer` of the Inscribe |
+
+Every source is fixed by the Mantle Transaction, independent of the block carrying it, and excludes every proof and opening, so a sequencer proves a program step once the Mantle Transaction is fixed. The Mantle Transaction as a whole is no source, since a proof can use it only through a hash, which `TXHASH` is. The record of the channel is no source, since it holds slots and a sequencer index that a reorg changes, and `OP_ID` covers `parent`, which chains the messages of the channel. Time is no source, since the sequencer proves a step before it knows the block that carries it, and so its slot.
+
+**Evaluation.** The ledger builds the public inputs of the program proof of a program step ([CHANNEL_INSCRIBE](#channel_inscribe)) with `evaluate_abi`, from the ABI of its program, the Inscribe carrying the step, the step, the program deposits it consumes, the `op_id` of the Inscribe Operation and the `mantle_txhash`. `sha256` is SHA-256, and `zkhash` hashes in its [hash mode](common-cryptographic-components.md#hash-mode) at any number of elements.
+
+```python
+def evaluate_abi(abi: list[Expr], msg: Inscribe, step: ProgramStep,
+                 program_deposits: list[ProgramDeposit], op_id: hash, txhash: hash) -> list[FieldElement]:
+    sources = {
+        OP_ID: op_id,
+        TXHASH: txhash,
+        PROGRAM_ID: step.program_id,
+        PROGRAM_STEP_ID: step.program_step_id,
+        STEP_INPUTS: step.inputs,
+        STEP_PROGRAM_OUTPUTS: step.program_outputs,
+        STEP_OUTPUTS: step.outputs,
+        STEP_INSCRIPTION: step.inscription,
+        PROGRAM_DEPOSITS: [(program_deposit.value, program_deposit.intent)
+                           for program_deposit in program_deposits],
+        CHANNEL: msg.channel,
+        SIGNER: msg.signer,
+    }
+
+    def as_bytes(value) -> bytes:  # a value read as bytes
+        if isinstance(value, list):  # its count, then its elements
+            return len(value).to_bytes(4, "little") + b"".join(as_bytes(element) for element in value)
+        if isinstance(value, tuple):  # a pair, as its two elements in order
+            return b"".join(as_bytes(element) for element in value)
+        if isinstance(value, FieldElement):
+            return int(value).to_bytes(32, "little")  # canonical, below p
+        if isinstance(value, TokenValue):
+            return value.to_bytes(8, "little")
+        return value  # bytes
+
+    def as_fields(value) -> list[FieldElement]:  # a value read as field elements
+        if isinstance(value, list):  # its count, then its elements
+            return ([FiniteField(len(value), byte_order="little", modulus=p)]
+                    + [x for element in value for x in as_fields(element)])
+        if isinstance(value, tuple):  # a pair, as its two elements in order
+            return [x for element in value for x in as_fields(element)]
+        if isinstance(value, TokenValue):
+            return [FiniteField(value, byte_order="little", modulus=p)]
+        return [value]  # a field element
+
+    def evaluate(expr: Expr):
+        match expr:
+            case Const(b):
+                return b
+            case FConst(x):
+                return x
+            case Src(s):
+                return sources[s]
+            case Concat(es):
+                return b"".join(as_bytes(evaluate(e)) for e in es)
+            case Sha256(e):
+                return sha256(as_bytes(evaluate(e)))
+            case ZkHash(es):
+                return zkhash(*[x for e in es for x in as_fields(evaluate(e))])
+            case Fr(e):
+                return FiniteField(as_bytes(evaluate(e)), byte_order="little", modulus=p)
+            case Lo128(e):
+                return FiniteField(as_bytes(evaluate(e))[:16], byte_order="little", modulus=p)
+            case Hi128(e):
+                return FiniteField(as_bytes(evaluate(e))[16:], byte_order="little", modulus=p)
+            case Rev(e):
+                return as_bytes(evaluate(e))[::-1]
+            case Mask253(e):
+                data = as_bytes(evaluate(e))
+                return FiniteField(data[:31] + bytes([data[31] & 0x1f]), byte_order="little", modulus=p)
+
+    return [evaluate(expr) for expr in abi]  # each a field element, abi_type_checks(abi) holding
+```
 
 #### Proof
 
@@ -1708,6 +1849,14 @@ register: ProgramRegister
           assert is_valid_g2(point)
       ```
 
+  2. Ensure the ABI has one expression per public input of the key, at least one and at most `MAX_PROGRAM_INPUTS`, at most `MAX_ABI_NODES` nodes, and that every expression type-checks to a field element ([Program ABI](#program-abi)).
+      ```python
+      assert len(key.ic) == len(register.abi) + 1
+      assert 1 <= len(register.abi) <= MAX_PROGRAM_INPUTS
+      # at most MAX_ABI_NODES nodes, which the decoder enforces while reading the ABI
+      assert abi_type_checks(register.abi)
+      ```
+
 #### Execution
 
   *Given*
@@ -1720,13 +1869,15 @@ ledger: Ledger
 
   *Execute*
 
-Store the key under its identifier, with the pairing $`e(\alpha, \beta)`$ of its points. Registering a key already registered has no effect.
+Store the key and the ABI under the identifier of the program, with the pairing $`e(\alpha, \beta)`$ of the points of the key. Registering a program already registered has no effect.
 
 ```python
-program_id = derive_program_id(register.verification_key)
+program_id = derive_program_id(register.verification_key, register.abi)
 if program_id not in ledger.programs:
     key = register.verification_key
-    ledger.programs[program_id] = Groth16StoredKey(key=key, alpha_beta=pairing(key.alpha, key.beta))
+    ledger.programs[program_id] = Groth16StoredKey(key=key,
+                                                   alpha_beta=pairing(key.alpha, key.beta),
+                                                   abi=register.abi)
 ```
 
 The pairing $`e(\alpha, \beta)`$, an element of $`\mathbb{G}_T`$ of 384 bytes, is the costliest part of what a verification derives from the key alone; it is computed once and paid by the registration. The line coefficients of the pairings with $`-\gamma`$ and $`-\delta`$ are not stored, since they would take tens of kilobytes of ledger state per program: each program proof computes them, and pays for it.
@@ -1956,13 +2107,14 @@ class RecentRoot:
 
 class Groth16StoredKey:
     key: Groth16VerificationKey
-    alpha_beta: GT  # the pairing e(alpha, beta), computed at registration
+    alpha_beta: GT   # the pairing e(alpha, beta), computed at registration
+    abi: list[Expr]  # the expressions building the public inputs of a proof of the program
 
 class Ledger:
     sets: list[NoteSet]  # indexed as in the table above
     # the channel and SDP withdrawals waiting for their due slot: (due slot, note set, inputs, outputs)
     pending_withdrawals: list[(Slot, int, list[NoteNullifier], list[NoteCommitment])]
-    programs: dict[ProgramId, Groth16StoredKey]  # the registered programs: their key and e(alpha, beta)
+    programs: dict[ProgramId, Groth16StoredKey]  # the registered programs: their key, e(alpha, beta) and ABI
 
 def empty_note_set() -> NoteSet:
     return NoteSet(
