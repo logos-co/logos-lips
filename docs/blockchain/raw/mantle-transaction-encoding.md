@@ -37,7 +37,7 @@
 | 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
 | 1.11.0 | [RFC] `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-10-27 |
 | 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CommitmentRoot` and `Value`, user steps, tagged by their kind and with their own `Inscription`, in the `MiniBlocks` of `ChannelInscribe`, holder withdrawals, the `Inscription` of `ChannelDeposit`, the SDP payloads over notes with `NotePk` in `SDPDeclare` and no `Nonce` in `SDPWithdraw`, `PowNonce` and no `EpochNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-11-06 |
-| 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user steps, program deposits and program steps in the `MiniBlocks` of `ChannelInscribe`, tagged by their kind, with their proofs and the openings of the program notes with their `NoteStakePk`, each step with its own `Inscription` and each program step with its `ProgramOutputs` before its `Outputs`, `NoteStakePk` in `SDPDeclare`, the `Groth16` terminal renamed `Groth16Proof`, and the format of compressed points | 2026-11-06 |
+| 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey` and the `ProgramAbi` building the public inputs of its proofs, user steps, program deposits and program steps in the `MiniBlocks` of `ChannelInscribe`, tagged by their kind, with their proofs and the openings of the program notes with their `NoteStakePk`, each step with its own `Inscription` and each program step with its `ProgramOutputs` before its `Outputs`, `NoteStakePk` in `SDPDeclare`, the `Groth16` terminal renamed `Groth16Proof`, and the format of compressed points | 2026-11-06 |
 
 # Introduction
 
@@ -165,15 +165,50 @@ PowNonce       = FieldElement ; value searched for a ticket satisfying the rewar
 ### Program Operations
 
 ```schema
-ProgramRegister       = Groth16VerificationKey
+ProgramRegister       = Groth16VerificationKey ProgramAbi
 Groth16VerificationKey = Alpha Beta Gamma Delta IC
 Alpha                 = G1Point
 Beta                  = G2Point
 Gamma                 = G2Point
 Delta                 = G2Point
-IC                    = 4G1Point ; one point per public input of a program proof, plus one
+IC                    = ICCount *G1Point ; one point per public input of a program proof, plus one
+ICCount               = Byte
 ProgramId             = FieldElement
+
+ProgramAbi  = ExprCount *Expr ; one Expr per public input of a program proof, in order
+ExprCount   = Byte
+Expr        = (ConstKind Const) / (FConstKind FConst) / (SrcKind Src)
+              / (ConcatKind Concat) / (Sha256Kind Sha256) / (ZkHashKind ZkHash)
+              / (FrKind Fr) / (Lo128Kind Lo128) / (Hi128Kind Hi128)
+              / (RevKind Rev) / (Mask253Kind Mask253)
+ConstKind   = %x00
+FConstKind  = %x01
+SrcKind     = %x02
+ConcatKind  = %x03
+Sha256Kind  = %x04
+ZkHashKind  = %x05
+FrKind      = %x06
+Lo128Kind   = %x07
+Hi128Kind   = %x08
+RevKind     = %x09
+Mask253Kind = %x0a
+Const       = UINT16 *BYTE ; the constant bytes
+FConst      = FieldElement
+Src         = Byte ; 0x00 = OP_ID, 0x01 = TXHASH, 0x02 = PROGRAM_ID, 0x03 = PROGRAM_STEP_ID,
+                   ; 0x04 = STEP_INPUTS, 0x05 = STEP_PROGRAM_OUTPUTS, 0x06 = STEP_OUTPUTS,
+                   ; 0x07 = STEP_INSCRIPTION, 0x08 = PROGRAM_DEPOSITS, 0x09 = CHANNEL,
+                   ; 0x0a = SIGNER
+Concat      = ExprCount *Expr
+Sha256      = Expr
+ZkHash      = ExprCount *Expr
+Fr          = Expr
+Lo128       = Expr
+Hi128       = Expr
+Rev         = Expr
+Mask253     = Expr
 ```
+
+A `ProgramAbi` tells the ledger how to build each public input of the proofs of a program from the public data of the step that runs it and of its Mantle Transaction, as [PROGRAM_REGISTER](bedrock-v1.1-mantle-specification.md#program_register) defines it. An `Expr` starts with the byte of its kind, a `Src` is the byte of its source, and `Concat` and `ZkHash` give the count of their children and `Const` the length of its bytes, so the tree reads without its types. A decoder MUST reject an unknown kind or source, so an ABI has a single encoding.
 
 ### Transfer Operations
 
