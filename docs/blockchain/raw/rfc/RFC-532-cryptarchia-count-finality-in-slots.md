@@ -19,6 +19,7 @@
 | | The `K` row names a coalition of 30 % of the total active stake as its target `α_max`, where v2 named a third of the stake. It names a third disturbance, an inferred stake that is only the honest stake online, and requires 30 % to be held while at most two of the three hold together, where v2 required two cases, each alone. [What the finality window holds](#what-the-finality-window-holds) gives the waits | |
 | | The epoch nonce stays as it is, where v2 required a nonce that resists grinding before genesis. The `K` row says that a coalition can bias the nonce. [The epoch nonce](#the-epoch-nonce) gives what the bound proves with it in every state of the row, what can be played, what grinding gives besides, and a sequential delay as an alternative | |
 | | Corrected four figures against the study: the waits with two ground nonces, the depth rule's share at 15 s with today's nonce, the honest blocks a fork replaces, and the case of an undisturbed factor | |
+| | [Reproducing the figures](#reproducing-the-figures) links the published study and the folder that holds every script behind the figures | |
 
 ## Reviewer Orientation
 
@@ -322,7 +323,7 @@ Two properties of the depth rule do not carry over. `B_imm` is no longer the `k`
 
 ## Reproducing the figures
 
-The figures come from the finality study, `tools/simulators/finality` of the research repository. Its notes carry each result with its check: `SLOTS.md` phase K, `SETTLEMENT.md` B6 and B7, `DESIGNS.md` H.2, `FURTHER.md` G7, `RATE.md` and `SIGNERS.md` M.7. `make k7`, `k2`, `k3`, `k5`, `k9`, `k8` and `m7` give the waits, the shares, the splits and eclipses, the targets within reach of grinding, the floor of v2 and its alternatives, the cap and the limit on joining stake. The study reads `B_imm` against the clock. Its figures carry over as [Counting from the tip's slot](#counting-from-the-tips-slot) states.
+The figures come from the finality study, [`tools/simulators/finality`](https://github.com/logos-blockchain/research/tree/0df6f2bb239a8eee6f2ab9267bad3abb7d894b57/tools/simulators/finality) of the research repository at commit `0df6f2bb`. Its notes carry each result with its check: `SLOTS.md` phase K, `SETTLEMENT.md` B6 and B7, `DESIGNS.md` H.2, `FURTHER.md` G7, `RATE.md` and `SIGNERS.md` M.7. `make k7`, `k2`, `k3`, `k5`, `k9`, `k8` and `m7` give the waits, the shares, the splits and eclipses, the targets within reach of grinding, the floor of v2 and its alternatives, the cap and the limit on joining stake. The study reads `B_imm` against the clock. Its figures carry over as [Counting from the tip's slot](#counting-from-the-tips-slot) states.
 
 Beyond the study's notes, the figures come from six sources:
 
@@ -333,7 +334,7 @@ Beyond the study's notes, the figures come from six sources:
 - Small models at mean rates: the rows marked simulated, the eclipse and lag figures of [What the floor leaves open](#what-the-floor-leaves-open) and [Comparing forks](#comparing-forks), the private race of [The restart path](#the-restart-path), the days a side needs, the split in halves, the participation the epoch's waits need, and the blocks above `B_imm`.
 - The formula of Finality Floor, a delay per block and a geometric wait: the two tables of [The finality floor](#the-finality-floor) and the times to finality while stake does not build. For the specification's Blend, this formula and the small models take a delay of 5.5 slots per block, fitted so that `K` slots hold 1,825 blocks with all of the stake building. v2 scaled the block rate by 0.845 instead, which gave 22 hours for the depth rule's eclipse where this revision has 23.
 
-> **TODO (author):** the study is not on GitHub yet, so none of this can be reproduced by a reviewer. Publish its branch with the models, the reference code and the runs listed here, link that commit in the first sentence, and remove this note.
+The scripts of these six sources and their stored outputs are in the study's folder [`slot-finality`](https://github.com/logos-blockchain/research/tree/0df6f2bb239a8eee6f2ab9267bad3abb7d894b57/tools/simulators/finality/slot-finality). Its README lists each script with its command, its output and its recheck.
 
 # Details
 
