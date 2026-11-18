@@ -117,7 +117,7 @@ def program_step_gas(step, abi, program_deposits) -> int:
             + abi_gas(abi, step, program_deposits))
 ```
 
-and the Execution Gas of each Operation, from the Operation and its proof alone, is:
+and the Execution Gas of each Operation, from the Operation, its proof and the ABI of the program of each program step, is:
 
 ```python
 TRANSFER          = EXECUTION_TRANSFER_GAS + spend_gas(inputs, outputs)
@@ -126,8 +126,8 @@ CHANNEL_INSCRIBE  = EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_SIGNATURE_GAS
                           for step in user_steps)
                     + sum(EXECUTION_PROGRAM_DEPOSIT_GAS + spend_gas(step.inputs, step.outputs)
                           for step in program_deposits)
-                    + sum(program_step_gas(step, abi, program_deposits)
-                          for step, abi, program_deposits in program_steps)
+                    + sum(program_step_gas(step, abi, consumed)
+                          for step, abi, consumed in program_steps)
 CHANNEL_CONFIG    = EXECUTION_CHANNEL_CONFIG_GAS + EXECUTION_SIGNATURE_GAS * len(proof.signatures)
 CHANNEL_DEPOSIT   = EXECUTION_CHANNEL_DEPOSIT_GAS + spend_gas(inputs, outputs)
 CHANNEL_WITHDRAW  = EXECUTION_CHANNEL_WITHDRAW_GAS + EXECUTION_NOTE_SET_GAS + spend_gas(inputs, outputs)
@@ -140,7 +140,7 @@ CLAIM_POW_REWARD  = EXECUTION_CLAIM_POW_REWARD_GAS
 PROGRAM_REGISTER  = EXECUTION_PROGRAM_REGISTER_GAS + EXECUTION_PROGRAM_REGISTER_BYTE_GAS * len(encode(abi))
 ```
 
-each `EXECUTION_SIGNATURE_GAS` paying an Ed25519 signature the proof of the Operation carries, where `user_steps`, `program_deposits` and `program_steps` are the [user steps](bedrock-v1.1-mantle-specification.md#channel_inscribe), the program deposits and the program steps of the inscription, each program step with the ABI registered under its program and the program deposits it consumes, `abi_gas` pricing the evaluation of that ABI ([Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination)), `abi` the ABI a `PROGRAM_REGISTER` registers, a user step being a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer, and with the constants of the Operations:
+each `EXECUTION_SIGNATURE_GAS` paying an Ed25519 signature the proof of the Operation carries, where `user_steps`, `program_deposits` and `program_steps` are the [user steps](bedrock-v1.1-mantle-specification.md#channel_inscribe), the program deposits and the program steps of the inscription, each program step with the ABI registered under its program and `consumed`, the program deposits it consumes, `abi_gas` pricing the evaluation of that ABI ([Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination)), `abi` the ABI a `PROGRAM_REGISTER` registers, a user step being a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer, and with the constants of the Operations:
 
 | Constant | Execution Gas | Measure |
 | --- | --- | --- |
@@ -259,7 +259,7 @@ The validation verifies the Ed25519 signature of the sequencer, its accreditatio
 | each opening of a program note | 469,714 |
 | program proof, its public inputs priced apart | 13,314,344 |
 
-A user step derives its [`user_step_id`](bedrock-v1.1-mantle-specification.md#channel_inscribe), a BLAKE2b hash of its encoding, and checks its inputs and outputs, 27,659 cycles beyond its nullifier and its commitment. A program deposit derives its [`program_deposit_id`](bedrock-v1.1-mantle-specification.md#channel_inscribe) the same way and is kept for the program step consuming it, 143,284 cycles beyond its nullifier, its commitment and the append of that commitment to the root of the program spend, whose extension the first program deposit of a step causes (`EXECUTION_ROOT_GAS`). A program step checks that its program is registered and derives the public inputs of its proofs, 212,654 cycles beyond the inscription without steps and its commitment, and verifies its program proof, 13,314,344 cycles: `EXECUTION_PROGRAM_STEP_GAS` prices both. The verification grows by one scalar multiplication in G1 per public input of the program proof, priced by `EXECUTION_PROGRAM_INPUT_GAS` (TBD), and the evaluation of the ABI building these inputs by `abi_gas`, from the bytes its `Sha256` and `Fr` nodes read and the permutations of its `ZkHash` nodes (TBD). An opening recomputes the commitment of the opened note and compares it to the output.
+A user step derives its [`user_step_id`](bedrock-v1.1-mantle-specification.md#channel_inscribe), a BLAKE2b hash of its encoding, and checks its inputs and outputs, 27,659 cycles beyond its nullifier and its commitment. A program deposit derives its [`program_deposit_id`](bedrock-v1.1-mantle-specification.md#channel_inscribe) the same way and is kept for the program step consuming it, 143,284 cycles beyond its nullifier, its commitment and the append of that commitment to the root of the program spend, whose extension the first program deposit of a step causes (`EXECUTION_ROOT_GAS`). A program step checks that its program is registered and looks up its registered key and ABI, 212,654 cycles beyond the inscription without steps and its commitment, and verifies its program proof, 13,314,344 cycles: `EXECUTION_PROGRAM_STEP_GAS` prices both. The verification grows by one scalar multiplication in G1 per public input of the program proof, priced by `EXECUTION_PROGRAM_INPUT_GAS` (TBD), and the evaluation of the ABI building these inputs by `abi_gas`, from the bytes its `Sha256` and `Fr` nodes read and the permutations of its `ZkHash` nodes (TBD). An opening recomputes the commitment of the opened note and compares it to the output.
 
 ## Channel Config
 
