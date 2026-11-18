@@ -20,6 +20,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-04 |
+| 1.1.0 | The record carries `fee_window_size`, and its block reward and gas fields are bound to each other and to what a block can hold. | 2026-11-05 |
 
 # Introduction
 
@@ -410,6 +411,7 @@ A field holds the value of its source constant under the rules of the era. The E
 | `storage_market` | `ema_smoothing_factor` | `ratio` | $`\beta`$ of [Protocol Constants](storage-markets.md#protocol-constants), the weight of the latest usage |
 | `block_rewards` | `stake_target` | `UINT64` | `STAKE_TARGET` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) |
 | `block_rewards` | `emission_factor_scale` | `UINT64` | `A_SCALE` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) |
+| `block_rewards` | `fee_window_size` | `UINT16` | $`T`$ of [Parametrization](block-rewards.md#parametrization) |
 | `block_rewards` | `fee_average_numerator` | `UINT64` | `FEE_AVG_NUMERATOR` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) |
 | `block_rewards` | `max_emission_per_block` | `ratio` | `INFLATION_NUMERATOR` over `INFLATION_DENOMINATOR` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) |
 | `block_rewards` | `blend_share` | `ratio` | `BLEND_SHARE_NUMERATOR` over `BLEND_SHARE_DENOMINATOR` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) |
@@ -486,11 +488,13 @@ In every record, `replication_factor` is 0. Otherwise a core node's quota grows 
 
 In every record, `expected_deliveries_per_observation_window` is at least 1. Otherwise the observation window $`W`$ of [Global Parameters](blend-protocol.md#global-parameters) is 0 rounds.
 
-In every record, `max_gas_per_block` is at least 2. Otherwise $`G_{\mathrm{target}}`$ of [Notation](execution-market.md#notation) is 0, and the base fee update divides by zero. Each field of `gas_profile` is at most `max_gas_per_block`. Otherwise no block can include an Operation that costs that field or more.
+In every record, `max_gas_per_block` is at least 2. Otherwise $`G_{\mathrm{target}}`$ of [Notation](execution-market.md#notation) is 0, and the base fee update divides by zero.
+
+In every record, `transfer` plus each other field of `gas_profile` is at most `max_gas_per_block`, with `channel_config`, `channel_withdraw` and `channel_transfer` first multiplied by $`\lfloor \text{max\_transactions\_size} / 64 \rfloor`$, the most signatures a block body can hold. Otherwise an Operation that fits a block by size cannot be included with the `TRANSFER` that pays its fee, and a channel's funds can be stranded.
 
 In every record, the ratios of `execution_market` and `storage_market` and `blend_share` lie strictly between 0 and 1. Otherwise a price can fall to 0 or stop following usage, an average can stop smoothing usage, or the Blend nodes or the leaders receive no share of the block reward.
 
-In every record, `emission_factor_scale` is at least 1. Otherwise `block_reward` of [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) divides by zero.
+In every record, `fee_window_size`, `emission_factor_scale` and the numerator of `max_emission_per_block` are at least 1. Otherwise [Float Precision for Implementation](block-rewards.md#float-precision-for-implementation) divides by zero. `fee_average_numerator` is the `FEE_AVG_NUMERATOR` that section derives from these fields. Otherwise the emission rate factor weighs the pooled fees by more or less than their annualized rate.
 
 In every record, `rate_den`, `share_den`, `target_claims_per_block`, `max_step` and `target_transactions_per_block` are at least 1, and `pow_share` is at most `share_den`. Otherwise a proof of work update divides by zero, a block pools a negative fee, or the Blend difficulty falls to 0.
 
