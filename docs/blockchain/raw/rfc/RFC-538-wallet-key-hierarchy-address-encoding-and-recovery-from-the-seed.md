@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-17 |
 | v2 | Follows revision v5 of [RFC-486](RFC-486-mantle-post-quantum-note-encryption.md): the note encryption key derives from the ZK secret key `k_logos`, so the `sk_enc`, the `pk_enc` and the full address of the test vectors are regenerated. The key-only addresses and every other vector are unchanged | 2026-11-17 |
+| v3 | Adds the delivery inscription, by which a sender commits to its delivery messages in an `INSCRIBE` Operation ([RFC-540](https://github.com/logos-co/logos-lips/pull/540)), with its test value | 2026-11-18 |
 
 ## Reviewer Orientation
 
@@ -19,7 +20,8 @@ Read the PR's Motivation first. The private ledger of [RFC-480](RFC-480-mantle-p
 | 2 | High | [Key hierarchy](#2-key-hierarchy) | the three roles and the rule that separates them, the keys a node holds online, the difference with the hierarchy the node already implements |
 | 3 | High | [Recovery from the seed](#3-recovery-from-the-seed) | whether two wallets find the same notes, the gap rule, what stays outside the seed |
 | 4 | Medium | [Leader reward nonce](#4-leader-reward-nonce) | privacy of the derived nonce, the secret that keys it, uniqueness per block |
-| 5 | Low | [Test vectors](#5-test-vectors) | reproduce them |
+| 5 | Medium | [Delivery inscription](#5-delivery-inscription) | what the hash covers and in which order, what a carrier checks, the dependency on the `INSCRIBE` Operation of RFC-540 |
+| 6 | Low | [Test vectors](#6-test-vectors) | reproduce them |
 
 # Discussion
 
@@ -58,7 +60,15 @@ The cost is in recovery: two hashes per block for each pair of a staking secret 
 
 RFC-480 states no reason against a nonce keyed by a secret. That is the point to confirm in review.
 
+## Delivery inscription
+
+The inscription was first proposed in Mantle with the `INSCRIBE` Operation ([RFC-540](https://github.com/logos-co/logos-lips/pull/540)). Mantle carries the bytes and does not read them, so what a sender writes there, and what a carrier of delivery messages checks, is a convention of wallets and belongs here. This section depends on RFC-540: its link to the Operation resolves once that RFC is merged.
+
+Nothing obliges a sender to add the inscription, and the ledger does not check it. A delivery over a direct channel needs none. It is what lets a party that carries delivery messages for others refuse bytes no transaction committed to.
+
 ## What this RFC leaves open
+
+- How delivery messages travel and who keeps them. The delivery inscription lets a carrier check a message, and names no carrier.
 
 - The `provider_id` of a declaration is an Ed25519 key and is not derived here. Roles `3'` and above are reserved.
 - A note a program pays is found from the seed only as far as its key. Its value comes from the program or from the records, and a leaf given to a program is not seen by the gap scan.
@@ -133,9 +143,30 @@ def derive_reward_nonce(staking_sk: ZkSecretKey, slot: int) -> NoteNonce:
 
 `is_own_reward(header, staking_sk, public_key)` recomputes the commitment from the `reward_value` and the `slot` of a header, at two hashes per block and pair of keys. The leader holds `staking_sk` whatever key the reward is paid to. The Proof of Leadership does not constrain the nonce, so the circuit and the header are unchanged. A random nonce stays allowed, and a note under one is not found from the seed.
 
-## 5. Test vectors
+## 5. Delivery inscription
 
-[Test Vectors](../wallet-technical-standard.md#test-vectors) is new: the master key of the BIP-39 mnemonic `abandon … about`, five leaves across the three roles and two accounts with `k`, `c`, `k_logos`, `nf_sk` and `public_key`, the encryption key and the three address strings of leaf `m/154'/0'/0'/0'`, two reward nonces with their commitments, one of them at a slot and a value above $`2^{32}`$, and the DSTs as field elements.
+[Delivery Inscription](../wallet-technical-standard.md#delivery-inscription) is new. A sender MAY commit to the delivery messages of a Mantle Transaction in an `INSCRIBE` Operation of that transaction:
+
+```python
+def derive_delivery_hash(delivery_messages: list[bytes]) -> Hash:
+    h = Hasher()
+    h.update(b"NOTE_DELIVERY_V1")
+    for delivery_message in delivery_messages:
+        h.update(delivery_message)
+    return h.digest()
+
+def delivery_inscription(delivery_messages: list[bytes]) -> bytes:  # 48 bytes
+    return b"NOTE_DELIVERY_V1" + derive_delivery_hash(delivery_messages)
+```
+
+- The messages are those of the outputs of the transaction, in the order of its Operations and of their outputs. An output delivered by other means has none.
+- A transaction holds at most one delivery inscription.
+- A carrier handed delivery messages for a transaction checks that each starts with the commitment of an output of the transaction, in the order of the outputs, and that their `delivery_inscription` is an inscription of the transaction.
+- Another encryption of a note is not covered by the inscription of its transaction.
+
+## 6. Test vectors
+
+[Test Vectors](../wallet-technical-standard.md#test-vectors) is new: the master key of the BIP-39 mnemonic `abandon … about`, five leaves across the three roles and two accounts with `k`, `c`, `k_logos`, `nf_sk` and `public_key`, the encryption key and the three address strings of leaf `m/154'/0'/0'/0'`, the delivery inscription of one delivery message, two reward nonces with their commitments, one of them at a slot and a value above $`2^{32}`$, and the DSTs as field elements.
 
 ## Chores
 
@@ -148,6 +179,7 @@ def derive_reward_nonce(staking_sk: ZkSecretKey, slot: int) -> NoteNonce:
 - [ ] Encode and decode addresses with every rejection of the standard; the wallet API takes and returns address strings.
 - [ ] Wallet service: take its keys from the hierarchy, a one-time leaf per declaration and per proof of work claim, a node leaf per `zk_id`, and persist the next index of each role and the number of address leaves.
 - [ ] Wallet: derive the nonce of a new leader reward note from the staking secret key of the winning note and the slot, inside the KMS.
+- [ ] Wallet: a transfer whose outputs are delivered by delivery messages adds the delivery inscription, once the node has the `INSCRIBE` Operation.
 - [ ] Recovery from the seed: the gap scan over declarations and claims, `is_own_reward` over the headers, trial decryption over the available ciphertexts.
 - [ ] Add the test vectors of the standard as tests.
 - [ ] Verify the implementation matches this specification.

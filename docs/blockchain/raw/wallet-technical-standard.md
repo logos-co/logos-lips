@@ -30,7 +30,7 @@
 | 1.2.0 | Added the note tracking a wallet keeps to spend its notes and to participate in the leadership lottery, over the note sets of depth 40, the root a wallet proves against, a fixed number of blocks below its tip, and the leader reward notes, which it keeps with their private nonce, recovery from the seed alone not finding them | 2026-10-07 |
 | 1.2.1 | The public key derives from a nullifier key derived from the spending secret key, and a note has a staking key, the wallet using the nullifier key as staking secret key and the public key of the recipient of a payment by default, and keeping the keys of a service declaration cold | 2026-11-06 |
 | 1.3.0 | Added the note encryption key derived from the ZK secret key, the address a sender needs, and the discovery of notes by trial decryption of the note ciphertexts delivered off chain, with what the recovery from the seed covers. A delivered note has the public key of its recipient as staking key unless the recipient asked for another, and a sender keeps the notes it creates | 2026-11-02 |
-| 1.4.0 | Added the key hierarchy `m / 154' / account' / role' / index'`, with the address, one-time and node roles; the encoding of an address, with its checksum; the nonce of a leader reward note derived from the staking secret key of the leading note and the slot, so that recovery from the seed finds the note; the recovery from the seed, with what it finds for each kind of note; and test vectors | 2026-11-17 |
+| 1.4.0 | Added the key hierarchy `m / 154' / account' / role' / index'`, with the address, one-time and node roles; the encoding of an address, with its checksum; the nonce of a leader reward note derived from the staking secret key of the leading note and the slot, so that recovery from the seed finds the note; the recovery from the seed, with what it finds for each kind of note; the delivery inscription, by which a sender commits to its delivery messages in an `INSCRIBE` Operation of its Mantle Transaction; and test vectors | 2026-11-17 |
 
 # Introduction
 
@@ -206,6 +206,33 @@ The ledger holds the commitment of a note and nothing of its contents ([Mantle -
 3. In the clear, when the sender gives the recipient `value` and `nonce` by other means; the wallet records the note when it receives them.
 
 A sender SHOULD keep the `value`, `nonce`, `public_key` and `stake_public_key` of each note it creates for a recipient among its records, and deliver the note again when the recipient asks. The ledger holds only the commitment, so the sender and the recipient alone know the note: the sender's copy is all that remains of a delivery that was lost or wrongly encrypted, and given the four fields anyone recomputes the commitment and finds its first occurrence in its note set, which answers a claim of non-payment.
+
+### Delivery Inscription
+
+A sender MAY commit to the delivery messages of a Mantle Transaction in an [`INSCRIBE`](bedrock-v1.1-mantle-specification.md#inscribe) Operation of that transaction, whose inscription is the tag `NOTE_DELIVERY_V1` followed by the delivery hash:
+
+```python
+def derive_delivery_hash(delivery_messages: list[bytes]) -> Hash:
+    # The delivery messages of the outputs of the Mantle Transaction, in the order of its
+    # Operations and of their outputs. An output delivered by other means has none, and
+    # the list is not empty.
+    h = Hasher() # /!\ This is a classic hash not a zkhash /!\
+    h.update(b"NOTE_DELIVERY_V1")
+    for delivery_message in delivery_messages:
+        h.update(delivery_message)
+    return h.digest()
+
+def delivery_inscription(delivery_messages: list[bytes]) -> bytes:  # 48 bytes
+    return b"NOTE_DELIVERY_V1" + derive_delivery_hash(delivery_messages)
+```
+
+A delivery message is the 1208 bytes of [Note Encryption](common-cryptographic-components.md#note-encryption-construction), the commitment of its note followed by its ciphertext, so the hash fixes which outputs are delivered this way and with which ciphertexts. A Mantle Transaction holds at most one such inscription.
+
+The inscription serves whoever carries delivery messages for others. A carrier holds no key, so without it a carrier cannot tell the delivery messages of a transaction from any other bytes. Handed delivery messages for a Mantle Transaction, it checks that each starts with the commitment of an output of the transaction, in the order of the outputs, and that their `delivery_inscription` is an inscription of the transaction.
+
+- The inscription commits to one encryption of each note. Another encryption of the same note, made to deliver it again, is not the one the inscription covers: a sender that wants a second delivery to be checked keeps the delivery message.
+- A user step and a program deposit are signed by their holder before their Mantle Transaction exists, so an `INSCRIBE` Operation of the transaction does not speak for them: their holder commits to a delivery in the `inscription` of the step, in the format of its zone.
+- The inscription shows that outputs of its transaction are delivered by delivery messages, and nothing of their contents or of their recipients.
 
 ### Recovery from the Seed
 
@@ -396,6 +423,15 @@ The address of the leaf `m/154'/0'/0'/0'`, in its two forms on mainnet, and its 
 | key-only address, `logos` | logos1qzs9mezxtyks89jx9vtc35aqrs0y45azzqh93e2p2q4nwwgu027pcwp3kqn |
 | key-only address, `tlogos` | tlogos1qzs9mezxtyks89jx9vtc35aqrs0y45azzqh93e2p2q4nwwgu027pcd62lj4 |
 | full address, `logos` | logos1qxs9mezxtyks89jx9vtc35aqrs0y45azzqh93e2p2q4nwwgu027pe08kx0jlrv0nx7683xejanz3q3d80mp4gex0jk3jvp5wvlgqvrf20820zl7lqpre3zkzhgp9jhgqfzn6jvclx7d503ch85dvycqky57xnvkltvwu8xzayuwtusdkve2gzt073ptespkt5k2nkz889skmt85awgvnes6hpldht8n8gx9vdqhgc7vk7vq5sfm9v0ghkvlj9quc662l5x6c96tjv6yc4xd5zljv4f06tf4afgstjmtrq5rnsa6tqvnyswvmy099v2smrkqvrfuj64064a4ekyqs6qjx3hj29vu96q78qkunf4xx8s26xfpvwhw59fnp97svxkztzc86jvr652jg02sjhnpvhxxzxt3mpy0fc4pan3rx8fjspq2jg3zj5fehkml8xfwdu6mcxjg4tdfytwtxd8rpcu3v8vcedxuzj0spc56rg3p2mv0pa3d5c7ajlwqyyn6q22c4q45w446pylsnxjjyw43203xdmvqw5x6lm4a34hz8zjvrrta6hvmf4dva6njkngf6gwsj5c65y432audn9xevrzy44nevppf5y8rzs2f2u0rtgtefcfdjdp48e2lk05xq3hdjsyt6rmgxzqlqgxy0p9zs8sa28px8kaq5sf46xfg254u8xgm4pefzw29pv2hawv9xfx2h0sf83m5f2e0vtp0q65xajek9hl9h0xs5qwp65t23jz3vk6nul4s5mf6pz9r4j00pestgmjk2rqjjp37qzdvghyqcmd9s6yw0vvsn3y3228v9z5q8gax8nzjqvhnttmnjhwcdj865k5j2nd9pydj2grrs2h288zykzywpkk3n6ejzmfd8rf28pr286v0d3wmr6vwvr4ctzkrkcuu9m9nt6xgvupr3ztwcvaw8y9c97xpaep3285pnkxk32eesnjnkg2ka3vru2vf5c3ppf0ymtgkxyzfh334r49e9s6zjd7zpju7zafdj8ecd6vczeheyhhzp4g8wmxvwxyjdc34ys2g6c70fzyhx56rkjkesqlj457hr92wpvvqldslvsd5du7qt87p6088ywv7lkq4ryszya8pvqr6eq2m9cs6zlzl4x4mcyrgeznn3p69kzjxja3dcj8xrfvyuu6zsqf8a4ducwe7x9cnh5kn9nztr8gz7kfmn0978a6df46m326c5t505dn99gj2wkwag49yrhswkjvqktptt43ayj7a85ypmnvlpg3sgptk779th4knu3scpfmmhxkg2j782ssy5p5zm50dxxyv6gnws4gx2rwx7zykdncus5h2esulgz8z3jwpk42f2kndhul6uwsv03wqklxrarad46qryjusftdvp5zg4pyzu59aqgytt7l5rk47ksk3xqumuf6ptwrmpau4nr6fhzarjp3xccrp5l99pwdkqkhc6cjfz7q6nr24psa9pz56ujjwaza9ry46x60pwvwzng6akpcyc3davw9zkp46gxyn5h0m3ystw4wf379fwyvcz5vj6d6f3w2vcysxkz7cgeupcawdxdvdf8fjzefswhghm3auuj2am3smvd6f7zpfaz2yumj3fr2phrqmvg2vnhq97hszsdqfu9t2gqtx3ekl2k6uf7y7l8ugw5gsya7z2ncczvmz7cp2dqpph4gz4d0hyqghrngsq04eftqsve0ae52pjyaa0fp4m8xxmyjx2re9ffe8zsthkzhafawes8yfcpqyrqhn6308mvvvw7q2w32zpn578xsz6g7lwst6rrvnspngqvqxv6xrvyep3k9sz5w2hdffmxydr5dfvwxyg8y0957djpvm3nmp9r2dt9mthw9gxpqzev9t0rw5cyguydnfsn7e3qj0uvnhc643nah0rpy2qwh53srxx5722w9le6mdfvjdvgghge6zjpwjr66hypnu0rzwl5cjrr6g0qe9tmvd8krcskm2q3 |
+
+## Delivery Inscription
+
+The `delivery_inscription` of one delivery message, the `commitment` of vector 1 of the [Note Encryption Test Values](common-cryptographic-components.md#note-encryption-test-values) followed by its `ciphertext`.
+
+| Quantity | Value |
+| --- | --- |
+| `delivery_hash` | 0xa352841f541aba1aab7d3abbb1eb4487e71756050f5c5acb757a62f8d8a14f91 |
+| `delivery_inscription` | 0x4e4f54455f44454c49564552595f5631a352841f541aba1aab7d3abbb1eb4487e71756050f5c5acb757a62f8d8a14f91 |
 
 ## Leader Reward Nonce
 
