@@ -52,7 +52,7 @@
 | 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each with its own inscription, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and independent of the epoch nonce, and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A declaration names in `note_pk` the key of its service note, and `SDP_WITHDRAW` carries no nonce, consumes the service note, and releases its outputs with the channel withdrawals when its declaration is removed. A channel deposit carries an `inscription`. The commitment MMR and the nullifier IMT of a note set have depth `NOTE_SET_DEPTH` = 40, and a commitment root stays recent for `ROOT_WINDOW` = 1024 blocks | 2026-11-06 |
 | 2.1.0 | Add programs: notes gain `stake_public_key`, `program` and `data` fields, a nullifier key sitting between the spending secret key and the public key, program notes leading in Proof of Stake unless their staking key is `0`, a declaration naming in `note_stake_pk` the staking key of its service note and rewards, `PROGRAM_REGISTER` registers a Groth16 verification key, and the mini-blocks of channel inscriptions carry, next to user steps, program deposits and program steps made of a `ZkProgramSpend`, a program proof and the openings of the program notes they create, each step with its own inscription and its kind carried only by its encoding. A program deposit, like a user step, is proven against the buffer before its mini-block, and a program spend against the whole buffer at its position. A program step consumes the program deposits after the previous program step of its mini-block, which all pay its program, and lists the notes of the program it creates apart from the user notes it pays. Every program note is held by the key of the spending secret key `0`. The ZkProgramSpend derives the nonces of the outputs of a step consuming a note of the program. Add the proving time benchmarks of the ZkTransfer and the ZkProgramSpend | 2026-11-06 |
 | 2.1.1 | Added Note Delivery: how the holder of a note learns its `value` and `nonce`, the user notes a sender creates being delivered off chain, by the Note Encryption of [Common Cryptographic Components](common-cryptographic-components.md#note-encryption-construction), a delivered note taking the public key of its recipient as staking key unless the recipient asked for another | 2026-11-02 |
-| 2.2.0 | [RFC] Added the `INSCRIBE` Operation, opcode `0x02`: data written on Mantle that the ledger does not read, bound to no channel, with an empty proof. Its first use is the hash of the delivery messages of a Mantle Transaction ([Note Delivery](#note-delivery)). The payload of `CHANNEL_INSCRIBE` is named `ChannelInscribe` | 2026-11-17 |
+| 2.2.0 | [RFC] Added the `INSCRIBE` Operation, opcode `0x02`: data written on Mantle that the ledger does not read, with an empty proof. The payload of `CHANNEL_INSCRIBE` is named `ChannelInscribe` | 2026-11-17 |
 
 # Introduction
 
@@ -123,8 +123,7 @@ Every Operation proof (zk proofs or signatures) must be cryptographically bound 
 
 - The [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) of a user step and of a program deposit is signed by its holder before the Mantle Transaction exists, so it is bound to its own content, through `user_step_id` or `program_deposit_id`.
 - The [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) and the program proof of a [program step](#programs) are produced by the sequencer, and bound to the `op_id` of the inscription, which covers the public data of every step without any proof.
-- The proof of [CLAIM_POW_REWARD](#claim_pow_reward) is empty, its ticket being bound to the public key it pays: a claim copied into another Mantle Transaction pays the same key, but invalidates the transaction it was copied from.
-- The proof of [INSCRIBE](#inscribe) is empty: an inscription is the word of no key, and is bound to its Mantle Transaction by the proofs of the other Operations of that transaction.
+- The proofs of [CLAIM_POW_REWARD](#claim_pow_reward) and of [INSCRIBE](#inscribe) are empty. The ticket of a claim is bound to the public key it pays: a claim copied into another Mantle Transaction pays the same key, but invalidates the transaction it was copied from. An inscription is the word of no key, and is bound to its Mantle Transaction by the proofs of the other Operations of that transaction.
 
 ```python
 mantle_txhash_fr = FiniteField(mantle_txhash, byte_order="little", modulus = p)
@@ -1810,9 +1809,9 @@ ledger: Ledger
 
 ## INSCRIBE
 
-This Operation writes data on Mantle that the ledger does not read. It belongs to no channel: it has no signer, no parent and no order among the other inscriptions, it changes no state, and any Mantle Transaction can hold any number of them. It is for what its authors want a chain to carry beside their other Operations: a hash of data they publish elsewhere, a reference, a message.
+This Operation writes data on Mantle that the ledger does not read.
 
-An application should start its inscription with a tag of its own, so that a reader tells its inscriptions from the others. [Note Delivery](#note-delivery) defines the tag `NOTE_DELIVERY_V1`.
+An application could start its inscription with a tag of its own, so that a reader tells its inscriptions from the others.
 
 ### Payload
 
@@ -1821,36 +1820,21 @@ class Inscribe:
     inscription: bytes  # from 1 to MAX_OPERATION_DATA_SIZE bytes
 ```
 
-An inscription holds at least one byte. The upper bound is that of a channel inscription, the `MAX_OPERATION_DATA_SIZE` of [Mantle Transaction Encoding](mantle-transaction-encoding.md#inscribe-operation).
-
 ### Proof
 
   The proof is empty.
 
-An inscription is bound to nothing but the Mantle Transaction it is in. Every proof and signature of the other Operations of the transaction covers the `mantle_txhash`, so an inscription cannot be changed, removed from or added to a transaction holding such an Operation once it is signed. No key signs the inscription itself: anyone can copy it into another transaction, so a reader takes it as written by whoever built its transaction, and by no one else.
-
 ### Execution Gas
 
-  Inscribe Operations have a fixed Execution Gas cost of `EXECUTION_INSCRIBE_GAS`. Its value is to be determined with the benchmark of [Gas Cost Determination](analysis-gas-cost-determination.md): the ledger compares one length and changes no state. An inscription pays for its bytes as any Operation does, and carries no value: another Operation of its Mantle Transaction pays the fees.
+  None.
 
 ### Validation
 
-  *Given*
-
-```python
-inscribe: Inscribe
-```
-
-  *Validate*
-
-  1. Ensure the inscription is not empty and does not exceed `MAX_OPERATION_DATA_SIZE`.
-      ```python
-      assert 1 <= len(inscribe.inscription) <= MAX_OPERATION_DATA_SIZE
-      ```
+  None.
 
 ### Execution
 
-  The ledger state is unchanged.
+  None.
 
 ## Notes
 
@@ -1946,31 +1930,6 @@ The ledger holds the commitment of a note and nothing of its contents. The holde
 
 - Notes the ledger creates, such as rewards and service notes, carry their nonce in the Operation that creates them ([Note Commitment and Nullifier](#note-commitment-and-nullifier)), and the user notes a program pays in a step consuming a note of the program carry the nonce the [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) derives. Their value is public, or fixed by the rule of the program from public data, and their staking key is their public key, the `note_stake_pk` of their declaration for a service note or a service reward note, or the key the rule of the program fixes for a payout ([Keys](#keys)), so their holder recomputes the commitment alone. The leader reward note comes from no Operation: its value is in the header of its block, and its leader chose its nonce ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)). A service reward note comes from no Operation either: its value and nonce follow [Service Reward Distribution](bedrock-service-reward-distribution.md), and its keys are those of its declaration.
 - A user note created by a Transfer, a channel deposit, a channel withdrawal, an SDP withdrawal, a user step, a program deposit or a program step consuming no note of the program, or paid in an amount its holder cannot recompute, is delivered off chain: the ledger carries nothing of it but the commitment. The RECOMMENDED delivery is the note ciphertext of [Note Encryption](common-cryptographic-components.md#note-encryption-construction), the encryption of `value` and `nonce` under the encryption key of the recipient with the commitment as associated data, handed over through a direct channel or published on a data availability layer the recipient reads. A sender MUST give a note delivered this way the public key of its recipient as staking key, unless the recipient named another key to it ([Keys](#keys)): the recipient cannot recompute the commitment, nor spend the note, under a staking key it does not know. The recipient decrypts it and owns the note if the commitment it recomputes, from the plaintext and its keys, is the one in the ledger ([Wallet Technical Standard](wallet-technical-standard.md#note-discovery-and-recovery)).
-
-A sender may commit to the delivery messages of a Mantle Transaction in an [Inscribe Operation](#inscribe) of that transaction, whose inscription is the tag `NOTE_DELIVERY_V1` followed by the delivery hash:
-
-```python
-def derive_delivery_hash(delivery_messages: list[bytes]) -> Hash:
-    # The delivery messages of the outputs of the Mantle Transaction, in the order of its
-    # Operations and of their outputs. An output delivered by other means has none, and
-    # the list is not empty.
-    h = Hasher() # /!\ This is a classic hash not a zkhash /!\
-    h.update(b"NOTE_DELIVERY_V1")
-    for delivery_message in delivery_messages:
-        h.update(delivery_message)
-    return h.digest()
-
-def delivery_inscription(delivery_messages: list[bytes]) -> bytes:  # 48 bytes
-    return b"NOTE_DELIVERY_V1" + derive_delivery_hash(delivery_messages)
-```
-
-A delivery message is the 1208 bytes of [Note Encryption](common-cryptographic-components.md#note-encryption-construction), the commitment of its note followed by its ciphertext, so the hash fixes which outputs are delivered this way and with which ciphertexts. A Mantle Transaction holds at most one such inscription.
-
-The inscription serves the nodes that carry delivery messages. A node holds no key, so without it a node cannot tell the delivery messages of a transaction from any other bytes: it would keep and serve whatever it is handed. A node handed delivery messages for a Mantle Transaction checks that each starts with the commitment of an output of the transaction, in the order of the outputs, and that their `delivery_inscription` is an inscription of the transaction, before it keeps or serves them. How delivery messages travel between nodes and how long they are kept is not specified here.
-
-The inscription binds the outputs of the Operations signed over the `mantle_txhash`. A user step and a program deposit are signed by their holder before their Mantle Transaction exists, so an Inscribe Operation of the transaction, which its sequencer builds, does not speak for them: their holder commits to a delivery in the `inscription` of the step itself, in the format of its zone.
-
-The inscription shows that outputs of its transaction are delivered by delivery messages, and nothing of their contents or of their recipients.
 
 ### Service notes
 
@@ -2220,7 +2179,6 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_PROGRAM_REGISTER_GAS | 1896 |
 | EXECUTION_PROGRAM_SPEND_GAS | 619 |
 | EXECUTION_PROGRAM_PROOF_GAS | 2451 |
-| EXECUTION_INSCRIBE_GAS | to be determined |
 
 ## Zero Knowledge Transfer Proof (ZkTransfer)
 
@@ -2540,15 +2498,6 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 | - | - | - |
 | Empty transaction | 0x00 | 0x2eba3f667b80a508f3d44d149a1c27a90ea365a51e4fc8209289088142b364e5 |
 | Transaction with one of each operation | 0x0b000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000000000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000000000000000000000000000000000000000000000000000600000000000000010100000000000000000000000000000000000000000000000000000000000000b9b3b4620913f849ee2aa6a9cfd35c9d146f3e7c27596cc3e8d311fd3472dc2779ad28398ced57998435d8c63164b86d7033733ab82101b6379bf1b45d203ea0f5c7fb9406fade12005e9ab08c477e8d5e7192e12628e551900eb14d784e0606856eb6ff324f82c9a7a078686b1504bcebe4cf5dcd9151734297bb572f7714102ce236b4ddb40977fd454c08e570151342c4cc50a86380c3472f6a6ff8dbdd296f237195c2856d5a3f8ca190f6666f2084d776f9935a48a2d57a569e476806a9a93f16faa7a849e89ca35389d8dee46243772b760402bc66f7e0fe0edf39c117f94a688c5b3dfe2a762ab3d315927156987792e7d92f79e0f4523f1a41caf40978e0ffab866b3a9876bd01b8ecc66fcb86936277f425539a758dbbd32e2b0717636a302c88373904f75a15fe21c13882a8fe9c3be9f572f4100c48231dd5b18802300000004e4f54455f44454c49564552595f5631a352841f541aba1aab7d3abbb1eb4487e71756050f5c5acb757a62f8d8a14f91100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000200110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c0100030000012300000000000000000000000000000000000000000000000000000000000000012400000000000000000000000000000000000000000000000000000000000000250000000000000000000000000000000000000000000000000000000000000010000000737465702d696e736372697074696f6e013400000000000000000000000000000000000000000000000000000000000000013500000000000000000000000000000000000000000000000000000000000000013600000000000000000000000000000000000000000000000000000000000000370000000000000000000000000000000000000000000000000000000000000038000000000000003900000000000000000000000000000000000000000000000000000000000000130000006465706f7369742d696e736372697074696f6e023400000000000000000000000000000000000000000000000000000000000000013a00000000000000000000000000000000000000000000000000000000000000013b00000000000000000000000000000000000000000000000000000000000000003c000000000000000000000000000000000000000000000000000000000000003d000000000000000000000000000000000000000000000000000000000000001800000070726f6772616d2d737465702d696e736372697074696f6e121010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000012700000000000000000000000000000000000000000000000000000000000000260000000000000000000000000000000000000000000000000000000000000028000000000000001b0000006368616e6e656c2d6465706f7369742d696e736372697074696f6e131212121212121212121212121212121212121212121212121212121212121212011300000000000000000000000000000000000000000000000000000000000000012a0000000000000000000000000000000000000000000000000000000000000029000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f3190000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000003e00000000000000000000000000000000000000000000000000000000000000011a000000000000000000000000000000000000000000000000000000000000002c000000000000000000000000000000000000000000000000000000000000002d00000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1c00000000000000000000000000000000000000000000000000000000000000012e000000000000000000000000000000000000000000000000000000000000002f00000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c02020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202030303030303030303030303030303030303030303030303030303030303030330313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0xd7ae8f02db5588833f96b3d2554fd192ed975ad627aa315ccad065abe2bfb31d |
-
-### Delivery Hash
-
-The [`derive_delivery_hash`](#note-delivery) of one delivery message, the `commitment` of vector 1 of the [Note Encryption Test Values](common-cryptographic-components.md#note-encryption-test-values) followed by its `ciphertext`. The payload of `INSCRIBE` in [Operation Id](#operation-id) is the `delivery_inscription` of that message after its length, `0x30000000`.
-
-| Quantity | Value |
-| - | - |
-| `delivery_hash` | 0xa352841f541aba1aab7d3abbb1eb4487e71756050f5c5acb757a62f8d8a14f91 |
-| `delivery_inscription` | 0x4e4f54455f44454c49564552595f5631a352841f541aba1aab7d3abbb1eb4487e71756050f5c5acb757a62f8d8a14f91 |
 
 ### Declaration Id
 

@@ -190,10 +190,10 @@ OutputCount = Byte
 ### Inscribe Operation
 
 ```schema
-Inscribe = Inscription ; from 1 to MAX_OPERATION_DATA_SIZE bytes
+Inscribe = UINT32 1*BYTE ; Min 1 byte, max MAX_OPERATION_DATA_SIZE bytes
 ```
 
-The payload of the `Inscription` of an `Inscribe` MUST be at least 1 byte and at most `MAX_OPERATION_DATA_SIZE` bytes, excluding its `UINT32` length prefix. A decoder MUST reject an `Inscribe` whose declared or decoded payload length is zero or exceeds the limit. Its proof is the `EmptyProof`.
+A decoder MUST reject an `Inscribe` whose payload is empty or longer than `MAX_OPERATION_DATA_SIZE` bytes.
 
 ## Ledger
 

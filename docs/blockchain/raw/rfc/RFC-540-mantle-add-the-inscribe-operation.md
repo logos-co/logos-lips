@@ -8,24 +8,23 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-17 |
 | v2 | An inscription holds at least one byte | 2026-11-18 |
+| v3 | The Operation has no validation, no Execution Gas and no execution: its bounds are in its encoding alone. The delivery inscription and its test value leave Mantle and this RFC | 2026-11-18 |
 
 ## Reviewer Orientation
 
-Read the PR's Motivation first. The private ledger of [RFC-480](RFC-480-mantle-private-utxo-ledger.md) and the note delivery of [RFC-486](RFC-486-mantle-post-quantum-note-encryption.md) are assumed. No existing Operation changes, in its fields, its encoding or its validation, and no circuit changes.
+Read the PR's Motivation first. No existing Operation changes, in its fields, its encoding or its validation, and no circuit changes.
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
-| 1 | Critical | **Start here**: [Mantle](#affected-specifications), [the Inscribe Operation](#1-the-inscribe-operation) | an Operation with an empty proof: what binds it to its transaction and what does not, the opcode, the size bounds |
-| 2 | High | [Mantle Transaction Encoding](#affected-specifications), [encoding](#2-encoding) | the `Inscribe` production: an `Inscription` of at least one byte, under the bound of a channel inscription |
-| 3 | High | [Mantle](#affected-specifications), [the delivery inscription](#3-the-delivery-inscription) | what the hash covers and in which order, what a node checks, the steps signed before their transaction |
-| 4 | Medium | [Mantle](#affected-specifications), [Execution Gas](#4-execution-gas) | the Execution Gas is not determined yet |
-| 5 | Low | [Mantle](#affected-specifications) and [Cryptarchia](#affected-specifications), [test vectors](#5-test-vectors) | reproduce them |
+| 1 | Critical | **Start here**: [Mantle](#affected-specifications), [the Inscribe Operation](#1-the-inscribe-operation) | an Operation with an empty proof, no validation, no gas and no execution; the opcode |
+| 2 | High | [Mantle Transaction Encoding](#affected-specifications), [encoding](#2-encoding) | the `Inscribe` production and its two bounds |
+| 3 | Low | [Mantle](#affected-specifications) and [Cryptarchia](#affected-specifications), [test vectors](#3-test-vectors) | reproduce them |
 
 # Discussion
 
 ## Why an Operation of its own
 
-Three places could carry the hash of the delivery messages.
+The need comes from note delivery ([RFC-486](RFC-486-mantle-post-quantum-note-encryption.md)): a sender wants to commit to the delivery messages of its transaction. Three places could carry that hash.
 
 A field in each Operation that creates user notes changes six Operations, their encoding and every test vector that holds one, and serves one use.
 
@@ -42,31 +41,21 @@ No key signs an inscription. It is bound to its Mantle Transaction by the proofs
 
 An Inscribe Operation carries no value, so it cannot be the only Operation of a transaction: another one pays the fees.
 
-## The size bounds
+## Bounds, validation and gas
 
-An inscription holds at least one byte. An empty channel inscription still moves the tip of its channel and can carry steps, where an empty inscription of this Operation would do nothing at all.
-
-An inscription is bounded as a channel inscription is, by `MAX_OPERATION_DATA_SIZE`, 1,835,008 bytes, and is encoded the same way. One bound and one encoding for the data Operations carry is simpler for implementations than a second constant, and the bytes of an inscription pay the Permanent Storage fee as those of a channel do.
-
-## Execution Gas
-
-The Execution Gas of the Operation is not determined yet. The ledger compares one length and changes no state, so it is expected to be low, and it has to come from the benchmark of Gas Cost Determination like the others.
-
-> **TODO (author):** determine `EXECUTION_INSCRIBE_GAS` with the benchmark, and add the Operation to Gas Cost Determination.
+An inscription holds from 1 byte to `MAX_OPERATION_DATA_SIZE` bytes, the bound of a channel inscription. Both bounds are in the production of the encoding, so a transaction that decodes holds a valid inscription and the ledger has nothing left to check: the Operation has no validation rule, and so no Execution Gas, the gas pricing validation. Its bytes pay the Permanent Storage fee as any byte of a transaction.
 
 ## A tag, not a field
 
-An inscription is bytes, as the inscription of a channel is. An application starts its bytes with a tag of its own, and the specification lists the tags it defines. A separate kind field would make the Operation one field larger for every user, to save a reader a prefix comparison.
+An inscription is bytes, as the inscription of a channel is. An application could start its bytes with a tag of its own. A separate kind field would make the Operation one field larger for every user, to save a reader a prefix comparison.
 
 ## Privacy
 
-An inscription is public. A transaction that holds a delivery inscription shows that some of its outputs are delivered by delivery messages. It shows nothing of their contents or of their recipients: the hash is over ciphertexts. Free bytes on a private ledger are also a place where a user can write what identifies it, which no rule of the ledger prevents.
+An inscription is public. Free bytes on a private ledger are a place where a user can write what identifies it, which no rule of the ledger prevents.
 
 ## What this RFC leaves open
 
-- The transport of delivery messages: how they travel between nodes, how long nodes keep them, how a wallet reads them. The delivery inscription is what lets that transport check a message, and is specified here so that the transport can rely on it.
-- A user step and a program deposit are signed by their holder before their Mantle Transaction exists, so an Inscribe Operation of the transaction does not speak for them. Their holder uses the `inscription` of the step, in the format of its zone, which this RFC does not define.
-- The Wallet Technical Standard does not say yet that a sender adds the delivery inscription. The sentence belongs with the wallet changes that follow RFC-486.
+- The inscription a sender commits to its delivery messages with, a tag followed by their hash, is not specified in Mantle. It belongs with the wallet, and is proposed in the Wallet Technical Standard by [PR #538](https://github.com/logos-co/logos-lips/pull/538).
 
 ## Compatibility
 
@@ -84,52 +73,25 @@ class Inscribe:
 ```
 
 - The proof is empty.
-- Validation is one check: `1 <= len(inscribe.inscription) <= MAX_OPERATION_DATA_SIZE`.
-- Execution leaves the ledger state unchanged.
-- A Mantle Transaction can hold any number of them. The ledger reads none.
-- An application should start its inscription with a tag of its own.
+- Execution Gas, validation and execution: none.
+- An application could start its inscription with a tag of its own.
 
-The list of the proofs not bound to the `mantle_txhash` gains one entry for it.
+The entry of the proofs not bound to the `mantle_txhash` that describes `CLAIM_POW_REWARD` now describes both empty proofs.
 
 ## 2. Encoding
 
 [Inscribe Operation](../mantle-transaction-encoding.md#inscribe-operation) is new, and `Inscribe` joins the alternatives of `OpPayload`:
 
 ```schema
-Inscribe = Inscription ; from 1 to MAX_OPERATION_DATA_SIZE bytes
+Inscribe = UINT32 1*BYTE ; Min 1 byte, max MAX_OPERATION_DATA_SIZE bytes
 ```
 
-`Inscription` is the production channels use, a `UINT32` length and its bytes. A decoder MUST reject an `Inscribe` whose declared or decoded payload length is zero or exceeds `MAX_OPERATION_DATA_SIZE`. The proof is the `EmptyProof`.
+A decoder MUST reject an `Inscribe` whose payload is empty or longer than `MAX_OPERATION_DATA_SIZE` bytes. With no validation rule in Mantle, the decoder is the only place that refuses such an inscription, as it is for the data of a `ChannelInscribe` and of a `ChannelDeposit`.
 
-## 3. The delivery inscription
+## 3. Test vectors
 
-[Note Delivery](../bedrock-v1.1-mantle-specification.md#note-delivery) gains the first use of the Operation. A sender may commit to the delivery messages of a Mantle Transaction in an Inscribe Operation of that transaction:
-
-```python
-def derive_delivery_hash(delivery_messages: list[bytes]) -> Hash:
-    h = Hasher()
-    h.update(b"NOTE_DELIVERY_V1")
-    for delivery_message in delivery_messages:
-        h.update(delivery_message)
-    return h.digest()
-
-def delivery_inscription(delivery_messages: list[bytes]) -> bytes:  # 48 bytes
-    return b"NOTE_DELIVERY_V1" + derive_delivery_hash(delivery_messages)
-```
-
-- The messages are those of the outputs of the transaction, in the order of its Operations and of their outputs. An output delivered by other means has none.
-- A transaction holds at most one delivery inscription.
-- A node handed delivery messages for a transaction checks that each starts with the commitment of an output of the transaction, in the order of the outputs, and that their `delivery_inscription` is an inscription of the transaction, before it keeps or serves them.
-
-## 4. Execution Gas
-
-The Operation has a fixed Execution Gas, `EXECUTION_INSCRIBE_GAS`, whose row in the Gas Determination table of Mantle reads "to be determined". The bytes of an inscription pay the Permanent Storage fee, as any byte of a transaction.
-
-## 5. Test vectors
-
-- Mantle, [Operation Id](../bedrock-v1.1-mantle-specification.md#operation-id): a row for `INSCRIBE`, whose payload is a delivery inscription after its length.
+- Mantle, [Operation Id](../bedrock-v1.1-mantle-specification.md#operation-id): a row for `INSCRIBE`, with a payload of 48 bytes after its length.
 - Mantle, [Mantle Transaction Hash](../bedrock-v1.1-mantle-specification.md#mantle-transaction-hash-1): the transaction with one of each Operation holds 11 Operations, 2331 bytes.
-- Mantle, [Delivery Hash](../bedrock-v1.1-mantle-specification.md#delivery-hash): the hash of the delivery message of vector 1 of the Note Encryption Test Values.
 - Cryptarchia, [Test Vectors](../cryptarchia-v1-protocol.md#test-vectors): the transaction Merkle root has one more leaf, and the two body roots and the block ID follow.
 
 No other vector changes. The ten Operation Ids, the transaction hash, the ten leaves, the Merkle root, the body roots and the block ID of the base were recomputed and matched before any was replaced.
@@ -141,10 +103,8 @@ No other vector changes. The ten Operation Ids, the transaction hash, the ten le
 # Implementation
 
 - [ ] `core`: the `Inscribe` Operation with opcode `0x02`, its codec with the rejection of an empty inscription and of one above `MAX_OPERATION_DATA_SIZE`, its empty proof and its Operation Id.
-- [ ] Ledger: the size checks, no state change.
+- [ ] Ledger: no validation, no Execution Gas, no state change.
 - [ ] The Operation in the API types, the C bindings and the transaction builder.
-- [ ] Wallet: a transfer whose outputs are delivered by delivery messages adds the delivery inscription.
-- [ ] Measure the Execution Gas of the Operation with the gas benchmark, and set `EXECUTION_INSCRIBE_GAS`.
 - [ ] Add the test vectors of Mantle and Cryptarchia as tests.
 - [ ] Verify the implementation matches this specification.
 
