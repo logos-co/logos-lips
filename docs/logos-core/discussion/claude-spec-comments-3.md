@@ -3385,6 +3385,11 @@ holds keys. A and B stand for other modules and are local to one item.
   supported by the intended peers", and l.1239 calls a P-256 credential "a common enrollment option".
   Which signature schemes every implementation of the profile verifies is not said, and the enrollment
   record has no field for a scheme (RUNTIME l.2012-2022).
+- TRANSPORT l.1252 has the key of an inbound caller checked against all enrollments: "the accepted public
+  key MUST match exactly one active enrollment under this profile." TRANSPORT l.1253 then fails "multiple
+  Runtime identity matches". A caller selects the target's enrollment by the expected Runtime identity
+  (l.1245-1247), so it matches by identity and not by key. Whether a caller also fails when the target's
+  key is held by the active enrollment of another Runtime is not said.
 
 ---
 
