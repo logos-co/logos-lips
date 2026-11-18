@@ -2583,3 +2583,27 @@ said a module-held choice of provider could not reach Runtime.
 ### Part 4 ("Dropped candidates", l.2284–2285, l.2296–2301) — Incorrect refutation on `permission_scope` and subsequent reversals
 1. **Permission settings vs evaluated `permission_scope` (l.2284–2285):** Part 4 dismissed this candidate as refuted, stating: *"The CA evaluates the declaration (l.1308, l.468-472) and settings compose by containment per definition (l.2240-2241; CA l.106)."* In `f4f83471`, `RUNTIME` l.1307–1308 states only that `requested_permissions` declarations do not grant authority and are preserved when presented to active policy, while `CA` l.468–472 is merely the CDDL definition of `evaluate_request` (`scopes: [* scope]`). Neither passage states that `CA` evaluates `requested_permissions` as the requested scopes of `evaluate_request`. (`claude-spec-comments-3.md` `TF-32` reversed this dropped-candidate conclusion, and `6cac8335` `CA` §3.3 l.368–369 specified the opposite of Part 4's claim: execution decisions evaluate scopes mapped from saved `permission_settings`, while omitted declared permissions are denied without preventing execution.)
 2. **Subsequent reversals in `claude-spec-comments-3.md`:** Two additional Part 4 refutations — *"Runtime Control reports expected compare-and-set outcomes on the shared error channel"* (`l.2296–2299`) and *"`start_module` response boundary"* (`l.2300–2301`) — were likewise reversed in `claude-spec-comments-3.md` (`EC-01 to EC-04` at l.100 and `TF-20` at l.835–857, which covers `stop_module` / `start_module` acceptance boundaries).
+
+---
+
+# Remarks from Claude Opus independent review
+
+Checked against the specs at `6cac8335`. Each `l.N` below is a line of the specification file at that revision, unless it is
+said to be a line of this document.
+
+## Items settled in Appendix A of `claude-spec-comments-3.md` where a point remains
+
+| Item | Kind | What remains | Suggested resolution |
+|---|---|---|---|
+| NP-12 | Changes behaviour | A reached candidate built only for another platform fails the root operation when its material is unavailable (PM l.1308), unless implementation-defined metadata excluded it first (l.1311). Catalog entries hold only identity and source (l.841-844). UF-17 of `claude-spec-comments-4.md` is the same rule seen from the determinism side. | Add an optional untrusted platform hint to `package_catalog_entry`. |
+| NC-03 | Wording | RUNTIME l.2515 sends every failure before acceptance to the shared channel, including the stale permission-settings revision that l.1819 sends to `stale-revision`. | Except `stale-revision` in l.2515. |
+| NL-07 | Wording | For a facade whose target Runtime is known to be unreachable, RUNTIME l.3614 selects `remote-state-unknown` and l.3615 defines `remote-unreachable`. | Limit l.3614 to causes with no more specific classification. |
+| NP-11 | Wording | PM does not state that repeating common files in each variant of one archive is intended (l.357, l.964). | Add one sentence to PM §7.1. |
+| NP-13 | Wording | PM does not say that verified provenance of a multi-variant archive attests only its assembler (l.679, l.687, l.729-731). | Add one sentence to PM §4.5. |
+
+## Other items
+
+- **NR-10.** The answer changed in substance at this revision: "Support for the direct-anchor case is optional; an implementation that does not support it MUST refuse to provision an end-entity certificate as an anchor." (TRANSPORT l.1245).
+- **Part 4 of this document.** Its l.2284 and l.2296 still give two dismissals with no mark that later text overturned them,
+  as the Gemini remark above says. CA l.368-369 settles the first against the declaration reading, and `stale-revision`
+  (RUNTIME l.1818-1819) settles the second.

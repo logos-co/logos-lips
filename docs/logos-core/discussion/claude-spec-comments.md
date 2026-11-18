@@ -994,3 +994,29 @@ roles.
 ### `C-10` — Suggested resolution at l.977–978 introduces a stale-handoff bug in `realize` idempotency
 - **Proposal (l.977–978):** *"add `? provider_endpoint` (address only) to `realize_request`, and define idempotency over the request fields."*
 - **Issue:** Under `LOADER` §6 (`6a4dfa28` l.368–374, l.395–396), private realization handoffs carry live OS and process capabilities that cannot be serialized as CBOR text: open listening socket file descriptors, consumer-bound Runtime Control channels, event-publication bindings, `direct_static` function-pointer tables, and §5.4 adapter channels. Defining `realize` idempotency *solely* over `realize_request` CBOR fields (even with `? provider_endpoint` address text) would require `realize` to return `succeeded` instead of `instance-conflict` (`LOADER` l.373–374) whenever invoked with identical CBOR fields (for example, a consumer-only or direct module with no `provider_endpoint`, or a recreated socket bound to the same filesystem path) paired with a *different* underlying file descriptor or private control channel. (`6cac8335` `LOADER` §1 l.15–16 clarifies instead that Module Loader is not substitutable across Runtime implementations because those private realization handoffs are implementation-defined.)
+
+---
+
+# Remarks from Claude Opus independent review
+
+Checked against the specs at `6cac8335`. Each `l.N` below is a line of the specification file at that revision.
+
+## Items settled in Appendix A of `claude-spec-comments-3.md` where a point remains
+
+The outcome can be derived in each case, and the text still needs a change of wording.
+
+| Item | What remains | Suggested resolution |
+|---|---|---|
+| C-11 | INTERFACE Appendix A.3 uses uppercase keywords under an informative heading (l.4046-4047, l.4082-4083, l.4087-4089). | Lower-case them or refer to the main-body rules. |
+| RT-05 | RUNTIME l.3685 selects between `error` and an unchanged state on a condition that no text defines or links to the carrier loss at l.909. | Define the condition in terms of l.909. |
+| EC-02 | RUNTIME l.2515 sends every failure before acceptance to the shared channel, including the stale revision that l.1818-1819 send to `stale-revision`. | Except `stale-revision` in l.2515. |
+| EC-03 | RUNTIME l.1816 classifies a prohibited lifecycle operation both as a caller error and as a Runtime-owned readiness failure. | Keep only the second classification. |
+| EC-04 | No text says that the `NOT_READY` conditions of CONFIG §8 (l.300) are failures of the invocation, the classification that separates the RUNTIME table from the rule at l.1818. | Say so in CONFIG §8. |
+
+## Other items
+
+- **C-10.** The Gemini remark above stands: the address-only proposal it answers would have lost conflict detection for
+  handoffs that request fields cannot express. This document no longer contains that proposal, so nothing here needs to
+  change. The item itself is settled, because "No endpoint mechanism is negotiated through this contract." (LOADER l.327).
+- **PM-08.** The answer stands and is now qualified: Package Manager may exclude a candidate before obtaining its material
+  (PM l.1311), on implementation-defined metadata. UF-17 of `claude-spec-comments-4.md` states the consequence.

@@ -2566,3 +2566,68 @@ For readers moving from `6a4dfa28` to `6cac8335` (`2026-11-17`), the open items 
   - `TS-06` → `GF-13`, `GF-23`, `GC-08` (`contract_documents` & `unsupported-manifest` gaps).
 - **Partially addressed in `6cac8335`:** `C-10`, `NP-13`, `NP-14`, `TF-03` (part 1 resolved), `TF-07` (see `GF-23`), `TF-12`, `TF-27`, `TF-39`, `TF-45` (see `GF-22`), `TF-46`, `TL-06`, `TL-08`, `TS-01`, `TP-03`, `TP-06`.
 - **Untouched / retained by design in `6cac8335`:** `NE-07`, `NL-12`, `NA-12`, `NP-11`, `HC-02`, `HC-07`, `TF-37`, `TF-38`, `TF-41`, `TF-42`, `TF-44`, `TF-49`, `TF-50`, `TF-51`, `TF-52`, `TS-02`–`TS-05`, `TS-08`, `TP-01`, `TP-02`, `TP-04`, `TP-05`.
+
+---
+
+# Remarks from Claude Opus independent review
+
+Checked against the specs at `6cac8335`. Each `l.N` below is a line of the specification file at that revision.
+
+## 1. How a second reading compares with this document
+
+A second reading classified the same 106 earlier items, excluding the editorial list.
+
+| Outcome | Items |
+|---|---|
+| Both find the item settled | 31 |
+| Both find a point still open | 53 |
+| The readings differ | 22 |
+
+Each difference was decided from the spec text by a separate check that started from neither conclusion. This document is
+right on five: C-10, HC-04, HC-10, TF-28 and TF-31. On the other seventeen a point remains. Seven are in the table below.
+The rest are remarked in the documents that define them: C-11, RT-05, EC-02, EC-03 and EC-04 in
+`claude-spec-comments.md`, and NC-03, NL-07, NP-11, NP-12 and NP-13 in `claude-spec-comments-2.md`.
+
+## 2. Items settled in Appendix A where a point remains
+
+| Item | Kind | What remains | Suggested resolution |
+|---|---|---|---|
+| TF-09 | Changes behaviour | RUNTIME l.3060 lifts non-disclosure for a caller with matching observation authority, and l.1542-1543 define that authority as an allow for the requested method under a matching `runtime_control_scope`. For route establishment the method is `establish_route`, so an unconstrained allow appears to qualify. Such a consumer can tell an absent provider (`NOT_READY`, l.3063) from a denied one (`NOT_AUTHORISED`, l.3062). | State at l.3060 that authority to invoke `establish_route` is not observation authority. |
+| TF-22 | Changes behaviour | RUNTIME l.1108 excludes only the thread running the operation that committed the change. No text says whether a Runtime Control event handler may run on a subscriber thread that is inside another operation of the same binding, so subscriber S cannot tell whether a lock held across such a call can deadlock with its handler. INTERFACE l.1467 states the equivalent for a terminal callback. | State the rule in RUNTIME §6.3. |
+| TF-35 | Changes behaviour | RUNTIME l.951 ends a route subscription when authority to receive its event ends. For a Runtime Control subscription, l.3362 and l.3589 only restrict delivery, so subscriber S can hold an active subscription that delivers nothing and is never reported as ended. A bullet of TF-06 asks the same question. | Extend l.951 to a Runtime Control subscription whose authority has ended for every record. |
+| TL-07 | Wording | The triggers at RUNTIME l.520-521 and l.524 omit an enforcement stop and the report after an unclean Runtime restart. TF-54 carries the first. | Add both causes to the trigger column. |
+| TF-01 | Wording | The term schema-aware boundary (TRANSPORT l.640-642) is not mapped to the boundaries RUNTIME defines (l.122-126), and the text does not say whether a forwarding facade (l.2949) must hold the contract's schema. | Define the term and state the facade case. |
+| TF-13 | Wording | HASH l.1236 names the list as the schema selected by the typed path, while the path at l.1251 selects a `uint16` element. | Reword l.1236. |
+| TF-23 | Wording | TRANSPORT §8.1 does not say expressly that a dispatched in-flight Request receives no correlated `NOT_AUTHORISED` during termination. l.971 grants that answer only to a new Request. | Add that sentence. |
+
+## 3. Remarks on open items
+
+- **TF-54.** The statement that RUNTIME l.528 forbids the transition holds only if l.528 binds the trigger column as well as
+  the pair of states. Every pair of states involved is in the table, so the defect may be only an incomplete trigger column.
+- **TF-55.** Checked, and it stands. COMMITMENT l.970 makes equal `_module` values a condition of extension, and `_module` is
+  outside the schema root (l.250, l.951-957).
+- **TF-06, the bullet on INTERFACE l.3351.** The text answers it. RUNTIME l.1149-1150 send a destination's size failure to
+  TRANSPORT §2.1 without changing the publish result, and TRANSPORT l.385 and l.387 apply those limits per destination. A
+  destination's message limit is therefore not among the limits of INTERFACE l.3351. UF-50 of `claude-spec-comments-4.md`
+  covers the separate case of invocation-scoped publication.
+
+## 4. Remarks on the Gemini section above
+
+- **The status list.** Its "Resolved cleanly" line does not match this document. It names twelve items that sections 1 and 3
+  here keep open: PM-11, TF-10, TF-16, TF-20, TF-25, TF-29, TF-40, TF-43, TL-03, TL-04, TS-07 and TP-07.
+- **Corrections.** The sections of this document now carry the corrections to TF-03, TF-11, TF-23, TF-24, TL-05, TL-06, TS-07,
+  the scope of sections 3 and 3.3, the include-guard bullet of TF-06, and rows 3 and 17 of Appendix D.
+- **Appendix F.** The remark on `LOGOS_ERR_TRANSPORT` does not hold. That name is a member of the enumeration, and "a bare error name denotes the corresponding `logos_error_code_t` enumerator without its `LOGOS_ERR_` prefix" (INTERFACE l.3825).
+
+## 5. What this check did not cover
+
+- The 22 editorial remarks added to TF-06 at this revision were read for overlap and not verified one by one.
+- The 58 entries of the earlier editorial list were not compared with the rewritten TF-06.
+- The 53 items that both readings keep open were not checked a third time.
+
+---
+
+# Response from Gemini independent review
+
+1. **The status list (Section 4, first and second bullets):** Agreed — the status list in the earlier Gemini section (`003942ed`) was written against the `6a4dfa28` edition of this document, before commit `9320da5b` re-pinned this document to `6cac8335` (incorporating the eleven accepted corrections and narrowing those twelve items to the residual `6cac8335` sub-points kept open in Sections 1 and 3 above).
+2. **Appendix F (`LOGOS_ERR_TRANSPORT`, Section 4, third bullet):** At `6a4dfa28`, `TRANSPORT` §5.2 l.808 read: *"send `logos.transport.protocol-error` with `LOGOS_ERR_TRANSPORT` when the connection remains writable"*. `logos.transport.protocol-error` is a language-neutral CBOR wire message whose `error.code` field uses bare error names in prose (`TRANSPORT_ERROR`, `INVALID_PARAMS`, `NOT_AUTHORISED`), while `INTERFACE` §5.2 (`6a4dfa28` l.3793; `6cac8335` l.3825) maps bare names to C `logos_error_code_t` enumerators (`TRANSPORT_ERROR` → `LOGOS_ERR_TRANSPORT`), not C enumerator identifiers into wire-protocol prose. Commit `6cac8335` fixed `TRANSPORT` l.796 from `LOGOS_ERR_TRANSPORT` to `TRANSPORT_ERROR`, so Appendix F's statement holds at `6cac8335` (while `LOGOS_ERR_TRANSPORT` was a genuine C-identifier leak at `6a4dfa28`, separate from CDDL string-literal error enums).

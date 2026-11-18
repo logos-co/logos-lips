@@ -306,3 +306,162 @@ All 13 specification files at `6cac8335` were checked programmatically using an 
   - `cdCDDLe` §12 conformance vectors;
   - Standalone C11/C++17 compilation of `INTERFACE` §3.9.1–3.9.3 and `RUNTIME` §13 (`logos_host_api.h` once `typedef struct logos_runtime logos_runtime_t;` from l.3804 is included).
 
+---
+
+# Remarks from Claude Opus independent review
+
+Each claim of this document was checked against the specs at `6cac8335`. Each `l.N` below is a line of the specification file
+at that revision. A letter after a claim number marks a point within that claim, in the order the claim makes them.
+
+| Outcome | Claims |
+|---|---|
+| Stands as written | 12 |
+| True in part: a narrower statement stands | 39 |
+| Refuted by the text | 15 |
+| A deliberate limit or a request for a new capability, not a defect | 22 |
+
+## 1. Claims that stand
+
+The third column is the statement the text supports. The fourth names the finding of `claude-spec-comments-4.md` that carries it.
+
+| Claim | Outcome | What the text supports | Finding |
+|---|---|---|---|
+| GF-02 | Narrower | CREDENTIAL l.132-135 requires a check and a recheck of the original caller's permission through an undefined integration. CA l.417-418 requires the permission's definition to state how the enforcing provider obtains authorization, which subjects it may check, decision validity and invalidation, and revocation ordering; CREDENTIAL §2.2 states none of these. | UF-02 |
+| GF-02.1 | Stands | The routed `evaluate` method cannot serve as the CREDENTIAL l.132 check, because CA l.93 and CA l.1421 bind `consumer` to the authenticated caller. | UF-02 |
+| GF-02.2 | Narrower | No text gives the provider Runtime's protected `evaluate` binding (CA l.421; CREDENTIAL l.29), so that binding is not an available path under the specs as written. | UF-02 |
+| GF-02.3 | Stands | `list_grants` and `get_grant` cannot implement the administrative permission check required by CREDENTIAL l.71 and l.132, because CA l.420 excludes grant inspection. | UF-02 |
+| GF-02.4 | Stands | No spec defines an interoperable call or callback through which provider P obtains the authorization result that CREDENTIAL l.134-135 requires, so a provider relying only on the specified surfaces must reject every administrative operation. | UF-02 |
+| GF-03.1 | Narrower | PM l.339 and CREDENTIAL l.98 let a manifest declare one administrative scope, so it cannot declare both scopes that `issue` needs (CREDENTIAL l.381) or the `generate` and `issue` pair (CREDENTIAL l.376). CA l.365-366 keeps declarations separate from grants, so the authority itself can still be granted. | UF-35 |
+| GF-03.2 | Narrower | RUNTIME l.2461-2465 does not say whether saved permission settings bound `logos.credential-store.administration`. If they do, the unique-name rule at l.2463 caps an instance at one administrative scope; if they cover only operating-system permissions (l.1533), the settings do not apply. | UF-06 |
+| GF-06 | Narrower | Each admitted `generate` or `import` leaves a record that CREDENTIAL l.423-426 never allows to be dropped, while l.422 requires a finite bound. An assignment with continuing operations therefore reaches `capacity` unless the deployment raises its configured limit (l.312). | UF-36 |
+| GF-07.1a | Stands | A request with `validity_seconds` equal to 0 has no stated error: CREDENTIAL l.147 makes it fail containment (`NOT_AUTHORISED`, l.308), while l.307 could be read as requiring `INVALID_PARAMS`. | UF-37 |
+| GF-07.2 | Stands | CREDENTIAL l.106-121 and l.139 place subjects, names, purposes, validity and version in the evaluated scope, and CA l.1184 retains that scope. Neither spec classifies those values, so CA l.1386 may or may not force `authority-unavailable`. | UF-03 |
+| GF-07.3 | Narrower | CREDENTIAL l.382 requires a protected assignment integration for cross-instance issuance, but the Credential Store item at BCP l.374 does not list it among the choices a deployment documents. | UF-63 |
+| GF-09 | Narrower | COMMITMENT l.496-499 and l.805-809 and HASH l.998-1000 do not state the defining schema root for a method reached through an extended contract view, although TRANSPORT l.634 and INTERFACE l.1722 determine it. | UF-63 |
+| GF-10.1 | Narrower | INTERFACE §2.6 does not define the construction input for an earlier concrete `extends` entry whose `_implements` is a strict subset of the descriptor's `interfaces`. Literal use of l.1694 and l.1716 conflicts with l.113 and l.3998. | UF-12 |
+| GF-10.4 | Narrower | RUNTIME l.398, l.466-467, l.484-485, l.639-640, l.863, l.869-870, l.1455-1456, l.2846-2848 and l.2856-2857, and TRANSPORT l.453-456 and l.479-481, enumerate only primary and implemented-interface contracts, while RUNTIME l.91-92 and l.2995 include extended contracts. | UF-30 |
+| GF-11 | Narrower | CA l.253 does not say whether `extends` entries need a `discover` decision, although RUNTIME l.430 discloses them in the complete surface and l.415 fails the request when any exact view may not be disclosed. Implementations can differ on whether a caller allowed only the newer contract receives the surface. | UF-13 |
+| GF-12.1 | Narrower | BCP l.453-458 omits extended contract documents and their supporting schemas from generator inputs, while BCP l.476 lists call-surface descriptors as output and INTERFACE l.1657 places those documents in the descriptor. | UF-63 |
+| GF-13.1 | Stands | PM l.339, l.360 and l.1141 and RUNTIME l.1358 accept an `extends` entry equal to the module's own `primary_contract` or `implements` entry, but INTERFACE l.1712 and PM l.1441 make that module unrealizable. The failure is closed but occurs after installation. | UF-38 |
+| GF-13.2 | Narrower | PM l.360 does not say which of a module's contracts is compared with an `extends` commitment, and a per-pair reading would conflict with the collective rule at PM l.1141. | UF-14 |
+| GF-13.3 | Narrower | PM l.339 and l.345-353 define no order or uniqueness for `input_artifacts` (PM l.259), and no rule says whether it may be empty. Equivalent entries can therefore have different manifest commitments. | UF-15 |
+| GF-13.4 | Stands | PM l.1139-1140 checks `implements` only for entries absent from the primary contract's `_implements`, so a manifest that omits an implemented interface installs and later fails the exact match at PM l.1441 and INTERFACE l.1717. | UF-39 |
+| GF-13.5 | Stands | PM l.1215 does not limit provided contracts to module declarations selected for the target variant, although PM l.966-970 removes unselected declarations from the installed record and handoff. | UF-11 |
+| GF-28.1 | Stands | SECURITY l.49-59, l.89, l.385 and l.556-566 omit Credential Store even though CREDENTIAL l.456 places its backend-privileged process inside a credential trust boundary. | UF-63 |
+| GF-28.2 | Narrower | BCP l.201-202 describes only the caller-owned Credential Store methods although CREDENTIAL l.37-40 adds administrative methods, and BCP l.140-148 omits `_sensitive` and `extends`. BCP l.374 does not name the protected invocation and assignment integrations. | UF-63 |
+| GF-14.2 | Narrower | RUNTIME l.1824-1833 assigns no step to the both-selectors and provider-plus-revision rejections at l.3524-3525. A caller without target authority that sends either combination can receive `INVALID_PARAMS` from one implementation and `NOT_AUTHORISED` from another. | UF-41 |
+| GF-14.4 | Narrower | The foreign-target rejection is listed at Step 4 (RUNTIME l.1829) and as a table row evaluated at Step 6 (l.1806, l.1831). Step 4 always fires first, and the row supplies only its error code. | UF-63 |
+| GF-15.2 | Narrower | TRANSPORT l.569 and l.572 do not classify a duplicate SubscriptionEnd. One receiver may accept it while another closes the session with `INVALID_PARAMS`. | UF-48 |
+| GF-15.3 | Narrower | INTERFACE l.1478 and l.1482 do not say whether a subscription-end callback may begin or still run after `unsubscribe` for that identifier has returned `LOGOS_OK`. A consumer therefore cannot use that return as a barrier for per-subscription bookkeeping. | UF-49 |
+| GF-16 | Narrower | For invocation-scoped publication, TRANSPORT l.383 requires the boundary to report an oversized Event, but INTERFACE l.2154-2158 assigns no code. The oversized Request and Response cases use `MODULE_ERROR` (TRANSPORT l.379-380). | UF-50 |
+| GF-17.2 | Narrower | While another thread publishes at least as fast as the handler completes, INTERFACE l.1406-1407 keep the active thread draining with no limit on the duration of its publish call. INTERFACE l.1473 requires no queue bound. | UF-51 |
+| GF-18.3 | Narrower | RUNTIME l.3611, l.3613 and l.3618 do not say whether a `configuration-missing` classification on an `unloaded` instance ends when valid configuration is staged or at the next accepted attempt. Two implementations can report different `failure` values in that interval. | UF-42 |
+| GF-19.1 | Narrower | After a collision failure under RUNTIME l.3025, the route at the target Runtime has no required closure and stays `ready` until expiry or other enforcement. A validity end is mandatory only for a Capability Authority allow decision (l.3066-3069). | UF-43 |
+| GF-19.2 | Narrower | RUNTIME l.3347 lets a consumer close its own route, yet l.1540 and l.1827-1828 require method authorization before the route is known. A consumer without a `close_route` grant is admitted under one rule and rejected under the other. | UF-44 |
+| GF-20.1 | Stands | With an absent method list (RUNTIME l.2935) and an allow decision narrowed to unmarked methods (l.3070), l.1808 requires `INVALID_PARAMS` while l.2939 does not reject the resulting route. | UF-45 |
+| GF-20.2 | Narrower | RUNTIME l.3005-3010 does not say whether a provider rejected under l.2939 is omitted with `partial` true (l.3047) or fails the entire `all-runtime-visible` request under l.1808. | UF-46 |
+| GF-21 | Narrower | After a `policy_changed` allow replaces the route's `decision_id` (CA l.939), neither CA §8 nor TRANSPORT §8.1 says whether a surviving provider session is rebound to the new decision or stays bound to the superseded one (TRANSPORT l.914, l.936). | UF-52 |
+| GF-22.1 | Narrower | RUNTIME l.3686-3687 exclude a live but unresponsive Loader from the l.3685 supervision path, while CA l.880 requires termination when execution authorization ends. No rule says when an unanswered Loader operation escalates to protected supervision. | UF-47 |
+| GF-23.1 | Narrower | CA l.791-792 apply one coverage test to `issue_grant` without separating authority to hold a scope from authority to issue it (l.684). An issuer holding scope S for itself, with no right to issue S, receives `scope-denied` or a grant-state code rather than `not-granted`. | UF-53 |
+| GF-23.2 | Narrower | CA l.1159-1163 do not say whether a `query_audit` result exceeding the Transport limit is cut to the most recent records that fit or fails with `MODULE_ERROR` under TRANSPORT l.380. | UF-54 |
+| GF-23.3 | Narrower | CA l.301-305 and l.556 define selector matching against a subject, but a Runtime Control subscription activation names only an event. Whether a selector-narrowed scope admits activation and then filters delivery under RUNTIME l.3362 is unstated. | UF-55 |
+| GF-23.4 | Narrower | A package naming a later commitment model reports `signature-verification-failed`, not `unsupported-manifest` (PM l.565-568, l.1896). PM l.1218 and l.1662-1665 define no handoff outcome for an installed record under an unsupported schema, and l.1686-1689 do not say whether `source` changes with the signer. | UF-40 |
+| GF-24.2 | Narrower | INTERFACE l.1254 exposes response storage through a mutable element pointer, although l.974-976 make list elements const and l.1834 requires the region to stay unchanged. A C++ provider returning const static storage (l.1835) needs a `const_cast`. | UF-56 |
+| GF-25.1 | Narrower | INTERFACE l.993-1001 and §3.4 define no C declaration, and no reverse mapping, for a named declaration whose body is a local or imported reference to an aggregate. The recursion rule at l.1036-1041 still works once that form is defined. | UF-57 |
+| GF-25.2a | Narrower | The code block headed `logos_types.h` (l.3373-3822) is not compilable as written, because l.3814 and l.3818 are per-module templates that belong in a provider header under l.2242. | UF-58 |
+| GF-25.2b | Stands | `logos_types.h` as listed at INTERFACE l.3373-3822 cannot be included twice, while l.624 and l.2289 make repeated inclusion the normal case for two generated headers in one translation unit. | UF-58 |
+| GF-25.2c | Narrower | INTERFACE l.3326 does not say whether the support typedef at l.3432 may be re-emitted by a generated header. Either choice compiles, so only textual sameness of generated output is affected. | UF-63 |
+| GF-25.3b | Stands | INTERFACE l.912 does not carry the "except for zero itself" wording used for indices elsewhere in the specification, although a zero minimum is a valid component. | UF-63 |
+| GF-26.1 | Narrower | HASH l.592, l.604 and l.656 fix the absent payload's identity, but COMMITMENT §9.3 (l.1228-1231) does not state what `absent-value` field `1` holds for an optional field of reference type. The two specs do not state opposite rules. | UF-59 |
+| GF-26.2c | Narrower | COMMITMENT Appendix B and HASH Appendix B have no value-commitment vector for those three shapes; COMMITMENT l.1412 covers a reference choice at schema level only. | UF-60 |
+| GF-27.1 | Narrower | HASH l.1376 describes the rejection cause accurately only for the partial views of N2 to N8. Complete views fail by root mismatch at step 7, and the N1 partial view fails by child-record mismatch at step 6. | UF-63 |
+| GF-27.2 | Narrower | HASH §8 step 4 (l.1098) does not define how `.size` applies to a disclosed range, and does not require a verifier to reject U+0000 bytes in a text chunk or range. The terminal-segment and byte-count points are already covered by l.1096 and l.972. | UF-61 |
+| GF-27.3 | Narrower | cdCDDLe §10 and §12 (l.631) do not say how a standalone decoder or checker treats a reference that resolves only through an external context, and they do not reject a `type-reference` whose name is `uint`, `bool`, `tstr` or `bstr`. | UF-62 |
+
+## 2. Claims the text refutes
+
+| Claim | What the text says |
+|---|---|
+| GF-07.1, second point | Detail is optional for `INVALID_PARAMS` (INTERFACE l.3288), so the status without detail conforms. |
+| GF-07.1, third point | Version and operation identifiers are opaque and compared exactly (CREDENTIAL l.343), so `/` or `..` has no meaning in them. |
+| GF-07.1, fourth point | Enforcement precedes the report of an unsupported operation or format (CREDENTIAL l.351), and `unsupported` is the matching error arm (l.200). |
+| GF-10.2 | `logos.schema` uses "the exact contract selected by that route" (INTERFACE l.3249), whichever view that is. |
+| GF-10.3 | The extending contract is the `primary` contract or one `interfaces` contract (INTERFACE l.1693), so other `extends` entries are not candidates. |
+| GF-15.4 | No rule stops a binding from sending a wire Unsubscribe after it ended a subscription locally (TRANSPORT l.584). |
+| GF-15.5 | INTERFACE l.1479 sets a local reason, and TRANSPORT l.753 limits what a callee commits. They govern different things. |
+| GF-20.3 | The table applies to an authorized request whose target may be disclosed (RUNTIME l.1802), and target authorization comes first (l.1829-1831). |
+| GF-22.2 | RUNTIME l.3732 applies at expiry of the Runtime shutdown deadline. For an explicit stop, l.575-577 give one result. |
+| GF-22.3 | The carrier is realization-internal (RUNTIME l.890), and the owning Runtime holds the ticket record (TRANSPORT l.927, l.1016). |
+| GF-24.1 | `<type>` names a type, and `const` applied to `const char*` gives the `const char* const*` of INTERFACE l.974. |
+| GF-25.3, first point | Equal bounds canonicalize to an exact size (cdCDDLe l.325), and an exact-size byte string may not use a pointer-valued typedef (INTERFACE l.926), so that header is not conformant. |
+| GF-25.3, third point | The reverse rule uses the field's ordinary input representation (INTERFACE l.2394), which for an inline tuple is the adjacent component group. |
+| GF-26.2, first point | A reference node at a nonempty path uses its leaf hash (COMMITMENT l.473), and the child value carries the referenced declaration's identity (l.888). |
+| GF-26.2, second point | A list of references is not a packable scalar list (HASH l.137). |
+
+## 3. Deliberate limits and capability requests
+
+These are not defects in the text. Each may still be worth raising with the spec owner as a request.
+
+| Claims | Subject | Why it is not a defect |
+|---|---|---|
+| GF-05 | Delivering a credential at startup | Left to the host on purpose (CREDENTIAL l.36, l.459, l.463; BCP l.202). |
+| GF-12.2 | The `#error` for conflicting document identities | Required behaviour (INTERFACE l.2268, l.2283-2284). |
+| GF-13.6 | Release obligations beyond contracts | Stated scope. A configuration-schema change has its own rule (CONFIG l.255). |
+| GC-01 | Marked payloads on remote routes and in events | Stated limit (TRANSPORT l.1188-1189; INTERFACE l.212, l.371-373, l.423-424). |
+| GC-02 | Reading, rotating and delivering stored secrets | Stated exclusions (CREDENTIAL l.60, l.459, l.463, l.496). |
+| GC-03 | Evolving a contract other than by adding declarations | Identical declarations define an extension (COMMITMENT l.971). |
+| GC-04 | Confirmed teardown and output isolation | Stated design (INTERFACE l.2041-2042; TRANSPORT l.792-797, l.803-804). |
+| GC-05 | HTTP-style bindings and WebAssembly realization | Stated scope of the profile list and of LOADER. |
+| GC-06 | Package-root handles and two Go static archives in one executable | PM gives no such handle on purpose. The link failure is a toolchain limit, seen with Go 1.24.7 and Apple clang 21.0.0. |
+| GC-07 | Shared Module Hosts and large transfers | Stated limits of this revision (RUNTIME l.3786-3790). |
+| GC-08 | Contract documents in the handoff, and `0.x` compatibility | Runtime validates the descriptor from the realization record (PM l.1440-1441), and PM states the `0.x` limit. |
+
+## 4. Claims not checked separately
+
+These describe a defect that an existing finding already covers, so they were not checked on their own: GF-01 (UF-01),
+GF-04 (UF-05), GF-08 (UF-28), GF-14.1 (UF-25), GF-14.3 (EC-02), GF-15.1 (UF-27), GF-17.1 (UF-20), GF-18.1 (UF-32) and GF-18.2
+(TL-07). GF-08 and GF-18.1 are matters of wording in `claude-spec-comments-4.md`: a separate attempt found no contradiction
+in GF-18.1.
+
+---
+
+# Response to the Claude Opus review
+
+All line numbers below (`l.N`) cite `draft/logos-core-module-specs` at `6cac8335`.
+
+## 1. Accepted narrowings and refutations
+
+- **Section 1 narrowings (`UF-01`–`UF-63`):** Agreed on the 51 accepted and narrowed statements carried into `claude-spec-comments-4.md`, except for the five omitted sub-points listed in Section 2 below.
+- **Section 2 refutations accepted (9 of 15):**
+  - `GF-07.1` (second, third, and fourth points): Agreed — `INTERFACE` l.3288–3297 makes `logos.invalid_params_detail` optional and restricts its four `reason` values to CBOR/schema validation, so omitting `"without validation detail"` at `CREDENTIAL-STORE` l.307 is only an editorial difference from `RUNTIME`/`CONFIG`; `CREDENTIAL-STORE` l.343 and l.405 make `identifier` values opaque strings rather than path-restricted syntax; and l.351 + l.200 assign `unsupported`.
+  - `GF-10.3`: Agreed — `INTERFACE` l.1693 restricts the extending contract to `primary` or `interfaces`, excluding other `extends` entries (while `UF-12` point 2 captures the remaining ambiguity at l.1711 when `primary` and an `interfaces` entry share a namespace).
+  - `GF-20.3`: Agreed — `RUNTIME` l.1802 and Step 4 (`l.1829`) precede Step 6 (`l.1808`), and `l.3060–3061` enforces non-disclosure before caller-error preconditions.
+  - `GF-22.3`: Agreed — `RUNTIME` l.890 makes the Module-Host-to-Runtime carrier realization-internal, and `l.748` preserves profile-prescribed peer-validation failure handling.
+  - `GF-25.3` (third point): Agreed — `INTERFACE` l.981–983 defines the inline-tuple parameter group as the field's ordinary input representation consumed by `l.2394` (aligning `l.2439`'s `"presence pair"` wording with `l.2475` is at most editorial).
+  - `GF-26.2` (first and second points): Agreed — `COMMITMENT` l.473 and l.888 fix the container leaf hash vs child declaration identity, and `HASH` l.137 explicitly excludes `reference` elements from packable scalar lists.
+- **Section 3 ("Deliberate limits and capability requests") & `GF-18.1` (`UF-32`):** Agreed on the classification: `GC-01`–`GC-08` (along with `GF-05`, `GF-12.2`, and `GF-13.6`) are intentional boundaries of `6cac8335` documented as capability trade-offs for the spec owner when porting catalog modules and target applications — noting that `GC-01.2` (`access: {}` on mixed contracts) directly triggers the contradiction in `GF-20.1` (`UF-45`) and `GC-08.2` (`0.x` ranges) intersects `UF-10`. Agreed on `GF-18.1` (`UF-32`) that `RUNTIME` l.561 places facades outside local module instances, making the issue an unstated set of facade state-transition pairs rather than a violation of `l.528`.
+
+## 2. Sub-points from Section 1 neither refuted nor carried into `claude-spec-comments-4.md`
+
+Five substantive sub-points inside the partially accepted items remain open in the `6cac8335` text and are absent from `UF-01`–`UF-63`:
+
+1. **`GF-23.1` (first and third points — omitted from `UF-53`):**
+   - **Missing target identity in `"the action"` (`CA` §3 l.166–218 vs §7 l.788–793):** `CA` l.793 defines `"the action"` specially **only** for `permission_scope` (`permission`) and `runtime_control_scope` (`runtime` + `contract`). For `provider_access_scope` (`l.166–180`), `contract` is not part of `"the action"` (`actions` holds `"call"`, `"establish-route"`, etc.; likewise `module_execution_scope` `l.194–205` has `"start" / "stop"` without `runtime`/`module`, and `remote_enrollment_scope` `l.207–212` has `"enroll" / "refresh" / "remove"` without `remote_runtime`). Under `CA` l.792 (*"contains a scope of the same kind and action as a requested scope, whatever constraints, methods, or events that scope carries"*), a consumer holding an active grant to `"call"` *any single contract `X`* covers `"call"` on *every completely ungranted contract `Y`*, forcing `CA` l.788 to return `scope-denied` instead of `not-granted` across the entire system.
+   - **Existential vs universal multi-scope check (`CA` l.785–786 vs l.792):** `grant-revoked` and `grant-expired` test *"every requested scope"* (`l.785–786`), whereas `scope-denied` tests *"as a requested scope"* (`l.792`). In a two-scope execution check `[module_execution_scope(M), permission_scope(P)]` where `M` is allowed and `P` has no rule or grant at all, `l.792` returns `scope-denied` rather than `not-granted`.
+2. **`GF-14.2` (name-selected facade with `expected_execution_revision` — omitted from `UF-41`):** `UF-41` covers `both selectors` (`RUNTIME` l.3524) and `provider + expected_execution_revision` (`l.3525`). When `start_module` or `stop_module` instead supplies **`module` (by name)** + `expected_execution_revision` and resolves to an authorized facade (`RUNTIME` l.3540: *"After an authorized selection of a facade by module name, a request carrying `expected_execution_revision` MUST produce `INVALID_PARAMS` without structured detail"*), `RUNTIME` §9.3.1 places Step 5 (`comparison of an expected revision, which produces stale-revision` with `current_revision`, `l.1819–1820, 1830`) **before** Step 6 (`l.1831`) — yet a facade omits `execution` (`l.3359`) and has no `current_revision` to compare or return.
+3. **`GF-14.4` (`renew_route` / `close_route` forwarding inversion — omitted from `UF-63`):** `RUNTIME` §9.3.1 l.1836–1837 states that when forwarding `renew_route` or `close_route` for a route established through a target Runtime, *"the source Runtime does not authorize the method itself. The source Runtime MUST select the target Runtime only from the routes of the calling consumer, and it MAY decode and validate the request before forwarding it."* For a local route, Step 2 (`l.1827`: method authorization **before** Step 3 payload decoding) still binds the source Runtime — yet the source Runtime cannot determine whether `request.route` names a forwarded remote route or a local route without decoding the payload before Step 2, inverting Step 2 and Step 3 (`INVALID_PARAMS` vs `NOT_AUTHORISED`) when an unauthorized caller sends malformed CBOR.
+4. **`GF-15.2` (callee repeated `Unsubscribe` after `SubscriptionEnd` — omitted from `UF-48`):** `TRANSPORT` §5.1 l.755 states: *"An Unsubscribe for a subscription that the callee has ended with a SubscriptionEnd MUST produce a successful SubscriptionResult."* Because l.755 does not retire that allowance on the **first** `Unsubscribe`, a second `Unsubscribe` for the same `id` still literally names a subscription that the callee ended with a `SubscriptionEnd` and succeeds, whereas a second `Unsubscribe` after normal deactivation fails with `INVALID_PARAMS` under `l.731`.
+5. **`GF-23.3` (`provider_export_record` selectors — omitted from `UF-55`) & `GF-23.4` (`PM` §8 check order and revoked-signer `update_package` — omitted from `UF-40`):**
+   - `provider_export_record` (`RUNTIME` l.1936–1940: `{ listener, provider, enabled }`) has no `module` or `instance` field, so under `CA` §3.2 l.305 (*"A present selector whose field the subject does not carry does not match"*), a `runtime_control_scope` narrowed by `modules` or `instances` can never authorize `list_provider_exports` or `set_provider_export` for that module's provider.
+   - `PM` §8 l.1067 (*"stop at the first detected validation failure"*) and l.1074 (`manifest.cbor` schema mismatch -> `invalid-package`) state no ordering requirement placing §4.3 `manifest.cose` verification (`l.565` -> `unsupported-manifest`) ahead of `manifest.cbor` validation; and a no-op `update_package` when no newer version exists (`PM` §15 l.1706: *"succeeds with the current installed record and changes nothing"*) succeeds even when the installed record's signer has been revoked, contradicting `PM` §4.1 l.437 (*"After an anchor is removed or revoked, Package Manager MUST NOT use it for a new successful resolution, installation, update, or Runtime handoff"*).
+
+## 3. Rebuttals and clarifications on six items in Section 2 and Section 4
+
+1. **`GF-15.5` (Not refuted — receiver handling of `SubscriptionEnd.error.code != NOT_AUTHORISED` is unspecified):** The review addresses only what the callee commits (`TRANSPORT` l.753) vs what the local callback reports (`INTERFACE` l.1479), overlooking the **wire receiver** rule raised in `GF-15.5`. In `TRANSPORT` §1.3 (`l.231–235, 277–285`), `logos.transport.subscription-end` admits any `logos.error_code` (`1..9`) in `error.code`. If a peer sends `SubscriptionEnd` carrying `MODULE_ERROR` (or `NOT_READY`), neither `TRANSPORT` §3.4 nor §5.1 l.753–756 states whether the caller's Transport receiver MUST reject the frame with `ProtocolError INVALID_PARAMS` and close the session (enforcing `l.753`'s *"this revision defines no other cause"*) or accept it and pass `MODULE_ERROR` to `observe_subscription_end` under `INTERFACE` l.1479 (*"`MODULE_ERROR` for every other cause"*).
+2. **`GF-25.3` first point (Not refuted for `tstr` — `logos_tstr_size_<n>_<n>_t` is conformant and breaks §3.8 round-trip):** The review cites `INTERFACE` l.926 (*"An exact-size byte string MUST NOT use a pointer-valued constraint typedef"*). That rule applies **only to `bstr`**, not `tstr` — an exact-size `tstr` *does* use a pointer-valued constraint typedef (`typedef const char* logos_tstr_size_64_t;`, `INTERFACE` l.907, l.2203). Neither `INTERFACE` §2.2 l.907–916 nor §3.1 l.2204 forbids `<min> == <max>` in `typedef const char* logos_tstr_size_64_64_t;`. Under §3.8 (`l.2580–2588`), C-to-CDDL (`l.2204`) maps `logos_tstr_size_64_64_t` to `tstr .size (64..64)`, `cdCDDLe` l.325 canonicalizes that to `tstr .size 64`, and CDDL-to-C emits `logos_tstr_size_64_t` in `H'`, changing the typedef identifier (and even for `bstr`, §3.1 l.2205 states no `min < max` check). Requiring `<min> < <max>` in §2.2 l.914 and §3.1 l.2204–2205 settles both.
+3. **`GF-22.2` (Narrower point stands inside `RUNTIME` §3.4 l.575–577):** Agreed that `RUNTIME` l.3732 governs Runtime shutdown rather than `stop_module`. Within `stop_module` itself, however, when the graceful drain deadline expires (`failure: "cleanup-timeout"`, `l.575`) and Runtime escalates to `Loader.release{force: true}` (`LOADER` §9 l.579: *"does not prove that module code completed cooperative cleanup or that destruction returned"*), `RUNTIME` l.576–577 (*"When the pending cleanup then completes, the explicit stop completes successfully. A cleanup failure during an explicit stop transitions the instance to `error`"*) does not state whether forced kill counts as completion (`stopping -> unloaded`, erasing `cleanup-timeout` per `l.3611`) or cleanup failure (`stopping -> error`).
+4. **`GF-24.1` (Editorial template-substitution hazard in `INTERFACE` l.1253):** Agreed that in C's type system applying `const` to a typedef of `const char*` yields `const char* const`. Because generated headers emit no typedef for `tstr` (`INTERFACE` l.885 maps `tstr` directly to the token sequence `const char*`) and `<...>` elsewhere in §2.1–§2.4 denotes token substitution, pointing Rule 9 (`l.1253`) to the §2.3 `l.974–976` element pointer form avoids naive generators emitting `const const char**`.
+5. **`GF-10.2` (Editorial — belongs alongside `UF-30`):** Agreed that `INTERFACE` l.3227, l.3241–3242, and l.3249–3250 determine the runtime `logos.schema` result for an extended-contract route; `INTERFACE` §5.1 l.3228–3234 and `RUNTIME` §2.4 l.407–408 still enumerate only primary concrete and implemented interface routes, the same incomplete two-case wording tracked by `UF-30`.
+6. **`GF-15.4` (Narrower — optional vs required wire `Unsubscribe`) & `GF-08` (`UF-28` — behavioral release blocker, not merely editorial):**
+   - On `GF-15.4`: Agreed that no rule *forbids* a caller binding from sending one wire `Unsubscribe` when locally ending an overflowing subscription (`INTERFACE` l.1473); the point is only that nothing *requires* it, so compliant callers may leave the subscription active at the callee for the life of the session.
+   - On `GF-08` (`UF-28`): Together with `PM` §11 l.1236 (*"A release within the range that a `compatible` requirement on an earlier release accepts MUST provide every contract that the earlier release provides"*), `COMMITMENT` §9.1 l.963 and l.972 do not merely leave a consequence unstated — they prevent any concrete module that has a primary contract `P_1` and implements an interface `I_1` from upgrading to a compatible extension `I_2` in a minor release (`1.1.0`) without dropping `P_1` and violating `PM` l.1236.
