@@ -111,7 +111,7 @@ The figures come from a review, with proofs, of the epoch's length under a final
 - `s07_genesis.py`: the bounds of Ouroboros Genesis.
 - `s09_epoch.py`: the cost of each schedule in [Alternatives](#alternatives).
 
-The bounds hold in the specification's own model of the floor. The mapping of each state of the `K` row to a building share and a delay is the review's. Only the alternative of 30.84 hours rests on the study's survival law for branches, which is not proved.
+The bounds hold in the specification's own model of the floor. The mapping of each state of the `K` row to a building share and a delay is the review's. Only the alternative of 30.84 hours rests on the finality study's survival law for branches, which is not proved.
 
 # Details
 
