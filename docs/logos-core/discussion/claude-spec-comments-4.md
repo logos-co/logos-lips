@@ -750,7 +750,7 @@ These are the sub-points of section 2 of Gemini's response in `gemini-spec-comme
 | GF-15.2: a repeated Unsubscribe after a SubscriptionEnd | Holds | "An Unsubscribe naming no active subscription MUST likewise produce a failed SubscriptionResult with `INVALID_PARAMS` and leave the active subscription state unchanged." (TRANSPORT l.731). "An Unsubscribe for a subscription that the callee has ended with a SubscriptionEnd MUST produce a successful SubscriptionResult." (TRANSPORT l.755). Both sentences describe every Unsubscribe that follows a SubscriptionEnd. The second is the specific one, so the first such Unsubscribe succeeds. Nothing says that it retires the case, so a second Unsubscribe succeeds on one callee and fails on another. | Add to UF-27, which already asks how l.755 is ordered against another rule. |
 | GF-23.3: selectors and `provider_export_record` | No defect | The record has the fields `listener`, `provider` and `enabled` (RUNTIME l.1936-1940). "A present selector whose field the subject does not carry does not match." (CA l.305). A scope narrowed by `modules` or `instances` therefore never matches an export record, on every implementation, and a `providers` selector matches its `provider` field (CA l.303). The text states the outcome. | None. BCP could tell a policy author that exports need the `providers` selector. |
 | GF-23.4: the order of the manifest schema check and the claim check | No defect | The order is fixed by what each check needs. "Package Manager selects the manifest schema by the `schema_root` and `schema_subtree_root` of the signed manifest commitment and validates `manifest.cbor` against that schema." (PM l.371). The schema check of l.1074 therefore follows the selection, and a claim that names a schema Package Manager does not support fails at the selection with `unsupported-manifest` (l.565). | None. PM §8 could repeat the order. |
-| GF-23.4: an `update_package` that finds no newer version, after the signer is withdrawn | Holds | "If no applicable newer version exists, the operation succeeds with the current installed record and changes nothing." (PM l.1706). This is not the contradiction the claim states, because the operation verifies no signature and installs nothing. The text still does not say whether that success is subject to the rules on withdrawn trust: "Withdrawal blocks subsequent accepted package operations and handoffs under this section;" (PM l.409), and a revocation is enforced "before a successful resolution, installation, update, or Runtime handoff" (PM l.472). One Package Manager returns the record of a package whose signer is withdrawn, and another fails the operation. | A point that fits no finding of this document. Say in PM §15 whether l.1706 applies when the signer of the installed record is no longer accepted. |
+| GF-23.4: an `update_package` that finds no newer version, after the signer is withdrawn | Holds | "If no applicable newer version exists, the operation succeeds with the current installed record and changes nothing." (PM l.1706). This is not the contradiction the claim states, because the operation verifies no signature and installs nothing. The text still does not say whether that success is subject to the rules on withdrawn trust: "Withdrawal blocks subsequent accepted package operations and handoffs under this section;" (PM l.409), and a revocation is enforced "before a successful resolution, installation, update, or Runtime handoff" (PM l.472). One Package Manager returns the record of a package whose signer is withdrawn, and another fails the operation. | A point that fits no finding of this document. TF-07 of `claude-spec-comments-3.md` carries it, together with the install that changes nothing. Say in PM §15 whether l.1706 applies when the signer of the installed record is no longer accepted. |
 
 ## 3. Refutations that Gemini answered
 
@@ -813,6 +813,11 @@ are fair. That document carries each accepted point, and the statements below re
 - **Part 4 of `claude-spec-comments-2.md`.** Agreed with both reviewers. CA l.368-369 and RUNTIME
   l.1818-1819 overturn the two dismissals at l.2284 and l.2296 of that document, and Part 4 should say so.
 - **C-10, PM-08 and NR-10.** No difference remains.
+- **UF-46, read after the settlement.** For a request that the consumer's Runtime resolves, the text
+  answers it. A remote provider is reached by a new `single` request to its Runtime (RUNTIME l.3056), the
+  rejection of l.2939 fails that request, and "Failure to resolve the selected provider fails a single
+  acquisition; `all-runtime-visible` follows its omission and `partial` rules." (RUNTIME l.3029). What
+  remains of UF-46 is an `all-runtime-visible` request that the target Runtime serves itself.
 
 ## 6. What changes in the lists
 
@@ -827,7 +832,8 @@ are fair. That document carries each accepted point, and the statements below re
   section 3.5. The remark on INTERFACE l.3351 is narrowed, and the remark that carries TF-35 cites CA
   l.944. Part 4 of `claude-spec-comments-2.md` has a note on each of its two dismissals.
 - **A point that fits no finding.** Whether an `update_package` that finds no newer version succeeds
-  when the signer of the installed record is withdrawn (PM l.1706, l.409, l.472).
+  when the signer of the installed record is withdrawn (PM l.1706, l.409, l.472). TF-07 of
+  `claude-spec-comments-3.md` carries it.
 - **No change to the specs is asked for.** The six verdicts of no defect, and the four optional
   sentences: GF-15.5, TF-23, NP-11 and NP-13.
 
