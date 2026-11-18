@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-01-20 |
 | 1.1.0 | Changed `density_over_slots` to count **distinct occupied slots** instead of blocks, including the slots of the [uncles](cryptarchia-v1-protocol.md#uncle-references) referenced by the honest chain's in-period blocks, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md). | 2026-08-06 |
 | 1.2.0 | `beta` and `f` are double-precision values, their products with `PRECISION` are double-precision products, and `PERIOD` is that of the epoch schedule ([Bedrock Eras](bedrock-eras.md)). | 2026-11-05 |
+| 1.3.0 | Computed the next estimate from the ratios `beta` and `f` with a single floor division, and capped it at $`2^{64}-1`$. | 2026-11-10 |
 
 # Introduction
 
@@ -50,7 +51,7 @@ This algorithm has been analyzed and shown to have good accuracy, precision and 
 
 | Symbol | Value | Name | Description |
 | --- | --- | --- | --- |
-| `beta` | 1.0 | learning rate | Controls how quickly we adjust to new participation levels.  Lower values for `beta` give a more stable / gradual adjustment, while higher values give faster convergence but at the cost of less stability. |
+| `beta` | 1/1 | learning rate | Scales each correction of the estimate. |
 | `PERIOD` | *inherited from* [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) | observation period | The length of the observation period in slots. |
 | `f` | *inherited from* [Constants](cryptarchia-v1-protocol.md#constants) | slot activation coefficient | The target rate of occupied slots. Not all slots contain blocks, many are empty. |
 
@@ -63,29 +64,19 @@ This algorithm has been analyzed and shown to have good accuracy, precision and 
 
 For a current epoch’s estimate `total_stake_estimate` and the epoch’s first slot `epoch_slot`, the next epoch’s estimate is calculated as shown below:
 
-```rust
-const PRECISION: u64 = 1e3
-fn total_stake_inference(total_stake_estimate: u64, epoch_slot: u64) -> u64 {
-    // f: f64
-    // PERIOD: u64
-    // density_over_slots(u64, u64) -> u64
-
-    let beta_p: u64 = truncate(beta * PRECISION)
-    let f_p: u64 = truncate(f * PRECISION)
-    let tse_p: u64 = total_stake_estimate * PRECISION
-
-    let measured_density_p: u64 = density_over_slots(epoch_slot, PERIOD) * PRECISION
-    let expected_density_p: u64 = PERIOD * f_p
-    let density_diff_p: i128 = (expected_density_p as i128) - (measured_density_p as i128)
-        let slot_activation_error_p: i128 = (tse_p * density_diff_p) / (expected_density_p as i128)
-        let correction_p: i128 = (beta_p * slot_activation_error_p) / PRECISION;
-        let new_total_stake_estimate = (tse_p - correction_p) / PRECISION;
-
-        max(new_total_stake_estimate, 1) as u64
-}
+```python
+def total_stake_inference(total_stake_estimate: int, epoch_slot: int) -> int:
+    measured_density = density_over_slots(epoch_slot, PERIOD)
+    # total_stake_estimate * (1 - beta + beta * measured_density / (f * PERIOD)),
+    # over a single denominator so that only the last division rounds.
+    numerator = total_stake_estimate * (
+        (beta.den - beta.num) * f.num * PERIOD + beta.num * f.den * measured_density
+    )
+    denominator = beta.den * f.num * PERIOD
+    return min(max(numerator // denominator, 1), 2**64 - 1)
 ```
 
-In `total_stake_inference`, `beta` and `f` are IEEE 754 double-precision values, `f` being the double-precision quotient of its numerator by its denominator. `beta * PRECISION` and `f * PRECISION` are double-precision products, and `truncate` rounds them toward zero.
+`beta.num` and `beta.den` are the numerator and denominator of `beta`, and `f.num` and `f.den` those of `f`. A negative numerator makes the result 1 under either rounding, so truncating division gives the same result. With `total_stake_estimate` and `PERIOD` below $`2^{64}`$ and the parts of `beta` and `f` below $`2^{32}`$, every intermediate value lies strictly between $`-2^{193}`$ and $`2^{193}`$, so a signed 256-bit integer holds each one.
 
 # Annex
 
