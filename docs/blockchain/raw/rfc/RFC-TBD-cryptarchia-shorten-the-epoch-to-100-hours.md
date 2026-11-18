@@ -102,9 +102,16 @@ This is a consensus change. Nodes with a different epoch compute different epoch
 
 ## Reproducing the figures
 
-The figures come from a review, with proofs, of the epoch's length under a finality window of 10 hours. It bounds the chance that a value is not final when first used in the specification's own model of the floor, and maps each state of the `K` row to a building share and a delay. Its scripts recompute every figure above.
+The figures come from a review, with proofs, of the epoch's length under a finality window of 10 hours: [`slot-finality/epoch`](https://github.com/logos-blockchain/research/tree/5e9f172ece0d3f64b32382643e80f268a4dd607d/tools/simulators/finality/slot-finality/epoch) of the research repository at commit `5e9f172`. `REVIEW.md` there states each result with its proof and names the script and the output lines behind it. The folder's README lists each script with its command and its stored output.
 
-> **TODO (author):** publish the review and its scripts, and link them here.
+- `s03_gap_bound.py` and `s09_epoch.py`: the shares at which each phase is final in time, and the least phase in each state of the `K` row.
+- `s14_bracket.py`: the phases and the buffer below which a rule fails.
+- `s06_inference.py`: the noise of `D`, the floor and the 1.094 limit under that noise, and the cost of a deflation.
+- `s05_targets.py` and `s11_gain.py`: the targets that meet two nonces, and the gain of choosing among nonces.
+- `s07_genesis.py`: the bounds of Ouroboros Genesis.
+- `s09_epoch.py`: the cost of each schedule in [Alternatives](#alternatives).
+
+The bounds hold in the specification's own model of the floor. The mapping of each state of the `K` row to a building share and a delay is the review's. Only the alternative of 30.84 hours rests on the study's survival law for branches, which is not proved.
 
 # Details
 
