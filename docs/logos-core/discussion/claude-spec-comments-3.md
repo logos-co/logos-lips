@@ -1921,6 +1921,16 @@ that holds keys. A and B stand for other modules and are local to one item.
   across restarts (RUNTIME l.3386); whether the retained selection of an existing instance follows the
   replacement, and whether a later handoff that carries the replaced signer matches that selection, is not
   said.
+- RUNTIME l.1423-1424 and CA l.249: a `single` request "does not require a separate `discover` decision"
+  (RUNTIME l.1423), yet "Runtime MUST NOT select for a `single` request a provider that active visibility
+  policy hides from the consumer" (RUNTIME l.1424); under an externalized policy the one decision that
+  expresses visibility is `discover` ("A `discover` allow decision permits Runtime to disclose providers
+  matching the exact `contract`", CA l.249), so which decision tells Runtime that a provider is hidden,
+  when none is required, is not said.
+- RUNTIME l.3317 and l.3351: where a listener or a provider export is disabled, and where a route is
+  closed, "In-flight call behavior follows the in-flight call policy of this section"; neither Section
+  9.3.15 nor Section 9.3.16 states such a policy, and the one sentence on the subject, in Section 9.3.14,
+  leaves it to "profile or implementation policy" (RUNTIME l.3123).
 - INTERFACE l.1479 and RUNTIME l.3589: Runtime delivers Runtime Control state events "only while the
   authenticated subscriber remains authorized to observe the referenced module, provider, or route"
   (RUNTIME l.3589), and a binding ends a subscription with `NOT_AUTHORISED` "when authority to receive the
