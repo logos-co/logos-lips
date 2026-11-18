@@ -122,7 +122,7 @@ class SignedMantleTx:
 Every Operation proof (zk proofs or signatures) must be cryptographically bound to the `MantleTx` through the `mantle_txhash` to prevent replay attacks. This binding is achieved by signing the 32-byte `mantle_txhash` digest with every Ed25519 signature, and by including it reduced modulo $`p`$ as a public input in every ZK proof. The proofs of the steps of an inscription ([CHANNEL_INSCRIBE](#channel_inscribe)) and the proof of a proof of work claim are the exceptions:
 
 - The [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) of a user step and of a program deposit is signed by its holder before the Mantle Transaction exists, so it is bound to its own content, through `user_step_id` or `program_deposit_id`.
-- The [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) and the program proof of a [program step](#programs) are produced by the sequencer, and bound to the `op_id` of the inscription, which covers the public data of every step without any proof.
+- The [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) and the program proof of a [program step](#programs) are produced by the sequencer. The ZkProgramSpend is bound to the `op_id` of the inscription, which covers the public data of every step without any proof, and the program proof to what the [ABI](#program-abi) of its program reads, such as the `op_id`.
 - The proof of [CLAIM_POW_REWARD](#claim_pow_reward) is empty, its ticket being bound to the public key it pays: a claim copied into another Mantle Transaction pays the same key, but invalidates the transaction it was copied from.
 
 ```python
@@ -481,7 +481,7 @@ class ProgramStep:
     outputs: list[NoteCommitment]          # commitments of the user notes the step pays
     commitment_root: MerkleRoot            # the MMR root of the channel note set at the end of one of the last ROOT_WINDOW blocks
     program_step_id: zkhash                # the hash of the input and output notes of the program spend
-    inscription: bytes                     # the zone message of this step, bound by the op_id
+    inscription: bytes                     # the zone message of this step, covered by the op_id
 
 Step = UserStep | ProgramDeposit | ProgramStep
 
@@ -498,7 +498,7 @@ A `NoteNullifier` is the nullifier of a note and a `NoteCommitment` its commitme
 
 A mini-block is a flat list of steps of three kinds. A user step moves the user notes of its holder. A program deposit pays a [program](#programs) from the user notes of its holder. A program step executes a program: it consumes the program deposits after the previous program step of its mini-block, which must all pay its program, taken in their order in the mini-block, which the sequencer chooses, and its program spend consumes the notes of the program, creates its `program_outputs`, notes of the program, and pays its `outputs`, user notes. A sequencer usually places the program deposits of a program step right before it. A program deposit that no program step consumes in its mini-block makes the inscription invalid, so a program deposit is never left unconsumed.
 
-The `inscription` of the `Inscribe` is the message of the sequencer, and the `inscription` of a user step or of a program deposit the zone message of its holder. The ZkTransfer of the user step or of the program deposit binds its inscription together with its inputs and outputs, so a sequencer publishes the message a holder signed with the move it signed, or drops it whole. The `inscription` of a program step is the zone message of the step, bound like the rest of its public data by the `op_id`, to which the proofs of the sequencer are bound. The inscription of the `Inscribe` and the inscriptions of its steps count together against `MAX_OPERATION_DATA_SIZE`.
+The `inscription` of the `Inscribe` is the message of the sequencer, and the `inscription` of a user step or of a program deposit the zone message of its holder. The ZkTransfer of the user step or of the program deposit binds its inscription together with its inputs and outputs, so a sequencer publishes the message a holder signed with the move it signed, or drops it whole. The `inscription` of a program step is the zone message of the step, covered like the rest of its public data by the `op_id`, to which the program spend is bound. The inscription of the `Inscribe` and the inscriptions of its steps count together against `MAX_OPERATION_DATA_SIZE`.
 
 The steps of an inscription are grouped in mini-blocks. A user step and a program deposit are signed and proven by the holder of the notes they consume, off-chain and before the Mantle Transaction carrying them exists. The ZkTransfer of each is verified, by the [`verify_transfer`](#input-notes-spendability-validation) method of the note set, against its referenced root extended with the buffer of the channel note set as it stands when its mini-block starts: the commitments the earlier Operations of the Mantle Transaction and the earlier mini-blocks of the inscription added. It can therefore consume the notes of earlier blocks and the outputs of the earlier mini-blocks, but not the outputs of its own mini-block. Its proof depends on what precedes its mini-block and not on its position inside it, and the holders prove theirs independently of one another:
 
@@ -530,23 +530,11 @@ def program_deposit_id(channel: ChannelId, program_deposit: ProgramDeposit) -> z
     return step_id(b"PROGRAM_DEPOSIT_V1", channel, program_deposit)
 ```
 
-The program spend and the program proof of a program step are produced by the sequencer and bound to the `op_id` of the Inscribe Operation, which covers the inscription and the public data of every step but no proof. The program proof takes three public inputs: the `program_step_id` of the step, the hash of its program deposits, taken in their order in the mini-block, and the `op_id`. The `program_step_id` hashes the notes of the program spend, private fields included, so the ledger cannot recompute it: it is the public value that links the ZkProgramSpend and the program proof of the step.
+The program spend and the program proof of a program step are produced by the sequencer. The program spend is bound to the `op_id` of the Inscribe Operation, which covers the inscription and the public data of every step but no proof. The program proof is verified under the key of the program against the public inputs that the [ABI](#program-abi) of the program builds from public data of the step and of its Mantle Transaction ([PROGRAM_REGISTER](#program_register)). A value the sequencer chooses for the program proof beyond the notes of the step therefore reaches the proof only through the `inscription` of the step, which the `op_id` covers. The `program_step_id` hashes the notes of the program spend, private fields included, so the ledger cannot recompute it: it is the public value through which the ABI of a program reaches the notes of the spend.
 
-```python
-def program_deposits_hash(program_deposits: list[ProgramDeposit]) -> zkhash:
-    paid = []
-    for program_deposit in program_deposits:
-        paid.append(FiniteField(program_deposit.value, byte_order="little", modulus=p))
-        paid.append(program_deposit.intent)
-    return zkhash(
-        FiniteField(b"PROGRAM_DEPOSITS_V1", byte_order="little", modulus=p),
-        FiniteField(len(program_deposits), byte_order="little", modulus=p),
-        *paid)
-```
+An intent is not authenticated. A program reads the program deposits of a step through the `PROGRAM_DEPOSITS` source of its ABI, which gives it only `(value, intent)` pairs and nothing about the payer: anyone with a note in the channel can pay 0 with any intent, and a secret inside an intent does not help, since the sequencer learns the preimage to prove the step and can reuse it. A program should authorize a user inside its circuit, for example with a signature over the action by a key the position of the user records.
 
-An intent is not authenticated. `program_deposits_hash` gives the program only `(value, intent)` pairs and nothing about the payer: anyone with a note in the channel can pay 0 with any intent, and a secret inside an intent does not help, since the sequencer learns the preimage to prove the step and can reuse it. A program should authorize a user inside its circuit, for example with a signature over the action by a key the position of the user records.
-
-A program step consuming no note applies only with its inscription, to whose `op_id` its proofs are bound, and an inscription extends its channel only once.
+A program step consuming no note applies only with its inscription, to whose `op_id` its program spend is bound, and an inscription extends its channel only once.
 
 #### Proof
 
@@ -706,9 +694,11 @@ block_slot: Slot
                                                                        program=step.program_id,
                                                                        data=opening.data))
 
-                  # Ensure the program accepts the step, which consumes the pending program deposits.
-                  assert Groth16_verify(ledger.programs[step.program_id],
-                                        [step.program_step_id, program_deposits_hash(program_deposits), op_id_fr],
+                  # Ensure the program accepts the step, which consumes the pending program deposits,
+                  # on the public inputs its ABI builds.
+                  stored = ledger.programs[step.program_id]
+                  assert Groth16_verify(stored,
+                                        evaluate_abi(stored.abi, msg, step, program_deposits, op_id, txhash),
                                         step_proof.program_proof)
                   program_deposits = []
                   note_set.tx_commitment_buffer.extend(step.program_outputs)
