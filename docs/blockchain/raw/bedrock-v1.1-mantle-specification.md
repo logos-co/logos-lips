@@ -123,7 +123,7 @@ Every Operation proof (zk proofs or signatures) must be cryptographically bound 
 
 - The [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) of a user step and of a program deposit is signed by its holder before the Mantle Transaction exists, so it is bound to its own content, through `user_step_id` or `program_deposit_id`.
 - The [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) and the program proof of a [program step](#programs) are produced by the sequencer, and bound to the `op_id` of the inscription, which covers the public data of every step without any proof.
-- The proofs of [CLAIM_POW_REWARD](#claim_pow_reward) and of [INSCRIBE](#inscribe) are empty. The ticket of a claim is bound to the public key it pays: a claim copied into another Mantle Transaction pays the same key, but invalidates the transaction it was copied from. An inscription is the word of no key, and is bound to its Mantle Transaction by the proofs of the other Operations of that transaction.
+- The proofs of [CLAIM_POW_REWARD](#claim_pow_reward) and of [INSCRIBE](#inscribe) are empty. The ticket of a claim is bound to the public key it pays: a claim copied into another Mantle Transaction pays the same key, but invalidates the transaction it was copied from.
 
 ```python
 mantle_txhash_fr = FiniteField(mantle_txhash, byte_order="little", modulus = p)
