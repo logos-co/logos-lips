@@ -21,6 +21,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
+| 1.2.0 | Set `EXPECTED_BLOCKS_PER_EPOCH` to 12,000 and the distribution rate `ρ` to 1/360, for an epoch of 360,000 slots. | 2026-11-18 |
 
 # Introduction
 
@@ -129,16 +130,16 @@ A node keeps a spent ticket only while its referenced block is inside the window
 | $`\alpha = a / b`$ | damping exponent | `BLEND_DAMPING_NUM / BLEND_DAMPING_DEN`, the Blend update's response to the load ratio. |
 | $`S_{cap}`$ | maximum supply | The hard cap of [Block Rewards](block-rewards.md). |
 | $`f`$ | slot activation coefficient | The probability that a slot has a leader, $`1/30`$, from [Constants](cryptarchia-v1-protocol.md#constants). |
-| $`k`$ | security parameter | $`2160`$, from [Constants](cryptarchia-v1-protocol.md#constants). |
+| $`K`$ | finality window | $`36000`$ slots, from [Constants](cryptarchia-v1-protocol.md#constants). |
 
 ## Parameters
 
 ```python
 POW_REWARD_POOL_GENESIS: TokenValue             # 5/1000 of S_cap, set in the Genesis Block
 EPOCH_POW_DISTRIBUTION_RATE_NUM: uint64 = 1     # rho, as a fraction NUM / DEN
-EPOCH_POW_DISTRIBUTION_RATE_DEN: uint64 = 200
+EPOCH_POW_DISTRIBUTION_RATE_DEN: uint64 = 360
 TARGET_CLAIMS_PER_BLOCK: uint64 = 10            # T
-EXPECTED_BLOCKS_PER_EPOCH: uint64 = 21_600      # N_b = 10 k
+EXPECTED_BLOCKS_PER_EPOCH: uint64 = 12_000      # N_b = 10 K f
 EXPECTED_BLOCKS_PER_WINDOW: uint64 = 10         # W_b
 POW_SHARE: uint64 = 10                          # beta, as the fraction POW_SHARE / SHARE_DEN
 SHARE_DEN: uint64 = 100
@@ -154,6 +155,8 @@ BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend ma
 ```
 
 The parameters must give an `epoch_pow_reward` above the fee of a claim transaction, which pays for the claim and the `TRANSFER` that spends its note, or a claim cannot pay its own fee.
+
+`epoch_pow_reward` reads the product of `EPOCH_POW_DISTRIBUTION_RATE_DEN` and `EXPECTED_BLOCKS_PER_EPOCH`. A change of the epoch length changes `EXPECTED_BLOCKS_PER_EPOCH`, and `EPOCH_POW_DISTRIBUTION_RATE_DEN` must change in inverse proportion to keep the reward of a claim.
 
 `REWARD_TARGET_CAP` must be above `REWARD_TARGET_FLOOR` and at most $`p - 1`$, as [Puzzle Target](#puzzle-target) requires. At or below the floor, every retarget would return `REWARD_TARGET_CAP`, so the target could not move.
 
