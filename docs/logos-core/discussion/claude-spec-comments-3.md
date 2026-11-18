@@ -3374,6 +3374,17 @@ holds keys. A and B stand for other modules and are local to one item.
   INTERFACE l.31: "Both paths MUST produce identical artifacts for the same logical contract and module
   binding, if any." What an artifact is, is not said, and l.2634 lets the CDDL text of the two paths
   differ in comments, whitespace, order and file layout.
+- TRANSPORT l.1297-1298: "The full mutual-authentication handshake MUST complete before either peer sends
+  Logos Transport application data." In TLS 1.3 the client's handshake is complete when it has verified
+  the server and sent its own Finished, and the server verifies the client's certificate only after that.
+  The caller speaks first, and TLS 1.3 gives the client no message that says its certificate was accepted.
+  TRANSPORT l.1240-1241 has each peer validate the other "before sending or accepting a Transport Hello",
+  which the caller meets when it sends its Hello right after its Finished. Whether l.1297-1298 allows
+  that, or the caller must wait for a sign from the server that the profile does not define, is not said.
+  TRANSPORT l.1238 says "Protected enrollment MUST select credential and certificate-signature algorithms
+  supported by the intended peers", and l.1239 calls a P-256 credential "a common enrollment option".
+  Which signature schemes every implementation of the profile verifies is not said, and the enrollment
+  record has no field for a scheme (RUNTIME l.2012-2022).
 
 ---
 
