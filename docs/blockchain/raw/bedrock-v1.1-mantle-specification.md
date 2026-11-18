@@ -1809,9 +1809,7 @@ ledger: Ledger
 
 ## INSCRIBE
 
-This Operation writes data on Mantle that the ledger does not read.
-
-An application could start its inscription with a tag of its own, so that a reader tells its inscriptions from the others.
+This Operation writes data on Mantle that the ledger does not read. An application could start its inscription with a tag of its own, so that a reader tells its inscriptions from the others.
 
 ### Payload
 
