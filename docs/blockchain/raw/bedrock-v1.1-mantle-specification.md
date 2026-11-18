@@ -416,15 +416,15 @@ A program governs notes of a channel that no single user holds, such as the rese
 
 `Groth16_verify(key, public_inputs, proof)` verifies a [Groth16](common-cryptographic-components.md#groth16-zk-snark) proof against a verification key, given with the pairing $`e(\alpha, \beta)`$ stored by [`PROGRAM_REGISTER`](#program_register), and its public inputs. `pairing(P, Q)` is the optimal ate pairing of BN254, from $`\mathbb{G}_1 \times \mathbb{G}_2`$ to $`\mathbb{G}_T`$, the subgroup of order $`p`$ of $`\mathbb{F}_{q^{12}}^*`$, $`q`$ being the modulus of the base field of BN254, whose elements take 384 bytes.
 
-**Binding.** The ledger verifies a program proof against the public inputs that the ABI of its program builds, and registers every ABI that type-checks: a program whose proofs cover nothing loses only its own notes and the deposits paid to it, as any faulty program does. An ABI *binds* a source `s` when `Src(s)` reaches a public input only through:
+**Binding.** The ledger verifies a program proof against the public inputs that the ABI of its program builds, and registers any ABI that type-checks, whatever it binds: a program whose proofs cover nothing loses only its own notes and the deposits paid to it, as any faulty program does. An ABI *binds* a source `s` when `Src(s)` reaches a public input only through:
 
-- a `Concat` whose children before the last each have a fixed length or a count prefix;
+- a `Concat` whose children before the last each have a length known from the ABI or are the `Src` of a list;
 - a `Sha256`, a `ZkHash` or a `Rev`;
-- an `Fr` over a `Sha256` output, `OP_ID` or `TXHASH`, or over at most 31 bytes;
+- an `Fr` over a `Sha256` output, `OP_ID` or `TXHASH`, or over a `bytes(n)` with `n` at most 31;
 - a `Lo128` and a `Hi128` of the same expression;
 - a `Mask253` over a `Sha256` output, reversed or not.
 
-$`p`$ lies between $`2^{253}`$ and $`2^{254}`$, so over 32 bytes or more that the sequencer chooses, `b` and its twin `b + p`, of the same length, reduce to the same element: the sequencer can publish bytes the program never checked, and anyone can create the channel `c + p`, which an `Fr` reads as the channel `c`. Over at most 31 bytes, an integer below $`2^{248}`$, the reduction is injective. Over a hash output, two values reducing to the same element are a collision of a 254-bit hash, about $`2^{127}`$ work, as for the `op_id` ([Mantle Transaction Hash](#mantle-transaction-hash)). A `Mask253` over a hash output costs likewise a collision at 253 bits.
+$`p`$ lies between $`2^{253}`$ and $`2^{254}`$, so over 32 bytes or more that the sequencer chooses, `b` and its twin `b + p`, of the same length, reduce to the same element: the sequencer can publish bytes the program never checked, and anyone can create the channel `c + p`, which an `Fr` reads as the channel `c`. Over bytes of a fixed length of at most 31, an integer below $`2^{248}`$, the reduction is injective, while bytes of a variable length read the same with zero bytes appended. Over a hash output, two values reducing to the same element are a collision of a 254-bit hash, about $`2^{127}`$ work, as for the `op_id` ([Note Commitment and Nullifier](#note-commitment-and-nullifier)). A `Mask253` over a hash output costs likewise a collision at 253 bits.
 
 A program protecting its notes should bind:
 
@@ -433,11 +433,11 @@ A program protecting its notes should bind:
 | Its spend | `PROGRAM_STEP_ID`, or the nullifiers and commitments of `STEP_INPUTS`, `STEP_PROGRAM_OUTPUTS` and `STEP_OUTPUTS` its circuit reopens | The proof admits any program spend: a sequencer consumes the notes of the program and pays their value as it chooses |
 | Its inscription | `OP_ID` | The proof is valid in other inscriptions carrying the same spend, after other messages of the channel |
 | Its payments | `PROGRAM_DEPOSITS` | The program sees neither the values nor the intents it is paid with: a sequencer pairs the step with any program deposits balancing its spend |
-| Its sequencer and its channel, when its rule depends on them | `SIGNER`, `CHANNEL` | A step its rule admits, such as a step creating the first notes of a pool, runs by any sequencer, and in any channel when it consumes no note of the program |
+| Its sequencer and its channel, when its rule depends on them | `SIGNER`, `CHANNEL` | A step its rule admits, such as a step creating the first notes of a pool, is run by any sequencer, and in any channel when it consumes no note of the program |
 
-Wallets identify a program by its `ProgramId` and read its ABI, since the key of a zkVM wrapper is shared by all the programs of that zkVM.
+Wallets should identify a program by its `ProgramId` and read its ABI, since the key of a zkVM wrapper is shared by all the programs of that zkVM.
 
-**Holder.** Every program note is held by `PK0`, the public key of the spending secret key `0` ([Keys](#keys)). A program note moves only with the proof of its program, so it needs no holder of its own, and a fixed holder keeps a sequencer from creating a note of the program under its own key, which no other sequencer could then spend. Anyone can therefore derive the nullifiers of the program notes, and which program notes a step consumes is public, as the state of a program is. A program whose notes only some sequencers may move binds `SIGNER` in its ABI and checks it in its circuit.
+**Holder.** Every program note is held by `PK0`, the public key of the spending secret key `0` ([Keys](#keys)). A program note moves only with the proof of its program, so it needs no holder of its own, and a fixed holder keeps a sequencer from creating a note of the program under its own key, which no other sequencer could then spend. Anyone can therefore derive the nullifiers of the program notes, and which program notes a step consumes is public, as the state of a program is. A program whose notes only some sequencers may move should bind `SIGNER` in its ABI and check it in its circuit.
 
 **Staker.** A program note has a [staking key](#keys) like any note, which the program chooses. A program should never give a note of the program the staking key `PK0`: `NF_SK0`, its nullifier key and its staking secret key, is public, so anyone could lead with that note.
 
@@ -459,7 +459,7 @@ The ledger fixes neither the value of each note a program pays, nor the staking 
 | The opening of every note of a program is published in the block creating it, and every node holds it until that block is immutable | The ledger, which checks the opening of every note of the program a step creates |
 | A program step serves the intents over the assets of the zone | Not enforced by the ledger: the users of the zone can detect a step that does not serve an intent over the assets of the zone |
 
-A program using LOGOS only, such as lending, whose ABI binds its spend and its payments, is thus enforced by the ledger, and its users trust the circuit of the program they pay and the setup that produced its key: whoever kept the trapdoor of that setup can prove any statement under the key and move every note of the program, and nothing on chain shows how a key was produced. A public phase-2 ceremony over shared powers of tau is recommended for the key of a program ([Trusted Setup Ceremony](trusted-setup-ceremony.md)). Programs under the shared key of a zkVM wrapper share its setup, and a zkVM program pins the constants of its wrapper in its ABI, so that a new version of the wrapper makes a new program, and its guest should plan a migration path for its notes. A program exchanging LOGOS with assets of the zone, such as a swap, is enforced by the ledger for its LOGOS only. Depending on the program, publishing the preimage of each intent in the inscription is recommended, so that the users of the zone can verify how the program step served it.
+A program using LOGOS only, such as lending, whose ABI binds its spend and its payments, is thus enforced by the ledger, and its users trust the circuit of the program they pay and the setup that produced its key: whoever kept the trapdoor of that setup can prove any statement under the key and move every note of the program, and nothing on chain shows how a key was produced. A public phase-2 ceremony over shared powers of tau is recommended for the key of a program ([Trusted Setup Ceremony](trusted-setup-ceremony.md)). Programs under the shared key of a zkVM wrapper share its setup, and a zkVM program pins the constants of its wrapper in its ABI, so a new version of the wrapper makes a new program, and its guest should plan a migration path for its notes. A program exchanging LOGOS with assets of the zone, such as a swap, is enforced by the ledger for its LOGOS only. Depending on the program, publishing the preimage of each intent in the inscription is recommended, so that the users of the zone can verify how the program step served it.
 
 **What the ledger does not guarantee.** A program note moves only in a program step of an inscription, and only the current sequencer of a channel posts inscriptions. The sequencers of a channel can therefore freeze every program note of the channel for good by publishing no program step, with all the value users paid into it: they cannot take that value, but they can hold it. A signed program deposit has no expiry either. A sequencer can hold it until [`ROOT_WINDOW`](#ledger) blocks, about 8.5 hours, after its root stopped being the current root of the note set, a root that stays current staying valid, and fill it at the worst price its intent accepts, since the program proof sees no time. Its holder can cancel it only with a `CHANNEL_WITHDRAW`, which takes `WITHDRAW_DELAY` slots, and a step published before the withdrawal is due wins.
 
@@ -489,21 +489,23 @@ A RISC0 guest commits with `env::commit_slice` the bytes the ABI reads from `OP_
 
 ```python
 journal = Concat(Src(OP_ID), Src(PROGRAM_STEP_ID), Src(PROGRAM_DEPOSITS), Src(STEP_INSCRIPTION))
-output = Sha256(Concat(Const(SHA256_TAG_OUTPUT), Sha256(journal), Const(ZERO32), Const(b"\x02\x00")))
+output = Sha256(Concat(Const(SHA256_TAG_OUTPUT), Sha256(journal), Const(ZERO32),
+                       Const((2).to_bytes(2, "little"))))  # the count of its digests
 claim = Sha256(Concat(Const(SHA256_TAG_RECEIPT_CLAIM),
                       Const(ZERO32), Const(IMAGE_ID), Const(HALTED_STATE_DIGEST), output,
-                      Const(b"\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00")))
+                      Const((0).to_bytes(4, "little") * 2      # the system and user exit codes
+                            + (4).to_bytes(2, "little"))))     # the count of its digests
 abi = [FConst(A0), FConst(A1), Lo128(claim), Hi128(claim), FConst(BN254_CONTROL_ID)]
 ```
 
 - `A0` and `A1` are the little-endian integers of the two halves of the RISC0 `control_root`.
 - `BN254_CONTROL_ID` is the little-endian integer of the bytes of the RISC0 BN254 control id.
 - `IMAGE_ID` is the image id of the guest, as its 32 digest bytes.
-- `HALTED_STATE_DIGEST` is `sha256(sha256(b"risc0.SystemState") + ZERO32 + b"\x00\x00\x00\x00" + b"\x01\x00")`, the digest of the halted system state.
+- `HALTED_STATE_DIGEST` is `sha256(sha256(b"risc0.SystemState") + ZERO32 + (0).to_bytes(4, "little") + (1).to_bytes(2, "little"))`, the digest of the halted system state.
 - `SHA256_TAG_OUTPUT` and `SHA256_TAG_RECEIPT_CLAIM` are `sha256(b"risc0.Output")` and `sha256(b"risc0.ReceiptClaim")`, the tags of these RISC0 structures.
 - `ZERO32` is 32 zero bytes, the digest RISC0 gives an absent input and an empty list of assumptions.
 
-The integers of these RISC0 structures are little-endian byte constants: in `output` the count 2 of its digests, on 2 bytes, and in `claim` the system and user exit codes 0, on 4 bytes each, then the count 4 of its digests, on 2 bytes. The seal of the receipt is re-encoded to the compressed `Groth16Proof`.
+The seal of the receipt is re-encoded to the compressed `Groth16Proof`.
 
 An SP1 guest commits the same bytes as its public values, and its Groth16 proof of SP1 v6 verifies with:
 
@@ -512,7 +514,7 @@ public_values = Concat(Src(OP_ID), Src(PROGRAM_STEP_ID), Src(PROGRAM_DEPOSITS), 
 abi = [FConst(VKEY), Mask253(Rev(Sha256(public_values))), FConst(0), FConst(VK_ROOT), FConst(0)]
 ```
 
-`VKEY` is the verification key hash of the guest and `VK_ROOT` the `vk_root` of the SP1 version, each the big-endian integer SP1 uses. The two `FConst(0)` are the exit code and the nonce, the prover keeping the default nonce 0, and a proof of SP1 v5 takes the first two inputs only. SP1 guests digesting their public values with BLAKE3 are not covered, since no node computes BLAKE3.
+`VKEY` is the verification key hash of the guest and `VK_ROOT` the `vk_root` of the SP1 version, each the big-endian integer SP1 uses. The two `FConst(0)` are the exit code and the nonce, the prover keeping the default nonce 0, and a proof of SP1 v5 takes the first two inputs only. SP1 guests digesting their public values with BLAKE3 are not covered, since no ABI node computes BLAKE3.
 
 ### CHANNEL_INSCRIBE
 
