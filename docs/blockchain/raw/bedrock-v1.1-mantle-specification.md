@@ -409,18 +409,39 @@ Channels let their bridged notes keep participating in Proof of Stake. When a us
 
 ### Programs
 
-A program governs notes of a channel that no single user holds, such as the reserves of a pool. It is a Groth16 circuit, registered by its verification key with [`PROGRAM_REGISTER`](#program_register), and its notes are the program notes whose `program` field is its identifier. A program runs in the steps of the [inscriptions](#channel_inscribe) of a channel:
+A program governs notes of a channel that no single user holds, such as the reserves of a pool. It is a Groth16 circuit, registered by its verification key and the [ABI](#program-abi) of its proofs with [`PROGRAM_REGISTER`](#program_register), and its notes are the program notes whose `program` field is its identifier. A program runs in the steps of the [inscriptions](#channel_inscribe) of a channel:
 
 - **Program deposits.** Users pay the program with program deposits, steps whose ZkTransfer consumes their user notes and whose excess is the value paid to the program. Each program deposit commits to the program and to an intent, the hash of what its user expects from the program.
-- **Program steps.** A program step consumes the program deposits after the previous program step of its mini-block, which must all pay its program; a sequencer usually places them right before it. The sequencer consumes notes of the program and creates notes of the program and the user notes the program pays, with a [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) balancing exactly with the value deposited, and publishes the opening of every note of the program it creates. It proves the rule of the program with a Groth16 proof under its registered key, over the notes of the program spend, the deposits with their intents, and the `op_id` of the inscription.
+- **Program steps.** A program step consumes the program deposits after the previous program step of its mini-block, which must all pay its program; a sequencer usually places them right before it. The sequencer consumes notes of the program and creates notes of the program and the user notes the program pays, with a [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) balancing exactly with the value deposited, and publishes the opening of every note of the program it creates. It proves the rule of the program with a Groth16 proof under its registered key, over the public inputs the ledger builds with the ABI of the program from public data of the step and of its Mantle Transaction, such as the notes of the program spend, the deposits with their intents, and the `op_id` of the inscription.
 
 `Groth16_verify(key, public_inputs, proof)` verifies a [Groth16](common-cryptographic-components.md#groth16-zk-snark) proof against a verification key, given with the pairing $`e(\alpha, \beta)`$ stored by [`PROGRAM_REGISTER`](#program_register), and its public inputs. `pairing(P, Q)` is the optimal ate pairing of BN254, from $`\mathbb{G}_1 \times \mathbb{G}_2`$ to $`\mathbb{G}_T`$, the subgroup of order $`p`$ of $`\mathbb{F}_{q^{12}}^*`$, $`q`$ being the modulus of the base field of BN254, whose elements take 384 bytes.
 
-**Holder.** Every program note is held by `PK0`, the public key of the spending secret key `0` ([Keys](#keys)). A program note moves only with the proof of its program, so it needs no holder of its own, and a fixed holder keeps a sequencer from creating a note of the program under its own key, which no other sequencer could then spend. Anyone can therefore derive the nullifiers of the program notes, and which program notes a step consumes is public, as the state of a program is. A program whose notes only some sequencers may move enforces it in its circuit, for example with a signature over the `op_id`.
+**Binding.** The ledger verifies a program proof against the public inputs that the ABI of its program builds, and registers every ABI that type-checks: a program whose proofs cover nothing loses only its own notes and the deposits paid to it, as any faulty program does. An ABI *binds* a source `s` when `Src(s)` reaches a public input only through:
+
+- a `Concat` whose children before the last each have a fixed length or a count prefix;
+- a `Sha256`, a `ZkHash` or a `Rev`;
+- an `Fr` over a `Sha256` output, `OP_ID` or `TXHASH`, or over at most 31 bytes;
+- a `Lo128` and a `Hi128` of the same expression;
+- a `Mask253` over a `Sha256` output, reversed or not.
+
+$`p`$ lies between $`2^{253}`$ and $`2^{254}`$, so over 32 bytes or more that the sequencer chooses, `b` and its twin `b + p`, of the same length, reduce to the same element: the sequencer can publish bytes the program never checked, and anyone can create the channel `c + p`, which an `Fr` reads as the channel `c`. Over at most 31 bytes, an integer below $`2^{248}`$, the reduction is injective. Over a hash output, two values reducing to the same element are a collision of a 254-bit hash, about $`2^{127}`$ work, as for the `op_id` ([Mantle Transaction Hash](#mantle-transaction-hash)). A `Mask253` over a hash output costs likewise a collision at 253 bits.
+
+A program protecting its notes should bind:
+
+| Binding | Sources | Exposed without it |
+| --- | --- | --- |
+| Its spend | `PROGRAM_STEP_ID`, or the nullifiers and commitments of `STEP_INPUTS`, `STEP_PROGRAM_OUTPUTS` and `STEP_OUTPUTS` its circuit reopens | The proof admits any program spend: a sequencer consumes the notes of the program and pays their value as it chooses |
+| Its inscription | `OP_ID` | The proof is valid in other inscriptions carrying the same spend, after other messages of the channel |
+| Its payments | `PROGRAM_DEPOSITS` | The program sees neither the values nor the intents it is paid with: a sequencer pairs the step with any program deposits balancing its spend |
+| Its sequencer and its channel, when its rule depends on them | `SIGNER`, `CHANNEL` | A step its rule admits, such as a step creating the first notes of a pool, runs by any sequencer, and in any channel when it consumes no note of the program |
+
+Wallets identify a program by its `ProgramId` and read its ABI, since the key of a zkVM wrapper is shared by all the programs of that zkVM.
+
+**Holder.** Every program note is held by `PK0`, the public key of the spending secret key `0` ([Keys](#keys)). A program note moves only with the proof of its program, so it needs no holder of its own, and a fixed holder keeps a sequencer from creating a note of the program under its own key, which no other sequencer could then spend. Anyone can therefore derive the nullifiers of the program notes, and which program notes a step consumes is public, as the state of a program is. A program whose notes only some sequencers may move binds `SIGNER` in its ABI and checks it in its circuit.
 
 **Staker.** A program note has a [staking key](#keys) like any note, which the program chooses. A program should never give a note of the program the staking key `PK0`: `NF_SK0`, its nullifier key and its staking secret key, is public, so anyone could lead with that note.
 
-The ledger fixes neither the value of each note a program pays, nor the staking key of the notes it pays, nor the note an intent targets, so a program should fix all three, the staking key of a payout for example to the public key of its payee. Otherwise a sequencer can split a payout so that its payee cannot recompute the note, or give a payout a staking key its payee does not know, so that the payee cannot spend it. The program proof sees neither the channel nor the signer, so a creation step its rule admits runs in any channel, by any sequencer, and two pools of one program in one channel can serve each other's intents unless each intent names its pool.
+The ledger fixes neither the value of each note a program pays, nor the staking key of the notes it pays, nor the note an intent targets, so a program should fix all three, the staking key of a payout for example to the public key of its payee. Otherwise a sequencer can split a payout so that its payee cannot recompute the note, or give a payout a staking key its payee does not know, so that the payee cannot spend it. Two pools of one program in one channel can serve each other's intents unless each intent names its pool.
 
 **What enforces what.**
 
@@ -430,13 +451,15 @@ The ledger fixes neither the value of each note a program pays, nor the staking 
 | A user note moves only with the key of its holder | The ZkTransfer |
 | A program deposit only pays the program it names, a registered one, with the intent its holder signed | `program_deposit_id`, which commits to the program and the intent; the ledger, which checks that the program is registered |
 | A program deposit is consumed by the next program step of its mini-block, which runs its program | The ledger, which checks the program of the program deposits a program step consumes and rejects an inscription leaving one unconsumed at the end of a mini-block |
-| A program note is created and consumed only with the proof of its program, and held by `PK0` | The ZkTransfer, which only derives commitments with `program` and `data` set to `0`; the ZkProgramSpend, whose inputs and program outputs are notes of the program held by `PK0` and whose other outputs are user notes; the program proof, required by every program step |
+| A program note is created and consumed only in a program step of its program carrying a proof under its key, and held by `PK0` | The ZkTransfer, which only derives commitments with `program` and `data` set to `0`; the ZkProgramSpend, whose inputs and program outputs are notes of the program held by `PK0` and whose other outputs are user notes; the program proof, required by every program step |
+| A program proof is verified against the public inputs its program declared | The ledger, which builds them with the ABI registered with the key, covered by the `ProgramId` |
+| The notes of a program whose ABI binds its spend move only as its proof authorizes | The program proof, over the public inputs its ABI builds |
 | A note leads only with its nullifier key and its staking secret key | The Proof of Leadership |
-| A program step serves the intents over LOGOS as the rule of the program states | The program proof, which reads the program deposits and the notes of the program spend |
+| A program step of a program whose ABI binds its spend and its payments serves the intents over LOGOS as the rule of the program states | The program proof, over the program deposits and the notes of the program spend that its ABI binds |
 | The opening of every note of a program is published in the block creating it, and every node holds it until that block is immutable | The ledger, which checks the opening of every note of the program a step creates |
 | A program step serves the intents over the assets of the zone | Not enforced by the ledger: the users of the zone can detect a step that does not serve an intent over the assets of the zone |
 
-A program using LOGOS only, such as lending, is thus enforced by the ledger, and its users trust the circuit of the program they pay and the setup that produced its key: whoever kept the trapdoor of that setup can prove any statement under the key and move every note of the program, and nothing on chain shows how a key was produced. A public phase-2 ceremony over shared powers of tau is recommended for the key of a program ([Trusted Setup Ceremony](trusted-setup-ceremony.md)). A program exchanging LOGOS with assets of the zone, such as a swap, is enforced by the ledger for its LOGOS only. Depending on the program, publishing the preimage of each intent in the inscription is recommended, so that the users of the zone can verify how the program step served it.
+A program using LOGOS only, such as lending, whose ABI binds its spend and its payments, is thus enforced by the ledger, and its users trust the circuit of the program they pay and the setup that produced its key: whoever kept the trapdoor of that setup can prove any statement under the key and move every note of the program, and nothing on chain shows how a key was produced. A public phase-2 ceremony over shared powers of tau is recommended for the key of a program ([Trusted Setup Ceremony](trusted-setup-ceremony.md)). Programs under the shared key of a zkVM wrapper share its setup, and a zkVM program pins the constants of its wrapper in its ABI, so that a new version of the wrapper makes a new program, and its guest should plan a migration path for its notes. A program exchanging LOGOS with assets of the zone, such as a swap, is enforced by the ledger for its LOGOS only. Depending on the program, publishing the preimage of each intent in the inscription is recommended, so that the users of the zone can verify how the program step served it.
 
 **What the ledger does not guarantee.** A program note moves only in a program step of an inscription, and only the current sequencer of a channel posts inscriptions. The sequencers of a channel can therefore freeze every program note of the channel for good by publishing no program step, with all the value users paid into it: they cannot take that value, but they can hold it. A signed program deposit has no expiry either. A sequencer can hold it until [`ROOT_WINDOW`](#ledger) blocks, about 8.5 hours, after its root stopped being the current root of the note set, a root that stays current staying valid, and fill it at the worst price its intent accepts, since the program proof sees no time. Its holder can cancel it only with a `CHANNEL_WITHDRAW`, which takes `WITHDRAW_DELAY` slots, and a step published before the withdrawal is due wins.
 
@@ -444,13 +467,52 @@ A program using LOGOS only, such as lending, is thus enforced by the ledger, and
 
 - Creating a program note requires the proof of its program. Otherwise anyone could create a note of the program with any `data`, such as a fake pool state, and the program could not tell it from its own.
 - A program deposit exists only together with the program step that consumes it, the next program step of its mini-block, so it is never left unconsumed: if the sequencer does not publish the program step, the inscription carrying the program deposit is invalid and the notes of the user are not consumed.
-- The program spend and the program proof are bound to the `op_id` of the inscription, which covers the inscription and the public data of every step but no proof. A program step is thus attributable to its inscription and valid in no other.
+- The program spend is bound to the `op_id` of the inscription, which covers the inscription and the public data of every step but no proof, and so is the program proof of a program whose ABI binds `OP_ID`. A program step of such a program is thus attributable to its inscription and valid in no other.
 - Program notes take part in Proof of Stake by default, as every note does through its staking key: the Proof of Leadership reads the `program` and `data` of its note. The LOGOS a program keeps in notes its steps do not move thus stakes, and a program open to everyone, such as a pool, can offer liquid staking, its notes moved by any sequencer and staked by the holder of their staking secret key. A program opts out by constraining the staking key of its notes to `0` in its proof ([Keys](#keys)).
 - The reward of a block led by a program note goes, as for any leader, to the key its staker chooses, not to the program: the ledger cannot make the reward a note of the program, since only the proof of a program creates its notes. A program that does not constrain the staking key of the notes it creates, its own notes and its payouts, lets the sequencer proving the step choose it: that sequencer can stake the notes of the program and keep their rewards, their value staying governed by the program, and a payout whose staking key its payee does not know cannot be spent by the payee.
 - Program notes are never withdrawn, since a withdrawal consumes notes with a ZkTransfer.
 - The opening of every note of the program a step creates is published with the step, and checked by the ledger. A sequencer withholding the opening of a note of the program would otherwise freeze it: program notes are never withdrawn, and no sequencer can prove a program spend consuming a note it cannot open. The openings serve this data availability only: the ledger keeps nothing from them, and they are prunable from the blocks behind the latest immutable block of the node.
 
 **Privacy.** The values of the program deposits are public, and so are the notes of the program, opened in the steps that create them. The amount of each interaction with a program is therefore visible, and so is the total value a program step pays to users: with a single payee, what that payee receives. Its interactions are subject to timing attacks. The users stay hidden: program deposits consume notes by nullifier, and the notes the program pays are commitments, as long as each payee uses a one-time public key, since the [nonce of such a note](#zero-knowledge-program-spend-proof-zkprogramspend) is a public function of its value and public key.
+
+**Examples.** Each of these ABIs binds the spend, the inscription and the payments of its program. A plain Groth16 circuit takes the `program_step_id`, a `zkhash` of the program deposits and the `op_id`:
+
+```python
+abi = [Src(PROGRAM_STEP_ID),
+       ZkHash(FConst(PROGRAM_DEPOSITS_V1), Src(PROGRAM_DEPOSITS)),
+       Fr(Src(OP_ID))]
+```
+
+`PROGRAM_DEPOSITS_V1` is the field element `FiniteField(b"PROGRAM_DEPOSITS_V1", byte_order="little", modulus=p)`, which separates the hash of the program deposits from other uses of `zkhash`.
+
+A RISC0 guest commits with `env::commit_slice` the bytes the ABI reads from `OP_ID`, `PROGRAM_STEP_ID`, `PROGRAM_DEPOSITS` and `STEP_INSCRIPTION`, and the ABI rebuilds the receipt claim that the RISC0 Groth16 wrapper proves:
+
+```python
+journal = Concat(Src(OP_ID), Src(PROGRAM_STEP_ID), Src(PROGRAM_DEPOSITS), Src(STEP_INSCRIPTION))
+output = Sha256(Concat(Const(SHA256_TAG_OUTPUT), Sha256(journal), Const(ZERO32), Const(b"\x02\x00")))
+claim = Sha256(Concat(Const(SHA256_TAG_RECEIPT_CLAIM),
+                      Const(ZERO32), Const(IMAGE_ID), Const(HALTED_STATE_DIGEST), output,
+                      Const(b"\x00\x00\x00\x00\x00\x00\x00\x00\x04\x00")))
+abi = [FConst(A0), FConst(A1), Lo128(claim), Hi128(claim), FConst(BN254_CONTROL_ID)]
+```
+
+- `A0` and `A1` are the little-endian integers of the two halves of the RISC0 `control_root`.
+- `BN254_CONTROL_ID` is the little-endian integer of the bytes of the RISC0 BN254 control id.
+- `IMAGE_ID` is the image id of the guest, as its 32 digest bytes.
+- `HALTED_STATE_DIGEST` is `sha256(sha256(b"risc0.SystemState") + ZERO32 + b"\x00\x00\x00\x00" + b"\x01\x00")`, the digest of the halted system state.
+- `SHA256_TAG_OUTPUT` and `SHA256_TAG_RECEIPT_CLAIM` are `sha256(b"risc0.Output")` and `sha256(b"risc0.ReceiptClaim")`, the tags of these RISC0 structures.
+- `ZERO32` is 32 zero bytes, the digest RISC0 gives an absent input and an empty list of assumptions.
+
+The integers of these RISC0 structures are little-endian byte constants: in `output` the count 2 of its digests, on 2 bytes, and in `claim` the system and user exit codes 0, on 4 bytes each, then the count 4 of its digests, on 2 bytes. The seal of the receipt is re-encoded to the compressed `Groth16Proof`.
+
+An SP1 guest commits the same bytes as its public values, and its Groth16 proof of SP1 v6 verifies with:
+
+```python
+public_values = Concat(Src(OP_ID), Src(PROGRAM_STEP_ID), Src(PROGRAM_DEPOSITS), Src(STEP_INSCRIPTION))
+abi = [FConst(VKEY), Mask253(Rev(Sha256(public_values))), FConst(0), FConst(VK_ROOT), FConst(0)]
+```
+
+`VKEY` is the verification key hash of the guest and `VK_ROOT` the `vk_root` of the SP1 version, each the big-endian integer SP1 uses. The two `FConst(0)` are the exit code and the nonce, the prover keeping the default nonce 0, and a proof of SP1 v5 takes the first two inputs only. SP1 guests digesting their public values with BLAKE3 are not covered, since no node computes BLAKE3.
 
 ### CHANNEL_INSCRIBE
 
