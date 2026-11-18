@@ -122,7 +122,7 @@ class SignedMantleTx:
 Every Operation proof (zk proofs or signatures) must be cryptographically bound to the `MantleTx` through the `mantle_txhash` to prevent replay attacks. This binding is achieved by signing the 32-byte `mantle_txhash` digest with every Ed25519 signature, and by including it reduced modulo $`p`$ as a public input in every ZK proof. The proofs of the steps of an inscription ([CHANNEL_INSCRIBE](#channel_inscribe)) and the proof of a proof of work claim are the exceptions:
 
 - The [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) of a user step and of a program deposit is signed by its holder before the Mantle Transaction exists, so it is bound to its own content, through `user_step_id` or `program_deposit_id`.
-- The [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) and the program proof of a [program step](#programs) are produced by the sequencer. The ZkProgramSpend is bound to the `op_id` of the inscription, which covers the public data of every step without any proof, and the program proof to what the [ABI](#program-abi) of its program reads, such as the `op_id`.
+- The [ZkProgramSpend](#zero-knowledge-program-spend-proof-zkprogramspend) and the program proof of a [program step](#programs) are produced by the sequencer. The ZkProgramSpend is bound to the `op_id` of the inscription, which covers the public data of every step without any proof, and the program proof to what the [ABI](#program-abi) of its program binds ([Programs](#programs)), such as the `op_id`.
 - The proof of [CLAIM_POW_REWARD](#claim_pow_reward) is empty, its ticket being bound to the public key it pays: a claim copied into another Mantle Transaction pays the same key, but invalidates the transaction it was copied from.
 
 ```python
@@ -206,7 +206,7 @@ Mantle validators will ensure the following:
         note_set.tx_changed = False
     for op, op_proof in zip(ops, op_proofs):
         assert op.opcode in MANTLE_OPCODES
-        tx_execution_gas = checked_uint64(tx_execution_gas + execution_gas(op, op_proof))
+        tx_execution_gas = checked_uint64(tx_execution_gas + execution_gas(op, op_proof, ledger.programs))
         validate_mantle_op(mantle_txhash(tx), op.opcode, op.payload, op_proof)
         # the excess of the ZkTransfer of these Operations pays the fees
         if op.opcode in (TRANSFER, CHANNEL_DEPOSIT, SDP_WITHDRAW):
@@ -265,7 +265,7 @@ Mantle Validators execute each Operation in `ops` according to its opcode, in th
 | **Operation** | **Opcode** | **Description** |
 | --- | --- | --- |
 | TRANSFER | 0x00 | Consume and create notes. |
-| PROGRAM_REGISTER | 0x01 | Register a program by its verification key. |
+| PROGRAM_REGISTER | 0x01 | Register a program by its verification key and the ABI of its proofs. |
 | *RESERVED* | *0x02 - 0x0F* |  |
 | CHANNEL_CONFIG | 0x10 | Configure a channel |
 | CHANNEL_INSCRIBE | 0x11 | Write a message permanently onto Mantle. |
@@ -2600,7 +2600,7 @@ class ZkProgramSpendPublic:
     tx_commitment_root: MerkleRoot     # the referenced commitment_root extended with the tx_commitment_buffer of the set
     program_id: ProgramId              # the program whose notes the step spends
     paid_value: TokenValue             # the total value the program deposits of the step pay to the program
-    program_step_id: zkhash            # the hash of the input and output notes, read by the program proof
+    program_step_id: zkhash            # the hash of the input and output notes, given to the program proof through its ABI
     msg: zkhash                        # the message the proof is bound to
 ```
 
