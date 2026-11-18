@@ -58,6 +58,7 @@
 | v34 | Implementation links the node issues that track the tasks with no implementation PR: logos-blockchain#4056 for active messages after an epoch without blocks, #4057 for the last-round proof-of-quota check, and #4058 for the mempool's era-change retirement, the halt and the migration hook. It also links #3902 for the dropped sync request. | 2026-11-10 |
 | v35 | The tests task cites logos-blockchain#4026, merged, whose two scenarios cross into an identity era. | 2026-11-17 |
 | v36 | Implementation ticks the four tasks that logos-blockchain#4048, merged, implements: the record alignment, `target_claims_per_block` of at least 1, integer `⌊k/f⌋` and Blend's Transition Period. | 2026-11-18 |
+| v37 | The Cryptarchia vectors marked `TBD` are filled in, with eleven leaves and a ChannelConfig `configuration_threshold` of 2, and match the implementation's generator at logos-blockchain `47f87124c`. Implementation ticks the vectors task. | 2026-11-18 |
 
 ## Reviewer Orientation
 
@@ -424,7 +425,7 @@ In the parameter record ([Era Parameters](../bedrock-eras.md#era-parameters)), `
 - [ ] In the last round of an epoch, check a failing proof of quota against the next epoch's public input; if it passes, discard the message without closing the connection or blacklisting ([#4057](https://github.com/logos-blockchain/logos-blockchain/issues/4057))
 - [ ] Startup and checkpoint-import halt when an era from `era(sl_B_imm)` to the era in force is not implemented; checkpoint export and import under the checkpoint block's era ([#4058](https://github.com/logos-blockchain/logos-blockchain/issues/4058))
 - [x] Warn the operator when a peer whose identify message announces the node's own protocol version lists an identifier, other than that of Kademlia, with an unknown fork digest ([#3774](https://github.com/logos-blockchain/logos-blockchain/pull/3774))
-- [ ] Regenerate the Cryptarchia test vectors marked `TBD`, for transactions that carry the fork digest, and sign the two uncle headers of the 2-uncle vector
+- [x] Regenerate the Cryptarchia test vectors marked `TBD`, for transactions that carry the fork digest, and sign the two uncle headers of the 2-uncle vector (generated at logos-blockchain `47f87124c`)
 - [ ] Add or extend tests / test vectors that exercise the change, including a devnet schedule such as `[0, 3]` with an identity era ([#4026](https://github.com/logos-blockchain/logos-blockchain/pull/4026): two connected nodes cross from era 0 into an identity era 1 at epoch 1, and a node that joins in era 1 synchronizes the era-0 blocks)
 - [ ] Verify the implementation matches this specification
 
