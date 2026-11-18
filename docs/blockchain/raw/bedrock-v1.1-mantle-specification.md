@@ -1685,7 +1685,7 @@ The digest is reduced modulo $`p`$ as `op_id` is, since `ProgramId` is a field o
 
 #### Program ABI
 
-The ABI of a program is a list of expressions, one per public input of its proofs, in order. An `Expr` is a tree whose leaves are constants and sources, public values of a program step and of its Mantle Transaction, and whose nodes apply a fixed operation to their children, with no loop, so the ledger knows the type of every expression from the ABI alone. A program runs its logic in its circuit: its ABI only fixes the public data its proofs see. The [encoding](mantle-transaction-encoding.md#program-operations) of each node starts with the byte of its kind.
+The ABI of a program is a list of expressions, one per public input of its proofs, in order. An `Expr` is a tree whose leaves are constants and sources, public values of a program step and of its Mantle Transaction, and whose nodes each apply a fixed operation to their children. The type of every expression therefore follows from the ABI alone, and an expression, having no loop, evaluates in one operation per node. A program runs its logic in its circuit: its ABI only fixes the public data its proofs see. The [encoding](mantle-transaction-encoding.md#program-operations) of each node starts with the byte of its kind.
 
 Two parameters bound an ABI:
 
@@ -1707,21 +1707,21 @@ MAX_ABI_NODES = 64       # maximum number of nodes of all the expressions of an 
 
 The count of a list comes first, so two different lists never read the same.
 
-**Nodes.**
+**Nodes.** Each node holds the fields its entry names, `children` being a list of expressions:
 
 | Node | Type | Value |
 | --- | --- | --- |
-| `Const(b)` | `bytes(len(b))` | the bytes `b` |
-| `FConst(x)` | `field` | the field element `x` |
-| `Src(s)` | the type of the source `s` | the value of the source `s` |
-| `Concat(es)` | `bytes(n)`, `n` the sum of the lengths of its children read as bytes if all are known, `bytes(*)` otherwise | the concatenation of its children read as bytes, in order |
-| `Sha256(e)` | `bytes(32)` | the SHA-256 digest of its child read as bytes |
-| `ZkHash(es)` | `field` | `zkhash` of its children read as field elements, in order |
-| `Fr(e)` | `field` | the little-endian integer of its child read as bytes, reduced modulo $`p`$ |
-| `Lo128(e)` | `field` | the little-endian integer of the bytes 0 to 15 of its child read as bytes |
-| `Hi128(e)` | `field` | the little-endian integer of the bytes 16 to 31 of its child read as bytes |
-| `Rev(e)` | `bytes(32)` | its child read as bytes, in reverse order |
-| `Mask253(e)` | `field` | the low 253 bits of the little-endian integer of its child read as bytes |
+| `Const(value)` | `bytes(len(value))` | the bytes `value` |
+| `FConst(value)` | `field` | the field element `value` |
+| `Src(source)` | the type of `source` | the value of `source` |
+| `Concat(children)` | `bytes(n)`, `n` the sum of the lengths of its children read as bytes if all are known, `bytes(*)` otherwise | the concatenation of its children read as bytes, in order |
+| `Sha256(child)` | `bytes(32)` | the SHA-256 digest of its child read as bytes |
+| `ZkHash(children)` | `field` | `zkhash` of its children read as field elements, in order |
+| `Fr(child)` | `field` | the little-endian integer of its child read as bytes, reduced modulo $`p`$ |
+| `Lo128(child)` | `field` | the little-endian integer of the bytes 0 to 15 of its child read as bytes |
+| `Hi128(child)` | `field` | the little-endian integer of the bytes 16 to 31 of its child read as bytes |
+| `Rev(child)` | `bytes(32)` | its child read as bytes, in reverse order |
+| `Mask253(child)` | `field` | the low 253 bits of the little-endian integer of its child read as bytes |
 
 These nodes build the public inputs of plain Groth16 circuits, which hash field elements with `zkhash`, and of the Groth16 wrappers of zkVMs, which split a SHA-256 digest into two 128-bit halves, or read it big-endian and keep its low 253 bits.
 
@@ -1752,11 +1752,11 @@ An ABI that type-checks evaluates on every program step without failing, so the 
 
 Every source is fixed by the Mantle Transaction, independent of the block carrying it, and excludes every proof and opening, so a sequencer proves a program step once the Mantle Transaction is fixed. The Mantle Transaction as a whole is no source, since a proof can use it only through a hash, which `TXHASH` is. The record of the channel is no source, since it holds slots and a sequencer index that a reorg changes, and `OP_ID` covers `parent`, which chains the messages of the channel. Time is no source, since the sequencer proves a step before it knows the block that carries it, and so its slot.
 
-**Evaluation.** The ledger builds the public inputs of the program proof of a program step ([CHANNEL_INSCRIBE](#channel_inscribe)) with `evaluate_abi`, from the ABI of its program, the Inscribe carrying the step, the step, the program deposits it consumes, the `op_id` of the Inscribe Operation and the `mantle_txhash`. `sha256` is SHA-256, and `zkhash` hashes in its [hash mode](common-cryptographic-components.md#hash-mode) at any number of elements.
+**Evaluation.** The ledger builds the public inputs of the program proof of a program step ([CHANNEL_INSCRIBE](#channel_inscribe)) with `evaluate_abi`, from the ABI of its program, the Inscribe carrying the step, the step, the program deposits it consumes, the `op_id` of the Inscribe Operation and the `mantle_txhash`. `sha256` is SHA-256, and `zkhash` hashes in the hash mode of [Poseidon2](common-cryptographic-components.md#poseidon2-zk-friendly-hash-function) at any number of elements.
 
 ```python
 def evaluate_abi(abi: list[Expr], msg: Inscribe, step: ProgramStep,
-                 program_deposits: list[ProgramDeposit], op_id: hash, txhash: hash) -> list[FieldElement]:
+                 program_deposits: list[ProgramDeposit], op_id: hash, txhash: hash) -> list[zkhash]:
     sources = {
         OP_ID: op_id,
         TXHASH: txhash,
@@ -1777,13 +1777,13 @@ def evaluate_abi(abi: list[Expr], msg: Inscribe, step: ProgramStep,
             return len(value).to_bytes(4, "little") + b"".join(as_bytes(element) for element in value)
         if isinstance(value, tuple):  # a pair, as its two elements in order
             return b"".join(as_bytes(element) for element in value)
-        if isinstance(value, FieldElement):
+        if isinstance(value, zkhash):
             return int(value).to_bytes(32, "little")  # canonical, below p
         if isinstance(value, TokenValue):
             return value.to_bytes(8, "little")
         return value  # bytes
 
-    def as_fields(value) -> list[FieldElement]:  # a value read as field elements
+    def as_fields(value) -> list[zkhash]:  # a value read as field elements
         if isinstance(value, list):  # its count, then its elements
             return ([FiniteField(len(value), byte_order="little", modulus=p)]
                     + [x for element in value for x in as_fields(element)])
@@ -1794,30 +1794,27 @@ def evaluate_abi(abi: list[Expr], msg: Inscribe, step: ProgramStep,
         return [value]  # a field element
 
     def evaluate(expr: Expr):
-        match expr:
-            case Const(b):
-                return b
-            case FConst(x):
-                return x
-            case Src(s):
-                return sources[s]
-            case Concat(es):
-                return b"".join(as_bytes(evaluate(e)) for e in es)
-            case Sha256(e):
-                return sha256(as_bytes(evaluate(e)))
-            case ZkHash(es):
-                return zkhash(*[x for e in es for x in as_fields(evaluate(e))])
-            case Fr(e):
-                return FiniteField(as_bytes(evaluate(e)), byte_order="little", modulus=p)
-            case Lo128(e):
-                return FiniteField(as_bytes(evaluate(e))[:16], byte_order="little", modulus=p)
-            case Hi128(e):
-                return FiniteField(as_bytes(evaluate(e))[16:], byte_order="little", modulus=p)
-            case Rev(e):
-                return as_bytes(evaluate(e))[::-1]
-            case Mask253(e):
-                data = as_bytes(evaluate(e))
-                return FiniteField(data[:31] + bytes([data[31] & 0x1f]), byte_order="little", modulus=p)
+        if isinstance(expr, Const) or isinstance(expr, FConst):
+            return expr.value
+        elif isinstance(expr, Src):
+            return sources[expr.source]
+        elif isinstance(expr, Concat):
+            return b"".join(as_bytes(evaluate(child)) for child in expr.children)
+        elif isinstance(expr, ZkHash):
+            return zkhash(*[x for child in expr.children for x in as_fields(evaluate(child))])
+        data = as_bytes(evaluate(expr.child))  # the child of a node with one child, read as bytes
+        if isinstance(expr, Sha256):
+            return sha256(data)
+        elif isinstance(expr, Fr):
+            return FiniteField(data, byte_order="little", modulus=p)
+        elif isinstance(expr, Lo128):
+            return FiniteField(data[:16], byte_order="little", modulus=p)
+        elif isinstance(expr, Hi128):
+            return FiniteField(data[16:], byte_order="little", modulus=p)
+        elif isinstance(expr, Rev):
+            return data[::-1]
+        else:  # Mask253
+            return FiniteField(data[:31] + bytes([data[31] & 0x1f]), byte_order="little", modulus=p)
 
     return [evaluate(expr) for expr in abi]  # each a field element, abi_type_checks(abi) holding
 ```

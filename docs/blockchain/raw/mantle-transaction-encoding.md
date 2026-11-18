@@ -208,7 +208,7 @@ Rev         = Expr
 Mask253     = Expr
 ```
 
-A `ProgramAbi` tells the ledger how to build each public input of the proofs of a program from the public data of the step that runs it and of its Mantle Transaction, as [PROGRAM_REGISTER](bedrock-v1.1-mantle-specification.md#program_register) defines it. An `Expr` starts with the byte of its kind, a `Src` is the byte of its source, and `Concat` and `ZkHash` give the count of their children and `Const` the length of its bytes, so the tree reads without its types. A decoder MUST reject an unknown kind or source, so an ABI has a single encoding.
+A `ProgramAbi` tells the ledger how to build each public input of the proofs of a program from the public data of the step that runs it and of its Mantle Transaction, as [PROGRAM_REGISTER](bedrock-v1.1-mantle-specification.md#program_register) defines it. An `Expr` starts with the byte of its kind, a `Src` is the byte of its source, and `Concat` and `ZkHash` give the count of their children and `Const` the length of its bytes, so the tree reads without its types. A decoder MUST reject an unknown kind or source, so an ABI has a single encoding, and MUST reject an ABI as soon as it reads more nodes than [`MAX_ABI_NODES`](bedrock-v1.1-mantle-specification.md#program-abi), so the nesting of an `Expr` is bounded while it is decoded.
 
 ### Transfer Operations
 
