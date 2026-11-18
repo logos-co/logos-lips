@@ -42,12 +42,12 @@ audits, and lists in its appendices everything that is settled.
 | 1 | Earlier items answered, still needing discussion | 1 |
 | 2.1 | Items of the second audit with no response | 4 |
 | 2.2 | Concerns of `human-spec-comments.md` that still need an answer | 2 |
-| 3.1 | Contradictions and gaps in the spec text | 30 |
+| 3.1 | Contradictions and gaps in the spec text | 33 |
 | 3.2 | The system contracts against their own rules | 4 |
 | 3.3 | The integrator documents against the specs | 8 |
 | 3.4 | Porting the existing module catalog | 7 |
 | 3.5 | Editorial | 1 list |
-| Appendix A | Items resolved by the current specs | 154 earlier items, 31 findings of this document |
+| Appendix A | Items resolved by the current specs | 154 earlier items, 29 findings of this document |
 | Appendix B | Earlier items the owner declined | 60 |
 | Appendix C | Concerns of `human-spec-comments.md` settled by the current specs | 11 |
 | Appendices D to F | Comparisons behind sections 3.2 to 3.4 | 35 claims, 20 needs, one list |
@@ -63,12 +63,14 @@ From the earlier items (sections 1 and 2):
 From the findings (section 3):
 - TF-53: CREDENTIAL STORE requires its provider to answer `NOT_AUTHORISED`, and INTERFACE turns that code
   into `MODULE_ERROR` when provider code returns it.
-- TF-54: the module state table forbids every transition it does not list, and it lists no stop that
-  enforcement causes.
+- TF-54: the module state table forbids every transition it does not list, and no trigger in it names a
+  stop that enforcement causes.
 - TF-55: whether one contract extends another depends on `_module`, which the schema root does not commit,
   so the provider that claims the extension can always satisfy the condition.
 - TF-56: a package provides a contract by its manifest, while the variant installed on a host may lack the
   module that provides it.
+- TF-09: an allow to invoke `establish_route` counts as observation authority, so the non-disclosure rule
+  for routes does not bind an ordinary consumer.
 - TF-37: who may invoke the Module Loader's `realize`, `release` and `apply_configuration` is not stated.
 - TF-43: what a complete Logos module system must contain, and which deployments BCP §5.1 and §5.4 bind,
   is not stated.
@@ -198,6 +200,33 @@ other rules depend on is not stated.
 - **Suggested resolution:** say which outcome an `install_package` or `update_package` call that changes
   nothing has while the signer retained with the installed record is not accepted.
 
+#### TF-09 — Whether authority to invoke `establish_route` is observation authority is not stated
+- **Specs:** RUNTIME l.1542-1543 ("Runtime Control observation authority over a record is authority under
+  active policy to observe that record through the requested method or event"; "When policy is
+  externalized through LOGOS-MODULE-CAPABILITY-AUTHORITY, it is an allow decision for that method or event
+  with a `runtime_control_scope` whose present constraints match the record"), l.3060-3063 ("A caller
+  without matching provider-discovery or Runtime Control observation authority MUST NOT be able to
+  distinguish an unknown target from an existing but hidden or denied target"; "For a caller with that
+  authority, a failed establishment caused by denial of route authority for a selected provider MUST
+  report `NOT_AUTHORISED`"; "If establishment instead fails because no matching provider is available or
+  ready, Runtime MUST report `NOT_READY`"); CA l.182-192 (the selectors of `runtime_control_scope` are
+  optional), l.301 ("Every present constraint MUST match the attempted operation or returned
+  observation").
+- **Issue:** observation authority is defined by the requested method. For route establishment that method
+  is `establish_route`, which a consumer must be allowed to invoke before it can establish any route.
+  Under an externalized policy the definition asks only that the present constraints of the scope match
+  the record, and a scope with no selector has none. Such a consumer holds observation authority over
+  every provider record, so the rule of l.3060 never applies to it. It receives `NOT_AUTHORISED` for a
+  provider it is denied and `NOT_READY` for one that does not exist or is not ready, and so learns which
+  providers exist.
+- **Impact:** the non-disclosure rule protects nothing against a consumer whose scope for
+  `establish_route` carries no selector, which is the ordinary case. One Runtime applies l.3060 to such a
+  consumer and another applies l.3062-3063.
+- **Overlap:** TF-16 (the code when the caller holds only a route allow).
+- **Suggested resolution:** state at l.3060 that authority to invoke `establish_route` or `renew_route` is
+  not observation authority over the providers the request may select, or name the `discover` decision as
+  the only authority that lifts the rule.
+
 #### TF-10 — What `start_module` answers when a prerequisite is not ready, and the record of an instance whose start an unavailable system service prevents, are not stated
 - **Specs:** RUNTIME l.709 ("every prerequisite module instance MUST be ready before Runtime initializes
   the dependent module instance"), l.3642 ("An unavailable prerequisite MUST prevent dependent startup or
@@ -319,6 +348,21 @@ other rules depend on is not stated.
 - **Overlap:** NL-06 (leaving `error`), TL-07 (the module states), TF-10.
 - **Suggested resolution:** state the state at which the `start_module` response is sent, or that both are
   permitted and the returned state tells which.
+
+#### TF-22 — Whether the handler of a Runtime Control subscription may run on a subscriber's thread that is inside another operation of the binding is not stated
+- **Specs:** RUNTIME l.1107-1109 ("Runtime Control events delivered through a local Runtime Control
+  binding have no publishing thread, and Runtime schedules their handler invocations in committed order
+  for each subscription"; "Runtime MUST NOT invoke such a handler on a thread executing the Runtime
+  Control operation that committed the change"); INTERFACE l.1467 ("The callback MAY run on the thread
+  that detects termination, including during another binding operation").
+- **Issue:** the text excludes one thread, the one that runs the operation which committed the change. It
+  says nothing of a thread of subscriber S that is inside another operation of the same binding, such as a
+  listing call. For the terminal callback the permission is stated (INTERFACE l.1467). For an event
+  handler it is neither granted nor excluded.
+- **Impact:** S cannot tell whether a lock it holds across a Runtime Control call can be taken again by
+  its own handler on the same thread. A handler written for one Runtime deadlocks on another.
+- **Suggested resolution:** state in RUNTIME §6.3 whether Runtime may invoke the handler on a thread that
+  is executing another operation of that binding.
 
 #### TF-25 — What orchestration does to establish the first authority binding, and how it learns that the binding exists, is not stated
 - **Specs:** RUNTIME §9 l.1555-1556 ("When authority policy is externalized, bootstrap policy MUST
@@ -1089,22 +1133,34 @@ other rules depend on is not stated.
   Capability Authority and the Package Manager have in theirs; or move the two checks to the Runtime,
   before dispatch; or allow `NOT_AUTHORISED` to a provider that enforces a rule of its own contract.
 
-#### TF-54 — The module state table has no row for a stop that enforcement causes
+#### TF-54 — The triggers of the module state table name no stop that enforcement causes
 - **Specs:** RUNTIME l.520-521 and l.526 (the three rows that lead to `stopping`; their triggers are "An
   explicit stop or Runtime shutdown is ordered before readiness" and "An explicit stop or Runtime
-  shutdown"), l.528 ("Runtime MUST NOT perform any other module-state transition"), l.3663 ("A stop caused
-  by permission-settings reconciliation, permission withdrawal, or loss of execution authorization MUST
-  preserve execution intent and its authenticated origin"), l.1735 ("An explicit stop MUST cancel retained
-  execution intent, including when the instance is already `stopping` or `unloaded`").
+  shutdown"), l.524 (the row from `stopping` to `error`; its trigger is "Cleanup fails"), l.528 ("Runtime
+  MUST NOT perform any other module-state transition"), l.3663 ("A stop caused by permission-settings
+  reconciliation, permission withdrawal, or loss of execution authorization MUST preserve execution intent
+  and its authenticated origin"), l.1735 ("An explicit stop MUST cancel retained execution intent,
+  including when the instance is already `stopping` or `unloaded`"), l.3634 ("When Runtime starts after
+  its previous process ended without completed shutdown, it MUST report each preserved instance last
+  recorded as `loaded`, `ready` or `stopping` as `error` with `host-terminated` before accepting lifecycle
+  requests").
 - **Issue:** Runtime stops an instance when its execution authorization ends or when its permission
   settings can no longer be enforced. That stop keeps the intent (l.3663). It is therefore not an explicit
-  stop, which cancels the intent (l.1735), and it is not a Runtime shutdown. Every row of the table that
-  leads to `stopping` names one of those two triggers, and l.528 forbids every other transition. By the
-  table, an instance whose authorization ends cannot leave `ready`.
-- **Impact:** an implementation either makes a transition that l.528 forbids, or reports an enforcement
-  stop as an explicit one and loses the intent that l.3663 requires it to keep.
+  stop, which cancels the intent (l.1735), and it is not a Runtime shutdown. The pairs of states it needs
+  are in the table, but every row that leads to `stopping` names one of those two triggers. Whether l.528
+  forbids the stop depends on whether a row is the pair of states alone or the pair with its trigger, and
+  the text does not say which.
+
+  The report after an unclean restart (l.3634) raises the same question for an instance last recorded as
+  `stopping`. The row to `error` has the trigger "Cleanup fails" (l.524), and that cleanup never finished.
+- **Impact:** if the trigger is part of the row, an implementation either makes a transition that l.528
+  forbids, or reports an enforcement stop as an explicit one and loses the intent that l.3663 requires it
+  to keep.
+- **Overlap:** TL-07 (Appendix A) asked which transitions are legal; the table answers that for the pairs
+  of states.
 - **Suggested resolution:** add the enforcement stop to the triggers of the rows from `loaded`, `ready`
-  and `error` to `stopping`.
+  and `error` to `stopping`, and the report after an unclean restart to the row from `stopping` to
+  `error`; or say that the trigger column is not exhaustive.
 
 #### TF-55 — Whether one contract extends another depends on `_module`, which the schema root does not commit
 - **Specs:** COMMITMENT l.966-972 (B extends A when, among other conditions, "both are concrete module
@@ -1144,6 +1200,26 @@ other rules depend on is not stated.
   list of a dependency exists to prevent that.
 - **Suggested resolution:** say that a candidate provides a contract when a module declaration whose
   implementation artifact is in the variant selected for the target environment declares it.
+
+#### TF-57 — When the instances of a failed Module Loader are marked `error` depends on a condition that is not defined
+- **Specs:** RUNTIME l.3685-3687 ("When the owning Loader has failed and continued realization control
+  cannot be maintained, Runtime MUST mark affected instances as `error`, fail their routes, preserve
+  execution intent, and arrange termination through protected host or deployment supervision"; "The owning
+  Loader has failed when its provider module instance leaves `ready` because its realization ended or
+  failed"; "Failed Loader operations or loss of its binding while that provider instance remains `ready`
+  are temporary service unavailability"), l.909 ("Observed terminal loss of the protected carrier required
+  to control a hosted realization MUST prevent new instance-dependent work and initiate termination
+  through the protected realization or deployment mechanism").
+- **Issue:** l.3685 has two conditions. The first is defined (l.3686). The second, that continued
+  realization control cannot be maintained, is defined nowhere, and it is not tied to the loss of the
+  protected carrier (l.909). When a Loader has failed and Runtime still holds the carrier of a hosted
+  realization, whether that instance stays `ready` or is marked `error` depends on what control means.
+- **Impact:** after the same Loader failure one Runtime keeps its hosted instances `ready`, and another
+  marks them `error` and fails their routes.
+- **Overlap:** RT-05 (Appendix A) asked what separates a Loader that is briefly unavailable from one that
+  has failed, which l.3686-3687 answer. TF-45, point 3.
+- **Suggested resolution:** define the second condition, for instance as the loss of every protected
+  carrier or mechanism through which Runtime can end the realization.
 
 ### 3.2 The system contracts, checked against their own rules
 
@@ -1937,11 +2013,48 @@ that holds keys. A and B stand for other modules and are local to one item.
   conformant CDDL schema `S`" (l.2592). Whether a reverse mapper may refuse, at a documented limit, the
   header that the forward mapping generates for a schema set within the limits of Section 5.3 is not said,
   and no limit of a tool has a floor.
+- TRANSPORT l.417 against RUNTIME l.122-126: Transport assigns payload validation to "the schema-aware
+  sending and receiving boundaries" (TRANSPORT l.417) and uses the term again at l.640, l.642, l.662 and
+  l.1170, and no text ties it to the three boundaries that RUNTIME defines (l.122-126). That a facade
+  provider which stays on the invocation path (RUNTIME l.2949) must hold the contract's schema follows
+  only from its ending a session.
+- HASH l.1236 and l.1251: "In steps 3 and 4, the schema selected by the typed path is a list of `uint16`
+  values in B.1 and a byte string in B.2" (l.1236), while the path of B.1 selects one element, since the
+  view "discloses the `uint16` value `256`" (l.1251); the list is the schema against which step 3
+  validates the path, and the element is the schema that the path selects for step 4.
+- INTERFACE l.4010 and l.4046-4089: the appendix is headed "Appendix A. Generated Artifacts (Informative)"
+  (l.4010) and uses requirement keywords at l.4046-4047, l.4082-4083 and l.4087-4089, for instance "A
+  handwritten implementation MUST behave as if derived from the same exposed contract set." (l.4047); each
+  restates a rule of a normative section, so the keywords add nothing and read as requirements under an
+  informative heading.
+- RUNTIME l.2515 against l.1819: for `update_permission_settings`, "Failures before acceptance use the
+  shared invocation-error channel." (l.2515), and a stale `expected_revision` is such a failure (l.2511),
+  which l.1819 sends to the typed `stale-revision` error; l.2515 needs that exception.
+- RUNTIME l.1816 against l.1809: the sentence lists "a prohibited lifecycle operation" among the caller
+  errors and then calls "the `NOT_READY` conditions" Runtime-owned readiness failures; the prohibited
+  lifecycle operation is a `NOT_READY` row of the table (l.1809), so it is classified twice.
+- RUNTIME l.3614 against l.3615 and l.2436: "A facade unavailable because current remote state cannot be
+  established MUST use `remote-state-unknown` rather than infer a remote crash." (l.3614) also describes a
+  facade whose target Runtime cannot be reached, for which `remote-unreachable` is defined (l.3615,
+  l.2436) and which l.3199 and l.3604 require to be kept distinct; l.3614 should yield to a more specific
+  classification.
+- PM l.1311-1312 against l.1279 and l.1314-1315: "Package Manager MAY exclude a catalog candidate before
+  obtaining its material when implementation-defined catalog metadata indicates that the candidate has no
+  variant compatible with the target execution environment." (l.1311). The exclusion is optional and its
+  input is implementation-defined, while counters and resolution are to be determined by "the installed
+  state, catalog inputs, and protected policy" (l.1279). A Package Manager that does not exclude the
+  candidate charges it and needs its material (l.1262-1263, l.1308), so two Package Managers can resolve
+  the same catalog differently, and a catalog entry has no field that tells a resolver which package
+  serves its platform (l.841-844).
 - INTERFACE l.1479 and RUNTIME l.3589: Runtime delivers Runtime Control state events "only while the
   authenticated subscriber remains authorized to observe the referenced module, provider, or route"
   (RUNTIME l.3589), and a binding ends a subscription with `NOT_AUTHORISED` "when authority to receive the
   event has ended or can no longer be established" (INTERFACE l.1479); whether a subscriber that loses
   authority over every record it could observe keeps a silent subscription or has it ended is not said.
+  RUNTIME requires the end only for a route subscription (l.951). Under an externalized policy Runtime
+  "MUST terminate dependent provider sessions and subscriptions when their continued use would exceed
+  current authority" (CA l.944) after a grant is revoked or expires, and no text says that this reaches a
+  Runtime Control subscription.
 - INTERFACE l.1481-1482: "An end that occurs while no registration is installed is not reported later"
   (l.1481) and "`unsubscribe` for a binding-ended subscription returns `LOGOS_OK`" (l.1482), so a
   subscriber that registers `observe_subscription_end` after subscribing has no operation that tells an
@@ -1964,12 +2077,11 @@ that holds keys. A and B stand for other modules and are local to one item.
   concrete module contract or implemented interface contract" and provider validation as covering "the
   complete primary/implemented-interface set", both of which omit the extended contract that a route may
   select.
-- INTERFACE l.3351-3352 fixes the result of the publish callback (`LOGOS_OK`, or `INVALID_PARAMS` when the
-  event data does not conform "to that event's data type and size limits") and says "The result does not
-  report delivery to any subscriber", while TRANSPORT l.383 has the publication boundary of an oversized
-  Event "report failure where that boundary permits it" and otherwise close the connection; whether the
-  callback's result is such a permission, which code it would carry, and whether the size limits of
-  INTERFACE l.3351 include the Transport frame limit are not said.
+- INTERFACE l.3351: the publish callback returns `INVALID_PARAMS` when the event data does not conform "to
+  that event's data type and size limits"; the term occurs only there, and which size limits of an event
+  it means is not said. A destination's limit is not among them, because "A failure for an individual
+  subscriber route does not change that result" (RUNTIME l.1149) and an event over the limit of a
+  Transport destination follows TRANSPORT §2.1 for that destination (RUNTIME l.1150).
 - INTERFACE l.2926-2936: the header set printed for the dotted and underscored namespaces holds an
   interface document and a supporting document that do not reference each other, and l.2936 requires the
   mapper to "reconstruct each document when it is selected as the subject and supplied with exactly its
@@ -2122,7 +2234,7 @@ settled by the text* belongs to an item that has no response.
 | NP-08 | Events for installed-set changes and install progress, and a Runtime Control event when a module record is created. | `watch_installed_packages` delivers change hints to its caller, who re-queries (PM l.1738, l.1760-1761). A `progress_key` enables caller-correlated `operation_progress` events (l.1778-1780). Record creation raises an `inventory_changed` hint (RUNTIME l.3275). |
 | NP-10 | Anti-rollback for package-signing trust input, and who decides the fate of running modules when a signer is withdrawn. | Trust configuration uses a monotonic revision or equivalent, surviving restart; older state is rejected (PM l.401-403). Withdrawal blocks later package operations; the deployment documents whether execution depends on current trust, and then authorization is invalidated (l.408-410). Exact-name binding: TS-05. |
 | NP-11 | Where files common to several variants go in an LGX. | A package need not hold more than one platform: "A producer MAY publish separately signed packages with the same package identity for different platforms, each declaring only the variants for those platforms." (PM l.960). No form shared between variants is defined. No reply; settled by the text. |
-| NP-12 | Whether a host must download every variant, and how a resolver learns which source serves its platform. | Packages may be published per platform (PM l.960-961). A resolver may skip a candidate on untrusted catalog metadata about its variants (l.1311-1312), and an unreached candidate's material "MUST NOT be required or cause the root operation to fail" (l.1295). No reply; settled by the text. |
+| NP-12 | Whether a host must download every variant, and how a resolver learns which source serves its platform. | Packages may be published per platform (PM l.960-961), and an unreached candidate's material "MUST NOT be required or cause the root operation to fail" (l.1295). How a resolver learns which package serves its platform is left to implementation-defined catalog metadata, and that exclusion is optional (l.1311-1312); section 3.5 has a remark on it. No reply; settled by the text. |
 | NP-13 | How variants built on separate machines are signed and attested. | Each platform's package is signed separately (PM l.960), so its signature and provenance are its own builder's. No reply; settled by the text. |
 | NP-15 | The code for an artifact of the wrong kind and for an artifact without its hash. | A reference to "an artifact whose kind differs from the kind that the reference requires" is in the `invalid-package` list (PM l.1081). PM l.365: "A missing artifact or hash mismatch MUST fail with `artifact-integrity-failed`." No rule names an artifact that omits its hash, which the manifest schema requires. No reply; settled by the text. |
 | NC-05 | Secrets passed as method parameters were committed deterministically and could be retained, and no schema marker identified them. | `_sensitive` marks whole requests and responses (INTERFACE l.211, l.221): buffers are erased (l.361), nothing is logged or audited (l.375), a retention policy rejects the call (l.377). Events cannot be marked (l.423); exposed commitments stay guessable (SECURITY l.403). A route under `logos.remote.tls-tcp` or `logos.remote.quic` cannot permit a marked method (TRANSPORT l.1188). Credential storage is the Credential Store contract, optional to implement and deploy (CREDENTIAL STORE l.34-36, l.44). |
@@ -2168,7 +2280,6 @@ column.
 | TF-04 | Whether a route may be established for a contract that the consumer's declaration does not list, and what normative effect the declared requirements have. | "Absence of a contract from `requires` does not by itself cause Runtime to reject `establish_route`", and "Authority policy MAY use declared provider requirements as decision input" (RUNTIME l.1364-1365). A requirement selects no provider, grants no authority, and creates no package dependency or lifecycle ordering (l.713, l.1363). |
 | TF-05 | Which inputs route establishment and the facade rules use to validate the selected contract. | Step 5 validates "that the provider exposes the selected contract commitment as its primary contract, an implemented interface contract, or an extended contract established under Section 8" (RUNTIME l.2995). Revocation and facade readiness use exact-contract wording (l.3121, l.3178, l.3195), and a mapped facade record keeps "the selected contract commitment" (l.3189). |
 | TF-08 | Whether an instance of a statically linked module continues across a relink of the host, given that nothing identified the linked implementation across two builds. | The instance "remains realizable only while protected registration supplies that binding identifier with declaration facts equal to the instance's retained accepted declaration" (RUNTIME l.1319). The same identifier asserts continuity; an incompatible implementation takes a different identifier and a replacement instance (l.1320). Otherwise Runtime does not realize the instance, which stays `unloaded` with `static-binding-mismatch` (l.1321-1322). |
-| TF-09 | What observation authority is, in terms of a scope of the Capability Authority. | It is "authority under active policy to observe that record through the requested method or event", and under the Capability Authority "an allow decision for that method or event with a `runtime_control_scope` whose present constraints match the record" (RUNTIME l.1542-1543). For a request naming only a module, the scope "contains neither `instances` nor `providers`" and its `modules`, when present, includes the name (l.3535). Selector comparison is defined (CA l.303-305). |
 | TF-11 | Which bytes a raw line break inside an unprefixed byte-string literal contributes to the literal's value. | None: "An implementation MUST reject an unprefixed byte-string literal that contains a raw line break" (cdCDDLe l.121). |
 | TF-12 | What an installed package's recorded dependency edges contribute when a later resolution reaches that package. | The record's `resolved_dependencies` entries "replace its manifest dependency requirements and become accumulated requirements for exactly the recorded version and manifest commitment" (PM l.1304). An excluded version or commitment "is neither considered nor charged" (l.1305), and a conflict with another accumulated requirement makes resolution backtrack (l.1307). |
 | TF-13 | Whether the verified views of two vectors, whose schema identities are arbitrary bytes, can be checked by a verification procedure that needs a schema construction input. | HASH l.1234-1237: the identities "are not computed from schema construction input"; for the views of B.1 and B.2 "the verifier MUST use them as the computed roots compared in step 2 of the procedure in Section 8"; in steps 3 and 4 the selected schema "is a list of `uint16` values in B.1 and a byte string in B.2"; and "All other checks of Section 8 apply unchanged." |
@@ -2177,7 +2288,6 @@ column.
 | TF-17 | What state and failure the routes of a stopped consumer have, what `close_route` does to a route that has already failed or been revoked, and what becomes of a route whose renewal is denied. | RUNTIME l.589-591: "During a stop other than an unexpected realization failure, Runtime MUST close every route whose consumer is that module instance", and it fails them for such a failure; RUNTIME l.2432 defines `consumer-unavailable` as "The route consumer's realization has failed." RUNTIME l.3350: "Closing a route that is already `closed`, `failed`, or `revoked` succeeds without changing its state or failure record." RUNTIME l.3096: "When the renewal authority check denies the route, Runtime MUST place the route in `revoked` state with failure code `authority-denied`." |
 | TF-19 | Which allocated status codes provider code may return, and what the ABI caller does with a code that carries a Runtime meaning. | INTERFACE l.3308-3309: "Provider code MAY return or complete with `LOGOS_OK`, `LOGOS_ERR_METHOD_NOT_FOUND`, `LOGOS_ERR_INVALID_PARAMS`, or `LOGOS_ERR_MODULE`", and `LOGOS_ERR_CANCELLED` "only for an invocation whose cancellation is known at the provider boundary, and any other status code violates these rules". INTERFACE l.3310-3311: the ABI caller validates the status code, and "A provider result violating these rules MUST be treated as `LOGOS_ERR_MODULE`". INTERFACE l.3134: the direct-mode status passes through "after the provider-result validation required by Section 5.1". |
 | TF-21 | Which rule yields when a direct publication reaches a subscription whose handler is active on another thread, since delivery on the publishing thread and one thread at a time for each subscription cannot both hold. | INTERFACE l.1406-1408: "the binding MUST queue that delivery with a copy of its event data instead of waiting"; the thread running the active invocation runs the queued deliveries "in publication order before another thread may begin a handler invocation for it"; and "Deactivation of the subscription discards its queued deliveries." INTERFACE l.1920 excepts "a delivery queued under Section 2.5" from the rule that publication does not return before the callback completes. |
-| TF-22 | On which thread, and when, the handler of a Runtime Control subscription runs, given that no module publishes the event. | RUNTIME l.1107-1109: such events "have no publishing thread, and Runtime schedules their handler invocations in committed order for each subscription"; "Runtime MUST NOT invoke such a handler on a thread executing the Runtime Control operation that committed the change"; and "Completion of that operation MUST NOT wait for the handler." |
 | TF-23 | Which code a call gets when it was admitted and the end of its route then ends it, and what that code says about execution by the provider. | RUNTIME l.1271-1272: "An admitted call that route closure, failure, revocation, or expiry ends before a valid final result is accepted MUST complete with `TRANSPORT_ERROR`", and "That code does not prove that the provider did not execute the call." INTERFACE l.2026: "A binding failure that ends an admitted call produces `TRANSPORT_ERROR`, which does not prove that the provider did not execute the call." TRANSPORT l.979 gives the same code on a terminated session: "requests without a terminal Response still fail with `TRANSPORT_ERROR`". |
 | TF-24 | Whether activating an event subscription needs the subscriber's own authority decision, and what happens to an active subscription, and how the subscriber learns of it, when that authority ends while the route stays usable. | RUNTIME l.950 requires "an allow decision for the consumer to subscribe to that event on that route; a denial MUST produce `NOT_AUTHORISED` without creating a subscription", and RUNTIME l.1633 lists "activating an event subscription and delivering an event" among the operations that need an allow decision. RUNTIME l.951: when that authority ends "while the route remains usable, Runtime MUST end that subscription, and the binding reports the end with `NOT_AUTHORISED`". INTERFACE l.1476-1479 defines `observe_subscription_end`, whose reason "is `NOT_AUTHORISED` when authority to receive the event has ended or can no longer be established", and TRANSPORT l.752-753 defines the SubscriptionEnd message for a transported route. |
 | TF-26 | The execution intent of an instance that startup realizes, its origin, the authority a later recovery is checked against, and whether startup overrides a retained `stopped` intent of orchestration. | Startup establishes `requested` intent for each instance it realizes, "with protected construction and deployment input as the intent's origin" (RUNTIME l.1557). Recovery or resumption of that intent uses the bootstrap policy current at that time as the origin's execution authority (RUNTIME l.1558). Startup establishes orchestration even when its retained intent is `stopped`, and replaces that intent with `requested` (RUNTIME l.1559). |

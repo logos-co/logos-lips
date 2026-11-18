@@ -2283,6 +2283,9 @@ Listed so the work is not repeated.
   route-state events (RUNTIME l.2849-2871); the free-text `failure_code` is EC-10.
 - **Permission settings versus the evaluated `permission_scope`.** The CA evaluates the declaration
   (l.1308, l.468-472) and settings compose by containment per definition (l.2240-2241; CA l.106).
+  *Note, at `6cac8335`:* the current text decides this the other way. The permission scopes of an
+  execution decision "are those mapped from the target instance's saved permission settings", and a
+  declared permission that the settings omit is denied (CA l.368-369).
 - **Platform code-signing attestation in the manifest.** Assigned to platform profiles by design
   (SECURITY l.377-378, l.412, l.514); the signature is in the artifact bytes the manifest hash binds.
 - **Install-time downgrade floor.** Package identity is name plus version (PM l.714), `update_package` is
@@ -2297,6 +2300,9 @@ Listed so the work is not repeated.
   contradiction with INTERFACE §1.4).** INTERFACE's taxonomy treats Runtime-owned conditions as
   invocation failures (l.1470; RUNTIME l.633, l.2258, l.3105, l.3109) and RC uses typed state for retained
   outcomes; the residue is EC-02.
+  *Note, at `6cac8335`:* the current text decides this the other way. "An outcome that a correct caller
+  must expect is reported in the response `error` arm, not through the shared invocation-error channel."
+  (RUNTIME l.1818), and a stale revision produces `stale-revision` (l.1819).
 - **`start_module` response boundary.** l.3120 is past tense ("has performed the lifecycle work ... toward
   ready") and l.1655 makes a `loaded` response legitimate; callers must handle it.
 - **`describe_provider` on a facade.** Deployment-supplied contract documents (l.492-493, l.512-513) and
@@ -2444,7 +2450,9 @@ come from existing modules are stated with neutral roles.
 ## Items where the current text still has a problem
 
 None. The points made here on the responses to NL-07, NA-04, NR-04, NC-03, ND-04 and NF-06 are settled by
-the current text; Appendix A of `claude-spec-comments-3.md` names the rule that settles each.
+the current text; Appendix A of `claude-spec-comments-3.md` names the rule that settles each. Two points
+of wording that the current text leaves on the subjects of NL-07 and NC-03 are remarks of section 3.5 of
+that document.
 
 ## Items without a response, restated against the current specifications
 
@@ -2467,6 +2475,9 @@ current text settles nine of them without one:
   has no variant compatible with the target execution environment" (PM l.1311), and "A candidate that is
   not reached is not examined, and its material MUST NOT be required or cause the root operation to fail."
   (PM l.1295)
+  That exclusion is optional and its input is implementation-defined (PM l.1311-1312), so how a resolver
+  learns which package serves its platform can differ between Package Managers; section 3.5 of
+  `claude-spec-comments-3.md` has a remark on it.
 - NP-15: a wrong artifact kind is a manifest defect, rejected with `invalid-package` (PM l.1081), "A
   missing artifact or hash mismatch MUST fail with `artifact-integrity-failed`." (PM l.365), and no rule
   names an artifact that omits its hash.
