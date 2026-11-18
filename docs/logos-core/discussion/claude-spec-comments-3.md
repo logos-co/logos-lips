@@ -1931,6 +1931,12 @@ that holds keys. A and B stand for other modules and are local to one item.
   closed, "In-flight call behavior follows the in-flight call policy of this section"; neither Section
   9.3.15 nor Section 9.3.16 states such a policy, and the one sentence on the subject, in Section 9.3.14,
   leaves it to "profile or implementation policy" (RUNTIME l.3123).
+- INTERFACE l.853-854 and l.2592-2598: "Tooling implementing this mapping MUST document its
+  identifier-length and resource limits" (l.853) stands in Section 2.1, where the mapping is the one from
+  CDDL to C. Section 3 has no sentence on the limits of a reverse mapper, and its guarantee holds "For any
+  conformant CDDL schema `S`" (l.2592). Whether a reverse mapper may refuse, at a documented limit, the
+  header that the forward mapping generates for a schema set within the limits of Section 5.3 is not said,
+  and no limit of a tool has a floor.
 - INTERFACE l.1479 and RUNTIME l.3589: Runtime delivers Runtime Control state events "only while the
   authenticated subscriber remains authorized to observe the referenced module, provider, or route"
   (RUNTIME l.3589), and a binding ends a subscription with `NOT_AUTHORISED` "when authority to receive the
