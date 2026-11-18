@@ -2842,3 +2842,12 @@ could differ.
   rule); the first is the conservative one. For a wrong kind, follow l.361, the only rule naming a code.
 - **Suggested resolution:** delete the l.1102 bullet, since the CDDL already makes the hash mandatory, and
   assign `invalid-package` to a kind mismatch at l.361 and at l.346.
+
+
+---
+
+# Remarks from Gemini independent review
+
+### Part 4 ("Dropped candidates", l.2284–2285, l.2296–2301) — Incorrect refutation on `permission_scope` and subsequent reversals
+1. **Permission settings vs evaluated `permission_scope` (l.2284–2285):** Part 4 dismissed this candidate as refuted, stating: *"The CA evaluates the declaration (l.1308, l.468-472) and settings compose by containment per definition (l.2240-2241; CA l.106)."* In `f4f83471`, `RUNTIME` l.1307–1308 states only that `requested_permissions` declarations do not grant authority and are preserved when presented to active policy, while `CA` l.468–472 is merely the CDDL definition of `evaluate_request` (`scopes: [* scope]`). Neither passage states that `CA` evaluates `requested_permissions` as the requested scopes of `evaluate_request`. (`claude-spec-comments-3.md` `TF-32` reversed this dropped-candidate conclusion, and `6cac8335` `CA` §3.3 l.368–369 specified the opposite of Part 4's claim: execution decisions evaluate scopes mapped from saved `permission_settings`, while omitted declared permissions are denied without preventing execution.)
+2. **Subsequent reversals in `claude-spec-comments-3.md`:** Two additional Part 4 refutations — *"Runtime Control reports expected compare-and-set outcomes on the shared error channel"* (`l.2296–2299`) and *"`start_module` response boundary"* (`l.2300–2301`) — were likewise reversed in `claude-spec-comments-3.md` (`EC-01 to EC-04` at l.100 and `TF-20` at l.835–857, which covers `stop_module` / `start_module` acceptance boundaries).

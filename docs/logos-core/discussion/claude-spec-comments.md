@@ -1113,3 +1113,12 @@ neutral roles.
   so: "The generic invocation context identifies the protected invocation origin but does not define
   Package Manager record-visibility policy." The text is consistent; only the sentence in the response no
   longer matches it.
+
+
+---
+
+# Remarks from Gemini independent review
+
+### `C-10` — Suggested resolution at l.977–978 introduces a stale-handoff bug in `realize` idempotency
+- **Proposal (l.977–978):** *"add `? provider_endpoint` (address only) to `realize_request`, and define idempotency over the request fields."*
+- **Issue:** Under `LOADER` §6 (`6a4dfa28` l.368–374, l.395–396), private realization handoffs carry live OS and process capabilities that cannot be serialized as CBOR text: open listening socket file descriptors, consumer-bound Runtime Control channels, event-publication bindings, `direct_static` function-pointer tables, and §5.4 adapter channels. Defining `realize` idempotency *solely* over `realize_request` CBOR fields (even with `? provider_endpoint` address text) would require `realize` to return `succeeded` instead of `instance-conflict` (`LOADER` l.373–374) whenever invoked with identical CBOR fields (for example, a consumer-only or direct module with no `provider_endpoint`, or a recreated socket bound to the same filesystem path) paired with a *different* underlying file descriptor or private control channel. (`6cac8335` `LOADER` §1 l.15–16 clarifies instead that Module Loader is not substitutable across Runtime implementations because those private realization handoffs are implementation-defined.)

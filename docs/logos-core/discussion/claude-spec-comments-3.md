@@ -3724,3 +3724,76 @@ The results of the check described in section 3.2 that need no action.
 - The pinned manifest roots at PM l.364-365 reproduce, as do the common-schema root and its nine
   subtree roots (COMMITMENT l.719-728).
 - All 98 section cross-references in RUNTIME resolve, and all 530 across the twelve files.
+
+
+---
+
+# Remarks from Gemini independent review
+
+Unless tagged `6cac8335`, line citations below (`l.N`) refer to the specification snapshot audited by this document (`6a4dfa28`).
+
+## 1. Corrections to claims and suggested resolutions in this document
+
+### `TF-03` (l.242–252) & Appendix D Row 35 (l.3674) — OS-thread behavior across synchronous C FFI calls in async Rust, Kotlin coroutines, Swift concurrency, and Go
+- **Claim (l.242–246, l.250–252, l.3674):** *"A caller written in Go, async Rust, Kotlin coroutines or Swift concurrency does not stay on one OS thread between the call returning and its next statement. The rule is satisfiable only by copying inside the C glue before control returns to the language runtime, which nothing says."*
+- **Correction:**
+  1. **Async Rust (`Future::poll`)**, **Kotlin coroutines (`suspend` CPS)**, and **Swift concurrency (`async`/`await`)** are **stackless** continuation models: tasks/coroutines can suspend and migrate between worker OS threads **only at explicit suspension points** (`.await`, `suspend` call sites, `await`). Between a synchronous C FFI call returning (`extern "C"`, `@CName`, `@convention(c)`) and the immediately following non-suspending statements that copy `result.message` and `result.detail`, execution is guaranteed to stay on the **exact same OS thread** with zero C wrapper glue. Likewise, a synchronous C callback entry (`_MODULE_dispatch` or a per-method C function) cannot be `async`/`suspend`, so `invocation_access->vtable->current(...)` executes on the entry OS thread before any async task is spawned (as `INTERFACE` §2.9.3 l.2170–2172 already states).
+  2. Even in **Go** (the only stackful M:N runtime listed, where `cgo` exit can reschedule a goroutine onto another `M`), pure Go code can bracket the `cgo` call and `C.GoString` / `C.GoBytes` copy with `runtime.LockOSThread()` / `defer runtime.UnlockOSThread()` — so *"satisfiable only by copying inside the C glue before control returns to the language runtime"* does not hold for Go either.
+
+### `TF-11` (l.504–507) — RFC 8610 §3.1 on unprefixed byte-string line breaks
+- **Claim (l.504–507):** *"Neither RFC nor cdCDDLe says which bytes it contributes to the value: the bytes as written, one LF, or nothing."*
+- **Correction:** RFC 8610 §3.1 states explicitly: *"Whitespace is ignored in the prefixed forms"* and *"If unprefixed, the string is interpreted as with a text string, except that single quotes must be escaped and that the resulting UTF-8 bytes are marked as a byte string (major type 2)."* Thus `"nothing"` (whitespace elision) applies exclusively to *prefixed* byte strings (`h'...'`, `b64'...'`), and RFC 8610 defines no `CRLF -> LF` normalization. The genuine hazard is narrower: RFC 8610's `BCHAR` ABNF (`%x20-26 / %x28-5B / %x5D-10FFFD / SESC / CRLF`) admits `CRLF` while text-string `SCHAR` does not, so Git/OS `LF`↔`CRLF` line-ending conversion silently alters the literal's UTF-8 bytes (`6cac8335` `cdCDDLe` §5 l.121 rejects raw line breaks in unprefixed byte-string literals).
+
+### `TF-23` Suggested Resolution (l.987–992, l.997–999) — Returning `NOT_AUTHORISED` for already-dispatched calls violates `TRANSPORT` §8.1 and `RUNTIME` §9
+- **Proposal (l.987–992):** *"return `NOT_AUTHORISED` when the route ended for an authority cause ... On a transported route, answer each in-flight Request with `NOT_AUTHORISED` before the ProtocolError where the connection is still writable."*
+- **Correction:** `TRANSPORT` §8.1 l.989 restricts `response-err(NOT_AUTHORISED)` strictly to *"A new Request processed during termination ... without dispatch"*, while l.995 fails already-admitted in-flight requests with `TRANSPORT_ERROR`. Across `RUNTIME` §3.4 l.660, §7.5 l.1349, and §9 l.1737–1738 (*"When authority policy denies an operation, the runtime MUST NOT perform the operation"*), `NOT_AUTHORISED` guarantees to callers that the operation was **rejected before execution**. Answering an already-dispatched call (whose provider may have committed side effects) with `NOT_AUTHORISED` misleads callers into assuming no mutation occurred. (`6cac8335` unified on `TRANSPORT_ERROR` in `RUNTIME` §7.5 l.1271 and `INTERFACE` §2.8 l.2025.)
+
+### `TF-24` (l.1001, l.1023–1025) — `CA` §3.1 already required an authority decision for subscription activation
+- **Claim (l.1001, l.1023–1025):** *"`subscribe-event` is an action of its own, and nothing says whether a decision for it is required when a subscription is activated or only when an event is delivered."*
+- **Correction:** `TF-24` cites `CA` l.239–240, l.245, and l.906–914, skipping `CA` §3.1 l.288–289 and l.293–294 directly below l.245:
+  - `CA` l.288–289: *"For a call, publication, or subscription on an existing route, Runtime MUST include that route and an access value containing the one method or event declaration being checked."*
+  - `CA` l.293–294: *"Runtime and the provider-side invocation boundary MUST reject calls, publications, subscriptions, and event deliveries outside the allowed scope."*
+
+  `CA` §3.1 already specified requesting and enforcing an authority decision for activating a subscription on an existing route; only the mirroring prose in `RUNTIME` §4.4 / §9 was missing at `6a4dfa28` (added in `6cac8335` `RUNTIME` l.950 and l.1633 without needing to modify `CA` §3.1).
+
+### `TL-05` (l.2485–2486) — Additional duplicated system types are already leaf-only under `INTERFACE` §1.1
+- **Claim (l.2485–2486):** *"Only `static_binding` (LOADER l.177-179) is leaf-only today; the others would also need INTERFACE l.103 relaxed."*
+- **Correction:** `INTERFACE` §1.1 l.103–106 permits supporting schemas to use composite maps/arrays, local references within the same supporting schema, prelude integer aliases, and `logos.*` common types; it forbids only referencing *"a concrete module schema, interface contract schema, or another supporting schema"*. Among the duplicated types `TL-05` lists (`l.2468–2478`), `logos.module_loader.hosted_placement` (`LOADER` l.165–168), `logos.module_loader.artifact` (`LOADER` l.170–175), and `logos.package_manager.package_signing_profile` + `package_signer` (`PM` l.494–502) all reference **zero** external concrete, interface, or supporting schemas and satisfy `INTERFACE` l.103 as written.
+
+### `TL-06` Suggested Resolution (l.2511–2512) — Violates `INTERFACE` §1.1 l.103
+- **Proposal (l.2511–2512):** *"move the enrollment record into `logos.runtime` or a provisioning supporting schema, and the two signed-claim types into supporting schemas of their own."*
+- **Correction:** Under `INTERFACE` §1.1 l.103 (*"A supporting schema MUST NOT reference a concrete module schema, interface contract schema, or another supporting schema"*):
+  1. Moving `remote_runtime_enrollment` (`RUNTIME` l.2014, l.2024, which references `logos.runtime.runtime_instance_id`) as-is into a separate provisioning supporting schema references another supporting schema (`logos.runtime`), violating `l.103` (when `6cac8335` extracted `logos.runtime_enrollment` at `RUNTIME` l.2602, it had to inline `tstr .size (1..128)` instead of referencing `logos.runtime`).
+  2. Moving `call_evidence_claim` (`CA` l.1240–1241) into a supporting schema references both `logos.runtime.runtime_instance_id` (another supporting schema) **and** `logos.capability_authority.audit_record` (a concrete module contract type), violating `l.103` twice.
+  3. Moving `package_signature_claim` (`PM` l.506) into a supporting schema references `logos.package_manager.manifest_commitment` (a concrete module contract type), violating `l.103` again.
+
+### `TS-07` (l.2809–2812) — `_implements` (`normalized-schema-root` field `4`) breaks the unconditional schema-root equality claim
+- **Claim (l.2809–2812):** *"two modules with different `_module` names whose primary documents have the same namespace and declarations have the same schema root, so a route request for that contract matches either. A concrete document and an interface document with the same namespace and declarations also share a root."*
+- **Correction:** `normalized-schema-root` field `4` (`[* schema-root]`, `COMMITMENT` §9.1 l.1188–1201) commits to the concrete document's `_implements` interface roots (`l.1194`), while *"Field 4 MUST be empty for an interface contract"* (`l.1201`). Therefore, a concrete document and an interface document share a root **only if the concrete document declares no `_implements`**, and if a local node declares `_implements` (e.g., `metrics_provider` per `TP-04`) while a lightweight remote proxy client does not, their primary concrete contract roots differ and a route request for one does not match the other.
+
+### Section 3 intro (l.151), Section 3.3 (l.2593–2599), Section 3.5 `TF-06` (l.3351–3354), Appendix D Rows 3 & 17 (l.3642, l.3656), and Appendix F (l.3722)
+1. **Section 3 intro (l.151):** *"None of the items in this section is in the earlier audits"* overlooks that `TF-20` (l.835–857) and `TF-32` (l.1484–1533) revisit and reverse candidates dismissed in `claude-spec-comments-2.md` Part 4 (`l.2284–2285, 2300–2301`).
+2. **Section 3.3 scope (l.2593–2599):** Treated `logos-co/rfp` PR #206 as solely *"the appendix 'Integrating the Logos Technology Stack'"* (959 lines), omitting `RFPs/RFP-027-lez-node-api.md` (1,168 lines) and the other five appendices (`logos-api-surfaces.md`, `l1-sdk-strategies.md`, `blockchain-api-sdk-ecosystem.md`, `wallet-libraries-ecosystem.md`, `wallet-tech-stacks.md`), whose additional Core capability requirements are analyzed in `gemini-spec-comments.md` Section 2.
+3. **Section 3.5 `TF-06` include-guard bullet (l.3351–3354):** `INTERFACE` l.642 (*"file-level include guards MAY differ"*) defines equivalence of two headers and does not require wrapping line 1 to EOF in `#ifndef`; placing a file-specific declaration guard *after* top-of-file `#include`s and `#if` context/identity checks (`l.654, 679, 2313–2326`) satisfies both rules.
+4. **Appendix D Row 3 (l.3642) & Row 17 (l.3656):** Row 3 overlooks that `package_source` `{ kind: "lgx", storage, object }` (`PM` §6 l.856–859, §13 l.1437–1440) resolves against a deployment-configured storage provider whose backing may be local/bundled; Row 17 marks authorized enrollment **`no`** despite `CA` §3.4 l.376–381 (`remote_enrollment_scope`) and `RUNTIME` §9 l.1730 / §9.3 l.2687 (`"or an authorized provisioning operation"`), whereas Row 20 (`l.3659`) marks the identical pattern for facade import **`partly`**.
+5. **Appendix F (l.3722):** *"Every error-code string used in prose is a member of its enumeration"* missed `LOGOS_ERR_TRANSPORT` at `TRANSPORT` §5.2 l.808 (the C enum constant rather than `TRANSPORT_ERROR`; fixed in `6cac8335` `TRANSPORT` l.796).
+
+---
+
+## 2. Status of this document's open items at `6cac8335`
+
+For readers moving from `6a4dfa28` to `6cac8335` (`2026-11-17`), the open items in Sections 1–3 stand as follows (cross-references `GF-*` and `GC-*` point to `gemini-spec-comments.md`, where new `6cac8335` defects are analyzed):
+
+- **Resolved cleanly in `6cac8335`:** `C-11`, `RT-05`, `PM-11`, `SO-10`, `NL-07`, `NA-04`, `NR-04`, `ND-04` (except `CREDENTIAL-STORE` l.307, see `GF-07`), `NF-06 (C-09)`, `ND-10`, `ND-12`, `NP-12`, `NP-15`, `TF-01`, `TF-02`, `TF-04`, `TF-05`, `TF-08`, `TF-09`, `TF-10`, `TF-11`, `TF-13`, `TF-14`, `TF-15`, `TF-16`, `TF-17`, `TF-19` (collides with `CREDENTIAL-STORE`, see `GF-01`), `TF-20`, `TF-22`, `TF-23`, `TF-24`, `TF-25`, `TF-26`, `TF-28`, `TF-29`, `TF-31` (collides with `CREDENTIAL-STORE`, see `GF-02`), `TF-32`, `TF-34`, `TF-36`, `TF-40`, `TF-43`, `TL-01` (see `GF-25` on `logos_types.h`), `TL-03`, `TL-04` (see `GF-23` on `CA` §7 precedence), `TL-05`, `TL-07` (see `GF-18` on `RUNTIME` §3.4 table), `TL-09`, `TL-10`, `TS-07`, `TP-07` (see `GF-13`, `GC-08`), and §3.5 `TF-06` editorial items.
+- **Addressed in `6cac8335`, but introducing new contradictions/gaps (detailed in `gemini-spec-comments.md`):**
+  - `EC-01..04, NC-03`, `TF-18`, `TF-30` → `GF-14` (`RUNTIME` §9.3.1 check-order & typed-error contradictions);
+  - `HC-04` → `GF-08`–`GF-13`, `GC-03` (`extends` & release-compatibility defects);
+  - `HC-10` → `GF-16` (`logos_publish_fn` return code vs `TRANSPORT` §2.1 frame limits);
+  - `TF-21` → `GF-17` (`INTERFACE` §2.5 cross-thread direct event queueing vs `§2.9.3` & starvation);
+  - `TF-33` → `GF-21` (`CA` §8 `policy_changed` route `decision_id` replacement vs live Transport sessions);
+  - `TF-35`, `TF-47` → `GF-15` (`SubscriptionEnd` & `observe_subscription_end` contradictions and races);
+  - `TF-48` → `GF-20`, `GC-01` (`_sensitive` remote-route ban vs `CA` narrowing & default `access: {}` routes);
+  - `TL-02` → `GF-01`–`GF-07`, `GC-02` (`LOGOS-MODULE-CREDENTIAL-STORE` contradictions and secret-storage capability gaps);
+  - `TS-06` → `GF-13`, `GF-23`, `GC-08` (`contract_documents` & `unsupported-manifest` gaps).
+- **Partially addressed in `6cac8335`:** `C-10`, `NP-13`, `NP-14`, `TF-03` (part 1 resolved), `TF-07` (see `GF-23`), `TF-12`, `TF-27`, `TF-39`, `TF-45` (see `GF-22`), `TF-46`, `TL-06`, `TL-08`, `TS-01`, `TP-03`, `TP-06`.
+- **Untouched / retained by design in `6cac8335`:** `NE-07`, `NL-12`, `NA-12`, `NP-11`, `HC-02`, `HC-07`, `TF-37`, `TF-38`, `TF-41`, `TF-42`, `TF-44`, `TF-49`, `TF-50`, `TF-51`, `TF-52`, `TS-02`–`TS-05`, `TS-08`, `TP-01`, `TP-02`, `TP-04`, `TP-05`.
