@@ -38,6 +38,7 @@
 | 1.11.0 | [RFC] `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-10-27 |
 | 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CommitmentRoot` and `Value`, user steps, tagged by their kind and with their own `Inscription`, in the `MiniBlocks` of `ChannelInscribe`, holder withdrawals, the `Inscription` of `ChannelDeposit`, the SDP payloads over notes with `NotePk` in `SDPDeclare` and no `Nonce` in `SDPWithdraw`, `PowNonce` and no `EpochNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-11-06 |
 | 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user steps, program deposits and program steps in the `MiniBlocks` of `ChannelInscribe`, tagged by their kind, with their proofs and the openings of the program notes with their `NoteStakePk`, each step with its own `Inscription` and each program step with its `ProgramOutputs` before its `Outputs`, `NoteStakePk` in `SDPDeclare`, the `Groth16` terminal renamed `Groth16Proof`, and the format of compressed points | 2026-11-06 |
+| 2.2.0 | [RFC] Follow the `INSCRIBE` Operation of Mantle 2.2.0: the `Inscribe` payload, an `Inscription` of 1 to `MAX_OPERATION_DATA_SIZE` bytes, with an empty proof | 2026-11-17 |
 
 # Introduction
 
@@ -82,7 +83,8 @@ OpPayload = Transfer /
             SDPWithdraw /
             SDPActive /
             ClaimPowReward /
-            ProgramRegister
+            ProgramRegister /
+            Inscribe
 ```
 
 ### Channel Operations
@@ -183,6 +185,12 @@ Inputs      = InputCount *NoteNullifier
 InputCount  = Byte
 Outputs     = OutputCount *NoteCommitment
 OutputCount = Byte
+```
+
+### Inscribe Operation
+
+```schema
+Inscribe = UINT32 1*BYTE ; Min 1 byte, max MAX_OPERATION_DATA_SIZE bytes
 ```
 
 ## Ledger
