@@ -192,6 +192,7 @@ OutputCount = Byte
 ```schema
 Inscribe = UINT32 1*BYTE ; Min 1 byte, max MAX_OPERATION_DATA_SIZE bytes
 ```
+
 ## Ledger
 
 ```schema

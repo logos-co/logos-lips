@@ -9,6 +9,7 @@
 | v1 | Initial RFC | 2026-11-17 |
 | v2 | An inscription holds at least one byte | 2026-11-18 |
 | v3 | The Operation has no validation, no Execution Gas and no execution: its bounds are in its encoding alone. The delivery inscription and its test value leave Mantle and this RFC | 2026-11-18 |
+| v4 | The bounds of an inscription are stated by its production alone | 2026-11-18 |
 
 ## Reviewer Orientation
 
@@ -85,8 +86,6 @@ The entry of the proofs not bound to the `mantle_txhash` that describes `CLAIM_P
 ```schema
 Inscribe = UINT32 1*BYTE ; Min 1 byte, max MAX_OPERATION_DATA_SIZE bytes
 ```
-
-A decoder MUST reject an `Inscribe` whose payload is empty or longer than `MAX_OPERATION_DATA_SIZE` bytes. With no validation rule in Mantle, the decoder is the only place that refuses such an inscription, as it is for the data of a `ChannelInscribe` and of a `ChannelDeposit`.
 
 ## 3. Test vectors
 
