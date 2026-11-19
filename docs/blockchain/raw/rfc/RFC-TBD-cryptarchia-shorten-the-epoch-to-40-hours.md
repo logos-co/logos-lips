@@ -49,6 +49,8 @@ The Buffer phase was there so that an honest leader contributes to the epoch non
 - The snapshot's finality excludes only a choice between two snapshots that both survive past the cut-off. A snapshot phase of at least 13.03 hours excludes it.
 - The snapshot phase holds an honest block with chance `1 − 1e-9` in every state of the `K` row once it lasts 17,268 slots, by a proved survival law. It lasts 72,000. At least 903 slots are necessary.
 
+The Epoch Schedule states this condition in place of the Buffer row: the snapshot phase must hold a block of an honest leader on the chain, except with chance `ε`.
+
 What the Buffer phase gave instead was length for the stake inference's window. The window ends at the cut-off and lies in one epoch, so without a Buffer phase it is at most the snapshot phase.
 
 ## The stake inference
@@ -158,6 +160,7 @@ In the [Epoch Schedule](../cryptarchia-v1-protocol.md#epoch-schedule), the Buffe
 - The epoch length is `2K + 2K = 4K` slots. With `K = 36000`, an epoch lasts 144,000 slots.
 - In [Epoch State Pseudocode](../cryptarchia-v1-protocol.md#epoch-state-pseudocode), the slot at which the epoch nonce is read and the end of the inference's window read `2K`.
 - The sentence "Each phase that waits for a value to finalize must last at least the finality window `K` …" is removed from the Epoch Schedule.
+- The Epoch Schedule adds: the Stake Distribution Snapshot phase must hold a block of an honest leader on the chain, except with the chance `ε` of [Finality Floor](../cryptarchia-v1-protocol.md#finality-floor), or a coalition that predicts the epoch nonce can grind its notes.
 - The `K` row of [Constants](../cryptarchia-v1-protocol.md#constants) says that `K` also sets the Epoch Schedule. It no longer says that `K` must not exceed a phase of the Epoch Schedule that waits for a value to finalize.
 
 ## 2. The stake inference reads 2K and learns at 2/3

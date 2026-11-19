@@ -37,7 +37,7 @@
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
 | 1.3.0 | Counted finality in slots: [Commit](#commit) makes a block immutable once it lies the finality window `K` behind the tip and the finality floor `φ` of occupied slots follows it. `K` replaces `s` and `⌊k/f⌋`. | 2026-11-17 |
 | 1.4.0 | Shortened the finality window `K` to 36,000 slots, sized for one disturbance at a time, and recomputed the finality floor `φ`. The [Epoch Schedule](#epoch-schedule) reads `⌊k/f⌋`, so its length does not change. | 2026-11-17 |
-| 1.5.0 | The [Epoch Schedule](#epoch-schedule) has two phases of `2K` slots, the snapshot and the lottery constants finalization, without the Buffer phase: an epoch of 144,000 slots. | 2026-11-19 |
+| 1.5.0 | The [Epoch Schedule](#epoch-schedule) has two phases of `2K` slots, the snapshot and the lottery constants finalization, without the Buffer phase: an epoch of 144,000 slots. The snapshot phase must hold a block of an honest leader. | 2026-11-19 |
 
 # Introduction
 
@@ -153,6 +153,8 @@ An epoch is divided into 2 phases, as outlined below.
 | --- | --- | --- |
 | Stake Distribution Snapshot | $`2K`$ slots | A snapshot of note commitments are taken at the beginning of the epoch. We wait for this value to finalize before entering the next phase. |
 | Lottery Constants Finalization | $`2K`$ slots | On the $`2K^{th}`$ slot into the epoch, the epoch nonce $`\eta`$ and the inferred total stake $`D`$ can be computed. We wait another $`2K`$ slots for these values to finalize. |
+
+The Stake Distribution Snapshot phase must hold a block of an honest leader on the chain, except with the chance $`\varepsilon`$ of [Finality Floor](#finality-floor), or a coalition that predicts the epoch nonce can grind its notes.
 
 The **epoch length** is the sum of the individual phases: $`2K + 2K = 4K`$ slots. With $`K = 36000`$, an epoch lasts $`144000`$ slots.
 
