@@ -2204,6 +2204,32 @@ that holds keys. A and B stand for other modules and are local to one item.
   not among "the conditions of an applicable precondition table" (l.1831). Whether it is reported before
   or after the target authorization of the fourth step and the revision comparison of the fifth is not
   said.
+- RUNTIME l.2933 and l.2464 against l.1824-1833: an unordered or duplicate list is rejected "with
+  `INVALID_PARAMS` without validation detail" (l.2933 for a `route_access` list, l.2464 for a permission
+  array). Like the mismatching address of l.2704, the rejection depends on the request alone, is not a
+  schema-validation failure and is not a row of the precondition table, so the order of checks does not
+  place it.
+- RUNTIME l.1822 against l.1824-1833: "`declaration-unavailable` is produced only by `create_module`,
+  after the conditions of the precondition table" (l.1822) places the error after the sixth step of the
+  order. `stale-revision` has an item of its own in the list ("comparison of an expected revision, which
+  produces `stale-revision`", l.1830) and `declaration-unavailable` has none, so whether it is reported
+  before or after "Runtime-owned readiness not covered by such a table" (l.1832) is not said. The two
+  differ for a Runtime that is shutting down.
+- RUNTIME l.1829 against l.3041, l.3074 and l.3090: the fourth step is "target authorization and
+  non-disclosure checks that depend on the decoded request" (l.1829). For `establish_route` the
+  provider-access decision is separate from the authority to invoke the method ("Authority to invoke
+  `establish_route` does not itself grant provider access", l.3041), and `renew_route` "performs a new
+  authority check" (l.3090). Whether those decisions are the target authorization of the fourth step or
+  part of the operation is not said. If they are the fourth step, a reused `request_key`, which is the
+  second row of the table and so the sixth step, is judged only after a decision has been evaluated, and
+  a repeated request, which "MUST return that result" (l.3074), is preceded by a decision that may now
+  deny.
+- RUNTIME l.2929-2930 against l.1824-1833: "Runtime MUST reject a route request containing a declaration
+  root" (l.2929) "that is neither valid under the selected contract nor an allowed well-known method
+  root" (l.2930) names no code, and the check needs the selected provider's contract, so it cannot be
+  made with the payload's own validation. Whether it is the eighth step ("comparison of an expected
+  contract or schema root not covered by such a table", l.1833), and so follows Runtime-owned readiness,
+  is not said.
 
 ---
 
