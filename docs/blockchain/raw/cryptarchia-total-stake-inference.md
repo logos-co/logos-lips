@@ -69,7 +69,7 @@ For the tip `tip` of the chain the estimate is derived on, a current epoch’s e
 ```rust
 const PRECISION: u64 = 1e3
 fn total_stake_inference(tip: Block, total_stake_estimate: u64, epoch_slot: u64) -> u64 {
-    // beta: the ratio of the integers beta.num and beta.den
+    // beta.num: u64, beta.den: u64
     // f: f64
     // PERIOD: u64
     // density_over_slots(Block, u64, u64) -> u64

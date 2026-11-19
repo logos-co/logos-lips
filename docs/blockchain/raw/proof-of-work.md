@@ -156,7 +156,7 @@ BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend ma
 
 The parameters must give an `epoch_pow_reward` above the fee of a claim transaction, which pays for the claim and the `TRANSFER` that spends its note, or a claim cannot pay its own fee.
 
-$`\rho`$ is a share per epoch. A change of the epoch length changes `EXPECTED_BLOCKS_PER_EPOCH`, and $`\rho`$ must change in proportion to it, or the reward of a claim and the share of the pool paid out per hour change.
+`EPOCH_POW_DISTRIBUTION_RATE_DEN` · `EXPECTED_BLOCKS_PER_EPOCH` is 4,320,000, so that at the target rate the pool pays out 1/4,320,000 of itself per expected block. A change of the epoch length changes `EXPECTED_BLOCKS_PER_EPOCH`, and `EPOCH_POW_DISTRIBUTION_RATE_DEN` must keep the product, or the reward of a claim changes.
 
 `REWARD_TARGET_CAP` must be above `REWARD_TARGET_FLOOR` and at most $`p - 1`$, as [Puzzle Target](#puzzle-target) requires. At or below the floor, every retarget would return `REWARD_TARGET_CAP`, so the target could not move.
 
