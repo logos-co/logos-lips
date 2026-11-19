@@ -2143,6 +2143,15 @@ that holds keys. A and B stand for other modules and are local to one item.
   for none of the three excluded reasons, so by the letter each is a binding-ended subscription that the
   binding reports, although the terminal observer already reports the end of the handle. Whether the
   exclusion means the terminal state of the handle's invocation path is not said.
+- INTERFACE l.2155-2156 against TRANSPORT l.75 and l.719: for invocation-scoped publication "Malformed
+  identifiers or payloads produce `INVALID_PARAMS`" (l.2155), and "An event identifier that does not
+  satisfy Section 1.5, including its namespace and `_event` suffix, is malformed" (l.2156). No sentence
+  says the same of the `event_name` given to `subscribe`. On the wire such a name is valid for the
+  envelope, which asks only for a text of 1 to 128 bytes (TRANSPORT l.75), and it falls under "An event
+  name outside the selected contract", which produces `NOT_AUTHORISED` (TRANSPORT l.719). A binding that
+  checks the name itself answers `INVALID_PARAMS` and one that forwards it answers `NOT_AUTHORISED`, so
+  the code a consumer sees for the same name can differ by execution mode unless every binding checks
+  first.
 
 ---
 
