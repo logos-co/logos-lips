@@ -2152,6 +2152,14 @@ that holds keys. A and B stand for other modules and are local to one item.
   checks the name itself answers `INVALID_PARAMS` and one that forwards it answers `NOT_AUTHORISED`, so
   the code a consumer sees for the same name can differ by execution mode unless every binding checks
   first.
+- TRANSPORT l.755 against l.972, and INTERFACE l.1482 against RUNTIME l.1261-1262: "An Unsubscribe for a
+  subscription that the callee has ended with a SubscriptionEnd MUST produce a successful
+  SubscriptionResult" (TRANSPORT l.755), while "A Subscribe or Unsubscribe processed during termination
+  MUST receive a failed SubscriptionResult with `NOT_AUTHORISED` and MUST NOT change subscription state"
+  (l.972). Which sentence governs an Unsubscribe for an ended subscription that is processed during
+  termination is not said. The binding has the same pair: "`unsubscribe` for a binding-ended subscription
+  returns `LOGOS_OK`" (INTERFACE l.1482), and once the route has ended a new operation through its handle
+  reports the route's cause (RUNTIME l.1261-1262).
 
 ---
 
