@@ -33,6 +33,7 @@
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis from the initial token distribution | 2026-09-08 |
 | 1.2.1 | Align the initial service declarations with the Service Declaration Protocol: the `BN` service type, the full `DeclarationMessage` shape, and multiaddr locators | 2026-10-01 |
+| 1.2.2 | Removed the reading of finality as a block depth. | 2026-11-06 |
 
 # Introduction
 
@@ -350,7 +351,7 @@ Beyond their proofs, the declarations carry no exemption: each is validated as [
 
 The number of declarations is a property of the Genesis block rather than of any single Operation, and is the one [Initial Service Declarations](#initial-service-declarations) requires.
 
-During normal operations, Blend services would wait until a block is deep enough to be finalized, but for the Genesis block, we consider it finalized by definition and so Blend will immediately use the provider set without the usual finalization delay.
+During normal operations, Blend services would wait until a block is finalized, but for the Genesis block, we consider it finalized by definition and so Blend will immediately use the provider set without the usual finalization delay.
 
 # References
 

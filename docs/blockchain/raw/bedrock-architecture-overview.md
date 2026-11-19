@@ -26,6 +26,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2025-08-22 |
 | 1.1.0 | Remove references to DA Replace Nomos with Logos Blockchain | 2026-01-14 |
+| 1.1.1 | Stated finality by the finality window and the finality floor. | 2026-11-13 |
 
 # Introduction
 
@@ -88,7 +89,7 @@ sequenceDiagram
     SZ-->>SZ: Order, Execute and Bundle Tx's into an Inscription
     SZ ->> Mempool: Inscription Mantle Transaction
     Mempool ->> Cryptarchia: Leader includes transaction in next block
-    Cryptarchia -->> Cryptarchia: Block finalizes after being buried by 2160 blocks
+    Cryptarchia -->> Cryptarchia: Block finalizes once the finality window<br/>and the finality floor follow it
     Cryptarchia ->> C: Client observes the SR Inscription finalized (finality)
 ```
 
