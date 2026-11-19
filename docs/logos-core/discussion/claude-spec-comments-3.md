@@ -2230,6 +2230,17 @@ that holds keys. A and B stand for other modules and are local to one item.
   made with the payload's own validation. Whether it is the eighth step ("comparison of an expected
   contract or schema root not covered by such a table", l.1833), and so follows Runtime-owned readiness,
   is not said.
+- RUNTIME l.1824-1828 against l.1641, l.1257 and TRANSPORT l.640: the order of checks puts
+  "authorization of the consumer, method, and route access that does not depend on the decoded request
+  payload" (l.1827) before "request payload decoding and schema validation" (l.1828), for "a Runtime
+  Control invocation or an ordinary provider call" (l.1824). For a transported call "The schema-aware
+  sending boundary MUST compute the commitment from the validated schema-typed value" (TRANSPORT l.640),
+  so the caller's side validates before the request is sent, while the call is authorized by the
+  provider's Runtime "Before dispatching an ordinary provider method" (RUNTIME l.1641). A malformed
+  request to a method that the call decision denies is then rejected for its payload when transported and
+  for its authority when direct, although "The typed call helper exposes the same method inputs, outputs,
+  and errors in every mode" (RUNTIME l.1257). At which boundary each step of the order is taken is not
+  said.
 
 ---
 
