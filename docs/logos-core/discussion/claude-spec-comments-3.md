@@ -2136,6 +2136,13 @@ that holds keys. A and B stand for other modules and are local to one item.
   a SubscriptionEnd, or the event is withheld and the subscription continues with a gap, is not said. The
   corresponding rule for a route keeps the route: "If the evaluation fails, the route MUST remain unusable
   for protected operations until a later evaluation reauthorizes it" (CA l.941).
+- INTERFACE l.1474 against l.1454 and RUNTIME l.1264: a binding-ended subscription is one that ends "for a
+  reason other than unsubscription, the terminal state of its route, or release of its binding or handle"
+  (l.1474). A handle's invocation path can end "while its route remains `ready`" (RUNTIME l.1264), and
+  then "the binding MUST stop admission of new event handlers" (INTERFACE l.1454). Its subscriptions end
+  for none of the three excluded reasons, so by the letter each is a binding-ended subscription that the
+  binding reports, although the terminal observer already reports the end of the handle. Whether the
+  exclusion means the terminal state of the handle's invocation path is not said.
 
 ---
 
