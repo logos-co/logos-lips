@@ -14,7 +14,7 @@ Read the PR's Motivation first. The finality window `K` stays at 36,000 slots, 1
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
-| 1 | Critical | **Start here** — [Cryptarchia Protocol](#affected-specifications): [the Epoch Schedule](#1-the-epoch-schedule-has-two-phases-of-2k-slots) | why the Buffer phase can go, what each phase still needs, and why phase 3 is `2K` ([What 40 hours hold](#what-40-hours-hold)) |
+| 1 | Critical | **Start here** — [Cryptarchia Protocol](#affected-specifications): [the Epoch Schedule](#1-the-epoch-schedule-has-two-phases-of-2k-slots) | why the Buffer phase can go, what each phase still needs, and why the Lottery Constants Finalization phase is `2K` ([What 40 hours hold](#what-40-hours-hold)) |
 | 2 | Critical | **Start here** — [Total Stake Inference](#affected-specifications): [the window and the learning rate](#2-the-stake-inference-reads-2k-and-learns-at-23) | the noise of a 20-hour window, the learning rate that contains it, and how slowly the estimate then follows a change ([The stake inference](#the-stake-inference)) |
 | 3 | High | [Proof of Work](#affected-specifications): [the reward per claim](#3-proof-of-work-keeps-its-reward-per-claim) | the distribution rate that keeps the reward of a claim |
 | 4 | Medium | [Blend Protocol](#affected-specifications): [the epoch's length](#4-blend-reads-the-epochs-length) | the values derived from the rounds per epoch |
@@ -35,7 +35,7 @@ A phase keeps its value **final in time** when [Commit](../cryptarchia-v1-protoc
 
 - The `K` row's worst state is a coalition of 30 % of the total active stake that does not build, with every honest block 15 s late. The building share is then 70 %, and a phase of 13.03 hours keeps its value final in time in every state of the row. 20 hours is 1.5 times that.
 - A phase of exactly `K` makes its value final only if two given slots hold blocks, a chance of at most `f²`, about 0.11 %.
-- **Phase 3 is `2K`.** The argument that the Bootstrap rule keeps a joining node on the honest chain compares forks whose divergence lies up to `2K` before the comparison. It needs both forks to draw their leaders from one stake distribution and one nonce over that span, which holds when phase 3 lasts at least `2K − 1` slots. Phase 3 of `2K` meets it. This condition is shown sufficient, not necessary.
+- **The Lottery Constants Finalization phase is `2K`.** The argument that the Bootstrap rule keeps a joining node on the honest chain compares forks whose divergence lies up to `2K` before the comparison. It needs both forks to read one epoch state over that span, which holds when the phase lasts at least `2K − 1` slots. A phase of `2K` meets it. This condition is shown sufficient, not necessary.
 - The bound of Theorem 2 of Ouroboros Genesis on the epoch, `6·s_gen` = 27 hours, is met. The theorem itself does not cover delays above two slots.
 
 The specification does not say what a node does when a value is not final at the end of its phase. This RFC does not change that.
@@ -57,14 +57,14 @@ The window is the first `2K` slots of an epoch: 20 hours in place of 108. A shor
 
 | Learning rate `beta` | With this specification's rule | With a rule that computes with `f` exactly |
 | --- | --- | --- |
-| 1, today's | `8.3·10^-7` | `7.2·10^-6` |
+| 1, today's | `8.4·10^-7` | `7.2·10^-6` |
 | 3/4 | `1.9·10^-10` | `7.6·10^-9` |
 | **2/3** | **`3.0·10^-12`** | **`2.5·10^-10`** |
 
 - The specification's rule truncates `f` to thousandths, so it settles with `D` 1.03 % above the stake that builds. A rule that computes with `f` exactly settles with `D` equal to it, which leaves the limit 9.4 % away in place of 10.5 %.
 - `beta` = 2/3 is the largest of 1, 3/4 and 2/3 that keeps the chance below `1e-9` under both rules. It is held as a ratio of integers, so the rule computes it exactly.
-- With `beta` = 1 the window would need 113,038 slots, 31.4 hours, so the epoch would be at least 51 hours.
-- An exact computation of the inference's steady state, importance sampling of the rule in integers and plain Monte Carlo agree on each of these values within a few percent.
+- With `beta` = 1 the window would need 113,038 slots, 31.4 hours, under this specification's rule, and 137,780 slots, 38.3 hours, under an exact rule. The epoch would then be at least 51 or 58 hours.
+- An exact computation of the inference's steady state and importance sampling of the rule in integers agree within 1 % for `beta` of 1 and 2/3. Plain Monte Carlo agrees with them on the mean, the spread and the share of epochs above 1.03 to 1.06.
 
 What a learning rate of 2/3 costs, simulated with the rule in integers:
 
@@ -73,7 +73,8 @@ What a learning rate of 2/3 costs, simulated with the rule in integers:
 | A change of the active stake just after a cut-off is first corrected | 252 h later, in one step | 60 h later |
 | After the stake that builds halves, `D` is still off by | 1.2 % at 252 h | 34 % at 60 h, 12 % at 100 h, 4 % at 140 h |
 | After a change of a tenth, `D` is still off by | 0.7 % at 252 h | 3.8 % at 60 h, 1.6 % at 100 h |
-| A coalition of 30 % that withholds every block brings `D` to the honest stake | in one window, 3,934 wins | to within 15 %, 5 % and 2 % after one, two and three windows, 729 wins each |
+| After the active stake doubles, `D` is low enough to break the limit of 1.094 until | the correction at 252 h | the second correction, at 100 h |
+| A coalition of 30 % that withholds every block brings `D` to where it settles on the honest stake | in one window, 3,934 wins | to within 15 %, 5 % and 2 % after one, two and three windows, 729 wins each |
 | Noise of `D`, one standard deviation | 0.87 % | 1.43 % |
 | Chance that a chain misses the floor of 689 occupied slots in `K` | `1.4·10^-8` | `5.6·10^-8` |
 
@@ -90,7 +91,7 @@ The epoch nonce stays as it is.
 | Blocks a coalition of 30 % gains by choosing among at most `2^16` nonces, at 10 s and 15 s | 0.70 %, 0.82 % | 1.49 %, 1.75 % |
 | The same, in blocks a year at 10 s | 2,230 | 4,745 |
 
-- The share of targets that meet two nonces is `K` divided by the epoch's length.
+- The share of targets that meet two nonces is `K` divided by the epoch's length. Against an attack that meets two ground nonces, a 10-hour `K` proves 24.7 to 27.9 % of the total active stake with today's nonce, by the state of the `K` row. That case now covers 25 % of targets.
 - The gain takes the number of nonces a coalition holds at a cut-off as independent of the epoch's length. The bound behind the shares that a 10-hour `K` holds with today's nonce is taken as independent of the gap from the cut-off to the next epoch, as long as the cut-off is final in time. Neither is derived for epochs other than 180 hours.
 
 ## New stake and the other readers of the epoch
@@ -100,24 +101,26 @@ A note may lead once it was in the note set at the beginning of the previous epo
 Every other specification that reads the epoch keeps its rules per epoch:
 
 - **Proof of work.** `EXPECTED_BLOCKS_PER_EPOCH` is the epoch's length times `f`, 4,800. The distribution rate `ρ` is 1/900 per epoch. The reward of a claim divides the pool by `EPOCH_POW_DISTRIBUTION_RATE_DEN · TARGET_CLAIMS_PER_BLOCK · EXPECTED_BLOCKS_PER_EPOCH`, 43,200,000 as today. So the reward of a claim does not change, and at the target rate the pool pays out 21.6 % of itself a year before refills, as today. `difficulty_blend` may move by a factor of 2 every 40 hours, and reads the transactions of 4,800 expected blocks.
-- **Blend.** An epoch lasts 144,000 rounds. The core quota is derived from the rounds per epoch, so a core node gets 2/9 of today's quota per epoch and the same number of cover messages per hour. The nullifier cache needs about 74 MB. A node rebuilds its connections and sends its active message once per epoch, 4.5 times as often per hour. The activity threshold of the reward lottery reads the cover messages of an epoch: a core node's chance of a base reward per epoch falls below a half from 4,096 core nodes, against 16,384 today, and the threshold is 0 from 144,000 core nodes, against 648,000.
+- **Blend.** An epoch lasts 144,000 rounds. The core quota is derived from the rounds per epoch, so a core node gets 2/9 of today's quota per epoch and the same number of cover messages per hour. The nullifier cache needs about 74 MB. A node rebuilds its connections and sends its active message once per epoch, 4.5 times as often per hour. The activity threshold of the reward lottery reads the cover messages of an epoch. Counting only the tokens of cover traffic, a core node at 10,000 core nodes wins a base reward with chance 0.03 per epoch, or 0.14 over 180 hours, against 0.89 per epoch today. The chance falls below a half from 4,096 core nodes, against 16,384, and the threshold is 0 from 144,000 core nodes, against 648,000. Blend's sensitivity `θ` is not derived again here.
+- **Blend admission by proof of work.** A solution's ticket hashes the epoch nonce, so a solution serves one epoch, 40 hours in place of 180. It can be searched only once the nonce is read at the cut-off, 20 hours before the epoch in place of 72.
 - **Leader rewards.** The vouchers of an epoch enter the voucher tree together in the first block of the next epoch. An epoch holds 4,800 blocks on average in place of 21,600, and that is the smallest set a voucher hides in.
 - **Service declarations.** A message takes effect at the start of the second epoch after its block, so it waits one to two epochs: 40 to 80 hours in place of 180 to 360.
 - **Storage markets.** The price may still change by up to 12.5 % per epoch, now every 40 hours.
 - **Block rewards.** Its chosen time step is one block. Only its examples of a one-epoch time step change ([Chores](#chores)).
+- **Analyses.** [\[Analysis\] Total Stake Inference](../analysis-total-stake-inference.md) studies a window of `6k/f` slots with `beta` = 1, and [\[Analysis\] Resilience and Anonymity](../analysis-resilience-and-anonymity.md) an epoch of 648,000 slots. This RFC does not change them.
 
 ## Alternatives
 
-| Schedule | Epoch | Kept | Lost |
+| Schedule | Epoch | Better than this RFC | Worse than this RFC |
 | --- | --- | --- | --- |
-| Today | 180 h | every margin | new stake waits up to 360 h, `D` uncorrected for up to 252 h |
-| `3K`, `3K`, `4K`, `beta` = 1 | 100 h | the Buffer phase, a 60-hour window, the inference as it is | 60 hours over this RFC; phases final in time down to 26.1 % and 19.0 % |
-| No Buffer phase, `3K` + `4K`, `beta` = 1 | 70 h | the inference's rule | the 30-hour window's noise breaks the limit with `2.1·10^-9` per epoch under this specification's rule |
-| No Buffer phase, `1.5K` + `2K`, `beta` = 1/2 | 35 h | 5 hours | the 15-hour window needs `beta` = 1/2: after a halving, `D` is 50 % off at 55 h and 13 % at 125 h, and a deflation takes five windows |
-| No Buffer phase, `1.5K` + `1.5K` | 30 h | 10 hours | phase 3 below `2K − 1` |
-| `K`, `K`, `K` | 30 h | the Buffer phase | phase 3 of exactly `K` makes its values final with chance at most 0.11 % |
-| A Buffer phase, and phases 1 and 2 at the least that suffices, with phase 3 at `2K − 1` | 37.83 h | 2.2 hours | the snapshot phase has no margin, and the window is 17.8 hours |
-| 40 hours with `beta` = 1 | 40 h | the inference's rule | noise breaks the limit with `8.3·10^-7` per epoch, `7.2·10^-6` with an exact rule |
+| Today | 180 h | keeps every margin | new stake waits up to 360 h, `D` uncorrected for up to 252 h |
+| `3K`, `3K`, `4K`, `beta` = 1 | 100 h | keeps the Buffer phase, a 60-hour window and the inference as it is | 60 hours over this RFC; phases final in time down to 26.1 % and 19.0 % |
+| No Buffer phase, `3K` + `4K`, `beta` = 1 | 70 h | keeps the inference's rule | the 30-hour window's noise breaks the limit with `2.1·10^-9` per epoch under this specification's rule |
+| No Buffer phase, `1.5K` + `2K`, `beta` = 1/2 | 35 h | 5 hours shorter | the 15-hour window needs `beta` = 1/2: after a halving, `D` is 50 % off at 55 h and 13 % at 125 h, and a deflation takes five windows |
+| No Buffer phase, `1.5K` + `1.5K` | 30 h | 10 hours shorter | the Lottery Constants Finalization phase is below `2K − 1` |
+| `K`, `K`, `K` | 30 h | 10 hours shorter, and keeps the Buffer phase | phases of exactly `K` make their values final with chance at most 0.11 % |
+| A Buffer phase, the snapshot and the Buffer phase at the lengths that suffice, and the Lottery Constants Finalization phase at `2K − 1` | 37.83 h | 2.2 hours shorter | the snapshot phase has no margin, and the window is 17.8 hours |
+| 40 hours with `beta` = 1 | 40 h | keeps the inference's rule | noise breaks the limit with `8.4·10^-7` per epoch, `7.2·10^-6` with an exact rule |
 
 - **Keep `ρ` at 1/200 per epoch.** The reward of a claim then rises 4.5 times, and the pool pays out 66.6 % of itself a year in place of 21.6 %.
 - **Keep 180 hours and take the snapshot later.** New stake would wait less, but nothing else shortens, and the rule on eligible notes changes.
@@ -129,7 +132,12 @@ This is a consensus change. Nodes with a different epoch compute different epoch
 
 ## Reproducing the figures
 
-> **TODO (author):** link the research commit that holds the review, its two proofs and the schedule's scripts.
+The figures come from [`slot-finality/epoch`](https://github.com/logos-blockchain/research/tree/f2b5fd75a0cf272ebfa6c837a8ee60592cb6a598/tools/simulators/finality/slot-finality/epoch) of the research repository at commit `f2b5fd7`. Its README lists each script with its command and its stored output.
+
+- `REVIEW.md` proves the shares at which a phase is final in time, the honest block a span needs, and the bounds behind the condition on the Lottery Constants Finalization phase. `proofs/survival/SURVIVAL.md` proves the survival law, and `proofs/genesis/GENESIS.md` the argument for the Bootstrap rule that needs that condition.
+- `schedule/SCHEDULE.md` gives why the Buffer phase can go, the learning rate and its simulations, the costs of each schedule in [Alternatives](#alternatives), the grinding gain and Blend's reward lottery.
+
+The bounds hold in the specification's own model of the floor, and the mapping of each state of the `K` row to a building share and a delay is the review's.
 
 # Details
 
@@ -162,6 +170,9 @@ In [Parameters and variables](../cryptarchia-total-stake-inference.md#parameters
 In the [Algorithm](../cryptarchia-total-stake-inference.md#algorithm):
 
 ```diff
++    // beta.num: u64, beta.den: u64
+     // f: f64
+     # ...
 -    let beta_p: u64 = truncate(beta * PRECISION)
      let f_p: u64 = truncate(f * PRECISION)
      # ...
@@ -182,7 +193,7 @@ In [Parameters](../proof-of-work.md#parameters):
 ```
 
 - [Notation](../proof-of-work.md#notation) defines `K`, 36,000 slots, in place of `k`.
-- The Parameters add: `ρ` is a share per epoch. A change of the epoch length changes `EXPECTED_BLOCKS_PER_EPOCH`, and `ρ` must change in proportion to it, or the reward of a claim and the share of the pool paid out per hour change.
+- The Parameters add: `EPOCH_POW_DISTRIBUTION_RATE_DEN` · `EXPECTED_BLOCKS_PER_EPOCH` is 4,320,000, so that at the target rate the pool pays out 1/4,320,000 of itself per expected block. A change of the epoch length changes `EXPECTED_BLOCKS_PER_EPOCH`, and `EPOCH_POW_DISTRIBUTION_RATE_DEN` must keep the product, or the reward of a claim changes.
 
 ## 4. Blend reads the epoch's length
 
