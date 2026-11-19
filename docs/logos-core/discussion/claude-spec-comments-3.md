@@ -2241,6 +2241,12 @@ that holds keys. A and B stand for other modules and are local to one item.
   for its authority when direct, although "The typed call helper exposes the same method inputs, outputs,
   and errors in every mode" (RUNTIME l.1257). At which boundary each step of the order is taken is not
   said.
+- RUNTIME l.3056 against l.3031 and l.3019: "The consumer's Runtime follows it with a new `single`
+  request selecting that target provider" (l.3056) is stated of every continuation. For a response that
+  reaches a module through its `connect_remote` binding, "the module may follow a continuation with a new
+  `single` request through a binding to the continuation target" (l.3031), and Runtime resolves
+  internally only "When handling acquisition for a local module consumer" (l.3019). Read alone, l.3056
+  says that the module's Runtime follows that continuation as well.
 
 ---
 
