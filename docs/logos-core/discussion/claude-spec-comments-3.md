@@ -2160,6 +2160,24 @@ that holds keys. A and B stand for other modules and are local to one item.
   termination is not said. The binding has the same pair: "`unsubscribe` for a binding-ended subscription
   returns `LOGOS_OK`" (INTERFACE l.1482), and once the route has ended a new operation through its handle
   reports the route's cause (RUNTIME l.1261-1262).
+- INTERFACE l.1405 against l.1402, l.1406 and l.1920: no rule covers a nested direct publication made by
+  the thread that runs the active invocation while deliveries from other threads wait in that
+  subscription's queue. Re-entry at once (l.1405: "Same-thread handler re-entry is permitted only when an
+  action during a callback synchronously causes nested direct publication for the same subscription")
+  begins its handler before the queued deliveries that were published earlier, against l.1402 ("handler
+  invocations MUST begin in direct publication order"). Queuing it lets its publish call return before
+  its callback completes, which l.1920 allows only for "a delivery queued under Section 2.5", and l.1406
+  queues only a delivery that reaches "a subscription whose handler invocation is active on another
+  thread". Whether the nested publication runs the waiting deliveries first, inside its own call, and
+  then its own, is not said.
+- INTERFACE l.1478 against l.1465-1466: of the route-end callback the text says that it "does not imply
+  that already admitted event handlers or asynchronous call completions have returned" (l.1465) and that
+  it "imposes no ordering between their execution and the terminal callback" (l.1466). Of the
+  subscription-end callback it says only that the binding "MUST stop admitting handler invocations for
+  that subscription and invoke the registered callback exactly once" (l.1478). Whether that callback may
+  run while an already admitted handler invocation of the same subscription is still active is not said;
+  it must, if a reached pending-delivery bound is to be reported before the handler that caused it
+  returns.
 
 ---
 
