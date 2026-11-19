@@ -2178,6 +2178,14 @@ that holds keys. A and B stand for other modules and are local to one item.
   run while an already admitted handler invocation of the same subscription is still active is not said;
   it must, if a reached pending-delivery bound is to be reported before the handler that caused it
   returns.
+- INTERFACE l.1954 against l.1592 and l.3955: before `_MODULE_destroy()` the ABI caller "MUST also
+  suppress every subscription-end callback of the initialization Runtime Control binding that has not
+  begun and wait for an active one to return" (l.1954), and that binding stays valid "from
+  `_MODULE_init()` entry until `_MODULE_destroy()` returns" (l.1592). A module may subscribe and register
+  for subscription ends while it initializes ("The module MAY invoke authorized Runtime Control methods
+  through that binding during `_MODULE_init()`", l.3955), and a failed initialization has no destroy. No
+  sentence says when the binding of a failed initialization stops being valid, or that its
+  subscription-end callbacks that have not begun are suppressed then and an active one is waited for.
 
 ---
 
