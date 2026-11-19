@@ -2186,6 +2186,24 @@ that holds keys. A and B stand for other modules and are local to one item.
   through that binding during `_MODULE_init()`", l.3955), and a failed initialization has no destroy. No
   sentence says when the binding of a failed initialization stops being valid, or that its
   subscription-end callbacks that have not begun are suppressed then and an active one is waited for.
+- RUNTIME l.2704 against l.2703 and l.1896: "If `profile` is present, it MUST match the profile selected
+  by `transport`" (l.2704), and the schema allows the field on a `unix-stream` address ("? profile:
+  logos.runtime_control.address_profile", l.1896). Selection is stated for two transports only:
+  "`tls-tcp` selects `logos.remote.tls-tcp` and `quic` selects `logos.remote.quic`" (l.2703). No sentence
+  says which profile `unix-stream` selects, so a `profile` on such an address can be judged neither a
+  match nor a mismatch.
+- RUNTIME l.2704 against INTERFACE l.3876 and RUNTIME l.225: the rejection is stated for "a Runtime
+  Control request that carries a mismatching address" (l.2704). `connect_remote` takes a
+  `runtime_endpoint` too, and it is "the `connect_remote` operation defined by LOGOS-MODULE-INTERFACE"
+  (RUNTIME l.225), not a request of the contract. Its own list of rejections without detail names an
+  endpoint that "omits the required Runtime identity, selects a non-remote address, or names the
+  consumer's owning Runtime" (INTERFACE l.3876) and not an address whose `profile` contradicts its
+  transport, so the code and the detail for that endpoint are not said.
+- RUNTIME l.2704 against l.1824-1833: the order of checks has no place for the mismatching address. It is
+  not "request payload decoding and schema validation" (l.1828), whose failures carry detail, and it is
+  not among "the conditions of an applicable precondition table" (l.1831). Whether it is reported before
+  or after the target authorization of the fourth step and the revision comparison of the fifth is not
+  said.
 
 ---
 
