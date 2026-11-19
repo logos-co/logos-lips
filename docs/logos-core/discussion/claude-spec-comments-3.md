@@ -2119,6 +2119,14 @@ that holds keys. A and B stand for other modules and are local to one item.
   existing registration" (l.1452), and that "Registration on an already-terminal handle returns that code
   without installing a registration or invoking its callback" (l.1459). A binding therefore has to choose
   what `observe_subscription_end` returns on a route handle that is already terminal.
+- INTERFACE l.2974 against l.583 and l.3402-3408: "Generated headers MUST preserve the specified
+  discriminant width in the supported C and C++ modes, including when compiler options alter enum storage"
+  (l.2974), while "Compiler options that change enumeration storage are outside the supported native ABI"
+  (l.583), and the common header, which every generated header includes, now asserts at compile time that
+  "logos_error_code_t must have the size of int" (l.3404). Under such an option no generated header
+  compiles, so the last clause of l.2974 names a condition in which the headers cannot be used. Whether
+  that clause is to be dropped, or read as requiring only that a discriminant is never an enumeration, is
+  not said.
 
 ---
 
