@@ -242,20 +242,25 @@ Below is the description of the fields of `RateLimitProof` and their types.
 
 [Messaging metadata](https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#notes-from-implementation) is metadata which is broadcasted via coordination layer and cached by mix nodes locally.
 This helps identify duplicate signalling in order to detect spam.
+Each `ProofMetadata` entry describes one validated proof. A `MessagingMetadata` carries one or more entries.
 
 ```protobuf
 syntax = "proto3";
 
-message ExternalNullifier {
-   bytes internal_nullifier = 1;
-   repeated bytes x_shares = 2;
-   repeated bytes y_shares = 3;
+message ProofMetadata {
+   bytes nullifier = 1;
+   bytes share_x = 2;
+   bytes share_y = 3;
+   bytes external_nullifier = 4;
+   bytes epoch = 5;
 }
 
 message MessagingMetadata {
-   repeated ExternalNullifier nullifiers = 1;
+   repeated ProofMetadata entries = 1;
 }
 ```
+
+`nullifier`, `share_x`, `share_y` and `epoch` are as in [RateLimitProof](#ratelimitproof). `external_nullifier` is as defined in [RLN-V1](https://github.com/logos-co/logos-lips/blob/dabc31786b4a4ca704ebcd1105239faff7ac2b47/vac/32/rln-v1.md#external-nullifier).
 
 ### System Parameters
 
