@@ -2110,6 +2110,15 @@ that holds keys. A and B stand for other modules and are local to one item.
   provider that declares no methods "MUST return `LOGOS_ERR_METHOD_NOT_FOUND` for every method argument"
   (INTERFACE l.1542), which reads as the name being checked first. A request that names an unknown method
   and carries bytes that are not Logos deterministic CBOR can therefore receive either code.
+- INTERFACE l.1477 against l.1448, l.1452 and l.1459: `observe_subscription_end` "follows the registration
+  rules of `observe_end`: one registration, no synchronous invocation on the registering thread,
+  `INVALID_PARAMS` for a null handler or a second registration, and `MODULE_ERROR` for unavailable
+  registration capacity" (l.1477). The list names four of the rules that `observe_end` has, and whether
+  the others apply is not said: that the binding orders installation with the reported transition
+  (l.1448), that "A failed registration MUST NOT invoke or retain the supplied callback state or alter an
+  existing registration" (l.1452), and that "Registration on an already-terminal handle returns that code
+  without installing a registration or invoking its callback" (l.1459). A binding therefore has to choose
+  what `observe_subscription_end` returns on a route handle that is already terminal.
 
 ---
 
