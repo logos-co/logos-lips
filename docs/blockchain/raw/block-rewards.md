@@ -24,7 +24,7 @@
 | 1.0.0 | Initial revision. | 2026-04-24 |
 | 1.1.0 | Changing from burning/minting to pooling/distributing/releasing, removing $`S_{tge}`$ | 2026-08-25 |
 | 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
-| 1.2.1 | Changed the examples of a one-epoch time step to an epoch of 100 hours. | 2026-11-18 |
+| 1.2.1 | Changed the examples of a one-epoch time step to an epoch of 40 hours. | 2026-11-19 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -136,10 +136,10 @@ The following variables are input to the model:
 - $`\Delta_t`$ denotes the fraction of year in one time step per e.g., epoch, block, or day:
     - if the time step is 1 day, then $`\Delta_t = 1/365`$.
     - if the time step is 1 block every $30$ seconds, then $`\Delta_t = 1/(365 \times 2880)`$.
-    - if the time step is 1 epoch, which lasts 100 hours, then $`\Delta_t = 1/(365 \times 24/100) = 1/87.6`$.
+    - if the time step is 1 epoch, which lasts 40 hours, then $`\Delta_t = 1/(365 \times 24/40) = 1/219`$.
 - $f$ be the average number of block proposal within $`\Delta_{t}`$ units:
     - if the time step is 1 day and blocks are proposed every 30 seconds, then $f=2880$ (the number of 30 seconds intervals in 1 day).
-    - if the time step is 1 epoch, which lasts 100 hours, and blocks are processed every 30 seconds, then $f = 100 \times 120 = 12000$ (the number of 30 seconds intervals in 100 hours).
+    - if the time step is 1 epoch, which lasts 40 hours, and blocks are processed every 30 seconds, then $f = 40 \times 120 = 4800$ (the number of 30 seconds intervals in 40 hours).
 - $`I_{min}`$ is the minimum emission rate per year ($`I_{min} = 0\%`$ of $`S_{cap}`$).
 - $`I_{max}`$ is the maximum emission rate per year ($`I_{min} = 1\%`$ of $`S_{cap}`$).
 - $`Y`$ denotes the lifetime, in years, of the rewards reserve at the maximum release rate $`I_{max}`$ of $`S_{cap}`$ per year ($`Y = 10`$ years).

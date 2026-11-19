@@ -21,7 +21,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
-| 1.2.0 | Set `EXPECTED_BLOCKS_PER_EPOCH` to 12,000 and the distribution rate `ρ` to 1/360, for an epoch of 360,000 slots. | 2026-11-18 |
+| 1.2.0 | Set `EXPECTED_BLOCKS_PER_EPOCH` to 4,800 and the distribution rate `ρ` to 1/900, for an epoch of 144,000 slots. | 2026-11-19 |
 
 # Introduction
 
@@ -137,9 +137,9 @@ A node keeps a spent ticket only while its referenced block is inside the window
 ```python
 POW_REWARD_POOL_GENESIS: TokenValue             # 5/1000 of S_cap, set in the Genesis Block
 EPOCH_POW_DISTRIBUTION_RATE_NUM: uint64 = 1     # rho, as a fraction NUM / DEN
-EPOCH_POW_DISTRIBUTION_RATE_DEN: uint64 = 360
+EPOCH_POW_DISTRIBUTION_RATE_DEN: uint64 = 900
 TARGET_CLAIMS_PER_BLOCK: uint64 = 10            # T
-EXPECTED_BLOCKS_PER_EPOCH: uint64 = 12_000      # N_b = 10 K f
+EXPECTED_BLOCKS_PER_EPOCH: uint64 = 4_800       # N_b = 4 K f
 EXPECTED_BLOCKS_PER_WINDOW: uint64 = 10         # W_b
 POW_SHARE: uint64 = 10                          # beta, as the fraction POW_SHARE / SHARE_DEN
 SHARE_DEN: uint64 = 100
