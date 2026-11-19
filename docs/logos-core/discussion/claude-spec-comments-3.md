@@ -42,7 +42,7 @@ audits, and lists in its appendices everything that is settled.
 | 1 | Earlier items answered, still needing discussion | 1 |
 | 2.1 | Items of the second audit with no response | 4 |
 | 2.2 | Concerns of `human-spec-comments.md` that still need an answer | 2 |
-| 3.1 | Contradictions and gaps in the spec text | 33 |
+| 3.1 | Contradictions and gaps in the spec text | 34 |
 | 3.2 | The system contracts against their own rules | 4 |
 | 3.3 | The integrator documents against the specs | 8 |
 | 3.4 | Porting the existing module catalog | 7 |
@@ -1221,6 +1221,43 @@ other rules depend on is not stated.
 - **Suggested resolution:** define the second condition, for instance as the loss of every protected
   carrier or mechanism through which Runtime can end the realization.
 
+#### TF-58 — What Runtime reports at its next start for an instance that a completed shutdown left `stopping` is not stated
+- **Specs:** RUNTIME l.3702 ("A module instance that is still `stopping` at expiry remains `stopping` and
+  reports `cleanup-timeout` under Section 3.4"), l.3727 (shutdown continues once a realization's "cleanup
+  failure has been recorded according to shutdown policy"), l.3732 ("a `cleanup-timeout` reported at that
+  expiry is a recorded cleanup failure for this purpose"), l.3634 ("When Runtime starts after its previous
+  process ended without completed shutdown, it MUST report each preserved instance last recorded as
+  `loaded`, `ready` or `stopping` as `error` with `host-terminated` before accepting lifecycle requests"),
+  l.3635 ("the end of the previous Runtime process is that confirmation for a realization within that
+  process"), l.3637 (the end of an envelope outside the previous process "MUST NOT be inferred from
+  retained records of Runtime or of the realization mechanism, including a record of completed shutdown"),
+  l.575-577 ("Runtime MUST report `cleanup-timeout` as the instance's failure until the stop completes or
+  its cleanup fails"; "When the pending cleanup then completes, the explicit stop completes successfully";
+  "A cleanup failure during an explicit stop transitions the instance to `error`"), l.3606
+  ("`host-terminated` means that the realization's execution envelope, or the Runtime process containing
+  it, ended without cleanup ordered by Runtime").
+- **Issue:** a shutdown can now complete while an instance is still `stopping` with `cleanup-timeout`
+  (l.3702, l.3727, l.3732), so a completed shutdown can leave that record. The rule for the next start
+  covers only a process that "ended without completed shutdown" (l.3634). For a completed shutdown nothing
+  says what the preserved instance is at the next start: `unloaded`, because the stop completed when its
+  envelope ended (l.576, l.3635); `error`, and then with which classification, since its cleanup was
+  ordered by Runtime (l.3606); or still `stopping` until the end of an envelope outside the process is
+  confirmed (l.3637). The text also presumes that Runtime can tell the two kinds of end apart, and names
+  "a record of completed shutdown" only to say what must not be inferred from it.
+- **Impact:** after the same shutdown one Runtime reports the instance `unloaded` and resumes its retained
+  intent, another reports `error`, and for a hosted realization a third keeps it `stopping`. A lifecycle
+  request for that instance is answered differently in each, and so is the recovery policy that reads the
+  classification.
+- **Reading an implementation needs today:** the stop completes when the end of the envelope is confirmed
+  (l.576). That is at the next start for a realization within the previous process (l.3635). For one
+  outside it the instance stays `stopping` with `cleanup-timeout` until the protected mechanism confirms
+  the end (l.3637). The implementation records that the shutdown completed, so that the same record after
+  an unclean end still follows l.3634.
+- **Overlap:** TF-54 names the same table rows for a stop that enforcement causes.
+- **Suggested resolution:** say what a preserved `stopping` record means after a completed shutdown, for a
+  realization within the previous process and for one outside it, and whether Runtime must record that a
+  shutdown completed.
+
 ### 3.2 The system contracts, checked against their own rules
 
 The CDDL of Runtime Control (RUNTIME §9.2-§9.3), Configuration (CONFIG §9), Capability Authority, Module
@@ -2247,6 +2284,33 @@ that holds keys. A and B stand for other modules and are local to one item.
   `single` request through a binding to the continuation target" (l.3031), and Runtime resolves
   internally only "When handling acquisition for a local module consumer" (l.3019). Read alone, l.3056
   says that the module's Runtime follows that continuation as well.
+- RUNTIME l.3732 against l.3729 and l.3705: "At expiry of the shutdown deadline, Runtime MUST initiate
+  release of every realization whose release it has not yet initiated" (l.3732). A Module Loader that
+  still owns a realization whose cleanup is unresolved is such a realization, yet "Runtime MUST release
+  Loader-owned realizations before quiescing and releasing or detaching their owning Loader provider"
+  (l.3729), and "A shared-process native realization MUST NOT be force-released by destroying referenced
+  state or unloading code that can still execute" (l.3705). Whether the Loader's own release is initiated
+  at expiry while a realization it owns is still `stopping` is not said.
+- RUNTIME l.1733-1734 against l.577: "A `stop_module` request for an instance in `error` transitions it
+  to `stopping`" (l.1733), and "When cleanup of a previous realization is still unresolved, Runtime MUST
+  NOT initiate another destruction or release, and the stop completes when that cleanup completes"
+  (l.1734). When the instance is in `error` because that cleanup has already failed, nothing completes it
+  while its execution envelope lives, and "A cleanup failure during an explicit stop transitions the
+  instance to `error`" (l.577) speaks of a failure during the stop. Whether such an instance stays
+  `stopping` until its envelope ends or returns to `error` is not said.
+- RUNTIME l.3611 against l.526 and l.523: Runtime clears the classification "when a new execution attempt
+  is accepted or an explicit stop completes successfully" (l.3611). Runtime shutdown also takes an
+  instance from `error` to `stopping` (l.526) and on to `unloaded` when its cleanup completes (l.523).
+  Whether the classification is kept on an instance that a shutdown, and not an explicit stop, took from
+  `error` to `unloaded` is not said.
+- RUNTIME l.3939 against l.3955 and l.3613: "If an instance that startup realizes fails before it becomes
+  `ready`, startup MUST return `LOGOS_ERR_MODULE`, or `LOGOS_ERR_TIMEOUT` when the cause is expiry of its
+  startup deadline" (l.3939), and "Other failures MUST use the applicable shared error code" (l.3955). An
+  initial orchestration instance whose start is refused, because its execution is denied, its
+  configuration is missing or its static binding does not match, is never realized and stays `unloaded`
+  with a `failure` (l.3613). Whether that is an instance that "fails before it becomes `ready`", so that
+  startup returns `LOGOS_ERR_MODULE` for a denial as well, or another failure with its own code, is not
+  said.
 
 ---
 
