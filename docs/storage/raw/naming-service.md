@@ -1,15 +1,17 @@
+# NAME-SERVICE
+
+| Field | Value |
+| ----- | ----- |
+| Name | NAME-SERVICE |
+| Status | raw |
+| Type | RFC |
+| Category | Standards Track |
+| Editor | Giuliano Mega <giuliano@logos.co> |
+| Contributors | Arnaud Deville <arnaud@logos.co> |
+
 $$
 \newcommand{\cid}{c}
 $$
-
-# NAME-SERVICE
-
-| Name       | Merkle Tree                        |
-| ---------- | ------------------------------------ |
-| **Status** | **draft**                            |
-| **Editor** | **Giuliano Mega** giuliano@logos.co |
-| **Contributors** | **Arnaud Deville** arnaud@logos.co |
-
 
 ## Abstract
 
@@ -28,7 +30,6 @@ This is precisely what the naming service provides - it introduces a mechanism f
 ## Semantic
 
 The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”, “SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “MAY”, and “OPTIONAL” in this document are to be interpreted as described in 2119.
-
 
 ### Names and Name Records
 
@@ -147,7 +148,6 @@ async def publish(
   await dht.put_value(name_key, snr.to_protobuf())
 ```
 **Listing 3.** Pseudocode for publishing a name.
-
 
 #### Sequence Numbers
 
