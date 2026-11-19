@@ -2127,6 +2127,15 @@ that holds keys. A and B stand for other modules and are local to one item.
   compiles, so the last clause of l.2974 names a condition in which the headers cannot be used. Whether
   that clause is to be dropped, or read as requiring only that a discriminant is never an enumeration, is
   not said.
+- TRANSPORT l.753 and RUNTIME l.951 against INTERFACE l.1479 and CA l.941: the callee ends a subscription
+  "when the caller's authority to receive that event ends while the route remains usable; this revision
+  defines no other cause" (TRANSPORT l.753), and Runtime ends it "When the consumer's authority to receive
+  an event of an active subscription ends" (RUNTIME l.951). The binding's reason is `NOT_AUTHORISED` "when
+  authority to receive the event has ended or can no longer be established" (INTERFACE l.1479). Whether a
+  decision that cannot be obtained for one event counts as authority that ends, so that the callee commits
+  a SubscriptionEnd, or the event is withheld and the subscription continues with a gap, is not said. The
+  corresponding rule for a route keeps the route: "If the evaluation fails, the route MUST remain unusable
+  for protected operations until a later evaluation reauthorizes it" (CA l.941).
 
 ---
 
