@@ -2101,6 +2101,15 @@ that holds keys. A and B stand for other modules and are local to one item.
 - PM l.1185 against l.340-341 and l.1188-1189: a packaged native library is a declared artifact, but no
   artifact kind is assigned to it. `module-binary` is the kind required of an implementation artifact that
   a module declaration references, and `resource` and `data` authorize no execution.
+- INTERFACE l.3075 and l.3079 against l.1542 and RUNTIME l.813: an implementation must "Reject incoming
+  CBOR that violates the determinism rules in Section 4.4 with error code `INVALID_PARAMS`" (l.3075) and
+  "Reject unknown method names -> error code `METHOD_NOT_FOUND`" (l.3079), and the list states no order.
+  On a Transport connection the order follows from TRANSPORT l.403-405, because a message that fails
+  envelope validation is not dispatched. For a request that reaches a direct provider no text orders the
+  two: "A method outside the selected contract produces `METHOD_NOT_FOUND`" (RUNTIME l.813), and a
+  provider that declares no methods "MUST return `LOGOS_ERR_METHOD_NOT_FOUND` for every method argument"
+  (INTERFACE l.1542), which reads as the name being checked first. A request that names an unknown method
+  and carries bytes that are not Logos deterministic CBOR can therefore receive either code.
 
 ---
 
