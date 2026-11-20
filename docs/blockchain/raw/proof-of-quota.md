@@ -79,7 +79,7 @@ The proof's public signal vector is fixed by the circuit: the output first, then
 
 `pow_blend_difficulty` is $`d_{blend}`$ for the epoch, derived in [Blend Difficulty](proof-of-work.md#blend-difficulty).
 
-For the epoch $`ep`$, `pol_epoch_first_slot` is $`ep \cdot \text{EPOCH\_LENGTH}`$ and `pol_epoch_last_slot` is $`(ep + 1) \cdot \text{EPOCH\_LENGTH} - 1`$, where $`\text{EPOCH\_LENGTH}`$ is the [epoch length](cryptarchia-v1-protocol.md#epoch-schedule) in slots.
+For the epoch $`ep`$, `pol_window_first_slot` is $`ep \cdot \text{EPOCH\_LENGTH}`$ and `pol_window_last_slot` is $`(ep + 1) \cdot \text{EPOCH\_LENGTH} - 1`$, where $`\text{EPOCH\_LENGTH}`$ is the [epoch length](cryptarchia-v1-protocol.md#epoch-schedule) in slots.
 
 ### Witness
 
