@@ -216,6 +216,12 @@ In the base Kad DHT specification, signatures are optional,
 typically implemented as a PKI signature over the tuple `(key || value || author)`.
 In this RFC digital signatures MUST be used to
 authenticate advertisements and tickets.
+Advertisement signatures are produced by the private identity key of the node that created the **advertisement**.
+Ticket signatures are produced by the private identity key of the registrar node.
+To prevent cross-protocol signature confusion, the signature inputs MUST live in disjoint namespaces.
+For advertisements, the namespace is determined by the [advertisement encoding](#advertisement-encoding).
+For tickets, we define a constant `TICKET_DOMAIN` as described in the [base message structure](#base-message-structure).
+`TICKET_DOMAIN` is the ASCII string `"logos-service-discovery-ticket-v1"` with no length prefix and no NUL terminator.
 
 ### Expiry Time `E`
 
@@ -364,7 +370,8 @@ message Register {
         // Remaining wait time in seconds
         uint32 t_wait_for = 4;
 
-        // Ed25519 signature over (ad || t_init || t_mod || t_wait_for)
+        // Ed25519 signature over (TICKET_DOMAIN || SHA256(ad) || t_init || t_mod || t_wait_for)
+        // TICKET_DOMAIN = "logos-service-discovery-ticket-v1" (ASCII, no NUL)
         bytes signature = 5;
     }
 
@@ -707,8 +714,8 @@ For XPR-encoded advertisements:
 ```text
 VERIFY_ADVERTISEMENT(encoded_ad_bytes, service_id_hash):
     envelope = DECODE_SIGNED_ENVELOPE(encoded_ad_bytes)
-    assert(envelope.domain == "libp2p-routing-state")
-    assert(envelope.payload_type == "/libp2p/extensible-peer-record/")
+    assert(envelope.domain == "libp2p-peer-record") // same as libp2p SignedPeerRecord (backwards compatible)
+    assert(envelope.payload_type == 0x0301) // same as libp2p SignedPeerRecord (backwards compatible)
 
     xpr = DECODE_XPR(envelope.payload)
     public_key = DERIVE_PUBLIC_KEY(xpr.peer_id)

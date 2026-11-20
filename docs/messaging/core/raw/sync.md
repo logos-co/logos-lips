@@ -229,6 +229,13 @@ The initiator
 4. [Delta encodes](#payload-encoding) the payload
 5. Sends the payload using libp2p length-prefixed encoding
 
+#### Frame size limit
+
+A node MUST be able to read a `RangesData` payload of up to `MaxPayloadSize`, 64 MiB (67108864 bytes), once encoded.
+The *frame size limit* of a node is the largest encoded payload it sends, which
+MUST NOT be larger than `MaxPayloadSize`, and a node MAY choose a smaller one.
+A responder keeps each response within its frame size limit as described in ["Responding to a `RangesData` payload"](#responding-to-a-rangesdata-payload).
+
 #### Responding to a `RangesData` payload
 
 Each syncing peer performs the following in response to a `RangesData` payload:
@@ -240,14 +247,15 @@ The responder:
    - Otherwise, the remote peer aborted the session.
 3. Otherwise, if shards or cluster don't match:
    - Responds with an empty payload carrying its own cluster ID and supported shards.
-4. If the payload's `cluster` and `shards` match the responder's own, processes each range:
+4. If the payload's `cluster` and `shards` match the responder's own, processes each range in order, within its frame size limit:
    - If the received range is of type `Skip`, processes it no further.
       - If the received `Skip` range is the trailing range, it MAY be omitted from the response.
       Otherwise, the responder MUST include it in the response as type `Skip` so that range bounds remain contiguous.
    - If the received range is of type `Fingerprint`, computes the fingerprint over the local matching range
       - If the local fingerprint matches the received fingerprint, includes this range in the response as type `Skip`
       - If the local fingerprint does _not_ match the received fingerprint:
-         - If the corresponding range is small enough, includes this range in the response as type `ItemSet` with all `SyncID`s and `reconciled` set to `false`
+         - If the corresponding range is small enough, includes this range in the response as type `ItemSet` with all `SyncID`s and `reconciled` set to `false`.
+         A range whose `ItemSet` would not fit within the frame size limit is not small enough.
          - If the corresponding range is too large, divide it into subranges.
          For each subrange, if the range is small enough, includes it in the response as type `ItemSet` with all `SyncID`s and `reconciled` set to `false`.
          If the subrange is too large, includes it in the response as type `Fingerprint`.
@@ -255,7 +263,54 @@ The responder:
       - If there are any differences between the local and remote items, adds these as part of the output of the `reconciliation` procedure.
       At this point, the syncing peers MAY start to exchange the full messages corresponding to differences using the `transfer` protocol.
       - If the received `ItemSet` has `reconciled` set to `false`, includes the corresponding local range in the response as type `ItemSet` with all `SyncID`s, the same range bounds and `reconciled` set to `true`.
+      If that `ItemSet` does not fit within the frame size limit, the responder divides the range `[a, b)` at a cutoff `c` and includes two ranges instead:
+         - `[a, c)` as type `ItemSet` with all its `SyncID`s and `reconciled` set to `true`
+         - `[c, b)` as type `Fingerprint`
+
+         `c` has the timestamp of the first `SyncID` that does not fit and a hash of all zero bytes, so that the bound is encoded without its hash (see ["Delta encoding for sequential SyncIDs"](#delta-encoding-for-sequential-syncids)).
+         `[a, c)` MUST contain at least all `SyncID`s with the first timestamp of the range, even if they do not fit within the frame size limit, so that every round makes progress.
+         The differences in `[c, b)` are found in a later round, and the responder SHOULD NOT transfer messages in `[c, b)` before then.
+
+         For example, the remote peer sends an `ItemSet` with `reconciled` set to `false` over `[(1000, 0), (2000, 0))`.
+         The responder holds the five `SyncID`s below in that range, and only the first three fit within its frame size limit:
+
+         | Timestamp | Hash | Fits |
+         | - | - | - |
+         | 1000 | 0x4a8a769a... | yes |
+         | 1002 | 0x351c5e86... | yes |
+         | 1002 | 0x3560d9c4... | yes |
+         | 1003 | 0xbeabef25... | no |
+         | 1500 | 0x91f0a2b7... | no |
+
+         The first `SyncID` that does not fit has timestamp 1003, so `c` is `(1003, 0)` and the response holds two ranges:
+
+         | Range | Type | Content |
+         | - | - | - |
+         | `[(1000, 0), (1003, 0))` | `ItemSet` with `reconciled` set to `true` | the three `SyncID`s at 1000 and 1002 |
+         | `[(1003, 0), (2000, 0))` | `Fingerprint` | the XOR of the hashes at 1003 and 1500 |
+
+         If only the first two fitted, `c` would be `(1002, 0)` and the `ItemSet` would list only the `SyncID` at 1000, because both `SyncID`s at 1002 must be on the same side of `c`.
       - If the received `ItemSet` has `reconciled` set to `true`, includes the corresponding local range in the response as type `Skip`.
+   - When the response to the next received range would go over the frame size limit, the responder stops processing ranges.
+   It includes one range of type `Fingerprint` that covers that range and all later ones, from that range's lower bound to the last range's upper bound, with the fingerprint of its local `SyncID`s in it.
+   The ranges it covers are processed again in a later round.
+   An unreconciled `ItemSet` whose response does not fit is divided instead, as described above, with the room that is left in the response; the `Fingerprint` then covers only the ranges after it, from its upper bound.
+   When the room that is left cannot hold the `SyncID`s of the first timestamp of that `ItemSet`'s range, the responder stops at that range like at any other, unless it is the first range that is not of type `Skip`.
+   The responder MUST process the first received range that is not of type `Skip`, so that every round makes progress.
+   A difference MAY therefore be found in more than one round.
+
+     For example, the responder receives the five ranges below, shown with the timestamps of their bounds (all bound hashes are zero).
+     Its answers to the first two ranges fit, but its answer to `[2000, 3000)` would go over its frame size limit:
+
+     | Received range | Received type | Response |
+     | - | - | - |
+     | `[0, 1000)` | `Skip` | `[0, 1000)` as type `Skip` |
+     | `[1000, 2000)` | `Fingerprint` (no match) | `[1000, 2000)` as type `ItemSet` with `reconciled` set to `false` |
+     | `[2000, 3000)` | `Fingerprint` (no match) | `[2000, 5000)` as type `Fingerprint`, over its local `SyncID`s from 2000 up to 5000 |
+     | `[3000, 4000)` | `Fingerprint` | (covered by `[2000, 5000)`) |
+     | `[4000, 5000)` | `Skip` | (covered by `[2000, 5000)`) |
+
+     The response therefore holds three ranges, and the remote peer answers `[2000, 5000)` in the next round like any other `Fingerprint` range.
 5. Before encoding the response:
    - Adjacent `Skip` ranges MAY be merged.
    - A response consisting only of `Skip` ranges MUST be sent as an empty payload.
@@ -270,6 +325,7 @@ Once the `reconciliation` protocol starts finding differences in `SyncID`s,
 the `transfer` protocol MAY be used to exchange actual message contents between peers.
 A node using `transfer` SHOULD proactively send [`14/WAKU2-MESSAGE`](https://github.com/logos-co/logos-lips/blob/master/docs/messaging/core/stable/14/message.md)s missing in the remote party.
 A node SHOULD only accept via `transfer` messages whose `SyncID` it identified as missing during a `reconciliation` session.
+A node using `transfer` SHOULD send only messages whose `SyncID`s the remote peer can have identified as missing, that is, `SyncID`s in a range that the node listed in an `ItemSet`.
 The differences found in the last round of a session are transferred after that session has ended,
 so a rule that accepts transfers only while a reconciliation session is open rejects legitimate messages.
 The `SyncID`s corresponding to messages received via `transfer`,
@@ -314,6 +370,9 @@ A higher value reduces round trips at the cost of computing more fingerprints.
 The item set threshold determines when item sets are sent instead of fingerprints.
 A higher value sends more items which means higher chance of duplicates but
 reduces the amount of round trips overall.
+
+The frame size limit bounds the memory a node needs for one payload.
+A smaller limit uses less memory per round but needs more rounds when there are many differences.
 
 ### Storage
 
