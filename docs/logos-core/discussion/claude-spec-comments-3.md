@@ -2534,6 +2534,15 @@ that holds keys. A and B stand for other modules and are local to one item.
   stay distinct "even when protected policy authorizes the same credential for more than one role"
   (l.727). Whether Package Manager must refuse a trust input in which it can see such a reuse, and with
   which result, is not said. CA l.1312 has the same sentence for an evidence key.
+- BCP l.383 against SECURITY l.394 and TRANSPORT l.1334: "For each finite admission pool shared by more
+  than one consumer or provider, the documentation MUST state whether a per-consumer or per-provider limit
+  applies" (l.383). An admission pool is not defined. SECURITY gives seven examples, "prepared calls,
+  native borrows, sessions, routes, route tickets, grants, or audit storage" (l.394), of which a native
+  borrow is no bounded resource of any specification, and TRANSPORT uses the word for its own limits:
+  "Resource admission MUST occur before acquiring the bounded resources" (TRANSPORT l.1334). Whether a
+  pool counts when its exhaustion delays a request and does not refuse it, when no request releases its
+  entries, as with a bound on known module instances, or when it is shared by the callers of one system
+  service, is left to each deployment. Two documents that both meet the sentence can list different pools.
 
 ---
 
