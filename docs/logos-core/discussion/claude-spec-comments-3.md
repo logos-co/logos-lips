@@ -42,7 +42,7 @@ audits, and lists in its appendices everything that is settled.
 | 1 | Earlier items answered, still needing discussion | 1 |
 | 2.1 | Items of the second audit with no response | 4 |
 | 2.2 | Concerns of `human-spec-comments.md` that still need an answer | 2 |
-| 3.1 | Contradictions and gaps in the spec text | 34 |
+| 3.1 | Contradictions and gaps in the spec text | 36 |
 | 3.2 | The system contracts against their own rules | 4 |
 | 3.3 | The integrator documents against the specs | 8 |
 | 3.4 | Porting the existing module catalog | 7 |
@@ -1258,6 +1258,78 @@ other rules depend on is not stated.
   realization within the previous process and for one outside it, and whether Runtime must record that a
   shutdown completed.
 
+#### TF-59 — What one candidate record is, for the consideration limit and for the material a resolution needs, is not defined
+- **Specs:** PM l.1245 (a limit on "candidate records considered for one package name"), l.1262 ("A
+  candidate consideration occurs when Package Manager examines one record whose version satisfies the
+  accumulated requirements"), l.1265 ("Each candidate record is charged at most once for that package name
+  in one root operation"), l.1289 ("A candidate is an installed package record or catalog package whose
+  version satisfies every accumulated requirement for its package name"), l.961 (separately signed
+  packages of one identity "have different manifest commitments and are distinct candidates under Section
+  11"), l.1306 ("a record whose commitment is not yet known is examined and charged like any other"),
+  l.1330 ("equivalent acceptable sources for the same exact package identity and full manifest
+  commitment"), l.1327-1328 ("If multiple acceptable manifests claim the same package name and version
+  with different manifest commitments, protected catalog policy MUST select one exact commitment"), l.1295
+  ("A candidate that is not reached is not examined, and its material MUST NOT be required or cause the
+  root operation to fail"), l.1308 (material that "cannot be located or materialized" fails the root
+  operation with `package-unavailable`), l.1279 ("Limit exhaustion and all counter values are determined
+  by the installed state, catalog inputs, and protected policy").
+- **Issue:** three things can be the record that is examined and charged. One is a package identity, a
+  name with a version. One is a package, an identity with its manifest commitment: l.961 makes two
+  separately signed packages of one identity distinct candidates. One is a catalog source record: l.1306
+  speaks of a record whose commitment is not yet known, which fits a catalog entry before its material is
+  read, and l.1330 has several source records for one identity and commitment. l.1289 also names an
+  installed record and a catalog package side by side, and does not say whether the two are one candidate
+  when their identity and commitment are equal. The count charged to a package name follows from the
+  choice. Take a version that is installed and that the catalog lists as two packages for two platforms,
+  each from two sources: it is one consideration by identity, two or three by package, and four or five by
+  source record. Which material a resolution needs follows from the choice as well. l.1327-1328 can be
+  applied only when every acceptable manifest of the version is known, and l.1330 only when its equivalent
+  sources are known, while l.1295 forbids requiring the material of a candidate that is not reached. If
+  each source record is a candidate, nothing says whether reaching one of them reaches the others.
+- **Impact:** with the same installed state, catalog and limits, one Package Manager completes a
+  resolution and another fails it with `dependency-unavailable`, against l.1279. When a second source of a
+  reached version is unavailable, one fails with `package-unavailable` (l.1308) and another does not.
+- **Reading an implementation needs today:** one record per package identity, charged once, and reaching
+  an identity examines every catalog source record of it.
+- **Overlap:** TF-14 (how depth is counted and whether the root is charged, settled by the text).
+- **Suggested resolution:** define the candidate record as one of the three, say whether an installed
+  record and a catalog package of equal identity and commitment are one record, and say which source
+  records of a version are reached when one of them is.
+
+#### TF-60 — What a root request reports when versions satisfy it and none is eligible is stated only for an unsupported manifest schema
+- **Specs:** PM l.1219 ("When a root request other than an `update_package` request without a fixed target
+  version has satisfying root candidates and each of them is ineligible only for this reason, the root
+  operation MUST fail with `unsupported-manifest`"), l.1320 ("That release is the highest eligible one
+  reached in descending order"), l.1335 ("If no complete solution exists, the root operation MUST fail
+  with `dependency-unavailable`"), l.1705 ("When neither fixes a target version, Package Manager selects
+  the highest available newer normal release"), l.1706 ("If no applicable newer version exists, the
+  operation succeeds with the current installed record and changes nothing"), l.1707 ("A newer version
+  that is ineligible because its manifest schema is unsupported is not applicable"), l.1500
+  ("`incompatible-platform` permits selection of another package version or source with a compatible
+  variant"), l.960 (a producer may publish "separately signed packages with the same package identity for
+  different platforms").
+- **Issue:** a root request without a version takes the highest eligible release (l.1320), so releases
+  that are not eligible are passed over. When none is eligible, l.1219 gives the code for one case: each
+  candidate is ineligible only because its manifest schema is unsupported. For the other cases nothing
+  gives the code: every candidate fails its signature, or has no compatible variant, or the reasons
+  differ. The operation may fail with the error of one candidate, and which one is not said, or with
+  `dependency-unavailable` (l.1335). For an `update_package` request without a target the same case
+  decides between success and failure. The word "applicable" occurs only in l.1706-1707, which make a
+  newer version with an unsupported schema not applicable. Whether a newer version that is ineligible for
+  another reason is applicable is not said. If it is not, the update succeeds and changes nothing. If it
+  is, the update fails. A package whose newer releases no longer carry the host's platform (l.960) is the
+  plain case: each newer version is `incompatible-platform`, and an update without a target either reports
+  the current record or fails on every call.
+- **Impact:** with the same catalog, one Package Manager answers `update_package` with the current
+  installed record and another fails it with the error of a newer version. For `install_package` the
+  caller receives different codes.
+- **Reading an implementation needs today:** an install without a version fails with the error of the
+  highest version examined. An update without a target fails with the first such error when no newer
+  version is eligible and one of them is ineligible for a reason other than its schema.
+- **Overlap:** TF-07 (a call that changes nothing while the retained signer is not accepted).
+- **Suggested resolution:** say which code a root request returns when no satisfying root candidate is
+  eligible, and define "applicable" for every reason of ineligibility.
+
 ### 3.2 The system contracts, checked against their own rules
 
 The CDDL of Runtime Control (RUNTIME §9.2-§9.3), Configuration (CONFIG §9), Capability Authority, Module
@@ -2311,6 +2383,45 @@ that holds keys. A and B stand for other modules and are local to one item.
   with a `failure` (l.3613). Whether that is an instance that "fails before it becomes `ready`", so that
   startup returns `LOGOS_ERR_MODULE` for a denial as well, or another failure with its own code, is not
   said.
+- PM l.1296-1298 against l.1305 and l.1323: Package Manager "MUST check each dependency candidate reached
+  under the required candidate order and resolver limits against the installed record for its exact
+  package identity" (l.1296); a differing commitment fails the root operation (l.1297) and "MUST NOT be
+  skipped or resolved by backtracking to another version" (l.1298). A commitment that a recorded edge
+  excludes "is not a satisfying candidate" (l.1305), so a catalog package of an installed version with
+  another commitment is never checked once the package that carries the edge has been assigned. Names are
+  taken "first in UTF-8 byte order" (l.1323). The same installed state and catalog therefore resolve when
+  the name of the package that carries the edge sorts first, and fail under l.1297 when the pinned name
+  does. Whether the conflict is meant to depend on that order is not said.
+- PM l.1503 against l.933 and l.1100: `artifact-integrity-failed` means that required artifact bytes "were
+  absent, escaped their realization root, or did not match the signed digest" (l.1503). The term
+  "realization root" occurs only there. l.933 has Package Manager verify that the resolved destination of
+  an extracted entry "remains within the selected installation root" and assigns no code to a failure, and
+  l.1100 assigns the code when the resolved location of a manifest artifact path "lies outside its variant
+  directory or realized output". Whether a destination outside the installation root is the case of
+  l.1100, and which of the three containers the realization root is, is not said.
+- PM l.1688 against l.1292, l.1301, l.437 and l.542: the retained signer is replaced only for "the package
+  identity named by the request and not to installed dependencies in its closure" (l.1688). A candidate's
+  signature "MUST validate under an accepted trust anchor" (l.1292), an installed candidate "MAY satisfy a
+  dependency without being materialized again" (l.1301), and after an anchor is removed Package Manager
+  "MUST NOT use it for a new successful resolution, installation, update, or Runtime handoff" (l.437). For
+  an installed dependency whose retained signer is no longer accepted, while the catalog offers the same
+  identity and commitment under an accepted signer, it is not said whether the dependency is satisfied,
+  nor whether the operation reports success while the handoff of that dependency still reports the
+  withdrawn signer (l.542).
+- PM l.1260 against l.1257: "When an added dependency edge increases the depth of a package name already
+  in the partial closure, Package Manager MUST verify the depth limit for that name and for the names it
+  requires" (l.1260). Depth is "the greatest number of manifest dependency edges on any path from the root
+  to that name in the partial closure" (l.1257), so the edge also raises the depth of every name reached
+  through those names. Whether "the names it requires" covers them, and whether it covers a required name
+  that has no assigned candidate yet, is not said; the readings end a resolution at different points.
+- PM l.1302 against l.1301, l.1303 and l.821: "If Package Manager finds that retained artifact bytes of an
+  installed candidate are absent or do not match the signed digest, the root operation MUST fail with
+  `artifact-integrity-failed`" (l.1302). Package Manager "MUST retain the selected artifact bytes while
+  their installed record remains present" (l.821), and an installed candidate may satisfy a dependency
+  "without being materialized again" (l.1301). Whether reaching an installed candidate requires Package
+  Manager to read its retained bytes is not said, so the same damaged store fails a resolution on one
+  Package Manager and not on another. The order of that check against the ineligibility of the same
+  record, which "MUST NOT be treated as an ineligible candidate" (l.1303), is not given either.
 
 ---
 
