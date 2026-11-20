@@ -42,7 +42,7 @@ audits, and lists in its appendices everything that is settled.
 | 1 | Earlier items answered, still needing discussion | 1 |
 | 2.1 | Items of the second audit with no response | 4 |
 | 2.2 | Concerns of `human-spec-comments.md` that still need an answer | 2 |
-| 3.1 | Contradictions and gaps in the spec text | 36 |
+| 3.1 | Contradictions and gaps in the spec text | 37 |
 | 3.2 | The system contracts against their own rules | 4 |
 | 3.3 | The integrator documents against the specs | 8 |
 | 3.4 | Porting the existing module catalog | 7 |
@@ -1330,6 +1330,34 @@ other rules depend on is not stated.
 - **Suggested resolution:** say which code a root request returns when no satisfying root candidate is
   eligible, and define "applicable" for every reason of ineligibility.
 
+#### TF-61 — What an ordinary consumer's own `evaluate` may reveal about the instances and providers its scopes name is not stated
+- **Specs:** CA l.1421 ("A provider-access grant for `evaluate` permits an ordinary consumer to request
+  evaluation only with itself as `consumer`"), l.76 ("An address used to authenticate a consumer, issue a
+  grant to a target, or apply authority MUST resolve to the exact Runtime-known module instance
+  concerned"), l.800 (`invalid-request`: "The request violates a rule of this specification that no more
+  specific code covers"), l.810 (Capability Authority "MUST establish visibility of that grant or target
+  before it evaluates policy for it"), l.74 ("In a grant, `target` names the module instance to which that
+  grant applies"), l.1435 ("an unknown grant and a grant hidden from the consumer both produce
+  `grant-not-found`"), l.1498 ("Implementations MUST minimize disclosure"); RUNTIME l.428 ("An unknown
+  provider or a provider whose complete surface may not be disclosed MUST produce `NOT_AUTHORISED` with a
+  non-revealing diagnostic").
+- **Issue:** an ordinary consumer may now be granted `evaluate` for itself (l.1421). The limit is on the
+  `consumer` field. The scopes of its request may still name providers and module instances other than
+  itself, and for an execution scope the module, package and version of an instance. A scope that names
+  an address which does not resolve breaks l.76 and is answered `invalid-request` (l.800); one that
+  resolves is answered with a decision. The two answers tell the consumer whether the instance or
+  provider exists. The visibility rule of l.810 covers "a named grant or target", and a target is the
+  target of a grant (l.74), so it does not reach what a scope names. For a grant the text makes unknown
+  and hidden equal (l.1435), and Runtime does the same for a provider (RUNTIME l.428). For the subjects of
+  an ordinary consumer's evaluation nothing does.
+- **Impact:** a module that holds only a grant for `evaluate` learns which instances and providers exist,
+  and which module, package and version an instance runs, on one Capability Authority and not on another.
+- **Reading an implementation needs today:** for an ordinary caller, a scope that names an instance or a
+  provider which that caller may not observe is answered as one that names an unknown one.
+- **Overlap:** TF-31 (the refusal of a request that names another consumer, settled by the text).
+- **Suggested resolution:** say what an ordinary consumer's evaluation may name, or require one answer
+  for an unknown subject and a subject the consumer may not observe.
+
 ### 3.2 The system contracts, checked against their own rules
 
 The CDDL of Runtime Control (RUNTIME §9.2-§9.3), Configuration (CONFIG §9), Capability Authority, Module
@@ -2440,6 +2468,14 @@ that holds keys. A and B stand for other modules and are local to one item.
   the revoked grant be needed. "When several denial codes apply, Capability Authority MUST return the
   first applicable code in the order of this table" (l.794) then gives `grant-revoked`; under the other
   reading the answer is `grant-expired`. Which is meant is not said.
+- RUNTIME l.2267 and l.2281 against CA l.1199 and l.368: saved permission settings are an array without a
+  bound, `permissions: [* logos.runtime_control.permission_setting]` (RUNTIME l.2281), and each setting
+  may carry `constraints: bstr .size (1..1048576)` (RUNTIME l.2267). "The required permission scopes of an
+  execution decision are those mapped from the target instance's saved permission settings" (CA l.368),
+  and "The deterministic-CBOR encoding of the `scopes` array of an evaluation request or a grant request
+  MUST NOT exceed 4194304 bytes" (CA l.1199). Settings whose scopes pass that limit can be saved, and
+  every evaluation of a start of that instance is then `invalid-request`. Whether
+  `update_permission_settings` refuses such settings, and with which code, is not said.
 
 ---
 
