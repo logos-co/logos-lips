@@ -2422,6 +2422,24 @@ that holds keys. A and B stand for other modules and are local to one item.
   Manager to read its retained bytes is not said, so the same damaged store fails a resolution on one
   Package Manager and not on another. The order of that check against the ineligibility of the same
   record, which "MUST NOT be treated as an ineligible candidate" (l.1303), is not given either.
+- CONFIG l.299 against l.300, l.218 and l.291: "No staged record exists, or either applicable binding is
+  absent or does not declare live reconfiguration" gives `INVALID_PARAMS` (l.299), ahead of "The module
+  instance is not `ready`, or another live-reconfiguration attempt is in progress" with `NOT_READY`
+  (l.300). The two bindings are "its accepted binding and the binding used to initialize the current
+  realization" (l.218). An instance that was never started, or was stopped, has no current realization
+  and so no second binding. Whether that binding is then absent, so that the first row answers, or not
+  applicable, so that the second answers, is not said. l.291 names "the module instance is not `ready`"
+  and "either applicable binding does not declare live reconfiguration" as separate causes and does not
+  name an absent binding. Under the first reading an unloaded instance is never answered `NOT_READY`, and
+  one request repeated during a single start is answered `INVALID_PARAMS` and then `NOT_READY`.
+- CA l.785 against l.786 and l.794: `grant-revoked` applies when "revoked grants, alone or together with
+  expired grants, would allow every requested scope that active policy does not allow" (l.785), and
+  `grant-expired` when "expired grants alone would allow every requested scope that active policy does not
+  allow" (l.786). When expired grants alone would allow every such scope and a revoked grant would allow
+  one of them, the second meaning holds, and the first holds as well unless "together with" requires that
+  the revoked grant be needed. "When several denial codes apply, Capability Authority MUST return the
+  first applicable code in the order of this table" (l.794) then gives `grant-revoked`; under the other
+  reading the answer is `grant-expired`. Which is meant is not said.
 
 ---
 
