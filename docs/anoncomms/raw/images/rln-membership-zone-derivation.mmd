@@ -1,0 +1,14 @@
+%% Source of images/rln-membership-zone-derivation.png (rln-membership-zone.md). Render after an
+%% edit: base64url-encode this file and GET https://mermaid.ink/img/<encoded>?type=png&width=2000&scale=2&bgColor=!white
+%%{init: {"theme": "base", "themeVariables": {"lineColor": "#9aa0a6", "primaryTextColor": "#111111", "edgeLabelBackground": "#fff4c2", "fontSize": "15px"}}}%%
+flowchart LR
+    ABS(["not in tree"]) -->|"Registered: Insert"| LIVE["live"]
+    LIVE -->|"Extended: no change"| LIVE
+    LIVE -->|"Slashed or expiry: Remove"| REM["removed<br/>index never reused"]
+    REM -->|"Extended after expiry: Insert"| LIVE
+    REM -->|"Erased: no change"| REM
+
+    classDef live fill:#d4f5dd,stroke:#2e9b52,color:#111111
+    classDef done fill:#e6e6e6,stroke:#8a8a8a,color:#111111
+    class ABS,REM done
+    class LIVE live

@@ -1,0 +1,26 @@
+%% Source of images/rln-membership-zone-registration.png (rln-membership-zone.md). Render after an
+%% edit: base64url-encode this file and GET https://mermaid.ink/img/<encoded>?type=png&width=2000&scale=2&bgColor=!white
+%%{init: {"theme": "base", "flowchart": {"curve": "basis", "nodeSpacing": 40, "rankSpacing": 70, "padding": 6}, "themeVariables": {"lineColor": "#9aa0a6", "primaryTextColor": "#111111", "edgeLabelBackground": "#ffffff", "fontSize": "15px"}, "themeCSS": "marker { overflow: visible; } .arrowMarkerPath { transform: scale(1.7); transform-origin: 5px 5px; } .edgeLabel, .edgeLabel p, .edgeLabel span { font-size: 12px; line-height: 1.2; }"}}%%
+flowchart LR
+    APP["Basecamp UI,<br/>CLI, app<br/>(user interface)"] -->|"#nbsp;1. interact#nbsp;"| MOD["Module<br/>(user node)"]
+    MOD -->|"#nbsp;2. Register /#nbsp;<br/>#nbsp;Extend / Erase#nbsp;"| LSEQ["LEZ<br/>Sequencer<br/>(LEZ)"]
+    LSEQ -->|"#nbsp;3. execute#nbsp;"| PROG["Registration<br/>program<br/>(LEZ)"]
+    LSEQ -->|"#nbsp;4. inscribe#nbsp;"| LCH["LEZ channel<br/>(Bedrock)"]
+    LCH -->|"#nbsp;5. adopted#nbsp;<br/>#nbsp;LEZ blocks#nbsp;"| ZSEQ["Zone<br/>sequencer<br/>(Zone)"]
+    LCH -->|"#nbsp;5. finalized#nbsp;<br/>#nbsp;LEZ blocks#nbsp;"| IDX["Zone indexer<br/>(watchdog; registry access<br/>hours later)"]
+    LSEQ -.->|"#nbsp;finalized history#nbsp;<br/>#nbsp;under the hash chain,#nbsp;<br/>#nbsp;preview#nbsp;"| ZSEQ
+    ZSEQ -->|"#nbsp;6. publish#nbsp;<br/>#nbsp;batch#nbsp;"| ZCH["Zone channel<br/>(Bedrock)"]
+    IDX -->|"#nbsp;7. check#nbsp;<br/>#nbsp;batches#nbsp;"| ZCH
+    ZSEQ -->|"#nbsp;8. roots, proof path,#nbsp;<br/>#nbsp;membership state#nbsp;<br/>#nbsp;(registry access)#nbsp;"| MOD
+    linkStyle default stroke-width:2.5px
+
+    classDef ui fill:#1a2826,stroke:#9fbfb3,color:#ffffff
+    classDef user fill:#d6e4ff,stroke:#3b6fd8,color:#111111
+    classDef lez fill:#d4f5dd,stroke:#2e9b52,color:#111111
+    classDef l1 fill:#ffc98f,stroke:#c25e00,color:#111111
+    classDef zone fill:#fbcfe8,stroke:#be185d,color:#111111
+    class APP ui
+    class MOD user
+    class LSEQ,PROG lez
+    class LCH,ZCH l1
+    class ZSEQ,IDX zone

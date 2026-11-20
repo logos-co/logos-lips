@@ -1,0 +1,17 @@
+%% Source of images/rln-membership-zone-module.png (rln-membership-zone.md). Render after an
+%% edit: base64url-encode this file and GET https://mermaid.ink/img/<encoded>?type=png&width=2000&scale=2&bgColor=!white
+%%{init: {"theme": "base", "flowchart": {"curve": "basis", "nodeSpacing": 40, "rankSpacing": 70, "padding": 6, "wrappingWidth": 400}, "themeVariables": {"lineColor": "#9aa0a6", "primaryTextColor": "#111111", "edgeLabelBackground": "#ffffff", "fontSize": "15px"}, "themeCSS": "marker { overflow: visible; } .arrowMarkerPath { transform: scale(1.7); transform-origin: 5px 5px; } .edgeLabel, .edgeLabel p, .edgeLabel span { font-size: 12px; line-height: 1.2; }"}}%%
+flowchart LR
+    IDX["Registry access<br/>(a Zone node's interface, the Zone channel<br/>through the Module's node, or its own Zone indexer)"] -->|"#nbsp;valid roots, Merkle proof path,#nbsp;<br/>#nbsp;membership state, ConfigState, LEZ clock#nbsp;<br/>#nbsp;trust: by level, see Registry access#nbsp;"| MOD["Module<br/>(user node)"]
+    MOD -->|"#nbsp;Register, Extend, Erase, Slash#nbsp;<br/>#nbsp;trust: the LEZ Sequencer, for the receipt#nbsp;"| LSEQ["LEZ Sequencer<br/>(LEZ)"]
+    MOD -->|"#nbsp;RLN-API#nbsp;"| APP["User interface"]
+    linkStyle default stroke-width:2.5px
+
+    classDef ui fill:#1a2826,stroke:#9fbfb3,color:#ffffff
+    classDef user fill:#d6e4ff,stroke:#3b6fd8,color:#111111
+    classDef lez fill:#d4f5dd,stroke:#2e9b52,color:#111111
+    classDef zone fill:#fbcfe8,stroke:#be185d,color:#111111
+    class APP ui
+    class MOD user
+    class LSEQ lez
+    class IDX zone

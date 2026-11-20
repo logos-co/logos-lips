@@ -523,7 +523,7 @@ This document does not specify that program; it requires the following.
       registration_fee: u128,         // non-refundable, paid with every Register
       epoch_size_sec: u64,            // declared for the RLN-API registry parameters read
       min_rate_limit: u64,            // lowest rate_limit a Register may take
-      max_rate_limit: u64,            // highest rate_limit a Register may take
+      max_rate_limit: u64,            // highest rate_limit a Register may take; below 2^16, the circuits' bound
       min_active_duration_ms: u64,    // shortest active duration at Register and Extend
       max_active_duration_ms: u64,    // longest active duration at Register and Extend
       tree_id: [u8; 32],              // the registry this configuration belongs to; in every event
@@ -550,6 +550,9 @@ This document does not specify that program; it requires the following.
   plus the time to detect a double-signal and include the `Slash`,
   so that every validator has stopped accepting the leaf, and any slash has landed, before the deposit can leave the escrow;
   the number is a deployment parameter ([Parameters](#parameters)).
+- **Rate limit bound.** `max_rate_limit` MUST be below 2^16: the RLN circuits bound `messageId` to 16 bits
+  and do not range-check `userMessageLimit`, so a limit at or above 2^16 cannot be fully used
+  (yAcademy 2023 Low-1, RLN-01 of the internal circuit review); the registry is where the bound is enforced.
 - **Leaf indices.** `Register` assigns them in order, never reuses one, and fails at 2^20.
 - **One registration per identity commitment.** A closed membership account never opens again.
 - **Events.** The program emits one `ProgramEvent` per successful action, whatever the call depth,
