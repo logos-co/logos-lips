@@ -174,8 +174,8 @@ index < core_quota + (leader_quota - core_quota) * L1 + (pow_quota - core_quota)
 # Verify pol_sl is a slot of the epoch, whatever the branch. Both differences
 # are taken in the scalar field and must fit 64 bits: for a slot outside the
 # epoch, one of them wraps around the field.
-pol_sl - pol_epoch_first_slot < 2**64
-pol_epoch_last_slot - pol_sl < 2**64
+pol_sl - pol_window_first_slot < 2**64
+pol_window_last_slot - pol_sl < 2**64
 
 # Check if it's a registered core node
 zk_id = zkhash(b"KDF", core_sk)
