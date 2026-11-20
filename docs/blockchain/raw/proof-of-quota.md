@@ -113,7 +113,7 @@ Such that the following constraints hold:
 
 **Step 1**: The prover selects an `index` for the chosen key. This index must be lower than the allowed quota and not already used. This index is used to derive the key nullifier in step 5. Limiting the possible values of this index also limit the possible nullifier created which produce the desired effect: limiting the generation of keys to a certain quota. `index` is on 20 bits, so a quota may be at most $`2^{20} - 1`$.
 
-Whatever the branch, `pol_sl` must be a slot of the epoch: `pol_epoch_first_slot <= pol_sl <= pol_epoch_last_slot`.
+Whatever the branch, `pol_sl` must be a slot of the epoch: `pol_window_first_slot <= pol_sl <= pol_window_last_slot`.
 
 **Step 2:**  If the prover indicated that the node is a core node for the proof, the proof checks that:
 
