@@ -71,8 +71,8 @@ class ProofOfQuotaPublic:
     pol_epoch_nonce: int  # PoL Epoch nonce
     pol_t0: int           # PoL constant t0
     pol_t1: int           # PoL constant t1
-    pol_epoch_first_slot: int # First slot of the epoch (64 bits)
-    pol_epoch_last_slot: int  # Last slot of the epoch (64 bits)
+    pol_window_first_slot: int # First slot of the epoch (64 bits)
+    pol_window_last_slot: int  # Last slot of the epoch (64 bits)
 ```
 
 The proof's public signal vector is fixed by the circuit: the output first, then the public inputs in the order listed above.
