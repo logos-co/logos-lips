@@ -28,7 +28,7 @@
 | 1.0.1 | Remove the protection against adaptive adversary from PoL. It impacts the PoL section of PoQ. Update the performance according to the new circuit. Remove old project name from DSTs | 2026-04-09 |
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection; benchmark the three branch circuit | 2026-09-08 |
-| 1.3.0 | Require `pol_sl` to be a slot of the epoch in every branch, with the public inputs `pol_epoch_first_slot` and `pol_epoch_last_slot` | 2026-11-10 |
+| 1.3.0 | Require `pol_sl` to be a slot of the epoch in every branch, with the public inputs `pol_window_first_slot` and `pol_window_last_slot` | 2026-11-10 |
 
 
 # Introduction
