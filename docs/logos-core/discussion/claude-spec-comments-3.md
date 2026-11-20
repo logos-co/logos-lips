@@ -2525,6 +2525,15 @@ that holds keys. A and B stand for other modules and are local to one item.
   Package Manager "MUST reject a module declaration that has `extends` and has neither `primary_contract`
   nor `implements`" (PM l.1142). Whether Runtime rejects the same input from another source, or accepts
   it and ignores `extends`, is not said.
+- PM l.533 against l.531, l.448 and l.727: "The same key material MUST NOT be used for provenance signing,
+  call-evidence signing, TLS authentication, or another signature algorithm" (l.533) has no subject. It
+  stands between two rules on protected trust input (l.531, l.534), so it may bind Package Manager, which
+  sees the package-signing input only, or the deployment, which alone knows every use of a key. Elsewhere
+  a key in two roles is described and not forbidden: "Configuring the same key material for more than one
+  purpose does not merge those decisions" (l.448), and the package signer and the build-provenance signer
+  stay distinct "even when protected policy authorizes the same credential for more than one role"
+  (l.727). Whether Package Manager must refuse a trust input in which it can see such a reuse, and with
+  which result, is not said. CA l.1312 has the same sentence for an evidence key.
 
 ---
 
