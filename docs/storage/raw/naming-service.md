@@ -19,7 +19,7 @@ TBW
 
 ## Motivation
 
-Content-addressable systems such as Logos Storage identify the [10/DATASETS](/YOKL7w9nR6mVvtgpzBxifg) stored within the network by means of a [Content ID](https://specs.ipfs.tech/cid/) (CID). A CID is tied to the _content_ of the dataset - in the case of Logos Storage, it embeds the root of a [12/MERKLE-TREE](/IyZLgeA1TzaL8xNPKmhCYw) computed over the dataset itself[^1].
+Content-addressable systems such as Logos Storage identify the [DATASETS](datasets.md) stored within the network by means of a [Content ID](https://specs.ipfs.tech/cid/) (CID). A CID is tied to the _content_ of the dataset - in the case of Logos Storage, it embeds the root of a [MERKLE-TREE](../draft/merkle-tree.md) computed over the dataset itself[^1].
 
 This makes the CID verifiable - once you download a dataset, just compute the Merkle root and you can be sure that the CID you have indeed refers to it - but creates an inconvenience: if we want to _modify_ the content even a tiny bit and republish it, we get a completely different CID.
 
@@ -29,7 +29,7 @@ This is precisely what the naming service provides - it introduces a mechanism f
 
 ## Semantic
 
-The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”, “SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “MAY”, and “OPTIONAL” in this document are to be interpreted as described in [RFC 2119][rfc2119].
+The key words “MUST”, “MUST NOT”, “REQUIRED”, “SHALL”, “SHALL NOT”, “SHOULD”, “SHOULD NOT”, “RECOMMENDED”, “MAY”, and “OPTIONAL” in this document are to be interpreted as described in [RFC 2119](https://www.rfc-editor.org/rfc/rfc2119.html).
 
 
 ### Names and Name Records
@@ -50,7 +50,7 @@ Labels MUST be valid UTF-8-encoded strings. Implementations MUST encode the publ
 
 #### Name Records
 
-Name records are always associated to a _parent name_ $u$. Their CDDL schema is provided in Listing 1, and we discuss its fields next.
+Name records are always associated to a _parent name_ $u$. Their [CDDL](https://www.rfc-editor.org/rfc/rfc8610.html) schema is provided in Listing 1, and we discuss its fields next.
 
 ```cddl=
 unix-epoch = #6.1(uint)
@@ -69,12 +69,12 @@ name-record = {
 * `label`. For a name record having $u$ as parent, `label` MUST match the contents of $l_u$.
 * `seqnum`. Orders the name records that have the same name as parent. Given two name records $a$ and $b$ for $u$, we say that $a$ is _more recent_ than $b$ iff $\text{a.seqnum} > \text{b.seqnum}$.
 * `expiration`. A Unix epoch timestamp defining the expiration date for the record, in the UTC timezone. When the current Unix epoch in UTC becomes larger than the `expiration` for a record $a$, we say that $a$ is _expired_. Records SHOULD, by default, have an expiration of $8$ hours from the time they are created.
-* `cid`. The `cid` to which this name record points to. It MUST contain a valid encoding of a [CIDv1](https://github.com/multiformats/cid) as a bytestring. In Logos Storage, those are usually dataset CIDs. Size is limited to prevent abuse while at the same time [being enough to represent most hash digests](https://specs.ipfs.tech/ipips/ipip-0512/).
+* `cid`. The `cid` to which this name record points to. It MUST contain a valid encoding of a [CIDv1](https://specs.ipfs.tech/cid/) as a bytestring. In Logos Storage, those are usually dataset CIDs. Size is limited to prevent abuse while at the same time [being enough to represent most hash digests](https://specs.ipfs.tech/ipips/ipip-0512/).
 * `version`. Defines the version of the name record implementation. Starts at $1$.
 
 #### Serialization and Signing
 
-Name records MUST be CBOR-serialized, and then placed in a [libp2p _signed envelope_](https://github.com/libp2p/specs/blob/master/RFC/0002-signed-envelopes.md) where they are then signed with $sk$. CBOR decoders MUST reject CBOR maps containing duplicate keys. Signed envelopes are Protobuf-serialized so the final record is a hybrid of a Protobuf-serialized envelope and a CBOR-serialized payload. We refer to this conjugate as a Signed Name Record (SNR).
+Name records MUST be [CBOR](https://www.rfc-editor.org/rfc/rfc8949.html)-serialized, and then placed in a [libp2p _signed envelope_](https://github.com/libp2p/specs/blob/master/RFC/0002-signed-envelopes.md) where they are then signed with $sk$. CBOR decoders MUST reject CBOR maps containing duplicate keys. Signed envelopes are Protobuf-serialized so the final record is a hybrid of a Protobuf-serialized envelope and a CBOR-serialized payload. We refer to this conjugate as a Signed Name Record (SNR).
 
 With compact CBOR encoding, a compressed secp256k1 public key, and a DER-encoded signature, a version $1$ signed record is approximately $200$ bytes for a $10$-byte label and a $36$-byte CID, and approximately $600$ bytes at the maximum label and CID lengths. These estimates include about $120$ bytes of envelope overhead. Other supported key types and encoding choices may produce larger records.
 
@@ -110,7 +110,7 @@ _Publishing_ is the process through which names are created by a publisher (the 
 
 1. constructing a new name record with the correct, up-to-date base metadata (`label`, `expiration`, and `cid`) in it;
 2. picking a suitable sequence number;
-3. creating a [SNR](https://hackmd.io/WS0oY7dwQUGfVpQ8stEQzA#Serialization-and-Signing) by signing it with the private key of $u$'s name family, $sk$;
+3. creating a [SNR](#serialization-and-signing) by signing it with the private key of $u$'s name family, $sk$;
 4. advertising the new record under $u$'s _name key_, $d_u$, to the appropriate _registrar nodes_.
 
 The Python pseudocode for publishing a record is shown in Listing 3. We discuss the details of how to generate sequence numbers and encode name keys in the following sections.
@@ -162,13 +162,13 @@ async def publish(
 
 The sequence number for a new name record SHOULD be selected so that it is larger than the sequence number of any record ever published for that name. Different name records with different values in their fields MUST NOT have the same sequence number, except in the case of expiry extension (see [Extending Expiry](#expiry-extension)).
 
-By default, implementations SHOULD use the current Unix epoch, transposed to UTC, as the sequence number for new name records. Implementations SHOULD keep their clocks synchronized with a public NTS server to avoid sequence number violations. Implementations MAY allow use of arbitrary, application-specific sequence numbers, so that clients can represent for instance version numbers.
+By default, implementations SHOULD use the current Unix epoch, transposed to UTC, as the sequence number for new name records. Implementations SHOULD keep their clocks synchronized with a public [NTS](https://www.rfc-editor.org/rfc/rfc8915.html) server to avoid sequence number violations. Implementations MAY allow use of arbitrary, application-specific sequence numbers, so that clients can represent for instance version numbers.
 
 Note that this limits publishing rates to 1 new record per name per second (or they would get colliding sequence numbers), but we argue this is not a meaningful limitation. Implementations MUST be aware of this, however, and either throttle calls to `publish` accordingly or return an error if calls are done too quickly.
 
 #### Name Keys
 
-A _name key_ MUST be constructed as a [CIDv1](https://github.com/multiformats/cid) encoding of the name itself. Implementations MUST use the `0xCD04` libp2p codec, which represents Logos Storage Names, as the content type. A CID for a name would look like:
+A _name key_ MUST be constructed as a [CIDv1](https://specs.ipfs.tech/cid/) encoding of the name itself. Implementations MUST use the `0xCD04` libp2p codec, which represents Logos Storage Names, as the content type. A CID for a name would look like:
 
 ```
 <CIDv1-multicodec><0xCD04><<sha2-256><0x20><name>>
@@ -184,13 +184,13 @@ Note that since extending the expiry of a record requires the ability to sign a 
 
 #### Registrar Nodes
 
-The Logos Storage Name Service builds on top of Kad-DHT. While we do envision other possibilities for resolving and disseminating SNRs (e.g. using gossip), we do not cover those in this spec.
+The Logos Storage Name Service builds on top of [Kad-DHT](https://github.com/libp2p/specs/blob/master/kad-dht/README.md). While we do envision other possibilities for resolving and disseminating SNRs (e.g. using gossip), we do not cover those in this spec.
 
 When publishing to Kad-DHT, name records MUST be sent to the $k$ nodes closest to the name key $d_u$, which is the default behavior. Implementations MUST advertise using `PUT_VALUE` with the Name CID as key, and the name record as value.
 
 ### Refreshing Names
 
-Since DHTs are dynamic, a name record might need to be re-advertised several times before it expires so it remains available. This is different from [expiry extension](#Expiry-Extension) in that we are re-advertising an existing record and do not need to create a new one. We refer to this process of re-adverting a name as _refreshing_ it.
+Since DHTs are dynamic, a name record might need to be re-advertised several times before it expires so it remains available. This is different from [expiry extension](#expiry-extension) in that we are re-advertising an existing record and do not need to create a new one. We refer to this process of re-adverting a name as _refreshing_ it.
 
 Since refreshing does not require knowledge of the name family's private key, _any_ node in the network can do it, not just the publisher. We refer to the set of those nodes, which might include the publisher, as _refreshers_.
 
@@ -342,9 +342,23 @@ Copyright and related rights waived via [CC0](https://creativecommons.org/public
 
 ## References
 
-- [RFC 2119: Key words for use in RFCs to Indicate Requirement Levels][rfc2119]
+### Normative
 
-[rfc2119]: https://www.rfc-editor.org/rfc/rfc2119.html
+- [RFC 2119: Key words for use in RFCs to Indicate Requirement Levels](https://www.rfc-editor.org/rfc/rfc2119.html)
+- [CID (Content IDentifier)](https://specs.ipfs.tech/cid/)
+- [libp2p Peer IDs and Keys](https://github.com/libp2p/specs/blob/master/peer-ids/peer-ids.md#keys)
+- [libp2p RFC 0002: Signed Envelopes](https://github.com/libp2p/specs/blob/master/RFC/0002-signed-envelopes.md)
+- [libp2p Kademlia DHT specification](https://github.com/libp2p/specs/blob/master/kad-dht/README.md)
+- [RFC 8610: Concise Data Definition Language (CDDL)](https://www.rfc-editor.org/rfc/rfc8610.html)
+- [RFC 8949: Concise Binary Object Representation (CBOR)](https://www.rfc-editor.org/rfc/rfc8949.html)
+- [RFC 8915: Network Time Security for the Network Time Protocol](https://www.rfc-editor.org/rfc/rfc8915.html)
+
+### Informative
+
+- [DATASETS](datasets.md)
+- [MERKLE-TREE](../draft/merkle-tree.md)
+- [IPIP-0512: Limit Identity CID Size to 128 Bytes in UnixFS Contexts](https://specs.ipfs.tech/ipips/ipip-0512/)
+- [Nim libp2p Kademlia implementation: value storage and expiration](https://github.com/iftech/nim-libp2p/blob/499fc1997fa9e80860847b34a6af5c48f0b7668c/libp2p/protocols/kademlia/put.nim#L36)
 
 [^1]: The CID of a dataset actually contains a hash of its CBOR-serialized manifest, which in turn contains the root of the Merkle tree and other metadata, such as the block size, that also needs to be verified.
 [^2]: The $q$ are actually the nodes who reply first, so latency and processing times will also bias selection.
