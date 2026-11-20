@@ -2544,6 +2544,17 @@ that holds keys. A and B stand for other modules and are local to one item.
   entries, as with a bound on known module instances, or when it is shared by the callers of one system
   service, is left to each deployment. Two documents that both meet the sentence can list different pools.
 
+- CA l.126 against l.128-129, l.294 and l.1231: for a list, the text requires only that "every constrained
+  list in the narrower scope MUST be a subset of the broader scope" (l.126). It does not say whether a
+  narrower scope whose list is absent, and so unconstrained ("An absent optional list is unconstrained",
+  l.129), lies within a broader scope that constrains that list. For an identity it does say: "if it is
+  present, the narrower scope MUST contain the same identity" (l.128). The case is the common one: the
+  scope of a Runtime Control method call has "`methods` containing exactly one method declaration root
+  and `events` absent" (l.1231). Whether an allow that lists `events`, even as empty, can authorize a
+  method call is therefore open. The scope of a subscription to a Runtime Control event is not given at
+  all, though the scope "covers calls, observations, and subscriptions" (l.294). If it carries an empty
+  `methods` list, an allow that leaves `events` absent in order to cover a method call covers every
+  subscription as well, and policy cannot permit a method without permitting every event.
 ---
 
 ## Appendix A — Items resolved by the current specs
