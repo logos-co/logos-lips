@@ -42,7 +42,7 @@ audits, and lists in its appendices everything that is settled.
 | 1 | Earlier items answered, still needing discussion | 1 |
 | 2.1 | Items of the second audit with no response | 4 |
 | 2.2 | Concerns of `human-spec-comments.md` that still need an answer | 2 |
-| 3.1 | Contradictions and gaps in the spec text | 37 |
+| 3.1 | Contradictions and gaps in the spec text | 38 |
 | 3.2 | The system contracts against their own rules | 4 |
 | 3.3 | The integrator documents against the specs | 8 |
 | 3.4 | Porting the existing module catalog | 7 |
@@ -1358,6 +1358,47 @@ other rules depend on is not stated.
 - **Suggested resolution:** say what an ordinary consumer's evaluation may name, or require one answer
   for an unknown subject and a subject the consumer may not observe.
 
+#### TF-62 — What the exact match of supplied contract references requires for a reference that the source omits is not stated
+- **Specs:** INTERFACE l.1717 ("When a package, Runtime input, static registration, or protected built-in
+  declaration supplies contract references, its optional primary contract, implemented-interface set, and
+  extended-contract set MUST exactly match the validated descriptor"), l.181-183 ("Runtime, package, and
+  deployment records MAY mirror resolved implemented-interface identities. They are not required for a
+  concrete module to implement an interface"); PM l.1441 (Runtime "MUST require the descriptor's optional
+  primary contract, implemented-interface set, and extended-contract set to match the handoff exactly"),
+  l.1132 ("The `implements`, `extends`, `requires`, and `requested_permissions` arrays MUST be non-empty
+  when present"); RUNTIME l.1349-1350 ("An accepted input may omit `primary_contract`, `implements`, or
+  both. When both are absent, the record declares no contract"), l.1455-1456 ("If a record includes
+  `primary_contract` or `implements` expectations, Runtime MUST apply the exact call-surface checks
+  defined in Section 3.3 before marking the corresponding provider views ready"), l.503-504 ("If an
+  expected contract is absent from the validated provider surface or has a different commitment, Runtime
+  MUST reject that provider view"), l.2848 ("If `implements` is absent, the runtime is not reporting
+  implemented-interface metadata; absence does not assert that the module implements no interfaces"),
+  l.399 ("The validated descriptor supplies the exact contract views retained on the Runtime provider
+  record"), l.1303 (Runtime "MUST preserve its module name, `primary_contract`, `implements`, `extends`,
+  `requires`, and `requested_permissions` without addition or widening").
+- **Issue:** a source states `primary_contract` and omits `implements`, and the validated descriptor of
+  the provider has interface entries. The same case arises for an omitted `extends` against `extends`
+  entries, and for an omitted `primary_contract` against a primary entry. An empty array cannot be written
+  (PM l.1132), so one omission must serve both for a source that states an empty set and for a source
+  that states nothing. The text supports two readings.
+  1. An omitted field states none. The sets differ, the match of l.1717 and PM l.1441 is not exact, and
+     the provider does not become ready. RUNTIME l.1350 reads two absent fields this way.
+  2. An omitted field states nothing, and only what is stated is compared. INTERFACE l.181-183 make the
+     mirroring optional. RUNTIME l.1455-1456 and l.503-504 speak only of the expectations that a record
+     includes, and l.2848 says that absence asserts nothing.
+
+  Under the second reading a further point is open: whether the provider then exposes the views that no
+  accepted fact names. RUNTIME l.399 takes the views from the descriptor. For a handoff, that exposes a
+  contract which the signed declaration does not carry, against l.1303.
+- **Impact:** the same host record or installed package starts on one Runtime and fails on another. Where
+  it starts, a consumer reaches an interface or an earlier contract of the provider on one Runtime and not
+  on another. A tool that writes records or manifests cannot tell whether it must list every implemented
+  interface.
+- **Reading an implementation needs today:** once a source supplies any contract reference, an omitted
+  field states none, so the provider is not exposed unless its descriptor has no entry of that kind.
+- **Suggested resolution:** say in INTERFACE l.1717 and PM l.1441 what an absent field states. If it
+  states nothing, say which views of the descriptor Runtime exposes for a source that omitted them.
+
 ### 3.2 The system contracts, checked against their own rules
 
 The CDDL of Runtime Control (RUNTIME §9.2-§9.3), Configuration (CONFIG §9), Capability Authority, Module
@@ -2476,6 +2517,14 @@ that holds keys. A and B stand for other modules and are local to one item.
   MUST NOT exceed 4194304 bytes" (CA l.1199). Settings whose scopes pass that limit can be saved, and
   every evaluation of a start of that instance is then `invalid-request`. Whether
   `update_permission_settings` refuses such settings, and with which code, is not said.
+- RUNTIME l.1349-1351 against l.1344 and PM l.1142: "An accepted input may omit `primary_contract`,
+  `implements`, or both. When both are absent, the record declares no contract, and Runtime MUST NOT
+  create a provider record merely because it creates the module instance" (l.1349-1351). `extends` "lists
+  earlier contracts that a contract provided by the module extends" (l.1344), so an input that carries
+  `extends` and neither of the two other fields names contracts that nothing it provides can extend.
+  Package Manager "MUST reject a module declaration that has `extends` and has neither `primary_contract`
+  nor `implements`" (PM l.1142). Whether Runtime rejects the same input from another source, or accepts
+  it and ignores `extends`, is not said.
 
 ---
 
