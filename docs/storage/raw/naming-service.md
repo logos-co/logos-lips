@@ -15,7 +15,7 @@ $$
 
 ## Abstract
 
-TBW
+This specification defines the Logos Storage Name Service, which provides a secure mechanism for creating a stable identifier that can be updated by to point to different datasets over time. This effectively allows one to publish the latest version of a dataset without having to incur the complexity of distributing new Content IDentifiers (CIDs) to consumers every time.
 
 ## Motivation
 
