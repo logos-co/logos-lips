@@ -112,7 +112,7 @@ What the design relies on from Bedrock, LEZ and Mantle.
 | --- | --- | --- | --- |
 | User interface | the user's node: the Basecamp RLN membership UI, a CLI, or an app such as a Logos Delivery node | nothing RLN-specific | calls its Module through RLN-API (`register`, `generate_proof`, `validate_proof`) |
 | Module | inside the user's node | keystore, membership records, its registry view (valid-root window, Merkle proof path, status), nullifier log, message-id allocation, a funded account on LEZ (or a membership provider registers on its behalf) | sends `Register`, `Extend` and `Erase` to LEZ; reads roots, its Merkle proof path, its membership state and the LEZ clock from its registry access: a Zone node's interface, the Zone channel through its own node, or its own Zone indexer ([Module Requirements](#module-requirements)) |
-| LEZ Sequencer | LEZ | LEZ state and mempool | receives transactions from the Module and the slasher; inscribes each LEZ block it closes in the LEZ channel on Bedrock; serves readers the finalized history under the hash chain, and a block it has closed but not inscribed yet as a preview |
+| LEZ Sequencer | LEZ | LEZ state and mempool | receives transactions from the Module and the slasher; inscribes each LEZ block it closes in the LEZ channel on Bedrock; serves readers the finalized history under the hash chain, and a block it has closed but not inscribed yet as a preview; which blocks are on Bedrock, and where, the readers take from the LEZ channel itself |
 | LEZ Indexer | any host | the LEZ blocks, events and accounts, re-executed from the LEZ channel on Bedrock | not in the registry's path today: readers take the LEZ blocks from the LEZ channel on Bedrock themselves; the event source once LEZ serves events (`getEvents`, [Later](#later)) |
 | Registration program | LEZ | configuration account, escrow, membership accounts | runs when the LEZ Sequencer executes a transaction that calls it, directly or through a chained call |
 | Bedrock | Logos Blockchain nodes | the LEZ channel (LEZ blocks) and the Zone channel (batches), totally ordered and finalized up to the latest immutable block (LIB); the notes that pay Mantle Transaction fees | lets anyone read every channel; lets only accredited keys write to their channel |
@@ -152,46 +152,11 @@ and validators stop accepting the leaf once the batch with that removal is deep 
 
 Registration (steps 1-9): a user action reaches the registration program on LEZ; every reader derives the new root from the LEZ block, the Zone's batch publishes it, and validators accept it once the batch is deep enough on Bedrock.
 
-```text
-User interface (Basecamp UI, CLI, app)
-  |  1. interact
-  v
-Module (user node) --- 2. Register / Extend / Erase ---> LEZ Sequencer (LEZ) --- 3. execute ---> Registration program (LEZ)
-  ^                                                               |
-  |                                                               |  4. inscribe
-  |                                                               v
-  |                                                     LEZ channel (Bedrock)
-  |                              5. adopted LEZ blocks  /                     \  5. finalized LEZ blocks
-  |                                                 v                             v
-  |  8. roots, proof path,                Zone sequencer (Zone)         Zone indexer (watchdog; registry
-  |     membership state                            |                   access hours later)
-  |     (registry access)                           |  6. publish batch           |  7. check batches
-  +-------------------------------------------------+                             |
-                                                    v                             v
-                                          Zone channel (Bedrock) <----------------+
-
-The LEZ Sequencer also serves the readers the finalized history under the hash chain, and the preview.
-```
+![Registration: steps 1 to 9](images/rln-membership-zone-registration.png)
 
 Messaging and slashing (steps 10-15): a double-signal reveals the identity secret, a slasher slashes the deposit, every reader removes the leaf, and the Zone's batch carries the removal to every validator.
 
-```text
-Module, proof generator (user node) --- 10. message + proof ---> Module, validator (other node)
-                                                                     |              ^
-                                                 11. recovered_secret|              |  15. roots without the leaf
-                                                                     v              |
-                                                             Slasher (any node)     |
-                                                                     |  12. Slash   |
-                                                                     v              |
-                                                   Registration program (LEZ)       |
-                              13. LEZ block with the Slash on        |              |
-                                  Bedrock: every reader              |              |
-                                  removes the leaf                   v              |
-                                                        Zone sequencer (Zone) ------+
-                                                                     |  14. next batch: Remove
-                                                                     v
-                                                        Zone indexer (checks it)
-```
+![Messaging and slashing: steps 10 to 15](images/rln-membership-zone-slashing.png)
 
 | Step | Action | When |
 | --- | --- | --- |
@@ -264,6 +229,8 @@ After the transactions of a LEZ block, every live leaf whose `expiry_timestamp_m
 that LEZ block's `timestamp` produces `Remove{leaf_index}`, in increasing leaf index.
 A leaf expires once per expiry it carries.
 Why a leaf was removed is not part of the tree; readers that need it take it from LEZ.
+
+![A leaf's states under the derivation rules](images/rln-membership-zone-derivation.png)
 
 | Leaf before | Event | Change | Leaf after |
 | --- | --- | --- | --- |
@@ -609,6 +576,8 @@ This document does not specify that program; it requires the following.
 - **Events with the block.** The LEZ Sequencer MUST serve the events of a closed block as soon as it serves the block;
   a reader that gets them only once the block is final trails LEZ by Bedrock finality.
 
+![A membership account's states](images/rln-membership-zone-membership-account.png)
+
 | Account before | Action | Account after |
 | --- | --- | --- |
 | default | `Register` | open |
@@ -642,6 +611,8 @@ and a holder who wants a shorter term chooses a shorter `active_duration_ms`.
 
 The Module uses this registry through RLN-API, under the `logos` namespace binding of RLN-API Appendix A.
 Everything not stated here is as in RLN-API; this document requires the following.
+
+![The Module, its registry access and LEZ](images/rln-membership-zone-module.png)
 
 | From | To | What | Trust |
 | --- | --- | --- | --- |
