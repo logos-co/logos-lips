@@ -420,7 +420,8 @@ so its state can be precomputed per tag.
 It separates observation signatures from any other message the same LEZ-Private key signs,
 such as LEZ TXs, so a signature from one context can never be valid in another.
 The observation identifier used in [Raising a dispute](#raising-a-dispute) is
-`obs_id(obs) = SHA-256(canon(obs) || signature)`, where `signature` is the 64-byte BIP-340 signature.
+`obs_id(obs) = SHA-256(canon(obs) || signature || u64(leaf_index) || membership_proof)`,
+where `signature` is the 64-byte BIP-340 signature and `membership_proof` is taken as carried in the observation.
 The indexer verifies this signature off-chain during aggregation.
 On the optimistic path LEZ does not verify it.
 LEZ verifies it only when a dispute is raised, without depending on LBC,
@@ -1078,11 +1079,12 @@ message DisputeSubmission {
 ```
 
 LEZ identifies each delivered set by its `set_hash`, which it always computes itself from the observations.
-For each observation, `obs_id = SHA-256(canon(obs) || signature)` as defined in [Price Fetching](#price-fetching).
+For each observation, `obs_id = SHA-256(canon(obs) || signature || u64(leaf_index) || membership_proof)` as defined in [Price Fetching](#price-fetching).
 The `obs_id`s are sorted by `oracle_id` in ascending byte order, and
 `set_hash = SHA-256(disputed_round as 8-byte big-endian || obs_id_1 || ... || obs_id_k)`.
-The `membership_proof` and `leaf_index` are excluded, since they are witnesses and not part of the observation.
-Two honest indexers that computed the same set therefore produce the same `set_hash`.
+The `leaf_index` and `membership_proof` are included, so the `set_hash` commits to the exact bytes the proposer used.
+Otherwise a challenger could resubmit the committed set with a corrupted witness and get an honest proposer slashed.
+Honest indexers take these bytes from the same inscriptions, so they still produce the same `set_hash`.
 
 The indexer sends the submission in a LEZ TX signed with its LEZ-Private key,
 and includes its `sender_oracle_id` and membership proof.
