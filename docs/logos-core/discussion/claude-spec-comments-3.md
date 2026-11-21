@@ -2555,6 +2555,18 @@ that holds keys. A and B stand for other modules and are local to one item.
   all, though the scope "covers calls, observations, and subscriptions" (l.294). If it carries an empty
   `methods` list, an allow that leaves `events` absent in order to cover a method call covers every
   subscription as well, and policy cannot permit a method without permitting every event.
+- INTERFACE l.379 against l.361 and l.381: the erasure rule covers "their owned temporary buffers
+  containing payload data" (l.361), and the text then says that "These requirements do not prohibit
+  intentional storage or subsequent use explicitly defined by the method's contract" (l.379). A method's
+  contract is its request and response declarations and its entry in `_sensitive`, and none of these can
+  state a storage or a use, so what makes one "explicitly defined" is not said. Two ordinary cases rest
+  on the sentence: a provider that keeps the value a marked request asks it to store, and a caller that
+  hands the value of a marked response to the person or program it acts for. For the second case the text
+  adds only that sensitivity does not "protect plaintext from its intended recipient" (l.381), without
+  saying who the intended recipient of a response is. Whether a copy that a caller writes to a display, a
+  file or another process is a use the rule permits, or a buffer the caller must not create, is left to
+  each implementation.
+
 ---
 
 ## Appendix A — Items resolved by the current specs
