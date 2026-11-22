@@ -2620,6 +2620,16 @@ that holds keys. A and B stand for other modules and are local to one item.
   record that another package depends on, the only path the text gives is to remove every dependent
   first. The duty to "retain the selected artifact bytes while their installed record remains present"
   (l.821) has no stated remedy once it is broken.
+- PM l.1280 against l.1308, l.1495 and l.1516-1517: limit exhaustion and the counter values "MUST NOT
+  depend on implementation-local resource thresholds" (l.1280). So a Package Manager that cannot hold
+  what a resolution inside the limits needs may not report a resolver limit as exhausted, and the text
+  names no result for that case. `package-unavailable` is for material that "cannot be located or
+  materialized" (l.1308), and it "means the requested package or source could not be located or
+  materialized" (l.1495). Both describe the source. Neither names the Package Manager's own memory or
+  storage, or a documented bound on them. The invocation-error channels "report inability to obtain a
+  valid Package Manager response" (l.1516), and such failures "MUST NOT be encoded as another Package
+  Manager error value" (l.1517). It is not said whether a Package Manager that ends a root operation at
+  its own bound answers `package-unavailable`, or fails the invocation.
 
 ---
 
