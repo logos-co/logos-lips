@@ -2609,6 +2609,17 @@ that holds keys. A and B stand for other modules and are local to one item.
   (l.1279), so two Package Managers that read the term differently disagree on the same inputs. Under
   the second reading, the number of names a bound package requires is bounded only by the size of its
   manifest.
+- PM l.1302 against l.1685, l.1694 and l.821: when retained bytes "are absent or do not match the signed
+  digest, the root operation MUST fail with `artifact-integrity-failed` without changing the installed
+  package set" (l.1302). The text names no operation that restores those bytes. "Installing an
+  already-installed package identity with the same manifest commitment succeeds with the current
+  installed record and creates no duplicate" (l.1685). It is not said whether that install may write the
+  verified bytes of its source again, or fails under l.1302 because it reaches the damaged record.
+  `remove_package` "MUST fail with `package-in-use` when another installed package has the selected
+  exact package and manifest commitment in its recorded dependency closure" (l.1694). So for a damaged
+  record that another package depends on, the only path the text gives is to remove every dependent
+  first. The duty to "retain the selected artifact bytes while their installed record remains present"
+  (l.821) has no stated remedy once it is broken.
 
 ---
 
