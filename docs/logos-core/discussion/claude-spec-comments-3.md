@@ -2630,6 +2630,18 @@ that holds keys. A and B stand for other modules and are local to one item.
   valid Package Manager response" (l.1516), and such failures "MUST NOT be encoded as another Package
   Manager error value" (l.1517). It is not said whether a Package Manager that ends a root operation at
   its own bound answers `package-unavailable`, or fails the invocation.
+- PM l.1478-1490 against CREDENTIAL STORE l.312 and l.422, and INTERFACE l.3308 and l.3311: the
+  Credential Store's error list has `capacity`, which "means the provider cannot admit the operation
+  within its configured resource limits" (CREDENTIAL STORE l.312), and its provider must "reject new
+  admission with `capacity` before exhausting that bound" (CREDENTIAL STORE l.422). The Package
+  Manager's closed error list (PM l.1478-1490) has no such value. A Package Manager that bounds the root
+  operations it holds waiting can therefore refuse one only through the invocation status, and "Provider
+  code MAY return or complete with `LOGOS_OK`, `LOGOS_ERR_METHOD_NOT_FOUND`, `LOGOS_ERR_INVALID_PARAMS`,
+  or `LOGOS_ERR_MODULE`" (INTERFACE l.3308). `LOGOS_ERR_MODULE` is also what a caller receives for "A
+  provider result violating these rules" (INTERFACE l.3311). So the caller of a busy Package Manager
+  cannot tell a refusal that a later attempt may clear from a provider fault. The text does not say
+  whether that is intended, or whether the Package Manager's list should have a value like the
+  Credential Store's `capacity`.
 
 ---
 
