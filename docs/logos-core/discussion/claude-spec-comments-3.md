@@ -2594,6 +2594,21 @@ that holds keys. A and B stand for other modules and are local to one item.
   (l.1280). The text does not say whether the resolver-limit set may hold a further limit, such as
   dependency entries in one partial closure, whose exhaustion would also be `dependency-unavailable`
   under "resolution exhausted a protected resolver limit" (l.1502).
+- PM l.1243 against l.1257-1258, l.1260 and l.1279: the first resolver limit bounds "distinct package
+  names in one partial closure" (l.1243), and it is verified "Before adding a package name to a partial
+  closure" (l.1258). The term is not defined, and it is not said whether a name that a bound package
+  requires, and that has no assigned candidate yet, is in the partial closure. The text points both ways.
+  Depth is measured on a "path from the root to that name in the partial closure" (l.1257) and is checked
+  before "inspecting a manifest at a greater depth" (l.1258), which concerns a name not yet bound. But
+  l.1260 sets "a package name already in the partial closure" beside "the names it requires" (l.1260).
+  The readings give different results for a candidate that requires more names than the limit. If
+  required names count, the operation ends when that candidate is bound. If only bound names count,
+  resolution goes on name by name, and before the limit is reached it may meet a conflict and backtrack
+  to a lower candidate that resolves, or meet unavailable material and fail with `package-unavailable`.
+  Limit exhaustion is to be "determined by the installed state, catalog inputs, and protected policy"
+  (l.1279), so two Package Managers that read the term differently disagree on the same inputs. Under
+  the second reading, the number of names a bound package requires is bounded only by the size of its
+  manifest.
 
 ---
 
