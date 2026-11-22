@@ -2581,6 +2581,19 @@ that holds keys. A and B stand for other modules and are local to one item.
   differ. The only values an implementation has to publish are the maxima: "An implementation MUST
   document the maximum value it supports for each resolver limit" (l.1252). Nothing requires the values
   of a preset to be documented.
+- PM l.1241-1246 against l.205, l.252 and l.1280: the resolver limits bound "distinct package names in
+  one partial closure" (l.1243), "dependency depth" (l.1244), "candidate records considered for one
+  package name" (l.1245) and "candidate-assignment attempts in one root operation" (l.1246). None of them
+  counts dependency entries. A manifest's list is "? dependencies: [*
+  logos.package_manifest.package_dependency]" (l.252) with no bound of its own, so its only bound is that
+  the manifest's "encoded size MUST NOT exceed 4 MiB" (l.205), which admits tens of thousands of entries.
+  Each candidate-assignment attempt has to read at least the entries of the candidate it binds. So the
+  work of one root operation is bounded by the attempt limit multiplied by a figure that the limits do
+  not hold and that an accepted signer chooses. An implementation cannot bound that figure itself,
+  because exhaustion and the counter values "MUST NOT depend on implementation-local resource thresholds"
+  (l.1280). The text does not say whether the resolver-limit set may hold a further limit, such as
+  dependency entries in one partial closure, whose exhaustion would also be `dependency-unavailable`
+  under "resolution exhausted a protected resolver limit" (l.1502).
 
 ---
 
