@@ -2566,6 +2566,21 @@ that holds keys. A and B stand for other modules and are local to one item.
   saying who the intended recipient of a response is. Whether a copy that a caller writes to a display, a
   file or another process is a use the rule permits, or a buffer the caller must not create, is left to
   each implementation.
+- PM l.1251 against l.1241, l.1248-1249, l.1252 and l.1279: "Protected deployment policy MUST supply a
+  resolver-limit set containing positive integer limits" (l.1241), and "Package Manager MUST reject a
+  protected policy configuration that omits a limit or supplies a non-positive value" (l.1251). Between
+  the two, the text allows that "A deployment may provision those values as one preset or policy bundle"
+  (l.1248) and says that "The resolved values are protected policy input" (l.1249). It does not say who
+  may define a preset, nor whether the configuration judged for an omitted limit is the one the
+  deployment wrote or the resolved values. An implementation that ships a preset and applies it whenever
+  the deployment's configuration names no limit never sees an omission, so on that reading the rule can
+  only reject a partial set or a non-positive value. On the other reading such a default is the
+  acceptance the rule forbids, and a deployment has to name its limits or a preset. The values decide
+  results: exhaustion is determined by "the installed state, catalog inputs, and protected policy"
+  (l.1279), so two Package Managers given the same written policy resolve differently when their presets
+  differ. The only values an implementation has to publish are the maxima: "An implementation MUST
+  document the maximum value it supports for each resolver limit" (l.1252). Nothing requires the values
+  of a preset to be documented.
 
 ---
 
