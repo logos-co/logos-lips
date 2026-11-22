@@ -29,8 +29,8 @@ The Zone sequencer computes it and publishes its roots on Bedrock.
 Zone indexers compute it too, check every published root,
 and serve the registry to the RLN Module that RLN-API specifies ("the Module" for short), one in every user's node.
 A Module holds no tree: it proves and validates against the published roots,
-and reads its Merkle proof path and its membership state from a Zone node,
-the roots from Bedrock through its own node when it wants to check them,
+and reads its Merkle proof path and its membership state from a reader, the Zone sequencer or a Zone indexer;
+the roots from Bedrock through its own Logos Blockchain node when it wants to check them;
 and everything from a Zone indexer of its own when it wants to trust nobody.
 
 RLN-API itself does not change; its `logos` namespace binding is filled in as [Module Requirements](#module-requirements) states.
@@ -65,18 +65,19 @@ Every term not listed here keeps the meaning and spelling of its source:
 RLN-API first, then RLN Membership Allocation, RLN-V1 and RLN-V2, the Zerokit-API,
 and the Logos Blockchain specifications and code ([References](#references)).
 
-"The Module" is short for the RLN Module that RLN-API specifies; every user node runs its own instance.
 "Epoch" is always the RLN epoch, never the Cryptarchia epoch.
 
 This document adds:
 
 | Term | Meaning |
 | --- | --- |
+| The Module | The RLN Module that RLN-API specifies, one instance in every user's node: it registers, generates and validates proofs, and holds no tree. |
 | The Zone | The RLN Membership Zone specified here; "a Zone" or "Zones" means any Logos Zone (glossary), LEZ included. |
 | Batch | The payload of one `CHANNEL_INSCRIBE` in the Zone channel, carrying the membership-set changes of a contiguous range of LEZ blocks `[from_lez_block_id, to_lez_block_id]`. |
-| Reader | Anything that applies the Derivation Rules to the LEZ blocks and holds the tree: a Zone sequencer or a Zone indexer. |
-| Zone indexer | A Zone sequencer without an accredited key: it derives the tree, checks every batch of the Zone channel against what it derived, and serves the registry to Modules; it runs in any node, as the Module's own node or as a service, and holds no identity. Distinct from the LEZ Indexer. |
-| Registry access | What a Module reads the registry through, the "registry access" of RLN-API: a Zone node's interface (the Zone sequencer's or a Zone indexer's), the Zone channel on Bedrock through the Module's own node, or a Zone indexer of its own ([Module Requirements](#module-requirements)). |
+| Reader | A Zone sequencer or a Zone indexer: the same program, with or without an accredited key. It applies the Derivation Rules to the LEZ blocks on Bedrock, holds the tree, follows the Zone channel and serves the registry ([Reader](#reader)). Anything else that applies the rules to the same blocks computes the same tree. |
+| Zone sequencer | A reader holding an accredited key of the Zone channel: it publishes the batches, from the LEZ blocks adopted on Bedrock, and serves the registry ([Zone Sequencer](#zone-sequencer)). |
+| Zone indexer | A reader without an accredited key: it derives the tree from the LEZ blocks finalized on Bedrock, judges every batch of the Zone channel against it, and serves the registry to Modules; it runs in any node, as the Module's own node or as a service, and holds no identity. Distinct from the LEZ Indexer ([Zone Indexer](#zone-indexer)). |
+| Registry access | What a Module reads the registry through, the "registry access" of RLN-API: a reader's interface (the Zone sequencer's or a Zone indexer's), the Zone channel on Bedrock through the Module's own node, or a Zone indexer of its own ([Module Requirements](#module-requirements)). |
 | Zone operator | The party that holds the accredited keys of the Zone channel, runs the Zone sequencers, pays their Mantle Transaction fees and receives `registration_fee` at `operator_account_id` ([LEZ Requirements](#lez-requirements)); one party at first ([Funding](#funding)). |
 
 ## Overview
@@ -111,7 +112,7 @@ What the design relies on from Bedrock, LEZ and Mantle.
 | Component | Runs where | Holds | Interacts with |
 | --- | --- | --- | --- |
 | User interface | the user's node: the Basecamp RLN membership UI, a CLI, or an app such as a Logos Delivery node | nothing RLN-specific | calls its Module through RLN-API (`register`, `generate_proof`, `validate_proof`) |
-| Module | inside the user's node | keystore, membership records, its registry view (valid-root window, Merkle proof path, status), nullifier log, message-id allocation, a funded account on LEZ (or a membership provider registers on its behalf) | sends `Register`, `Extend` and `Erase` to LEZ; reads roots, its Merkle proof path, its membership state and the LEZ clock from its registry access: a Zone node's interface, the Zone channel through its own node, or its own Zone indexer ([Module Requirements](#module-requirements)) |
+| Module | inside the user's node | keystore, membership records, its registry view (valid-root window, Merkle proof path, status), nullifier log, message-id allocation, a funded account on LEZ (or a membership provider registers on its behalf) | sends `Register`, `Extend` and `Erase` to LEZ; reads roots, its Merkle proof path, its membership state and the LEZ clock from its registry access: a reader's interface, the Zone channel through its own node, or its own Zone indexer ([Module Requirements](#module-requirements)) |
 | LEZ Sequencer | LEZ | LEZ state and mempool | receives transactions from the Module and the slasher; inscribes each LEZ block it closes in the LEZ channel on Bedrock; serves readers the finalized history under the hash chain, and a block it has closed but not inscribed yet as a preview; which blocks are on Bedrock, and where, the readers take from the LEZ channel itself |
 | LEZ Indexer | any host | the LEZ blocks, events and accounts, re-executed from the LEZ channel on Bedrock | not in the registry's path today: readers take the LEZ blocks from the LEZ channel on Bedrock themselves; the event source once LEZ serves events (`getEvents`, [Derivation Rules](#derivation-rules)) |
 | Registration program | LEZ | configuration account, escrow, membership accounts | runs when the LEZ Sequencer executes a transaction that calls it, directly or through a chained call |
@@ -167,7 +168,7 @@ Messaging and slashing (steps 10-15): a double-signal reveals the identity secre
 | 5 | Every reader (the Zone sequencer, every Zone indexer) reads the LEZ block from the LEZ channel on Bedrock, derives the registration program's events from its transactions and applies the derivation rules. | The Zone sequencer once the block's inscription is adopted on Bedrock; a Zone indexer once it is finalized. |
 | 6 | The Zone sequencer publishes a batch with the changes and the root to the Zone channel. | On its turn to write, covering every LEZ block not yet covered. |
 | 7 | The Zone indexer reads the batch from the Zone channel, compares it with the changes and the root it derived at step 5, and applies it or parks it. | Once the batch is in a Bedrock block it is in the Zone indexer's view; it is judged once the finalized LEZ blocks reach its `to_lez_block_id`, and finality moves it to the final tier. |
-| 8 | The Module reads from its registry access the newest valid root (a batch root deep enough on Bedrock), its Merkle proof path at that root and its membership state; the membership is `MEMBERSHIP_ACTIVE` from here. The registry access is a Zone node's interface as a rule, the Zone sequencer's today (a Zone indexer serves the same hours later, once the LEZ blocks are finalized), or the Zone channel through the Module's own node, or a Zone indexer of its own ([Registry access](#registry-access)). | Once the batch is at the reference depth. |
+| 8 | The Module reads from its registry access the newest valid root (a batch root deep enough on Bedrock), its Merkle proof path at that root and its membership state; the membership is `MEMBERSHIP_ACTIVE` from here. The registry access is a reader's interface as a rule, the Zone sequencer's today (a Zone indexer serves the same hours later, once the LEZ blocks are finalized), or the Zone channel through the Module's own node, or a Zone indexer of its own ([Registry access](#registry-access)). | Once the batch is at the reference depth. |
 | 9 | A Module that starts, or lost its registry access, answers `RLN_ERR_NOT_READY` until its registry access serves a root recent enough. | At start, or after a disconnection. |
 | 10 | The sender's Module, as proof generator, sends a message with its RLN proof; another node's Module, as validator, checks it. | Every message. |
 | 11 | The validator detects a double-signal and hands `recovered_secret`, the identity secret, to a slasher, or sends the `Slash` itself. | When a nullifier repeats with a different `share_x`. |
@@ -177,7 +178,7 @@ Messaging and slashing (steps 10-15): a double-signal reveals the identity secre
 | 15 | Zone indexers check the batch; once it is deep enough, every validator drops the roots from before the removal and stops accepting the slashed leaf. The violator's Module reports `MEMBERSHIP_SLASHED` from its membership state since step 12. | Once that batch is at the reference depth. |
 
 The following sections specify the [Derivation Rules](#derivation-rules) every reader applies (steps 5 and 13);
-the [Zone Node](#zone-node), how a Zone sequencer or indexer keeps the two chains and checks a batch (step 7);
+the [Reader](#reader), how a Zone sequencer or indexer keeps the two chains and checks a batch (step 7);
 the [Zone Sequencer](#zone-sequencer) (steps 6 and 14) and the [Zone Indexer](#zone-indexer) (steps 8 and 15);
 [Failure Handling](#failure-handling): where the registry runs ahead of Bedrock finality,
 the four responses, and every case that can break it, by layer;
@@ -245,9 +246,9 @@ adopted for the Zone sequencer, finalized for a Zone indexer ([Zone Indexer](#zo
 a block the LEZ Sequencer has only produced is a preview, never an input.
 A LEZ block that leaves Bedrock in a reorg leaves the reader's tree with it ([Failure Handling](#failure-handling)).
 
-## Zone Node
+## Reader
 
-A Zone node is a Zone sequencer or a Zone indexer: the same reader, with or without an accredited key.
+A reader is a Zone sequencer or a Zone indexer: the same program, with or without an accredited key.
 It keeps two chains the way LEZ keeps its own (`chain_state`): a final tier, what Bedrock finalized,
 irreversible; a view, the unfinalized lineage the Zone SDK reports on top of it, which a reorg rewrites;
 and the head, the final tier folded over the view. One pair for the LEZ channel, one for the Zone channel.
@@ -348,7 +349,7 @@ A batch carries only what changes the tree; each leaf's expiry and the reason fo
   and the node wallet holds one whole note for it until then.
   One batch in flight is the rule: it needs no note management and loses no throughput,
   since the next batch covers every LEZ block adopted in the meantime.
-- Before publishing, a Zone sequencer folds the batch on its own head ([Zone Node](#zone-node))
+- Before publishing, a Zone sequencer folds the batch on its own head ([Reader](#reader))
   and publishes nothing it would park itself. It records its own publishes in its view at once,
   so it sees them orphaned, finalized or parked like any reader.
 - At every poll it also compares the channel's tip root with its own tree at the tip's `to_lez_block_id`;
@@ -386,8 +387,8 @@ prices and rate-limit bounds never touch an open membership). It is not specifie
 
 ## Zone Indexer
 
-A Zone indexer is a Zone node without an accredited key: it folds the same two channels,
-judges every batch with the final tier of its LEZ chain ([Zone Node](#zone-node)), and publishes nothing.
+A Zone indexer is a reader without an accredited key: it folds the same two channels,
+judges every batch with the final tier of its LEZ chain ([Reader](#reader)), and publishes nothing.
 The Zone sequencers are not trusted: every Zone indexer derives the tree itself and checks each batch by recomputation
 once it is in a Bedrock block, and Bedrock finality later confirms it;
 a dishonest Zone sequencer is caught by any Zone indexer, not prevented.
@@ -396,10 +397,10 @@ everything it decides is re-derived from the channels at start.
 
 ### Serving
 
-A Zone node is the registry access of Modules ([Module Requirements](#module-requirements)):
+A reader is the registry access of Modules ([Module Requirements](#module-requirements)):
 the Zone sequencer and a Zone indexer serve the same interface,
 the Zone sequencer minutes after a LEZ block is adopted, a Zone indexer once the LEZ blocks are finalized, hours later;
-at the second level a Zone node serves the path and the state only.
+at the second level a reader serves the path and the state only.
 It serves:
 
 - the valid roots, each with where its batch stands on Bedrock, and the stall, as evidence;
@@ -408,7 +409,7 @@ It serves:
   (live or removed, and how it was removed, `leaf_index`, `rate_limit`, `expiry_timestamp_ms`,
   the LEZ blocks and transactions of its registration and removal)
   and the latest LEZ `timestamp`;
-  `holder` and `ConfigState` live in LEZ accounts and are served by a Zone node with account access.
+  `holder` and `ConfigState` live in LEZ accounts and are served by a reader with account access.
 
 A request for a path or a state names a leaf; a Module that must not reveal its leaf runs its own Zone indexer.
 A Zone indexer that starts either replays the registration program's events from `first_lez_block_id`
@@ -417,7 +418,7 @@ the snapshot's root against the batch on Bedrock for the same `to_lez_block_id`,
 and every non-empty leaf of that tree against the membership account of the identity commitment the snapshot names for it
 (`poseidon(id_commitment, rate_limit)` equals the leaf, and `expiry_timestamp_ms` is taken from the account,
 since the root commits the leaves but neither whose they are nor when they expire);
-then it applies the LEZ blocks since. The serving interface is the HTTP API of the Zone node;
+then it applies the LEZ blocks since. The serving interface is the HTTP API of the reader;
 the snapshot format is not specified yet.
 
 ## Failure Handling
@@ -433,7 +434,7 @@ new memberships stay `MEMBERSHIP_PENDING` and removals wait at the validators.
 
 ### The four responses
 
-Every case ends in one of these, each a move of the views of [Zone Node](#zone-node);
+Every case ends in one of these, each a move of the views of [Reader](#reader);
 cases compose, and the Zone sequencer takes every decision again at every poll against the channel's current tip.
 
 - **Wait.** Nothing new is on Bedrock, or the node cannot judge yet: nothing is folded, nothing is published,
@@ -486,14 +487,14 @@ Bedrock, the Zone channel: what happens to the batches on their way to and on Be
 | An accredited key publishes a batch the derivation refutes: a change omitted, invented or misordered, a wrong root. | Every Zone indexer parks it at the replay or judge check, the evidence; an honest Zone sequencer folds it and sees it parked. | Correction, by an honest Zone sequencer | The parked root is never valid; the roots before the correction leave the window. |
 | The changes of the adopted LEZ blocks exceed one inscription. | The batch would not fit a Mantle Transaction. | none: the batch stops at the last LEZ block that fits ([Publishing](#publishing)). | Roots arrive in more than one batch. |
 
-Zone node: a Zone sequencer or a Zone indexer, and the Bedrock node it reads.
+reader: a Zone sequencer or a Zone indexer, and the Bedrock node it reads.
 
 | Case | The node sees | Response | A Module meanwhile |
 | --- | --- | --- | --- |
 | The Zone sequencer restarts, or crashes between two writes of its state. | Its state files, written in a fixed order so a crash between two writes loses nothing and a torn line heals. | Wait: it resumes from the final tier, the view it persisted and its checkpoint. | Roots trail during the outage. |
 | A Zone indexer restarts or rebuilds its tree. | The tree derived again from the finalized LEZ blocks; the channel kept. | Wait: the batches it had parked are judged again. | `RLN_ERR_NOT_READY` from that access until it serves. |
 | A batch's `to_lez_block_id` is past the LEZ blocks the Zone indexer has finalized. | The judge check cannot decide. | Wait: the normal flow at a Zone indexer. | That access serves the root hours after a Zone sequencer. |
-| The Bedrock node a Zone node reads stands still, or is catching up after a restart. | No block from the Zone SDK; the node's own height does not move, or its phase says so. | Wait: the Zone does not start while the node catches up, and warns when no block has come for long, with the node's height, so a still node is told from a dead stream. | Roots trail at the Modules that read this node. |
+| The Bedrock node a reader reads stands still, or is catching up after a restart. | No block from the Zone SDK; the node's own height does not move, or its phase says so. | Wait: the Zone does not start while the node catches up, and warns when no block has come for long, with the node's height, so a still node is told from a dead stream. | Roots trail at the Modules that read this node. |
 | Every Zone sequencer is down for long, or every accredited key is lost. | The channel's tip ages while LEZ moves. | Wait: a long outage is a restart that comes late; the loss of the keys is a governance case ([Funding](#funding)). | `MEMBERSHIP_PENDING`; a slashed or expired leaf stays accepted until a batch carries its removal. |
 
 Module: nothing for the Zone to do; what the Module does is in [Module Requirements](#module-requirements).
@@ -636,26 +637,26 @@ Everything not stated here is as in RLN-API; this document requires the followin
 
 | From | To | What | Trust |
 | --- | --- | --- | --- |
-| Registry access (a Zone node's interface, the Zone channel through the Module's node, or its own Zone indexer) | Module | valid roots, Merkle proof path, membership state, `ConfigState`, LEZ clock | by level, see Registry access |
+| Registry access (a reader's interface, the Zone channel through the Module's node, or its own Zone indexer) | Module | valid roots, Merkle proof path, membership state, `ConfigState`, LEZ clock | by level, see Registry access |
 | Module | LEZ Sequencer | `Register`, `Extend`, `Erase`, `Slash` | the LEZ Sequencer, for the receipt |
 | Module | User interface | RLN-API | |
 
 ### Registry access
 
 The Module holds no tree.
-It reads the registry through one interface, the Zone node's ([Serving](#serving)):
+It reads the registry through one interface, the reader's ([Serving](#serving)):
 the valid roots, its Merkle proof path at the newest valid root, its membership state, `ConfigState` and the LEZ clock.
 A wrong answer can make it generate proofs that fail, stop it generating, make it miss the grace period
 or report a wrong status; it cannot move funds, since `Erase` is signed by `holder` and refunds `holder`.
 Of what it reads, only the roots need trust: a wrong path fails to reproduce the root at the Module itself,
 before any proof leaves it, and a wrong state only misreports.
 Three levels of registry access exist; which one a Module uses is its deployment choice:
-1. **A Zone node's interface.** The Module reads everything from a Zone sequencer or a Zone indexer it is configured with,
+1. **A reader's interface.** The Module reads everything from a Zone sequencer or a Zone indexer it is configured with,
    and trusts its operator for the roots; the Zone sequencer answers minutes after a LEZ block is adopted,
    a Zone indexer hours later, at the finalized LEZ blocks. The simplest; the choice for a Module whose operator runs the Zone, or trusts who does.
 2. **Roots from Bedrock.** The Module's own node is a Bedrock node, so the Module reads the Zone channel itself
    and folds the batches as a Zone indexer does without the tree (the replay of the changes, signed by the accredited key):
-   the valid roots come from Bedrock, a Zone node serves only the path and the state, and the path is checked against those roots.
+   the valid roots come from Bedrock, a reader serves only the path and the state, and the path is checked against those roots.
    This trusts the Zone operator's key as every reader does, and nobody for the roots it holds.
 3. **A Zone indexer of its own.** The node runs a Zone indexer, derives the tree from LEZ and judges every batch:
    it trusts nobody, holds the registry at the finalized LEZ blocks (hours behind), and can take part in watching the Zone.
@@ -709,7 +710,7 @@ a majority can be wrong against Bedrock.
   The registry-specific option `active_duration_ms` is the requested active duration,
   defaulting to `max_active_duration_ms`.
   The Module configuration names LEZ access and its registry access: the level above and,
-  for levels 1 and 2, the Zone node endpoints, its own node's first when it runs one.
+  for levels 1 and 2, the reader endpoints, its own Zone indexer's first when it runs one.
 - **Registration.** The Module sends `Register` with `expiry_timestamp_ms` = the latest LEZ `timestamp` its registry access serves + `active_duration_ms`.
   The program measures the active duration from the later clock of the block that includes the transaction,
   so the duration shrinks by the inclusion delay:
