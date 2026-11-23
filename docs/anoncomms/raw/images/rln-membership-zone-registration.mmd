@@ -6,12 +6,13 @@ flowchart LR
     MOD -->|"#nbsp;2. Register /#nbsp;<br/>#nbsp;Extend / Erase#nbsp;"| LSEQ["LEZ<br/>Sequencer<br/>(LEZ)"]
     LSEQ -->|"#nbsp;3. execute#nbsp;"| PROG["Registration<br/>program<br/>(LEZ)"]
     LSEQ -->|"#nbsp;4. inscribe#nbsp;"| LCH["LEZ channel<br/>(Bedrock)"]
-    LCH -->|"#nbsp;5. adopted#nbsp;<br/>#nbsp;LEZ blocks#nbsp;"| ZSEQ["Zone<br/>sequencer<br/>(Zone)"]
-    LCH -->|"#nbsp;5. finalized#nbsp;<br/>#nbsp;LEZ blocks#nbsp;"| IDX["Zone indexer<br/>(watchdog; registry access<br/>hours later)"]
-    LSEQ -.->|"#nbsp;finalized history#nbsp;<br/>#nbsp;under the hash chain,#nbsp;<br/>#nbsp;preview#nbsp;"| ZSEQ
+    LCH -->|"#nbsp;5. adopted#nbsp;<br/>#nbsp;LEZ blocks#nbsp;"| ZSEQ["Zone<br/>Sequencer<br/>(Zone)"]
+    LCH -->|"#nbsp;5. finalized#nbsp;<br/>#nbsp;LEZ blocks#nbsp;"| IDX["Zone<br/>Indexer<br/>(Zone)"]
+    LSEQ -.->|"#nbsp;5. history at start,#nbsp;<br/>#nbsp;hash-checked; preview#nbsp;"| ZSEQ
     ZSEQ -->|"#nbsp;6. publish#nbsp;<br/>#nbsp;batch#nbsp;"| ZCH["Zone channel<br/>(Bedrock)"]
     IDX -->|"#nbsp;7. check#nbsp;<br/>#nbsp;batches#nbsp;"| ZCH
     ZSEQ -->|"#nbsp;8. roots, proof path,#nbsp;<br/>#nbsp;membership state#nbsp;<br/>#nbsp;(registry access)#nbsp;"| MOD
+    MOD -->|"#nbsp;9. RLN_ERR_NOT_READY#nbsp;<br/>#nbsp;until a recent root#nbsp;"| MOD
     linkStyle default stroke-width:2.5px
 
     classDef ui fill:#1a2826,stroke:#9fbfb3,color:#ffffff
