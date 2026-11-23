@@ -2652,6 +2652,34 @@ that holds keys. A and B stand for other modules and are local to one item.
   whether that validation, or a wait for room in the consumer's connection, may run inside `complete`
   before it returns, nor which threads a provider may call it from. So a provider cannot tell what a
   completion may cost the thread it completes on.
+- PM l.1647 against INTERFACE l.3308-3309 and PM l.1515: "If authenticated context or observation
+  authority cannot be established, the query MUST fail without disclosing records or cursor state"
+  (PM l.1647). The text names no status for that failure. It cannot be a package error, since
+  "Package errors are operational results and MUST NOT be interpreted as authorization decisions"
+  (PM l.1515). When the provider itself applies the observation policy, it can only answer as a
+  provider may: "Provider code MAY return or complete with `LOGOS_OK`, `LOGOS_ERR_METHOD_NOT_FOUND`,
+  `LOGOS_ERR_INVALID_PARAMS`, or `LOGOS_ERR_MODULE`" (INTERFACE l.3308), and "any other status code
+  violates these rules" (INTERFACE l.3309). So a consumer refused for lack of observation authority
+  receives `LOGOS_ERR_MODULE`, the same status as a provider fault, unless a protected adapter outside
+  the provider refuses the query first. Whether that is intended, and which status such an adapter
+  returns, is not said.
+- PM l.1649 against l.1650: "Each response returns at most the applicable limit and MAY return fewer
+  records to remain within the Core Transport message-size ceiling" (l.1649). The permission names one
+  reason. Whether a provider may also return fewer records than the limit for a reason of its own,
+  such as a bound it keeps on the bytes of one page, while "another currently disclosable record
+  remains in the snapshot after that page" (l.1650), is not said. A consumer cannot tell the two cases
+  apart, since `next_cursor` is present in both.
+- PM l.1771 against l.1770 and RUNTIME l.1568: "Ordinary observation MUST NOT block or consume
+  capacity reserved for required Runtime-owned system-service progress, including runtime handoff
+  retrieval" (PM l.1771). The sentence stands in the section on `watch_installed_packages`, after
+  "Package Manager MUST bound retained watches, queued observation work and in-flight publications"
+  (PM l.1770). It is not said whether ordinary observation also covers the list queries of Section 15,
+  whose replies can be far larger than a hint. Nor is it said whose capacity is meant. A provider can
+  reserve its own queues and threads. The call admission and the connection output that a handoff also
+  needs are shared with ordinary routes at the boundary that serves the provider, which the provider
+  does not control, and RUNTIME gives the binding no reserved capacity: it "authorizes the engine to
+  invoke only the selected service operations required for its enforcement responsibility"
+  (RUNTIME l.1568).
 
 ---
 
