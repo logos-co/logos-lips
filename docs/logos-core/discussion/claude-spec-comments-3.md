@@ -2642,6 +2642,16 @@ that holds keys. A and B stand for other modules and are local to one item.
   cannot tell a refusal that a later attempt may clear from a provider fault. The text does not say
   whether that is intended, or whether the Package Manager's list should have a value like the
   Credential Store's `capacity`.
+- INTERFACE l.2085 against l.2082, l.2092, l.2109 and l.2111: "The provider MUST invoke `complete`
+  exactly once" (l.2085), and "Submission may complete inline or return while backend work remains
+  active" (l.2082), so a provider may call it from within `submit` or later, on a thread of its own. The
+  text bounds what the neighbouring operations may wait for: "`execution_release` MUST NOT wait
+  synchronously for an admitted cancellation hook" (l.2109), and the cancellation hook "MUST NOT wait
+  for backend termination" (l.2111). It gives no such bound for `complete`. "A successful provider
+  result is validated and committed through the ordinary Runtime boundary" (l.2092). It is not said
+  whether that validation, or a wait for room in the consumer's connection, may run inside `complete`
+  before it returns, nor which threads a provider may call it from. So a provider cannot tell what a
+  completion may cost the thread it completes on.
 
 ---
 
