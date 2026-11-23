@@ -185,6 +185,10 @@ tree, circuit resources, proving and verification:
 a Rust tree/backend mismatch is a compile error,
 while a circuit of the other hash loads
 but yields proofs that verify as `Ok(false)`.
+Changing the protocol hash of a deployment is a migration:
+identity commitments and rate commitments are recomputed under the new hash,
+so every membership is registered again,
+and a deployment MUST NOT accept both hashes for the same membership set.
 
 #### Proof Modes
 
@@ -757,6 +761,9 @@ WASM: `WasmRLNProofValues.recoverIdSecret()` / `computeIdSecret()`.
   (the RLN protocol itself uses at most three).
   Exceeding it is a programming error and panics;
   it is never a runtime `Err`.
+  Code generic over `H` MUST therefore keep to three inputs,
+  the arity every protocol hash supports,
+  or it compiles with Poseidon and panics once instantiated with Poseidon2.
 
 `hash_to_field_le(input)` / `hash_to_field_be(input)`
 
