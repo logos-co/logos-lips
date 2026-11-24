@@ -203,7 +203,7 @@ Upon receiving a new block, the node tries to validate and add it to its local b
 
 If the parent of the block is missing from the local block tree, the block cannot be fully validated and added. These blocks are called *orphan blocks*. To handle an orphan block, the node downloads missing blocks as described in [Downloading Blocks](#downloading-blocks), from peers selected as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). If the download fails, the node may retry with newly selected peers before abandoning the orphan block. The retry policy can be configured by implementers.
 
-Note that downloading missing blocks does not need to be triggered if it is clear that the orphan block is in a fork diverged before the latest immutable (committed) block, as the node should never revert immutable blocks.
+Note that downloading missing blocks does not need to be triggered if it is clear that the orphan block is in a fork diverged before the latest immutable (committed) block, as the node should never revert immutable blocks. Since the parent of an orphan block is missing, the height of the orphan block is unknown. Instead, its slot is compared with the slot of the latest immutable block: slots strictly increase along a chain, so a block whose slot is not greater than the slot of the latest immutable block cannot be its descendant.
 
 ```python
 def listen_and_process_new_blocks(fork_choice: ForkChoice, local_tree: Tree):
@@ -219,7 +219,7 @@ def listen_and_process_new_blocks(fork_choice: ForkChoice, local_tree: Tree):
             # because immutable blocks should never be revereted.
             # This check doesn't cover all cases, but the uncovered cases will be handled by
             # the Cryptarchia block validation during the `download_blocks` below.
-            if block.height ≤ local_tree.latest_immutable_block().height:
+            if block.slot ≤ local_tree.latest_immutable_block().slot:
                 continue
             # In real implemention, downloading can be run in background with the retry policy.
             download_blocks(local_tree, target_block=block.id)
