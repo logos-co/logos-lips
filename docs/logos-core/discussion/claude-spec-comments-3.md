@@ -60,27 +60,65 @@ From the earlier items (sections 1 and 2):
 - NL-12: Core knows only runtime-ready; there is no common surface for application readiness or health.
 - HC-07: a provider must export three surfaces that have to agree, and no rule derives one from another.
 
-From the findings (section 3):
+From the findings (section 3), grouped by what an answer would settle, the weightiest group first.
+
+Rules that cannot both be followed:
 - TF-53: CREDENTIAL STORE requires its provider to answer `NOT_AUTHORISED`, and INTERFACE turns that code
-  into `MODULE_ERROR` when provider code returns it.
+  into `MODULE_ERROR` when provider code returns it. Two remarks of section 3.5 show the same rule at the
+  Package Manager: a query it refuses, and a refusal for lack of capacity, reach the caller as
+  `MODULE_ERROR` too.
 - TF-54: the module state table forbids every transition it does not list, and no trigger in it names a
   stop that enforcement causes.
-- TF-55: whether one contract extends another depends on `_module`, which the schema root does not commit,
-  so the provider that claims the extension can always satisfy the condition.
+- TF-48: the erasure of a marked payload cannot be met when an execution envelope is ended by force.
 - TF-56: a package provides a contract by its manifest, while the variant installed on a host may lack the
   module that provides it.
-- TF-09: an allow to invoke `establish_route` counts as observation authority, so the non-disclosure rule
-  for routes does not bind an ordinary consumer.
-- TF-37: who may invoke the Module Loader's `realize`, `release` and `apply_configuration` is not stated.
-- TF-43: what a complete Logos module system must contain, and which deployments BCP §5.1 and §5.4 bind,
-  is not stated.
-- TF-44: *package-backed* is not defined, and when the Package Manager handoff is obtained again is not
-  stated.
-- TF-48: the erasure of a marked payload cannot be met when an execution envelope is ended by force.
+- TF-55: whether one contract extends another depends on `_module`, which the schema root does not commit,
+  so the provider that claims the extension can always satisfy the condition.
+
+What a hosted placement leaves open. An implementation has to choose its layout here, and the choices
+differ in which process holds every payload:
+- TF-50: at a hosted provider's endpoint, which event commits a Response, and when a policy change takes
+  effect there, are not stated.
+- TF-51: whose computation of the payload roots enters a call record, when the payload never enters the
+  Runtime's own process, is not stated.
 - TF-52: for a remote route, whether the Runtime-controlled boundary stays on the path of every payload of
   a hosted consumer or provider is not stated.
+- TF-38: a consumer in a Module Host and a provider realized directly: whether the route exists, and how
+  its endpoint is served, is not stated.
+- TF-37: who may invoke the Module Loader's `realize`, `release` and `apply_configuration` is not stated.
+
+Upgrades, and what an instance keeps:
+- TF-42: whether a state assignment may pass to another instance, and what authorizes a migration of
+  state, is not stated.
+- TF-44: *package-backed* is not defined, and when the Package Manager handoff is obtained again is not
+  stated.
+- Section 3.5, on RUNTIME l.3412: whether an instance may continue when protected input supplies its
+  dynamic artifact again with other bytes, as an instance of a static binding may, is not stated.
+
+Startup, and the system as a whole:
+- TF-25: what orchestration does to establish the first authority binding, and how it learns that the
+  binding exists, is not stated.
+- TF-43: what a complete Logos module system must contain, and which deployments BCP §5.1 and §5.4 bind,
+  is not stated.
+
+What Runtime Control answers:
+- TF-09: an allow to invoke `establish_route` counts as observation authority, so the non-disclosure rule
+  for routes does not bind an ordinary consumer.
+- TF-10, TF-16, TF-18 and TF-20: which code `start_module`, `establish_route` and `materialize_route`
+  answer in cases the text leaves open, and when `start_module` answers, are not stated. Two Runtimes
+  answer the same request differently.
+
+Packages:
+- TF-59: what one candidate record is, for the consideration limit and for the material a resolution
+  needs, is not defined.
+- TF-60: what a root request reports when versions satisfy it and none is eligible is stated only for an
+  unsupported manifest schema.
 - TS-05: trust in a publisher is prohibited; every package name needs its own entry in protected trust
   input, which no specified operation edits.
+
+A cost that the text fixes:
+- TP-06: every request, successful response and event is encoded and committed at the boundary, in every
+  mode, and no profile that would skip the computation is assigned.
 
 ---
 
