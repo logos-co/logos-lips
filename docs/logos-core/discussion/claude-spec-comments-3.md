@@ -2680,6 +2680,19 @@ that holds keys. A and B stand for other modules and are local to one item.
   does not control, and RUNTIME gives the binding no reserved capacity: it "authorizes the engine to
   invoke only the selected service operations required for its enforcement responsibility"
   (RUNTIME l.1568).
+- RUNTIME l.3412 against l.1319-1320, l.1313 and l.3506: "A deployment upgrade uses a new module
+  instance selected under current policy" (l.3412), and starting an existing instance "MUST use its
+  retained accepted declaration and MUST NOT select a replacement declaration" (l.3506). The text makes
+  one exception. For a static binding, "Supplying the same binding identifier asserts implementation
+  continuity" (l.1320), while registration supplies "declaration facts equal to the instance's retained
+  accepted declaration" (l.1319). It gives no such rule for an instance whose dynamic artifact protected
+  bootstrap input supplies: "Protected bootstrap, static registration, deployment mechanisms, and test
+  harnesses MAY supply equivalent accepted facts through implementation-local inputs" (l.1313). When
+  that input later supplies an artifact with other bytes and equal declaration facts, as a new build of
+  a runtime host does for a system service it ships as a library, it is not said whether the instance
+  may continue, with the artifact hash taken as fresh integrity evidence, or whether this is an upgrade
+  under l.3412. In the second case a system service that keeps state, under an instance that deployment
+  rules name, needs a replacement instance at every new build of its host.
 
 ---
 
