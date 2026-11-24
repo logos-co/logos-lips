@@ -35,7 +35,7 @@
 | 1.2.3 | Update the test vectors to reflect the parent added in the `CHANNEL_CONFIG` payload | 2026-08-27 |
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
-| 1.3.0 | Allowed a block to reference any fork block as an [uncle](#uncle-references), by its block ID and slot, and made the fork choice consider only chains whose recent blocks reference valid uncles. | 2026-11-24 |
+| 1.3.0 | Allowed a block to reference any fork block as an [uncle](#uncle-references), by its block ID and slot, raised $`W`$ to 240, and made the fork choice consider only chains whose recent blocks reference valid uncles. | 2026-11-24 |
 
 # Introduction
 
@@ -103,7 +103,7 @@ Our design starts from the solid foundation provided by Ouroboros Crypsinous: Pr
 | *none* | slot length | The duration of a single slot. | 1 second |
 | MAX_BLOCK_SIZE | max block size | The maximum size of the block body (not including the header) | 2 MiB (2,097,152 bytes) |
 | MAX_BLOCK_TXS | max block transactions | The maximum number of transactions in a block | 1024 |
-| $`W`$ | uncle reference window | The width of the [uncle](#uncle-references) reference window, in expected block intervals of $`f^{-1}`$ slots each. $`W\cdot f^{-1}`$ must be at most $`4\lfloor\frac{k}{f}\rfloor`$, the length of the Lottery Constants Finalization phase ([Epoch Schedule](#epoch-schedule)). Otherwise an uncle can be won under an epoch state other than the one of the chain that references it. | 12 |
+| $`W`$ | uncle reference window | The width of the [uncle](#uncle-references) reference window, in expected block intervals of $`f^{-1}`$ slots each. $`W\cdot f^{-1}`$ must be at most $`4\lfloor\frac{k}{f}\rfloor`$, the length of the Lottery Constants Finalization phase ([Epoch Schedule](#epoch-schedule)). Otherwise an uncle can be won under an epoch state other than the one of the chain that references it. | 240 |
 | MAX_UNCLES | max uncle references | The maximum number of [uncles](#uncle-references) a block may reference. | 4 |
 
 ## Notation
