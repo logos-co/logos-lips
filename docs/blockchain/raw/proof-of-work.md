@@ -21,6 +21,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
+| 1.1.1 | Bound the distribution rate by one, and compute the reward per claim in unsigned 128 bits | 2026-11-24 |
 
 # Introduction
 
@@ -155,6 +156,8 @@ BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend ma
 
 The parameters must give an `epoch_pow_reward` above the fee of a claim transaction, which pays for the claim and the `TRANSFER` that spends its note, or a claim cannot pay its own fee.
 
+`EPOCH_POW_DISTRIBUTION_RATE_NUM` must be at most `EPOCH_POW_DISTRIBUTION_RATE_DEN`, or the claims of an epoch at the target rate ask for more than the pool holds at the start of the epoch, and the reward may not fit in a `TokenValue`.
+
 `REWARD_TARGET_CAP` must be above `REWARD_TARGET_FLOOR` and at most $`p - 1`$, as [Puzzle Target](#puzzle-target) requires. At or below the floor, every retarget would return `REWARD_TARGET_CAP`, so the target could not move.
 
 `TARGET_TXS_PER_BLOCK` is the transaction rate the Blend network carries, $`F_T / F_D = 130`$ transactions per block ([Global Parameters](blend-protocol.md#global-parameters)).
@@ -171,6 +174,7 @@ The pool is seeded once, at genesis, with `POW_REWARD_POOL_GENESIS`, five thousa
 
 ```python
 def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -> TokenValue:
+    # Unsigned 128-bit integers.
     denominator = (EPOCH_POW_DISTRIBUTION_RATE_DEN
                    * TARGET_CLAIMS_PER_BLOCK
                    * EXPECTED_BLOCKS_PER_EPOCH)
