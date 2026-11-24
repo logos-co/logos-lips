@@ -8,10 +8,11 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-10-21 |
 | v2 | Restated the difference a fork switch leaves by whether a node holds the displaced transaction's admission time, and dropped its broadcast. | 2026-11-04 |
+| v3 | Built on Bedrock Eras: `TRANSACTION_TTL` and `RETIREMENT_GRACE` are era parameters, in a `mempool` section of the era record after `time`, as the implementation encodes them, and each is at least 1. The change now alters the era record, so the era and fork digests. Removed: the statement that the change alters no encoding. | 2026-11-10 |
 
 ## Reviewer Orientation
 
-Single-document change — read [Parameters](../mempool.md#parameters) and [Expiry](../mempool.md#expiry) in the [Mempool](../mempool.md), and focus on `TRANSACTION_TTL`, which is now the same on every node, and on the bound this gives `RETIREMENT_GRACE`.
+Read [Parameters](../mempool.md#parameters) and [Expiry](../mempool.md#expiry) in the [Mempool](../mempool.md) first: `TRANSACTION_TTL` is now the same on every node of an era, and it bounds `RETIREMENT_GRACE`. Then read the `mempool` rows and their constraint in [Era Parameters](../bedrock-eras.md#era-parameters) of [Bedrock Eras](../bedrock-eras.md), which change the record's encoding.
 
 # Discussion
 
@@ -30,7 +31,7 @@ One value does not remove every difference. After a fork switch, a node that hol
 
 A constant also leaves no node without expiry. Every node retires a transaction that no block includes once its age reaches `TRANSACTION_TTL`, and discards it `RETIREMENT_GRACE` later.
 
-The change alters no message, encoding or consensus rule. It removes a node setting.
+The change removes a node setting. It alters no message or consensus rule, but the two values join the era record, so the record's encoding and every era digest and fork digest change.
 
 ## The bound one value gives `RETIREMENT_GRACE`
 
@@ -91,9 +92,35 @@ It also drops the sentence that made the value a node setting:
 +`RETIREMENT_GRACE` must exceed the time a transaction takes to reach every node by gossip, plus the time between two consecutive blocks, plus the time a block proposal takes to reach every node. Otherwise a node can discard a transaction that it retired for its age before a proposal that selected it arrives.
 ```
 
+## Both values in the era record
+
+[Parameters](../mempool.md#parameters) makes both values era parameters:
+
+```diff
++`TRANSACTION_TTL` and `RETIREMENT_GRACE` are era parameters, the `transaction_ttl_in_seconds` and
++`retirement_grace_in_seconds` of the parameter record (Era Parameters). Those in force are those of
++the era in force.
+```
+
+[Era Parameters](../bedrock-eras.md#era-parameters) adds a `mempool` section after `time`, and a constraint:
+
+```diff
+ | `time` | `slot_duration_in_seconds` | `UINT64` | The slot length of Constants, in seconds |
++| `mempool` | `transaction_ttl_in_seconds` | `UINT64` | `TRANSACTION_TTL` of Parameters |
++| `mempool` | `retirement_grace_in_seconds` | `UINT64` | `RETIREMENT_GRACE` of Parameters |
+```
+
+```diff
++In every record, `transaction_ttl_in_seconds` and `retirement_grace_in_seconds` are at least 1.
++Otherwise the mempool retires every transaction as it admits it, or discards a retired transaction
++before a proposal that selected it can be rebuilt.
+```
+
+The record has 61 fields.
+
 # Implementation
 
-- [ ]  Replace the `tx_ttl` setting, in the mempool settings and in the node configuration, with the constant `TRANSACTION_TTL` of one hour, so that no node can change the time to live or disable expiry
+- [ ]  Carry `TRANSACTION_TTL` and `RETIREMENT_GRACE` in a `mempool` section of the era record, after `time`, each a non-zero `u64` of seconds, in place of the `tx_ttl` setting, so that no node can change the time to live or disable expiry ([logos-blockchain#4001](https://github.com/logos-blockchain/logos-blockchain/pull/4001), open)
 - [ ]  Add or extend tests: a transaction is evicted once its age reaches one hour, and `expired_tx_is_not_evicted_when_ttl_is_disabled` is removed
 - [ ]  Verify the implementation matches this specification
 
@@ -101,4 +128,5 @@ It also drops the sentence that made the value a node setting:
 
 | Specification | Status | Note |
 | --- | --- | --- |
-| [Mempool](../mempool.md) | Modified | `TRANSACTION_TTL` is a protocol constant of one hour, no node disables expiry, and `RETIREMENT_GRACE` states its bound. |
+| [Mempool](../mempool.md) | Modified | Revision 1.2.0: `TRANSACTION_TTL` is a protocol constant of one hour, set per era, no node disables expiry, and `RETIREMENT_GRACE` states its bound. |
+| [Bedrock Eras](../bedrock-eras.md) | Modified | Revision 1.1.0: the `mempool` section of the era record. |
