@@ -33,6 +33,7 @@
 | 1.1.5 | Renamed locked notes into service notes: the Blend declarations of the Genesis Mantle Transaction name a `service_note_id` | 2026-08-27 |
 | 1.2.0 | Seed the pow reward pool at genesis from the initial token distribution | 2026-09-08 |
 | 1.2.1 | Align the initial service declarations with the Service Declaration Protocol: the `BN` service type, the full `DeclarationMessage` shape, and multiaddr locators | 2026-10-01 |
+| 1.2.2 | Renamed the `uncle_headers` list that `body_root` covers to `uncles`, due to updated [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md). | 2026-11-24 |
 
 # Introduction
 
@@ -199,7 +200,7 @@ The Genesis Block header fields are set to the following values:
 - `bedrock_version`: Protocol version (e.g., 1).
 - `parent_block`: 0 (as this is the first block).
 - `slot`: 0 (the Genesis slot).
-- `body_root`: the body commitment over an empty `uncle_headers` list (as the Genesis Block references no uncle, it encodes as a zero element count) and the Merkle root over the (single) initial transaction.
+- `body_root`: the body commitment over an empty `uncles` list (as the Genesis Block references no uncle, it encodes as a zero element count) and the Merkle root over the (single) initial transaction.
 - `proof_of_leadership`: Stubbed leadership proof.
   - `leader_voucher`: 0 (as there is no leader block reward for the initial block).
   - `entropy_contribution`: 0 (no entropy is provided through the initial PoL).
