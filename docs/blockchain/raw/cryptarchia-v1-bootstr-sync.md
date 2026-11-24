@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.0.2 | Spread block download requests across connected and discovered peers instead of downloading only from the configured IBD peers, which now only provide the chain tips to catch up with. Added [Selecting Peers for Downloading](#selecting-peers-for-downloading) and the `GetTipRequest` message. | 2026-10-20 |
-| 1.1.0 | Added [Downloading Uncles](#downloading-uncles), served blocks of forks, and required a checkpoint at least `k` blocks deep, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-11-24 |
+| 1.1.0 | Added [Downloading Uncles](#downloading-uncles), served blocks of forks, and bounded how recent a checkpoint may be, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-11-24 |
 
 # Introduction
 
@@ -388,7 +388,7 @@ Unlike [Listening for New Blocks](#listening-for-new-blocks), a node can start p
 
 Instead of bootstrapping from the Genesis block or from the local block tree, a node can choose to bootstrap the honest chain starting from a checkpoint block obtained from a trusted checkpoint provider. In this case, the node fully trusts the checkpoint provider and considers blocks deeper than the checkpoint block as immutable (including the checkpoint block itself).
 
-The checkpoint block must lie at least $`k`$ blocks below the tip of the provider's local chain. Otherwise a block after it can reference an uncle whose fork point lies before it, which the node cannot check. A trusted checkpoint provider exposes a HTTP endpoint, allowing nodes to download the checkpoint block and the corresponding ledger state. The details are defined in [Checkpoint Provider HTTP API](#checkpoint-provider-http-api).
+The checkpoint block must lie at least $`W\cdot f^{-1}`$ slots ([Constants](cryptarchia-v1-protocol.md#constants)) before the latest immutable block of the provider. Otherwise a block whose entries the node checks can reference an uncle whose fork point lies before the checkpoint block. The node cannot obtain such an uncle. A trusted checkpoint provider exposes a HTTP endpoint, allowing nodes to download the checkpoint block and the corresponding ledger state. The details are defined in [Checkpoint Provider HTTP API](#checkpoint-provider-http-api).
 
 The bootstrapping node imports the downloaded checkpoint block and ledger state before starting bootstrapping. The imported checkpoint block is used as the latest immutable block $`B_{imm}`$ and the local chain tip $`c_{loc}`$. Starting from the checkpoint block, the same [Initial Block Download](#initial-block-download) is used to downloads blocks up to the tip of the local chain of each peer. As defined in [Setting the Fork Choice Rule](#setting-the-fork-choice-rule), the Bootstrap fork choice rule must be used upon startup.
 
