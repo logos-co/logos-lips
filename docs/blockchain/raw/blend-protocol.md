@@ -42,6 +42,7 @@
 | 1.8.1 | Derived $`M_W`$ from the messages a neighbor is expected to deliver in an observation window and from the peering degree, in place of a fixed value. | 2026-10-30 |
 | 1.9.0 | Removed the message `version` byte, put the fork digest in the libp2p protocol name, linked the era rules for the transition period, for releasing and for broadcasting, made the transition period the larger of $`\lfloor 1/f \rfloor`$ and $`T_M + 1`$ rounds, bounded the clock difference between honest nodes, and stopped blacklisting for a next-epoch proof in an epoch's last round ([Bedrock Eras](bedrock-eras.md)). A round lasts one slot, and $`\beta_{max}`$ replaces $`\beta_C`$ and $`\beta_D`$. | 2026-11-10 |
 | 1.9.1 | Updated `Max_Payload_Length` to 18190 bytes in the overhead calculation, and an encapsulated message to 19313 bytes, following the removal of the `bedrock_version` header field ([Bedrock Eras](bedrock-eras.md)). | 2026-11-02 |
+| 1.10.0 | A data message carries a transaction only while the transaction's expiry slot is in range for submission ([Expiry Slot](mempool.md#expiry-slot)). | 2026-11-24 |
 
 # Introduction
 
@@ -349,7 +350,7 @@ Generation of a message is triggered by any of the following events:
 
 1. A core or edge node won a consensus lottery and has a proof of leadership, which entitles the node to emit a data message. The payload of the message is a block proposal.
 2. A cover message is released at random by the core node, as described in [Cover Message Schedule](#cover-message-schedule) section. The payload of the message contains random data.
-3. A node has a Mantle transaction to submit and holds an unused quota allowance. The payload of the message is the transaction.
+3. A node has a Mantle transaction to submit whose expiry slot is in range for submission, and holds an unused quota allowance. The payload of the message is the transaction.
 
 When this happens, a number of messages (limited by the [Quota](#quota)) are generated as follows:
 
@@ -876,8 +877,10 @@ Every encapsulated message must be formatted according to the following document
 Generation of a message is triggered by any of the following events:
 
 1. A core or edge node won a consensus lottery and has a proof of leadership, which entails a node to emit a data message. The payload of the message is a block proposal.
-2. A node has a Mantle transaction to submit and holds an unused quota allowance. The payload of the message is the transaction.
+2. A node has a Mantle transaction to submit whose expiry slot is in range for submission ([Expiry Slot](mempool.md#expiry-slot)), and holds an unused quota allowance. The payload of the message is the transaction.
 3. A [Cover Message Schedule](#cover-message-schedule). The payload of the message contains random data.
+
+A node discards a transaction to submit once its expiry slot is too near for submission.
 
 When this happens, a number of messages (limited by the [Quota](#quota)) are generated as follows:
 
