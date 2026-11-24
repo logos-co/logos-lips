@@ -50,6 +50,7 @@
 | 1.18.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, `SDP_WITHDRAW` no longer names the note, and a `nonce` carries the `created` epoch of its declaration | 2026-10-27 |
 | 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
 | 1.20.0 | Added the `fork_digest` field to the Mantle Transaction, accepted as defined in [Bedrock Eras](bedrock-eras.md), took `WINDOW` from the era of the claim's referenced block ([Acceptance Window](proof-of-work.md#acceptance-window)), dropped the `timestamp` of `MinStake` and the `epoch` of `ServiceParameters`, whose values are those of the era, and made the Execution Gas constants era parameters. | 2026-11-05 |
+| 1.21.0 | Added the `expiry_slot` field to the Mantle Transaction: a block of a later slot that includes the transaction is invalid. | 2026-11-24 |
 
 # Introduction
 
@@ -89,6 +90,7 @@ Mantle Transactions form the core of Mantle, enabling users to combine multiple 
 ```python
 class MantleTx:
     fork_digest: hash
+    expiry_slot: SlotNumber
     ops: list[Op]
 
 class Op:
@@ -106,6 +108,8 @@ def mantle_txhash(tx: MantleTx) -> Hash:
 ```
 
 `fork_digest` is the fork digest of the era in force when the transaction was signed ([Era of Chain Data](bedrock-eras.md#era-of-chain-data)).
+
+`expiry_slot` is the last slot at which a block may include the transaction. Its sender chooses it as [Expiry Slot](mempool.md#expiry-slot) specifies.
 
 The [hash function used](common-cryptographic-components.md), as well as other cryptographic primitives like ZK proofs and signature schemes, are described in [Common Cryptographic Components](common-cryptographic-components.md).
 
@@ -183,10 +187,11 @@ If the Mantle Transaction is unbalanced (meaning that the Transaction consume mo
 
 ```python
 signed_tx = SignedMantleTx(
-    tx=MantleTx(fork_digest, ops),
+    tx=MantleTx(fork_digest, expiry_slot, ops),
     op_proofs
 )
 
+block_slot: SlotNumber                  # Slot of the block that includes the transaction
 permanent_storage_gas_price: TokenValue # Given by Storage Market
 execution_gas_base_price: TokenValue    # Given by Execution Market
 ```
@@ -239,13 +244,18 @@ Mantle validators will ensure the following:
 
 4. The `fork_digest` of the Mantle Transaction is accepted as defined in [Era of Chain Data](bedrock-eras.md#era-of-chain-data).
 
+5. The slot of the block does not exceed the `expiry_slot` of the Mantle Transaction.
+    ```python
+    assert block_slot <= signed_tx.tx.expiry_slot
+    ```
+
 ## Execution
 
 *Given*
 
 ```python
 SignedMantleTx(
-    tx=MantleTx(fork_digest, ops),
+    tx=MantleTx(fork_digest, expiry_slot, ops),
     op_proofs
 )
 ```
@@ -281,7 +291,7 @@ Channels allow Zones to post their updates on chain. Channels form virtual chain
 
 ### Message Ordering
 
-Channels form virtual chains by having each message reference its parent message. The order of messages in these channels is enforced by the sequencer by building a hash chain of messages, i.e. new messages reference the previous messages through a parent hash. Given that Cryptarchia has long finality times, these message parent references allow Zone sequencers to continue to post new updates to channels without having to wait for finality. No matter how Cryptarchia forks and reorgs, the channel messages from honest sequencers will eventually be re-included in a way that satisfies the virtual chain order.
+Channels form virtual chains by having each message reference its parent message. The order of messages in these channels is enforced by the sequencer by building a hash chain of messages, i.e. new messages reference the previous messages through a parent hash. Given that Cryptarchia has long finality times, these message parent references allow Zone sequencers to continue to post new updates to channels without having to wait for finality. No matter how Cryptarchia forks and reorgs, the channel messages from honest sequencers will eventually be re-included, in a new Mantle Transaction if the one that carried them has expired, in a way that satisfies the virtual chain order.
 
 Configurations form a second hash chain within the channel: each configuration names the configuration it supersedes, so a pending reconfiguration stays valid while the sequencer keeps posting inscriptions.
 
@@ -504,6 +514,7 @@ transfer = Transfer(inputs=[<spocks_note_id>], outputs=[<change_note>])
 # Wrap it in a transaction
 tx = MantleTx(
     fork_digest=<fork_digest>,
+    expiry_slot=<expiry_slot>,
     ops=[Op(opcode=CHANNEL_INSCRIBE, payload=encode(greeting)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -673,6 +684,7 @@ transfer = Transfer(inputs=[old_sequencer_funds], outputs=[<change_note>])
 
 tx = MantleTx(
     fork_digest=<fork_digest>,
+    expiry_slot=<expiry_slot>,
     ops=[Op(opcode=CHANNEL_CONFIG, payload=encode(config)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -793,6 +805,7 @@ transfer = Transfer(inputs=[Alice_funds], outputs=[<change_note>])
 
 tx = MantleTx(
     fork_digest=<fork_digest>,
+    expiry_slot=<expiry_slot>,
     ops=[Op(opcode=CHANNEL_DEPOSIT, payload=encode(deposit)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -906,6 +919,7 @@ transfer = Transfer(inputs=[Sequencer_funds], outputs=[<change_note>])
 
 tx = MantleTx(
     fork_digest=<fork_digest>,
+    expiry_slot=<expiry_slot>,
     ops=[Op(opcode=CHANNEL_WITHDRAW, payload=encode(withdrawal)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -1036,6 +1050,7 @@ transfer = Transfer(inputs=[Sequencer_funds], outputs=[<change_note>])
 
 tx = MantleTx(
     fork_digest=<fork_digest>,
+    expiry_slot=<expiry_slot>,
     ops=[Op(opcode=CHANNEL_TRANSFER, payload=encode(chan_transfer)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -1248,6 +1263,7 @@ transfer = Transfer(inputs=[fee_note_id], outputs=[])
 
 tx = MantleTx(
     fork_digest=<fork_digest>,
+    expiry_slot=<expiry_slot>,
     ops=[Op(opcode=SDP_DECLARE, payload=encode(declaration)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -1374,6 +1390,7 @@ transfer = Transfer(inputs=[alices_fee_note_id],
 
 tx = MantleTx(
     fork_digest=<fork_digest>,
+    expiry_slot=<expiry_slot>,
     ops=[Op(opcode=SDP_WITHDRAW, payload=encode(withdraw)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -1514,6 +1531,7 @@ transfer = Transfer(inputs=[fee_note_id], outputs=[])
 
 tx = MantleTx(
     fork_digest=<fork_digest>,
+    expiry_slot=<expiry_slot>,
     ops=[Op(opcode=SDP_ACTIVE, payload=encode(active))],
 )
 txhash = mantle_txhash(tx)
@@ -1614,6 +1632,7 @@ transfer = Transfer(inputs=[<fee_note>], outputs=[<change_note>])
 
 tx = MantleTx(
     fork_digest=<fork_digest>,
+    expiry_slot=<expiry_slot>,
     ops=[Op(opcode=LEADER_CLAIM, payload=encode(claim)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -1762,6 +1781,7 @@ transfer = Transfer(inputs=[reward_note_id], outputs=[<change_note>])
 
 tx = MantleTx(
     fork_digest=<fork_digest>,
+    expiry_slot=<expiry_slot>,
     ops=[Op(opcode=CLAIM_POW_REWARD, payload=encode(claim)),
          Op(opcode=TRANSFER, payload=encode(transfer))],
 )
@@ -2182,8 +2202,8 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 
 | Transaction | Payload | Transaction Hash                                                   |
 | - | - | - |
-| Empty transaction | 0x111111111111111111111111111111111111111111111111111111111111111100 | 0xac507795dbdd19eccf42c7006f7719916601c8733d3c0b975bcc589e09fd1436 |
-| Transaction with one of each operation | 0x11111111111111111111111111111111111111111111111111111111111111110b000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000600000000000000000000000000000000000000000000000000000000000000100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c000d00110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c121010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000100000006465706f7369742d6d6574616461746113121212121212121212121212121212121212121212121212121212121212121201130000000000000000000000000000000000000000000000000000000000000014141414141414141414141414141414141414141414141414141414141414141401150000000000000000000000000000000000000000000000000000000000000001160000000000000017000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d00000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c0202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020203030303030303030303030303030303030303030303030303030303030303033020000000000000000000000000000000000000000000000000000000000000002100000000000000000000000000000000000000000000000000000000000000220000000000000000000000000000000000000000000000000000000000000040230000000000000000000000000000000000000000000000000000000000000024242424242424242424242424242424242424242424242424242424242424242500000000000000000000000000000000000000000000000000000000000000 | 0x3bd7525f376981956d5eeba4b51367d6af85ef7753855d5c810c10000eea36a9 |
+| Empty transaction | 0x1111111111111111111111111111111111111111111111111111111111111111080706050403020100 | 0x0a93140dbf4e742f3bbd3750c2d90309d7c1e567e81f68c9c1c11a8ba917d8a9 |
+| Transaction with one of each operation | 0x111111111111111111111111111111111111111111111111111111111111111108070605040302010b000201000000000000000000000000000000000000000000000000000000000000000200000000000000000000000000000000000000000000000000000000000000020300000000000000040000000000000000000000000000000000000000000000000000000000000005000000000000000600000000000000000000000000000000000000000000000000000000000000100707070707070707070707070707070707070707070707070707070707070707000000000000000000000000000000000000000000000000000000000000000002001398f62c6d1a457c51ba6a4b5f3dbd2f69fca93216218dc8997e416bd17d93cafd1724385aa0c75b64fb78cd602fa1d991fdebf76b13c58ed702eac835e9f6180a0000000b0000000c000d00110e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0e0b00000068656c6c6f206c6f676f730000000000000000000000000000000000000000000000000000000000000000d9bf2148748a85c89da5aad8ee0b0fc2d105fd39d41a4c796536354f0ae2900c121010101010101010101010101010101010101010101010101010101010101010011100000000000000000000000000000000000000000000000000000000000000100000006465706f7369742d6d6574616461746113121212121212121212121212121212121212121212121212121212121212121201130000000000000000000000000000000000000000000000000000000000000014141414141414141414141414141414141414141414141414141414141414141401150000000000000000000000000000000000000000000000000000000000000001160000000000000017000000000000000000000000000000000000000000000000000000000000002000010b00047f00000191020bb8cd0353470962558a6e0839022ae65c6b2723b32772e5c0c5f4776cb8e6a3e10ba2f319000000000000000000000000000000000000000000000000000000000000001a00000000000000000000000000000000000000000000000000000000000000211b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1b1d00000000000000221e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c0202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020203030303030303030303030303030303030303030303030303030303030303033020000000000000000000000000000000000000000000000000000000000000002100000000000000000000000000000000000000000000000000000000000000220000000000000000000000000000000000000000000000000000000000000040230000000000000000000000000000000000000000000000000000000000000024242424242424242424242424242424242424242424242424242424242424242500000000000000000000000000000000000000000000000000000000000000 | 0xc07e7cc8ba964d8caa5f235358b2eb340b7a2a6f7727189f6cf342a4462b43b0 |
 
 ### Declaration Id
 
