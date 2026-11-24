@@ -1,0 +1,15 @@
+%% Source of images/rln-membership-zone-membership-account.png (rln-membership-zone.md). Render after an
+%% edit: base64url-encode this file and GET https://mermaid.ink/img/<encoded>?type=png&width=2000&scale=2&bgColor=!white
+%%{init: {"theme": "base", "themeVariables": {"lineColor": "#9aa0a6", "primaryTextColor": "#111111", "edgeLabelBackground": "#fff4c2", "fontSize": "15px"}}}%%
+flowchart LR
+    NONE(["default"]) -->|"Register"| OPEN["open"]
+    OPEN -->|"Extend, in grace period"| OPEN
+    OPEN -->|"Erase, after expiry + withdrawal delay"| REF["closed<br/>deposit refunded"]
+    OPEN -->|"Slash, identity secret"| SLA["closed<br/>deposit slashed"]
+
+    classDef live fill:#d4f5dd,stroke:#2e9b52,color:#111111
+    classDef done fill:#e6e6e6,stroke:#8a8a8a,color:#111111
+    classDef bad fill:#ffd6d6,stroke:#d04040,color:#111111
+    class NONE,REF done
+    class OPEN live
+    class SLA bad

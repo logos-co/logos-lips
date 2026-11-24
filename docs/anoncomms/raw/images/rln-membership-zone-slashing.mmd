@@ -1,0 +1,18 @@
+%% Source of images/rln-membership-zone-slashing.png (rln-membership-zone.md). Render after an
+%% edit: base64url-encode this file and GET https://mermaid.ink/img/<encoded>?type=png&width=2000&scale=2&bgColor=!white
+%%{init: {"theme": "base", "flowchart": {"curve": "basis", "nodeSpacing": 40, "rankSpacing": 70, "padding": 6}, "themeVariables": {"lineColor": "#9aa0a6", "primaryTextColor": "#111111", "edgeLabelBackground": "#ffffff", "fontSize": "15px"}, "themeCSS": "marker { overflow: visible; } .arrowMarkerPath { transform: scale(1.7); transform-origin: 5px 5px; } .edgeLabel, .edgeLabel p, .edgeLabel span { font-size: 12px; line-height: 1.2; }"}}%%
+flowchart LR
+    SND["Module - proof generator<br/>(user node)"] -->|"#nbsp;10. message + proof#nbsp;"| VAL["Module - validator<br/>(other node)"]
+    VAL -->|"#nbsp;11. recovered_secret#nbsp;"| SL["Slasher<br/>(any node)"]
+    SL -->|"#nbsp;12. Slash#nbsp;"| PROG["Registration program<br/>(LEZ)"]
+    PROG -->|"#nbsp;13. LEZ block with the Slash#nbsp;<br/>#nbsp;on Bedrock: every reader#nbsp;<br/>#nbsp;removes the leaf#nbsp;"| ZSEQ["Zone Sequencer<br/>(Zone)"]
+    ZSEQ -->|"#nbsp;14. next batch: Remove#nbsp;"| IDX["Zone Indexer<br/>(Zone)"]
+    ZSEQ -->|"#nbsp;15. roots without the leaf#nbsp;"| VAL
+    linkStyle default stroke-width:2.5px
+
+    classDef user fill:#d6e4ff,stroke:#3b6fd8,color:#111111
+    classDef lez fill:#d4f5dd,stroke:#2e9b52,color:#111111
+    classDef zone fill:#fbcfe8,stroke:#be185d,color:#111111
+    class SND,VAL,SL user
+    class PROG lez
+    class ZSEQ,IDX zone
