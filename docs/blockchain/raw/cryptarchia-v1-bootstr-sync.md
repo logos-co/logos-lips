@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.0.2 | Spread block download requests across connected and discovered peers instead of downloading only from the configured IBD peers, which now only provide the chain tips to catch up with. Added [Selecting Peers for Downloading](#selecting-peers-for-downloading) and the `GetTipRequest` message. | 2026-10-20 |
+| 1.1.0 | Added [Downloading Uncles](#downloading-uncles), served blocks of forks, and required a checkpoint at least `k` blocks deep, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-11-24 |
 
 # Introduction
 
@@ -141,7 +142,8 @@ IBD runs in rounds. In each round, the node:
 
 1. Requests the chain tip from every IBD peer in parallel, using `GetTipRequest` defined in [Downloading Blocks](#downloading-blocks).
 2. Downloads the blocks up to each fetched tip that is not yet in the local block tree, from peers selected as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading).
-3. Waits for a short delay $`T_\text{round}`$ before starting the next round. The delay keeps the node from flooding the IBD peers with tip requests when downloads fail immediately, and gives the node time to discover more peers.
+3. Downloads the uncles that the node lacks, as defined in [Downloading Uncles](#downloading-uncles).
+4. Waits for a short delay $`T_\text{round}`$ before starting the next round. The delay keeps the node from flooding the IBD peers with tip requests when downloads fail immediately, and gives the node time to discover more peers.
 
 IBD completes when every tip fetched in a round is already in the local block tree. Because tips are fetched again in every round, the node also catches up with the blocks that the IBD peers added while the node was downloading.
 
@@ -172,6 +174,7 @@ def initial_block_download(ibd_peers: List[Node], local_tree: Tree):
         for tip in unsynced_tips:
             download_blocks(local_tree, target_block=tip)
 
+        download_missing_uncles(local_tree)
         sleep(T_round)
 ```
 
@@ -199,7 +202,7 @@ A timer must be started when [Listening for New Blocks](#listening-for-new-block
 
 Once [Initial Block Download](#initial-block-download) is complete and [Prolonged Bootstrap Period](#prolonged-bootstrap-period) is started, a node starts listening for new blocks relayed by its peers.
 
-Upon receiving a new block, the node tries to validate and add it to its local block tree, as defined in [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance).
+Upon receiving a new block, the node tries to validate and add it to its local block tree, as defined in [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance). It then downloads the uncles that it lacks, as defined in [Downloading Uncles](#downloading-uncles).
 
 If the parent of the block is missing from the local block tree, the block cannot be fully validated and added. These blocks are called *orphan blocks*. To handle an orphan block, the node downloads missing blocks as described in [Downloading Blocks](#downloading-blocks), from peers selected as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). If the download fails, the node may retry with newly selected peers before abandoning the orphan block. The retry policy can be configured by implementers.
 
@@ -223,6 +226,7 @@ def listen_and_process_new_blocks(fork_choice: ForkChoice, local_tree: Tree):
                 continue
             # In real implemention, downloading can be run in background with the retry policy.
             download_blocks(local_tree, target_block=block.id)
+        download_missing_uncles(local_tree)
 ```
 
 ## Downloading Blocks
@@ -268,7 +272,7 @@ class GetTipResponse:
 
 A peer that cannot serve these requests yet (e.g. a peer still performing its own [Initial Block Download](#initial-block-download)) may reject them. The requesting node treats the rejection as a failed request.
 
-Each streamed `Block` carries the signed headers of the uncles it references, in its `uncle_headers` field ([Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#block)). This is what lets a synchronizing node apply the validity rules of [Uncle References](cryptarchia-v1-protocol.md#uncle-references) to every downloaded block, and then reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) of every past epoch from the uncles those blocks carry, even though it never receives the proposals the blocks were reconstructed from.
+The target block can be on a fork. A peer answers from its whole block tree, not only from its local chain.
 
 The responding peer uses `KnownBlocks` to determine the optimal starting block for the response stream, aiming to minimize the number of blocks to be returned. The requesting node can include any block it believes could assist in this process to the `KnownBlocks.additional_blocks`. To avoid spamming responders, the size of `KnownBlocks.additional_blocks` is limited to 5.
 
@@ -279,7 +283,7 @@ The responding peer finds the latest common ancestor (i.e. LCA) between the `tar
 The requesting node should repeat `DownloadBlocksRequest`s by updating the `KnownBlocks` in order to download the next batches of blocks. Each repeated request is sent to newly selected peers, as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). The following code shows how the requesting node can be implemented.
 
 ```python
-def download_blocks(local_tree: Tree, target_block: BlockId):
+def download_blocks(local_tree: Tree, target_block: BlockId, known: List[BlockId] = []):
     latest_downloaded: Optional[Block] = None
     while True:
         # Don't start downloading if target is already in local.
@@ -289,11 +293,11 @@ def download_blocks(local_tree: Tree, target_block: BlockId):
         req = DownloadBlocksRequest(
             target_block=target_block,
             known_blocks=KnownBlocks(
-                local_tip=local_tree.tip().id,
+                local_tip=local_tree.best_tip().id,
                 latest_immutable_block=local_tree.latest_immutable_block().id,
                 # Provide the latest downloaded block as well
                 # to avoid downloading duplicate blocks
-                additional_blocks=[latest_downloaded.id] if latest_downloaded is not None else [],
+                additional_blocks=known + ([latest_downloaded.id] if latest_downloaded is not None else []),
             )
         )
 
@@ -363,6 +367,19 @@ def send_request_to_peers(peers: List[Node], req: DownloadBlocksRequest) -> Opti
 
 Sending one request to many peers costs some duplicate traffic, because peers that respond later have their responses dropped. Implementers can limit this cost by lowering $`N_\text{conn}`$ and $`N_\text{disc}`$, or by closing the dropped streams as early as possible.
 
+### Downloading Uncles
+
+The fork choice rule may prefer a chain that contains $`B_\text{imm}`$ to $`c_{loc}`$, while the chain is not [adoptable](cryptarchia-v1-protocol.md#adoptable-chains) because uncles are missing from the local block tree. The node downloads the missing uncles of every such chain, as defined in [Downloading Blocks](#downloading-blocks). It should repeat a failed download with newly selected peers. The retry policy can be configured by implementers. They can also limit the concurrent downloads for blocks with the same slot and `entropy_contribution`. Such blocks stem from one lottery win.
+
+```python
+def download_missing_uncles(local_tree: Tree):
+    for block, uncle in local_tree.missing_uncles():
+        # With the parent as a known block, the response starts after the fork point of the uncle.
+        download_blocks(local_tree, target_block=uncle.block_id, known=[block.parent_block])
+```
+
+`missing_uncles()` returns the entries of these chains that keep them from being adoptable and whose uncles are missing, each with the block that holds it. `best_tip()` is the block that the fork choice rule would select if every chain that contains $`B_\text{imm}`$ were adoptable.
+
 ## Proposing New Blocks
 
 Unlike [Listening for New Blocks](#listening-for-new-blocks), a node can start proposing blocks after [Prolonged Bootstrap Period](#prolonged-bootstrap-period) is complete. In other words, the node should not propose blocks before switching to the Online fork choice rule.
@@ -371,7 +388,7 @@ Unlike [Listening for New Blocks](#listening-for-new-blocks), a node can start p
 
 Instead of bootstrapping from the Genesis block or from the local block tree, a node can choose to bootstrap the honest chain starting from a checkpoint block obtained from a trusted checkpoint provider. In this case, the node fully trusts the checkpoint provider and considers blocks deeper than the checkpoint block as immutable (including the checkpoint block itself).
 
-A trusted checkpoint provider exposes a HTTP endpoint, allowing nodes to download the checkpoint block and the corresponding ledger state. The details are defined in [Checkpoint Provider HTTP API](#checkpoint-provider-http-api).
+The checkpoint block must lie at least $`k`$ blocks below the tip of the provider's local chain. Otherwise a block after it can reference an uncle whose fork point lies before it, which the node cannot check. A trusted checkpoint provider exposes a HTTP endpoint, allowing nodes to download the checkpoint block and the corresponding ledger state. The details are defined in [Checkpoint Provider HTTP API](#checkpoint-provider-http-api).
 
 The bootstrapping node imports the downloaded checkpoint block and ledger state before starting bootstrapping. The imported checkpoint block is used as the latest immutable block $`B_{imm}`$ and the local chain tip $`c_{loc}`$. Starting from the checkpoint block, the same [Initial Block Download](#initial-block-download) is used to downloads blocks up to the tip of the local chain of each peer. As defined in [Setting the Fork Choice Rule](#setting-the-fork-choice-rule), the Bootstrap fork choice rule must be used upon startup.
 
