@@ -22,6 +22,7 @@
 | Version | Changes | Date |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-04-09 |
+| 1.0.1 | Stated the effect of participation on finality through the finality floor. | 2026-11-06 |
 
 # Introduction
 
@@ -586,7 +587,7 @@ $$
 
 In other words, roughly a 40% suppression in occupied slots. This goes against Cryptarchia’s target of maintaining an average of $`f`$ occupied slots (i.e. roughly $`\frac{1}{f}`$ seconds between blocks).
 
-Additionally, since we do not adjust our block production rate to compensate for variable participation, we can expect to see fluctuations in block production rates as the percentage of participation changes. This can lead to uncertain finality times, making it difficult to maintain the epoch schedule.
+Additionally, since we do not adjust our block production rate to compensate for variable participation, we can expect to see fluctuations in block production rates as the percentage of participation changes. On a sparse chain this delays finality through the [finality floor](cryptarchia-v1-protocol.md#finality-floor), making it difficult to maintain the epoch schedule.
 
 ## Prior Work
 

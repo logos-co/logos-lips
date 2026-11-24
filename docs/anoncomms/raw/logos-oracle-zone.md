@@ -113,7 +113,7 @@ It is used only for rewards and SHOULD span a whole number of cycles.
 defined in [Price Fetching](#price-fetching) and [Raising a dispute](#raising-a-dispute).
 - **`H`:** Keccak-256, the hash of the membership tree.
 Other hashes in this document are SHA-256 where stated, since BIP-340 and the rotation seed fix them.
-- Parameters such as `N`, `Q_dispute`, `W_dispute`, `R_round`, `T_block`, `k`, `D_reward`, `D_slash` and `D_median`
+- Parameters such as `N`, `Q_dispute`, `W_dispute`, `R_round`, `T_block`, `K`, `D_reward`, `D_slash` and `D_median`
 are defined in [Parameters](#parameters).
 
 ### Assumptions
@@ -959,12 +959,12 @@ Counted in LEZ blocks (~1 s each), since the LEZ contract checks it against its 
 | Slash fraction (invalid committed set) |  | up to 100%* | Proven by the proposer's own committed set, effectively zero false positives. |
 | Slash fraction (wrong median) |  | capped* | Proposer attested a value a successful dispute proved wrong. |
 | Slash fraction (missed round) |  | small, TBD* | Primary proposer when none of the three writers attests a round that had `N` valid observations. |
-| Unbonding / cooldown period |  | 21 days* | Cosmos/Band anchor; must exceed fault-proving window plus deep-finality horizon. |
+| Unbonding / cooldown period |  | 21 days* | Cosmos/Band anchor; must exceed fault-proving window plus the LBC finality window. |
 | Reward settlement |  | per reward period, pull-based | Claim against a committed Merkle root|
 | reward period length |  | 7 days* | Weekly settlement. |
 | Reward backing |  | fee-backed preferred* | Fees over pure emissions for sustainable franchise value. |
 | LBC block time | `T_block` | 30 s | Average time between two LBC blocks; Logos default assumed here. |
-| LBC finality depth | `k` | immutable bound (reference) | Number of LBC blocks after which an inscription cannot be reverted; practical confirmation depth is much shallower. |
+| LBC finality window | `K` | immutable bound (reference) | Number of slots behind the tip of LBC after which [Commit](../../blockchain/raw/cryptarchia-v1-protocol.md#commit) can make a block, and the inscriptions in it, immutable; practical confirmation depth is much shallower. |
 
 ## Security Considerations
 
@@ -1192,8 +1192,8 @@ Second, the proposer. The deterministic rotation is the starting point,
 but a proposer that is unpredictable in advance stops an attacker from targeting the known next writer.
 
 - **Cooldown and unbonding period.** The unbonding period must be long enough that stake stays locked
-until any fault can be detected, proven, and settled in LEZ, plus LBC deep-finality margin.
-The exact duration is left to tokenomics and should be set well above the deep-finality bound.
+until any fault can be detected, proven, and settled in LEZ, plus the LBC finality window.
+The exact duration is left to tokenomics and should be set well above that window.
 The LEZ contracts that hold stake and enforce the cooldown and unbonding are also left to be specified,
 since this version covers only the Oracle Zone side.
 
