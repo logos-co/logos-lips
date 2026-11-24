@@ -372,6 +372,10 @@ A batch carries only what changes the tree; each leaf's expiry and the reason fo
   and funds the Zone Sequencers that come later; the Zone operator decides whether the treasury does too.
   The fee was chosen over the Zone operator funding the Zone for good, as a cost of running the network,
   because the fee also bounds the leaf capacity ([LEZ Requirements](#lez-requirements)).
+- A batch's transaction pays the storage price of the epoch that mines it, and Bedrock re-prices storage at every epoch rotation,
+  so a batch still pending across a rotation is dropped by the block builders, not delayed.
+  The Zone Sequencer re-funds a batch unmined for a window of Bedrock slots (300, the LEZ Sequencer's) under a new transaction,
+  same message; a slow batch re-funded by mistake is harmless, the first of the two to land wins.
 - Three limits are known and left as they are; `ConfigState` and the cap are the Zone operator's to adjust.
   - The fee is a fixed amount on LEZ while Bedrock gas moves.
   - Removals cost Bedrock bytes nobody pays for separately.
@@ -456,7 +460,8 @@ from the channel's current tip, keeping only the batches it published and has no
     and carries the changes that take the tree before that batch to the current tree.
     Its size is what changed since the wrong batch, not the whole tree.
   - The correction replays on the tree before the wrong batch and supersedes every batch it re-covers.
-    To a reader whose tip froze before the wrong batch it is the next batch.
+    To a reader whose tip froze before the wrong batch it is the next batch; the wrong batch stays parked there,
+    the evidence, while a reader that applied it unjudged counts it superseded. Neither lists its root.
     A Zone Sequencer that parked the wrong batch itself, at the range or replay check, corrects the same way:
     its next batch starts at its frozen tip.
   - The roots the correction re-covers leave the valid roots; a proof made against one is made again at the newest valid root.
