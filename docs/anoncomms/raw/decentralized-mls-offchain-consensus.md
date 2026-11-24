@@ -82,7 +82,8 @@ The three roles used in de-MLS is as follows:
 of any secure group messaging session but remain available as potential candidates for group membership.
 - `member`: Members are special nodes in the secure group messaging who
 obtains current group key of secure group messaging.
-Each node is assigned a unique identity represented as a 20-byte value named `member id`.
+Each node is assigned a unique identity named `member id`, represented as an opaque,
+implementation-defined byte string of any length.
 - `steward`: Stewards are special and transparent members in the secure group
 messaging who organize the changes by releasing commit messages upon the voted proposals.
 There are two special subsets of steward as epoch and backup steward,
@@ -231,10 +232,20 @@ required to validate incoming commits and perform [Commit validation service](#c
 When a MLS `MLS proposal message` is created by the `steward`,
 a `commit message` SHOULD follow,
 as in section 12.04 [MLS RFC 9420](https://datatracker.ietf.org/doc/rfc9420/) to the members.
-In order for the new `member` joining the group to synchronize with the current members
-who received the `commit message`,
-the `steward` sends a welcome message to the node as the new `member`,
+In order for the new `member` joining the group to synchronize
+with the current members who received the `commit message`,
+the `steward` MUST produce a welcome message together with the `commit message`,
 as in section 12.4.3.1. [MLS RFC 9420](https://datatracker.ietf.org/doc/rfc9420/).
+The `steward` MUST broadcast it to the group rather than sending it directly to the joining `member`.
+Its delivery to the joining `member` is left to the application layer.
+The application MAY deliver it internally or through any other `member` that observed the broadcast.
+To handle relays by multiple members, a joining `member` MUST deduplicate welcome messages
+by the hash of their associated `commit message` and process only the first valid copy for a given commit.
+
+Beyond the MLS state carried by the welcome message, a newly admitted `member` MUST also obtain the current group governance state
+required to participate, such as the `steward list`, timing parameters, peer scores, and group configuration.
+The delivery mechanism is implementation-defined, for example a state-sync message encrypted under the new epoch key
+so that the joining `member` can decrypt it.
 
 ## Single steward
 
@@ -313,7 +324,8 @@ This is the only proposal type common to both single steward and multi steward d
 which sets and orders stewards responsible for creating commits over a predefined number of range in (`sn_min`,`sn_max`).
 The validity of the choosen `steward list` ends
 when the last steward in the list (the one at the final index) completes its commit.
-At that point, a new `Steward Election Proposal` MUST be initiated again by any member during the corresponding epoch.
+At that point, a new `Steward Election Proposal` MUST be initiated again during the corresponding epoch,
+following the initiator selection defined in [Initiating "any member" actions](#initiating-any-member-actions).
 The `Proposal.payload` field MUST represent the ordered identities of the proposed stewards.
 Each steward election proposal MUST be verified and finalized through the consensus process
 so that members can identify which steward will be responsible in each epoch
@@ -358,6 +370,18 @@ Implementations MAY additionally penalize such behavior using peer scoring mecha
 To enforce this behavior, members MUST be able to identify the type of incoming consensus messages
 and apply priority-based filtering accordingly.
 
+#### Initiating "any member" actions
+
+Several actions in this protocol may be started by any member,
+such as a `Steward Election Proposal`, a deadlock `Emergency Criteria Proposal`,
+and a threshold-based removal `Emergency Criteria Proposal`.
+If every member acts at once, the network receives many identical proposals for the same action.
+
+To avoid this, any member MAY initiate such an action,
+but members SHOULD select a deterministic primary initiator, e.g. the first eligible steward in the `steward list` ordering.
+Other members MUST defer for a bounded window and initiate only if the primary initiator stays silent.
+Implementations MUST deduplicate equivalent proposals, for example by a deterministic proposal id.
+
 ### Steward list creation
 
 The `steward list` consists of steward nominees who will become actual stewards
@@ -386,11 +410,10 @@ and the former steward becomes the `backup steward` in `epoch E`.
 
 Liveness criteria:
 
-Once the active `steward list` has completed its assigned epochs,
-
-members MUST proceed to elect the next set of stewards
-(which MAY include some or all of the previous members).
-This election is conducted through a type 2 consensus procedure, `Steward Election Proposal`.
+Upon completion of the active `steward list`'s assigned epochs, a new list MUST be established.
+A `Steward Election Proposal` is REQUIRED only when the total number of members exceeds `sn_max`.
+Otherwise, the new list is generated locally and deterministically from the ordering defined below, without a `Steward Election Proposal`.
+When an election is held, the next set of stewards MAY include some or all of the current stewards.
 
 A `Steward Election Proposal` is considered valid only if the resulting `steward list`
 is produced through a deterministic process that ensures an unbiased distribution of steward assignments,
@@ -439,9 +462,10 @@ If no eligible steward exists across the entire list, the protocol escalates to 
 ##### Layer 2 - Re-election
 
 Layer 2 enables re-election when Layer 1 fails to produce an eligible steward from the active `steward list`.
-In this layer, the members MAY initiate a new `Steward Election Proposal` within the same MLS epoch.
+In this layer, a new `Steward Election Proposal` MAY be initiated within the same MLS epoch,
+following the initiator selection defined in [Initiating "any member" actions](#initiating-any-member-actions).
 Since the MLS epoch does not advance in this case,
-the proposer MUST increment the local `retry_round` value and generate a new deterministic steward ordering using:
+the initiator MUST increment the local `retry_round` value and generate a new deterministic steward ordering using:
 
 `SHA256(epoch E || retry_round || member id || group id)`.
 
@@ -461,7 +485,8 @@ the system enters a steward deadlock condition, and Layer 3 MUST be activated.
 Layer 3 is the final layer of the liveness mechanism and is triggered only
 when Layer 2 fails after `max_reelection_attempts` many re-elections.
 
-At this point, any member MAY submit an `Emergency Criteria Proposal` with deadlock `violation_type`.
+At this point, any member MAY submit an `Emergency Criteria Proposal` with deadlock `violation_type`,
+following the initiator selection defined in [Initiating "any member" actions](#initiating-any-member-actions).
 This proposal does not target a specific member for removal.
 Instead, it signals that the protocol cannot produce a valid commit
 through the active steward list or through bounded re-election.
@@ -601,8 +626,14 @@ such as commit and proposal incompatibility. Specifically, the broken commit can
     2. The commit message should equal the latest epoch
     3. The commit needs to be compatible with the previous epoch’s `MLS Proposal`.
 2. Broken MLS proposal: The steward prepares a different `MLS Proposal` for the corresponding `Voting Proposal`.
-This activity is identified by the `members` since both `MLS Proposal` and `Voting Proposal` are visible
-and can be identified by checking the hash of `Proposal.payload` and `MLSProposal.payload` is the same as RFC9240 section 12.1. Proposals.
+A `Voting Proposal` and an `MLS Proposal` express the same intent through different structures,
+so they cannot be compared by hashing or byte-by-byte equality.
+Instead, `members` MUST project both sides to a set of semantic `(action, target)` tuples and compare them as deduplicated sets.
+Here `action` distinguishes the membership operation (add or remove) and `target` is the affected `member id`.
+For a remove, the `target` is resolved to the `member id` that the removed leaf corresponds to in the current epoch,
+rather than the raw leaf index.
+If the two sets differ, the steward has committed a broken MLS proposal.
+This comparison is representation-independent and therefore also holds across different MLS or voting proposal implementations.
 3. Censorship and inactivity: The situation where there is a voting proposal that is visible for every member,
 and the Steward does not provide an MLS proposal and commit within the configured `threshold_duration`,
 after which the voting process is considered finalized by the majority timer.
@@ -630,7 +661,10 @@ thereby preserving fairness while maintaining security and liveness.
 
 In this approach, each node maintains a local peer score table mapping `member_id` to a score,
 with new members starting from a configurable default value `default_peer_score`.
-Peer score updates MUST be performed only for stewards that are active in the current epoch context.
+Peer score updates for steward-duty events MUST be performed only for stewards
+that are active in the current epoch context.
+Peer scoring MAY additionally define member-level events that apply to any member regardless of steward status,
+such as the rewards and penalties for `Emergency Criteria Proposal` outcomes and the penalty for a false auto-YES self-removal claim.
 Peer scores may decrease due to violations and increase due to honest behavior;
 such score adjustments are derived from observable protocol events, such as
 successful commits or emergency criteria proposals, and each peer updates its local table accordingly.
@@ -638,8 +672,9 @@ In particular, peer score updates MAY be triggered either by direct local observ
 Regardless of the trigger, score updates are applied locally by each peer to its own peer score table.
 
 Members MUST periodically evaluate peer scores against the predefined threshold `threshold_peer_score`.
-A removal operation based on the `threshold_peer_score` MUST be initiated as an `Emergency Criteria Proposal`
-by at least one member and, only after being finalized with a YES outcome, MUST be included in the subsequent commit.
+A removal operation based on the `threshold_peer_score` MUST be initiated as an `Emergency Criteria Proposal`,
+following the initiator selection defined in [Initiating "any member" actions](#initiating-any-member-actions),
+only after being finalized with a YES outcome, MUST be included in the subsequent commit.
 To prevent abuse, if such a removal emergency criteria proposal is finalized with a NO outcome,
 a low score MAY be applied to the proposal owner.
 This mechanism allows accidental or transient failures to be tolerated while still enabling
