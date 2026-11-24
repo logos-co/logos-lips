@@ -49,7 +49,6 @@
 | 1.17.0 | Bound channel inscription data and channel deposit metadata by `MAX_OPERATION_DATA_SIZE` as defined in Mantle Transaction Encoding; aligned SDP activity metadata and its test vectors with the tagged variant encoding. | 2026-10-06 |
 | 1.18.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a note backs one declaration per service, `SDP_WITHDRAW` no longer names the note, and a `nonce` carries the `created` epoch of its declaration | 2026-10-27 |
 | 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
-| 1.19.1 | Precise the epoch nonces a `CLAIM_POW_REWARD` accepts | 2026-11-24 |
 
 # Introduction
 
@@ -1672,7 +1671,7 @@ pow_reward_pool: TokenValue
 epoch_pow_reward: TokenValue
 ```
 
-  With $`ep`$ the epoch of `current_slot`, `epoch_nonce_current` is $`\eta^{ep}`$ and `epoch_nonce_previous` is $`\eta^{ep-1}`$, as derived in [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode). In epoch 0 both are $`\eta_\text{GENESIS}`$. `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window).
+  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), and `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window).
 
   *Validate*
 
