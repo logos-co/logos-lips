@@ -113,6 +113,122 @@ A node computes five values from the chain. `pow_reward_pool` and the set of spe
 
 A node keeps a spent ticket only while its referenced block is inside the window, so the set stays small. [Acceptance Window](#acceptance-window) gives the window in slots.
 
+## Proof of Work Operations
+
+Validators must maintain the following state to process proof of work Operations:
+
+```python
+pow_reward_pool: TokenValue      # Reserve the rewards are paid from
+epoch_pow_reward: TokenValue     # Reward per claim, fixed for the epoch
+difficulty_reward: PowTarget     # the reward threshold, retargeted every block
+pow_nullifiers: set[zkhash]      # Spent solutions, retained for the acceptance window
+block_slots: dict[hash, SlotNumber]  # Slots of recently seen blocks, for the window check
+```
+
+`PowTarget`, the acceptance window, and the maintenance of `pow_reward_pool`, `epoch_pow_reward` and `difficulty_reward` between blocks are specified in [Proof of Work](proof-of-work.md).
+
+### CLAIM_POW_REWARD
+
+This Operation claims a reward from the proof of work [reward pool](proof-of-work.md#reward-pool) by presenting a puzzle solution.
+
+#### Payload
+
+```python
+class ClaimPowRewardOp:
+    block_hash: hash           # Block ID of a recent canonical block the solution is anchored to
+    public_key: ZkPublicKey    # Key the reward note is paid to
+    nonce: zkhash              # Value searched for a ticket satisfying the reward threshold
+```
+
+`block_hash` is the [Block ID](cryptarchia-v1-protocol.md#block-id) of that block.
+
+#### Proof
+
+  The proof is empty.
+
+#### Execution gas
+
+  Claim Operations have a fixed Execution Gas cost of `EXECUTION_CLAIM_POW_REWARD_GAS`. See [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) for the Execution Gas values.
+
+#### Validation
+
+  *Given*
+
+```python
+claim: ClaimPowRewardOp            # the CLAIM_POW_REWARD payload
+ledger: Ledger
+
+current_slot: SlotNumber           # slot of the block including this claim
+WINDOW: SlotNumber                 # the acceptance window, in slots
+difficulty_reward: PowTarget       # retargeted every block
+pow_nullifiers: set[zkhash]        # spent solutions, retained for WINDOW
+pow_reward_pool: TokenValue
+epoch_pow_reward: TokenValue
+```
+
+  `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window). The ticket hashes no epoch nonce: the referenced block is at most `WINDOW` slots old, so its hash already binds the claim to the chain and makes the ticket unpredictable before that block exists.
+
+  *Validate*
+
+```python
+# 1. Claiming must be enabled for this block: the pool must be able to cover a reward.
+assert epoch_pow_reward > 0
+assert pow_reward_pool >= epoch_pow_reward
+
+# 2. The referenced block must be canonical and within the acceptance window.
+block = get_block_from_hash(claim.block_hash)   # None if unknown or not canonical
+assert block is not None
+assert 0 <= current_slot - block.slot <= WINDOW
+
+# 3. The ticket must satisfy the reward threshold.
+puzzle_ticket = zkhash(FiniteField(b"POW_CLAIM_V1", byte_order="little", modulus=p),
+                       claim.public_key,
+                       claim.nonce,
+                       FiniteField(claim.block_hash, byte_order="little", modulus=p))
+assert puzzle_ticket < difficulty_reward
+
+# 4. The solution must not have been claimed before. The nullifier is the ticket.
+assert puzzle_ticket not in pow_nullifiers
+
+# 5. Construct a single output note of value epoch_pow_reward under the public key
+#    given in the payload, and add it to the buffer of the ledger note set.
+claim_id = derive_op_id(claim)
+output_note = Note(
+    value = epoch_pow_reward,
+    nonce = derive_note_nonce(claim_id, 0, epoch_pow_reward, claim.public_key),
+    public_key = claim.public_key,
+)
+ledger.sets[LEDGER_SET].tx_commitment_buffer.append(derive_note_commitment(output_note))
+```
+
+#### Execution
+
+  *Given*
+
+```python
+claim: ClaimPowRewardOp
+puzzle_ticket: zkhash              # computed in validation step 3
+output_note: Note                  # constructed in validation step 5
+
+ledger: Ledger
+pow_reward_pool: TokenValue
+epoch_pow_reward: TokenValue       # fixed for the epoch
+pow_nullifiers: set[zkhash]
+```
+
+  *Execution*
+
+  1. Add `puzzle_ticket` to the `pow_nullifiers` set. The entry is retained until the claim's referenced block leaves the [acceptance window](proof-of-work.md#acceptance-window).
+  2. Insert the output note into the ledger note set:
+      ```python
+      ledger.sets[LEDGER_SET].execute_adding([derive_note_commitment(output_note)])
+      ```
+
+  3. Reduce the `pow_reward_pool` by the same amount:
+      ```python
+      pow_reward_pool = checked_uint64(pow_reward_pool - epoch_pow_reward)
+      ```
+
 # Details
 
 ## Notation
