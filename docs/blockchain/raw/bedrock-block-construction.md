@@ -457,4 +457,4 @@ All the ZkTransfer proofs of a block, those a [`ROLLUP_PROVE`](bedrock-mantle-ro
 
 ### STF Proof
 
-Each STF proof of a `ROLLUP_PROVE` is verified alone under the key of its rollup, since every rollup has a key of its own and a batch shares the points of one key.
+Each STF proof of a `ROLLUP_PROVE` is verified alone under the current key of its rollup, since the key differs from one rollup to the next and can change with each step.
