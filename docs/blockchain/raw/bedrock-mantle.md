@@ -64,24 +64,24 @@ Mantle manages assets using a private note-based ledger that follows an UTXO mod
 
 ## Mantle Transaction
 
-The features of the Logos Blockchain are exposed through Mantle Transactions. Each transaction can contain one or more **Operations**. Mantle Transactions enable users to execute multiple Operations atomically: the Operations are applied one after the other in the order they appear, and either all of them take effect or none does.
+The features of the Logos Blockchain are exposed through [Mantle Transactions](#mantle-transaction-1). Each transaction can contain one or more **[Operations](#operations)**. Mantle Transactions enable users to execute multiple Operations atomically: the Operations are applied one after the other in the order they appear, and either all of them take effect or none does.
 
 ## Mantle Operations
 
-Logos Blockchain features are exposed through Mantle Operations, which can be combined in a single Mantle Transaction and validated atomically. These Operations enable transfers and functions such as on-chain data posting, Cross-Zone interactions and SDP interaction.
+Logos Blockchain features are exposed through [Mantle Operations](#opcodes), which can be combined in a single [Mantle Transaction](#mantle-transaction-1) and validated atomically. These Operations enable [transfers](#transfer) and functions such as [on-chain data posting](bedrock-mantle-channels.md#channel_inscribe), [Cross-Zone interactions](bedrock-architecture-overview.md#mantle-channels) and [SDP interaction](bedrock-service-declaration-protocol.md#service-declaration-protocol-sdp-operations).
 
 ## Mantle Ledger
 
-The Mantle Ledger enables asset transfers using a private note-based ledger. The ledger tracks three kinds of notes, each in note sets of its own: regular notes, service notes (collateral for service declarations) and channel notes (channel bridge funds). All of them participate in Proof of Stake. Each note set has a commitment Merkle Mountain Range (MMR) and a nullifier Indexed Merkle Tree (IMT).
+The [Mantle Ledger](#mantle-ledger-1) enables [asset transfers](#transfer) using a private note-based ledger. The ledger tracks three kinds of [notes](#notes), each in [note sets](#ledger) of its own: regular notes, [service notes](#service-notes) (collateral for [service declarations](bedrock-service-declaration-protocol.md#declare)) and [channel notes](bedrock-mantle-channels.md#bridging) (channel bridge funds). All of them participate in [Proof of Stake](cryptarchia-proof-of-leadership.md#eligible-sets). Each note set has a [commitment Merkle Mountain Range (MMR)](#commitment-merkle-mountain-range) and a [nullifier Indexed Merkle Tree (IMT)](#nullifier-indexed-merkle-tree).
 
 ## Transaction Fees
 
-Mantle Transaction fees are derived from a gas model. The Logos Blockchain has two different gas markets, accounting for permanent data storage, and execution costs. Each Operation has an associated Execution Gas cost. Users can build unbalanced Mantle Transactions to tip the leaders and incentivize the network to include their transaction.
+[Mantle Transaction fees](#mantle-transaction-fee) are derived from a gas model. The Logos Blockchain has two different gas markets, accounting for [permanent data storage](storage-markets.md), and [execution costs](execution-market.md). Each [Operation](#operations) has an associated [Execution Gas](#gas-determination) cost. Users can build unbalanced Mantle Transactions to [tip](execution-market.md#fee-distribution) the leaders and incentivize the network to include their transaction.
 
 | Gas Market | Charged On | Pricing Basis |
 | --- | --- | --- |
 | Execution Gas | Operations | Operation dependent |
-| Permanent Storage Gas | Signed Mantle Transaction | Proportional to encoded size |
+| [Permanent Storage Gas](storage-markets.md#core-fee-equation) | [Signed Mantle Transaction](#mantle-transaction-hash) | Proportional to encoded size |
 
 # Mantle Transaction
 

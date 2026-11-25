@@ -52,25 +52,25 @@ The requirements for the protocol are defined as follows:
 
 # Overview
 
-The SDP enables nodes to declare their eligibility to provide a specific service in the system, and withdraw their declarations.
+The SDP enables nodes to declare their eligibility to provide a specific [service](#service-types) in the system, and withdraw their declarations.
 
 ## Protocol
 
 The protocol defines the following actions:
 
-- **Declare:** A node sends a declaration that confirms its willingness to provide a specific service, which is confirmed by locking a stake above a certain threshold in a service note.
-- **Active:** A node marks that its participation in the protocol is active according to the service-specific activity logic. This action enables the protocol to monitor the node’s activity. We utilize this as a non-intrusive differentiator of node activity. It is crucial to exclude inactive nodes from the active set, as it enhances the stability of services.
-- **Withdraw:** A node withdraws its declaration and stops providing a service.
+- **[Declare](#declare):** A node sends a [declaration](#declaration-message-1) that confirms its willingness to provide a specific service, which is confirmed by locking a stake above a certain [threshold](#minimum-stake) in a [service note](bedrock-mantle.md#service-notes).
+- **[Active](#active):** A node marks that its participation in the protocol is active according to the [service-specific activity logic](#service-parameters). This action enables the protocol to monitor the node’s activity. We utilize this as a non-intrusive differentiator of node activity. It is crucial to exclude inactive nodes from the [active set](#active-set), as it enhances the stability of services.
+- **[Withdraw](#withdraw):** A node withdraws its declaration and stops providing a service.
 
 The logic of the protocol is straightforward.
 
 1. A node sends a declaration message for a specific service and proves it has a minimum stake.
-2. The declaration is registered on the Ledger, and the node can commence its service according to the service-specific service logic.
-3. After a service-specific service-providing time, the node confirms its activity.
+2. The declaration is [registered on the Ledger](#declaration-storage), and the node can commence its service according to the service-specific service logic.
+3. After a service-specific service-providing time, the node [confirms its activity](#active-message-1).
 4. The node must confirm its activity with a service-specific minimum frequency; otherwise, its declaration is inactive.
-5. The node sends a withdrawal message. It provides the service for one more epoch. Its declaration is removed and the notes of its withdrawal released once that epoch has been rewarded.
+5. The node sends a [withdrawal message](#withdraw-message-1). It provides the service for one more [epoch](cryptarchia-protocol.md#epoch). Its declaration is [removed](#sdp-epoch-finalization) and the notes of its withdrawal released once that epoch has been [rewarded](bedrock-service-reward-distribution.md).
 
-> The protocol messages are subject to a finality that means messages become part of the immutable ledger after a delay. The delay at which it happens is defined by the consensus. Therefore, the protocol’s progress must be tracked from the perspective of the latest finalized block, not the tip of the chain. Otherwise, the protocol and services using it would need to handle chain reorganizations, which we must avoid due to their potential to break services. Hence, the services must use a snapshot from a fully finalized epoch: `finalized_epoch = current_epoch - 2`. For more details about finalization, refer to [Cryptarchia Protocol](cryptarchia-protocol.md).
+> The protocol messages are subject to a [finality](cryptarchia-protocol.md#latest-immutable-block) that means messages become part of the immutable ledger after a delay. The delay at which it happens is defined by the consensus. Therefore, the protocol’s progress must be tracked from the perspective of the latest finalized block, not the tip of the chain. Otherwise, the protocol and services using it would need to handle chain reorganizations, which we must avoid due to their potential to break services. Hence, the services must use a [snapshot](#snapshots) from a fully finalized epoch: `finalized_epoch = current_epoch - 2`. For more details about finalization, refer to [Cryptarchia Protocol](cryptarchia-protocol.md).
 
 # Construction
 

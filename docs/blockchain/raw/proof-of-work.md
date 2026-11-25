@@ -39,7 +39,7 @@ This document specifies the puzzle, the two thresholds, the pow reward pool and 
 
 # Overview
 
-A miner finds a solution only by trying values until one of them hashes below a threshold, so a solution costs electricity and nothing else: no tokens, no stake, no permission. Checking a solution costs a single `zkhash`.
+A miner finds a solution only by trying values until one of them hashes below a [threshold](#puzzle-target), so a solution costs electricity and nothing else: no tokens, no stake, no permission. Checking a solution costs a single [`zkhash`](common-cryptographic-components.md#poseidon2-zk-friendly-hash-function).
 
 A solution is spent on one of two things, and this is how a participant that holds nothing starts using the protocol.
 
@@ -51,11 +51,11 @@ graph LR
     c --> t["pays for transactions"]
 ```
 
-The tokens come from the pow reward pool, set aside at genesis and refilled by every block from a share of the transaction fees. Nothing is minted for it, so mining does not inflate the supply. Each epoch pays out a fraction of what the pool still holds, so the reward is the same for every claim of that epoch, for as long as the pool can pay it.
+The tokens come from the [pow reward pool](#reward-pool), set aside at [genesis](bedrock-genesis-block.md) and refilled by every block from a share of the [transaction fees](bedrock-mantle.md#mantle-transaction-fee). Nothing is minted for it, so mining does not inflate the supply. Each [epoch](cryptarchia-protocol.md#epoch) pays out a fraction of what the pool still holds, so the reward is the same for every [claim](#claim_pow_reward) of that epoch, for as long as the pool can pay it.
 
 Each use has its own threshold, and a threshold sets how much work a solution costs. Every node computes both from what blocks carry, so no node trusts another for them.
 
-The reward threshold reads the claims in a block, the only sign of mining the chain has.
+The [reward threshold](#reward-difficulty) reads the claims in a block, the only sign of mining the chain has.
 
 ```mermaid
 graph LR
@@ -67,9 +67,9 @@ graph LR
 
 The two branches end in the same place. About ten claims are paid per block once mining is heavy enough to find that many, so more mining changes the work behind a claim and not the number of claims paid.
 
-A claim must name a recent block, so a solution cannot be spent long after it was found.
+A claim must name a [recent block](#acceptance-window), so a solution cannot be spent long after it was found.
 
-The Blend threshold reads the transactions in a block.
+The [Blend threshold](#blend-difficulty) reads the transactions in a block.
 
 ```mermaid
 graph LR
@@ -79,7 +79,7 @@ graph LR
     le --> ll["admission costs less"]
 ```
 
-Here the branches end apart. Nothing absorbs the load, so a Blend message costs more work when blocks are full and less when they are quiet.
+Here the branches end apart. Nothing absorbs the load, so a [Blend message](blend-protocol.md#proof-of-work-quota) costs more work when blocks are full and less when they are quiet.
 
 # Protocol
 
