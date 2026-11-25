@@ -166,7 +166,7 @@ At any epoch `n`, the most recent report a snapshot can contain was included in 
 | `e` | The message is included, with `withdraw_at = e+2`. |
 | `e+1` | The node is in the participant set (`n < withdraw_at`) and provides the service. It reports its epoch-`e` activity. |
 | `e+2` | Every service excludes the declaration (`n >= withdraw_at`). The node reports its epoch-`e+1` activity. The epoch-`e` reward is distributed in the first block. |
-| `e+3` | The epoch-`e+1` reward is distributed and the declaration is removed in the first block ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)). |
+| `e+3` | The epoch-`e+1` reward is distributed and the declaration is removed in the first block ([SDP Epoch Finalization](#sdp-epoch-finalization)). |
 
 ### Identifiers
 
@@ -343,7 +343,7 @@ A [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proo
 
 ### Serialization
 
-Each message is the payload of one Mantle Operation ([Mantle](bedrock-v1.1-mantle-specification.md#service-declaration-protocol-sdp-operations)), serialized as the production of the [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations) named below, its fields in the order the message lists them:
+Each message is the payload of one Mantle Operation ([SDP Operations](#service-declaration-protocol-sdp-operations)), serialized as the production of the [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations) named below, its fields in the order the message lists them:
 
 | Message | Operation | Production |
 | --- | --- | --- |
@@ -388,7 +388,7 @@ If all of the above conditions are fulfilled, then the declaration is stored on 
 
 ### Active
 
-The Active action marks a provider as actively providing its service. It requires sending a valid `ActiveMessage` (as defined in [Active Message](#active-message)), which is relayed to the service-specific node activity logic (as indicated by the service type in [Common SDP Structures](bedrock-v1.1-mantle-specification.md#common-sdp-structures)).
+The Active action marks a provider as actively providing its service. It requires sending a valid `ActiveMessage` (as defined in [Active Message](#active-message)), which is relayed to the service-specific node activity logic (as indicated by the service type in [Common SDP Structures](#common-sdp-structures)).
 
 The Active action updates the `active` value of the `DeclarationInfo`. A declaration considered inactive is not removed from the registry, and an accepted active message makes it active again. A declaration is removed only by withdrawal ([**Withdraw**](#withdraw)); a removed declaration cannot become active again.
 
@@ -412,7 +412,7 @@ The Withdraw action withdraws a service declaration. It requires sending a valid
 
 Let `e` be the epoch of the block that contained the `WithdrawMessage`; `withdraw_at` records `e+2` ([Snapshots](#snapshots)). A declaration whose `withdraw_at` an epoch has reached is excluded from that epoch's [Active Set](#active-set).
 
-The node provides the service through epoch `withdraw_at - 1`, its last rewardable epoch. The declaration is removed and the notes of its withdrawal released to the ledger at epoch `withdraw_at + 1` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
+The node provides the service through epoch `withdraw_at - 1`, its last rewardable epoch. The declaration is removed and the notes of its withdrawal released to the ledger at epoch `withdraw_at + 1` ([SDP Epoch Finalization](#sdp-epoch-finalization)).
 
 The logic of the withdraw action is:
 
@@ -423,8 +423,8 @@ The logic of the withdraw action is:
     3. The `withdraw_at` of the `DeclarationInfo` is `None`.
     4. The ZkTransfer consumes the unspent service note of the declaration and balances the `outputs`.
 3. If any of the above is not correct, then discard the message and stop.
-4. Set the `withdraw_at` of the `DeclarationInfo` to the current epoch number plus two, consume the service note, and keep the `outputs` pending until the first slot of epoch `withdraw_at + 1` ([SDP_WITHDRAW](bedrock-v1.1-mantle-specification.md#sdp_withdraw)).
-5. At epoch `withdraw_at + 1`, right after the final reward is paid out, the Mantle epoch finalization step removes the `DeclarationInfo`, and the pending `outputs` are released to the ledger ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
+4. Set the `withdraw_at` of the `DeclarationInfo` to the current epoch number plus two, consume the service note, and keep the `outputs` pending until the first slot of epoch `withdraw_at + 1` ([SDP_WITHDRAW](#sdp_withdraw)).
+5. At epoch `withdraw_at + 1`, right after the final reward is paid out, the Mantle epoch finalization step removes the `DeclarationInfo`, and the pending `outputs` are released to the ledger ([SDP Epoch Finalization](#sdp-epoch-finalization)).
 
 ### Query
 
@@ -437,7 +437,7 @@ A query for a `declaration_id` or a `service_type` the finalized state does not 
 
 ## Service Declaration Protocol (SDP) Operations
 
-These Operations implement the [Service Declaration Protocol](bedrock-service-declaration-protocol.md).
+These Operations implement the Service Declaration Protocol.
 
 Validators must keep the following state when implementing SDP Operations:
 
@@ -495,7 +495,7 @@ class DeclarationInfo:
 
 ### SDP_DECLARE
 
-The service registration follows the definition given in [**Declaration Message**](bedrock-service-declaration-protocol.md#declaration-message):
+The service registration follows the definition given in [**Declaration Message**](#declaration-message):
 
 #### Payload
 
@@ -546,11 +546,11 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
   *Validate*
 
-  The declaration is verified according to [Declare](bedrock-service-declaration-protocol.md#declare).
+  The declaration is verified according to [Declare](#declare).
 
   1. Ensure no identifier is already taken
-     ([Identifier Uniqueness](bedrock-service-declaration-protocol.md#identifier-uniqueness)),
-     the `declaration_id` being derived as in [Declaration Storage](bedrock-service-declaration-protocol.md#declaration-storage).
+     ([Identifier Uniqueness](#identifier-uniqueness)),
+     the `declaration_id` being derived as in [Declaration Storage](#declaration-storage).
       ```python
       declare_id = declaration_id(declaration)
       assert declare_id not in declarations[declaration.service_type]
@@ -616,7 +616,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       providers[declaration.service_type][declaration.provider_id] = declare_id
       ```
 
-  4. Store the declaration as explained in [**Declaration Storage**](bedrock-service-declaration-protocol.md#declaration-storage).
+  4. Store the declaration as explained in [**Declaration Storage**](#declaration-storage).
       ```python
       declarations[declaration.service_type][declare_id] = DeclarationInfo(
           service=declaration.service_type,
@@ -633,7 +633,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
 ### SDP_WITHDRAW
 
-The service withdrawal follows the definition given in [Withdraw Message](bedrock-service-declaration-protocol.md#withdraw-message).
+The service withdrawal follows the definition given in [Withdraw Message](#withdraw-message).
 
 #### Payload
 
@@ -678,7 +678,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
   *Validate*
 
-  Validate SDP withdrawal according to [**Withdraw**](bedrock-service-declaration-protocol.md#withdraw).
+  Validate SDP withdrawal according to [**Withdraw**](#withdraw).
 
   1. Ensure declaration exists.
       ```python
@@ -719,7 +719,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
   *Execute*
 
-  Executes the withdrawal protocol [**Withdraw**](bedrock-service-declaration-protocol.md#withdraw).
+  Executes the withdrawal protocol [**Withdraw**](#withdraw).
 
   1. Update the declaration info with the withdrawal epoch.
       ```python
@@ -744,7 +744,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
 Withdrawn declarations are removed by Mantle as part of the epoch transition,
 not when the `WithdrawMessage` is processed. The rewards of epoch
-`withdraw_at - 1` ([Withdraw](bedrock-service-declaration-protocol.md#withdraw))
+`withdraw_at - 1` ([Withdraw](#withdraw))
 are distributed in the first block of epoch `withdraw_at + 1` (see
 [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)).
 In that same block, after the rewards have been distributed, every declaration
@@ -778,7 +778,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
 ### SDP_ACTIVE
 
-The service active action follows the definition given in [Active Message](bedrock-service-declaration-protocol.md#active-message).
+The service active action follows the definition given in [Active Message](#active-message).
 
 #### Payload
 
@@ -841,7 +841,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
   *Execute*
 
-  Executes the active protocol [Active](bedrock-service-declaration-protocol.md#active). If the service-specific activity logic rejects the message, the Operation is invalid.
+  Executes the active protocol [Active](#active). If the service-specific activity logic rejects the message, the Operation is invalid.
 
   1. Update the declaration info with the nonce and the epoch.
       ```python

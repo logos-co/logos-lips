@@ -34,7 +34,7 @@ The puzzles are measured against separate thresholds that follow separate object
 - the reward threshold keeps the number of paid claims per block near a target,
 - and the Blend threshold keeps admission to the network affordable when the network is quiet and dearer when it is busy.
 
-This document specifies the puzzle, the two thresholds, the pow reward pool and the reward it pays per claim, and the window within which a reward may be claimed. The Blend side of the mechanism is specified in [Proof of Quota](proof-of-quota.md) and the claim Operation in [Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward); this document holds what both depend on.
+This document specifies the puzzle, the two thresholds, the pow reward pool and the reward it pays per claim, the window within which a reward may be claimed, and the claim Operation, [CLAIM_POW_REWARD](#claim_pow_reward). The Blend side of the mechanism is specified in [Proof of Quota](proof-of-quota.md); this document holds what it depends on.
 
 # Overview
 
@@ -107,7 +107,7 @@ A validator checks a claim against the `difficulty_reward` the previous block pr
 - the referenced block is canonical and inside the acceptance window,
 - `epoch_pow_reward` is positive and `pow_reward_pool` still holds it.
 
-[Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward) specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays `epoch_pow_reward` to the key, marks the ticket spent, and subtracts the same amount from `pow_reward_pool`.
+[CLAIM_POW_REWARD](#claim_pow_reward) specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays `epoch_pow_reward` to the key, marks the ticket spent, and subtracts the same amount from `pow_reward_pool`.
 
 A node computes five values from the chain. `pow_reward_pool` and the set of spent tickets change when a claim is accepted. `difficulty_reward` is recomputed after every block, from the number of claims in that block. Each block credits `pow_reward_pool` with a share of its fees, and `epoch_pow_reward` is recomputed from the pool at each epoch boundary. `difficulty_blend` is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. [Reward Difficulty](#reward-difficulty), [Reward Pool](#reward-pool) and [Blend Difficulty](#blend-difficulty) specify the three computations.
 
@@ -125,11 +125,11 @@ pow_nullifiers: set[zkhash]      # Spent solutions, retained for the acceptance 
 block_slots: dict[hash, SlotNumber]  # Slots of recently seen blocks, for the window check
 ```
 
-`PowTarget`, the acceptance window, and the maintenance of `pow_reward_pool`, `epoch_pow_reward` and `difficulty_reward` between blocks are specified in [Proof of Work](proof-of-work.md).
+`PowTarget`, the acceptance window, and the maintenance of `pow_reward_pool`, `epoch_pow_reward` and `difficulty_reward` between blocks are specified in [Details](#details).
 
 ### CLAIM_POW_REWARD
 
-This Operation claims a reward from the proof of work [reward pool](proof-of-work.md#reward-pool) by presenting a puzzle solution.
+This Operation claims a reward from the proof of work [reward pool](#reward-pool) by presenting a puzzle solution.
 
 #### Payload
 
@@ -146,7 +146,7 @@ class ClaimPowRewardOp:
 
   The proof is empty.
 
-#### Execution gas
+#### Execution Gas
 
   Claim Operations have a fixed Execution Gas cost of `EXECUTION_CLAIM_POW_REWARD_GAS`. See [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) for the Execution Gas values.
 
@@ -166,7 +166,7 @@ pow_reward_pool: TokenValue
 epoch_pow_reward: TokenValue
 ```
 
-  `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window). The ticket hashes no epoch nonce: the referenced block is at most `WINDOW` slots old, so its hash already binds the claim to the chain and makes the ticket unpredictable before that block exists.
+  `WINDOW` is derived in [Acceptance Window](#acceptance-window). The ticket hashes no epoch nonce: the referenced block is at most `WINDOW` slots old, so its hash already binds the claim to the chain and makes the ticket unpredictable before that block exists.
 
   *Validate*
 
@@ -216,9 +216,9 @@ epoch_pow_reward: TokenValue       # fixed for the epoch
 pow_nullifiers: set[zkhash]
 ```
 
-  *Execution*
+  *Execute*
 
-  1. Add `puzzle_ticket` to the `pow_nullifiers` set. The entry is retained until the claim's referenced block leaves the [acceptance window](proof-of-work.md#acceptance-window).
+  1. Add `puzzle_ticket` to the `pow_nullifiers` set. The entry is retained until the claim's referenced block leaves the [acceptance window](#acceptance-window).
   2. Insert the output note into the ledger note set:
       ```python
       ledger.sets[LEDGER_SET].execute_adding([derive_note_commitment(output_note)])
@@ -296,7 +296,7 @@ Each block, once its transactions have run, credits the pool with its share `POW
 
 ### Exhaustion within an epoch
 
-The reward is fixed for the epoch while every claim draws on the pool and every block credits it. The first condition of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation, that the reward is positive and the pool covers it, is evaluated for every claim against the pool as it stands at that point in the block, and a claim it rejects invalidates its transaction. When the reward is positive, claiming resumes in the block after the fee shares of the blocks bring the pool back to the reward, or at the next epoch boundary at which the recomputed reward is positive and the pow reward pool covers it, whichever comes first. A reward of `0` holds for its epoch whatever the fees. Since the pool receives only the share `POW_SHARE / SHARE_DEN` of a fee, paying fees to resume claiming costs `SHARE_DEN / POW_SHARE` times what the pool lacks: a pool just short of the reward can make one claim cheap, and each further reward costs `SHARE_DEN / POW_SHARE` times its value in fees, less what the payer earns back through block rewards.
+The reward is fixed for the epoch while every claim draws on the pool and every block credits it. The first condition of [CLAIM_POW_REWARD](#claim_pow_reward) validation, that the reward is positive and the pool covers it, is evaluated for every claim against the pool as it stands at that point in the block, and a claim it rejects invalidates its transaction. When the reward is positive, claiming resumes in the block after the fee shares of the blocks bring the pool back to the reward, or at the next epoch boundary at which the recomputed reward is positive and the pow reward pool covers it, whichever comes first. A reward of `0` holds for its epoch whatever the fees. Since the pool receives only the share `POW_SHARE / SHARE_DEN` of a fee, paying fees to resume claiming costs `SHARE_DEN / POW_SHARE` times what the pool lacks: a pool just short of the reward can make one claim cheap, and each further reward costs `SHARE_DEN / POW_SHARE` times its value in fees, less what the payer earns back through block rewards.
 
 ## Acceptance Window
 
@@ -304,7 +304,7 @@ $$
 \mathrm{WINDOW} = \left\lfloor \frac{W_b}{f} \right\rfloor
 $$
 
-With $`W_b = 10`$ and $`f = 1/30`$, `WINDOW` is $`300`$ slots. A claim's referenced block must be canonical and at most `WINDOW` slots older than the block including the claim; the check is step 2 of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation. A nullifier may be discarded once the block its claim referenced has left the window.
+With $`W_b = 10`$ and $`f = 1/30`$, `WINDOW` is $`300`$ slots. A claim's referenced block must be canonical and at most `WINDOW` slots older than the block including the claim; the check is step 2 of [CLAIM_POW_REWARD](#claim_pow_reward) validation. A nullifier may be discarded once the block its claim referenced has left the window.
 
 ## Reward Difficulty
 

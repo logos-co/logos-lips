@@ -116,7 +116,7 @@ class SignedMantleTx:
     op_proofs: list[OpProof] # each Op has exactly 1 associated proof
 ```
 
-Every Operation proof (zk proofs or signatures) must be cryptographically bound to the `MantleTx` through the `mantle_txhash` to prevent replay attacks. This binding is achieved by signing the 32-byte `mantle_txhash` digest with every Ed25519 signature, and by including it reduced modulo $`p`$ as a public input in every ZK proof. The exceptions are the [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) of a channel step, signed before the Mantle Transaction exists, which is bound to the step itself ([CHANNEL_INSCRIBE](#channel_inscribe)), and the empty proof of [CLAIM_POW_REWARD](#claim_pow_reward), whose ticket is bound to the public key it pays: a claim copied into another Mantle Transaction pays the same key, but invalidates the transaction it was copied from.
+Every Operation proof (zk proofs or signatures) must be cryptographically bound to the `MantleTx` through the `mantle_txhash` to prevent replay attacks. This binding is achieved by signing the 32-byte `mantle_txhash` digest with every Ed25519 signature, and by including it reduced modulo $`p`$ as a public input in every ZK proof. The exceptions are the [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) of a channel step, signed before the Mantle Transaction exists, which is bound to the step itself ([CHANNEL_INSCRIBE](bedrock-v1.1-mantle-channels.md#channel_inscribe)), and the empty proof of [CLAIM_POW_REWARD](proof-of-work.md#claim_pow_reward), whose ticket is bound to the public key it pays: a claim copied into another Mantle Transaction pays the same key, but invalidates the transaction it was copied from.
 
 ```python
 mantle_txhash_fr = FiniteField(mantle_txhash, byte_order="little", modulus = p)
@@ -178,7 +178,7 @@ channels: dict[ChannelId, ChannelState]
 
 The state validation reads is not a fixed snapshot: it advances as the block is processed. A Mantle Transaction is validated against the state left by the Mantle Transactions preceding it in the block, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), and validation and execution then follow one another Operation by Operation, in the order the Operations appear: the Operation at index `i` is validated against the state the Operations at indices `0` to `i-1` left, then executed to produce the state the Operation at index `i+1` is validated against. This is what the `ledger`, `channels` and `declarations` given to each Operation below denote.
 
-The commitment MMRs of the [note sets](#ledger) that some Operations are proven against follow the same Operation by Operation progression, but locally to the Mantle Transaction. Every Operation adding notes to the ledger note set or to a channel note set appends their commitments to the buffer of that set for the Mantle Transaction, its `tx_commitment_buffer`, when validated, and every Operation referencing a commitment MMR root of a set references the root of that set at one of the last [`ROOT_WINDOW`](#ledger) blocks, against which it is verified once the buffer of the set is appended to it. A channel step, proven before the Mantle Transaction exists, is verified against its root extended with the buffer as it stands when its mini-block starts, so that its proof depends on what precedes its mini-block and not on its position inside it ([CHANNEL_INSCRIBE](#channel_inscribe)). `SDP_WITHDRAW` references no root: its proof is verified against the root of an MMR holding only the service note of its declaration ([SDP_WITHDRAW](#sdp_withdraw)). An Operation can therefore consume the outputs of a previous Operation of the same Mantle Transaction without waiting for a block to include them.
+The commitment MMRs of the [note sets](#ledger) that some Operations are proven against follow the same Operation by Operation progression, but locally to the Mantle Transaction. Every Operation adding notes to the ledger note set or to a channel note set appends their commitments to the buffer of that set for the Mantle Transaction, its `tx_commitment_buffer`, when validated, and every Operation referencing a commitment MMR root of a set references the root of that set at one of the last [`ROOT_WINDOW`](#ledger) blocks, against which it is verified once the buffer of the set is appended to it. A channel step, proven before the Mantle Transaction exists, is verified against its root extended with the buffer as it stands when its mini-block starts, so that its proof depends on what precedes its mini-block and not on its position inside it ([CHANNEL_INSCRIBE](bedrock-v1.1-mantle-channels.md#channel_inscribe)). `SDP_WITHDRAW` references no root: its proof is verified against the root of an MMR holding only the service note of its declaration ([SDP_WITHDRAW](bedrock-service-declaration-protocol.md#sdp_withdraw)). An Operation can therefore consume the outputs of a previous Operation of the same Mantle Transaction without waiting for a block to include them.
 
 Atomicity is what a failed check means, not simultaneity. If any of the checks below fails, the whole Mantle Transaction is invalid: none of its Operations takes effect, whether or not it was reached. An invalid Mantle Transaction is never skipped over either, the block including it being invalid and nothing of that block being executed.
 
@@ -244,20 +244,22 @@ Mantle Validators execute each Operation in `ops` according to its opcode, in th
 
 ## Opcodes
 
+Each Operation is specified in the document of its protocol, and this table, the [Gas Determination](#gas-determination) table and the [Test Vectors](#test-vectors) cover them all.
+
 | **Operation** | **Opcode** | **Description** |
 | --- | --- | --- |
-| TRANSFER | 0x00 | Consume and create notes. |
+| [TRANSFER](#transfer) | 0x00 | Consume and create notes. |
 | *RESERVED* | *0x01 - 0x0F* |  |
-| CHANNEL_CONFIG | 0x10 | Configure a channel |
-| CHANNEL_INSCRIBE | 0x11 | Write a message permanently onto Mantle. |
-| CHANNEL_DEPOSIT | 0x12 | Deposit notes into a channel |
-| CHANNEL_WITHDRAW | 0x13 | Withdraw notes from a channel |
+| [CHANNEL_CONFIG](bedrock-v1.1-mantle-channels.md#channel_config) | 0x10 | Configure a channel |
+| [CHANNEL_INSCRIBE](bedrock-v1.1-mantle-channels.md#channel_inscribe) | 0x11 | Write a message permanently onto Mantle. |
+| [CHANNEL_DEPOSIT](bedrock-v1.1-mantle-channels.md#channel_deposit) | 0x12 | Deposit notes into a channel |
+| [CHANNEL_WITHDRAW](bedrock-v1.1-mantle-channels.md#channel_withdraw) | 0x13 | Withdraw notes from a channel |
 | *RESERVED* | *0x14 - 0x1F* |  |
-| SDP_DECLARE | 0x20 | Declare intention to participate as a node in a Bedrock Service, locking funds as collateral. |
-| SDP_WITHDRAW | 0x21 | Withdraw participation from a Bedrock Service, consuming its service note in the process. |
-| SDP_ACTIVE | 0x22 | Signal that you are still an active participant of a Bedrock Service. |
+| [SDP_DECLARE](bedrock-service-declaration-protocol.md#sdp_declare) | 0x20 | Declare intention to participate as a node in a Bedrock Service, locking funds as collateral. |
+| [SDP_WITHDRAW](bedrock-service-declaration-protocol.md#sdp_withdraw) | 0x21 | Withdraw participation from a Bedrock Service, consuming its service note in the process. |
+| [SDP_ACTIVE](bedrock-service-declaration-protocol.md#sdp_active) | 0x22 | Signal that you are still an active participant of a Bedrock Service. |
 | *RESERVED* | *0x23 - 0x2F* |  |
-| CLAIM_POW_REWARD | 0x30 | Claim a reward from the pow reward pool. |
+| [CLAIM_POW_REWARD](proof-of-work.md#claim_pow_reward) | 0x30 | Claim a reward from the pow reward pool. |
 | *RESERVED* | *0x31 - 0xFF* |  |
 
 ## TRANSFER
@@ -566,7 +568,7 @@ class NoteSet:
             assert note_nullifier not in self.nullifiers
 ```
 
-The [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) spending notes of a note set is verified against the root referenced by the Operation, which must be recent, once the commitments of the `tx_commitment_buffer` of the set are appended to it, all of them, or only those before its mini-block for a [channel step](#channel_inscribe). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction:
+The [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) spending notes of a note set is verified against the root referenced by the Operation, which must be recent, once the commitments of the `tx_commitment_buffer` of the set are appended to it, all of them, or only those before its mini-block for a [channel step](bedrock-v1.1-mantle-channels.md#channel_inscribe). The inputs can therefore be notes created by the previous Operations of the Mantle Transaction:
 
 ```python
 class NoteSet:
@@ -745,7 +747,7 @@ The circuit takes at most 4 inputs and 8 outputs. The unused ones are inactive: 
 
 ## Multiple Ed25519 Signatures Verification
 
-The [Channel Configuration](#channel_config) authorizes an action with a threshold of Ed25519 signatures produced by a list of accredited keys. Each signature comes with the index, in the accredited keys list, of the key that produced it. The verification is factored out in the following routine:
+The [Channel Configuration](bedrock-v1.1-mantle-channels.md#channel_config) authorizes an action with a threshold of Ed25519 signatures produced by a list of accredited keys. Each signature comes with the index, in the accredited keys list, of the key that produced it. The verification is factored out in the following routine:
 
 *Given*
 

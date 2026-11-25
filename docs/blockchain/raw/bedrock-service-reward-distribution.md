@@ -49,7 +49,7 @@ This document describes the protocol's logic for deterministically distributing 
 
 The protocol unfolds over three key phases, aligned with validator epochs:
 
-1. **Service Activity Tracking** (epoch N+1): Service validators submit signed active messages to attest to their participation of epoch N through a Mantle Transaction (see [SDP_ACTIVE](bedrock-v1.1-mantle-specification.md#sdp_active)).
+1. **Service Activity Tracking** (epoch N+1): Service validators submit signed active messages to attest to their participation of epoch N through a Mantle Transaction (see [SDP_ACTIVE](bedrock-service-declaration-protocol.md#sdp_active)).
 2. **Service Reward Derivation** (End of epoch N+1): Nodes compute each validator’s reward based on validated active messages and the different service reward policies.
 3. **Service Reward Distribution** (First block of epoch N+2): Rewards are distributed to validators marked as active for the service. This is done by inserting new notes in the ledger corresponding to the reward amount for each active validator.
 
@@ -64,7 +64,7 @@ The protocol unfolds over three key phases, aligned with validator epochs:
 
 ## Activity tracking
 
-Throughout epoch **N+1**, the block proposers integrate Mantle Transactions containing [SDP_ACTIVE Operations](bedrock-v1.1-mantle-specification.md#sdp_active). These transactions originate from service validators and are used to [derive their activity according to the service provided policy](bedrock-service-declaration-protocol.md). The protocol does not prescribe a unique activity rule: each service defines what qualifies as valid participation, enabling flexibility across different services.
+Throughout epoch **N+1**, the block proposers integrate Mantle Transactions containing [SDP_ACTIVE Operations](bedrock-service-declaration-protocol.md#sdp_active). These transactions originate from service validators and are used to [derive their activity according to the service provided policy](bedrock-service-declaration-protocol.md). The protocol does not prescribe a unique activity rule: each service defines what qualifies as valid participation, enabling flexibility across different services.
 
 Service validators are economically incentivized to participate actively since only active validators will be rewarded. Moreover, by decoupling activity submission from reward calculation, the system remains robust to network latency.
 
@@ -94,4 +94,4 @@ The reward must:
 
 Nodes indirectly verify the correct inclusion of rewards because all consensus-validating nodes must maintain the same ledger view to derive the commitment roots of recent blocks and the eligible roots, which serve as inputs for verifying the transactions and the [Proof of Leadership](cryptarchia-proof-of-leadership.md).
 
-After the epoch-**N** rewards are distributed, withdrawn declarations whose last rewardable epoch was **N** are removed by Mantle as part of the same epoch transition (see [SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
+After the epoch-**N** rewards are distributed, withdrawn declarations whose last rewardable epoch was **N** are removed by Mantle as part of the same epoch transition (see [SDP Epoch Finalization](bedrock-service-declaration-protocol.md#sdp-epoch-finalization)).
