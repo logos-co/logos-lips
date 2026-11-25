@@ -134,7 +134,8 @@ The prover knows a witness:
 
 ```python
 class ProofOfLeadershipWitness:
-    sk: ZkSecretKey                           # secret key of the note
+    nf_sk: ZkSecretKey                        # nullifier key of the note
+    staking_sk: ZkSecretKey                   # staking secret key of the note
     value: TokenValue                         # value of the note
     nonce: NoteNonce                          # nonce of the note
     set_selectors: list[boolean]              # position of the note set in the eligible tree (len = ELIGIBLE_DEPTH)
@@ -160,15 +161,18 @@ Every `<` between field elements compares their canonical integer representative
 
 Such that the following constraints hold:
 
-- The public key is derived from the secret key.
+- The public key is derived from the nullifier key, and the staking key from the staking secret key ([Keys](bedrock-mantle-specification.md#keys)).
   ```python
-  pk = zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), sk)
+  pk = zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), nf_sk)
+  stake_pk = zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), staking_sk)
   ```
 
-- The note commitment is derived from the value, the nonce and the public key.
+- The note commitment is derived from the value, the nonce, the public key and the staking key of the note.
   ```python
-  commitment = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), value, nonce, pk)
+  commitment = zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), value, nonce, pk, stake_pk)
   ```
+
+  Deriving the public key from the nullifier key binds the nullifier proven unspent below to the note, without the spending secret key, so a node given the nullifier key alone, a wallet's staking secret key by default, leads with the note but cannot spend it. The staking secret key derives the lottery ticket and the entropy contribution, which stay private even when the nullifier key is public. No secret key is known whose public key is `0`, so a note whose staking key is `0` never leads.
 
 - The note commitment was in the commitment MMR of its note set when the stake distribution was frozen.
   ```python
@@ -182,7 +186,7 @@ Such that the following constraints hold:
 
 - The note is unspent: its nullifier is not in the latest [Nullifier Indexed Merkle Tree](bedrock-mantle.md#nullifier-indexed-merkle-tree) of the same note set, the same `set_selectors` placing both leaves at the position of that set.
   ```python
-  nullifier = zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), commitment, sk)
+  nullifier = zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), commitment, nf_sk)
   low_leaf = zkhash(FiniteField(b"NULLIFIER_IMT_LEAF_V1", byte_order="little", modulus= p),
       low_leaf_nullifier,
       low_leaf_next_nullifier)
@@ -198,19 +202,19 @@ Such that the following constraints hold:
 
 - The note wins the lottery.
   ```python
-  ticket = zkhash(FiniteField(b"LEAD_V1", byte_order="little", modulus= p), epoch_nonce, slot, commitment, sk)
+  ticket = zkhash(FiniteField(b"LEAD_V1", byte_order="little", modulus= p), epoch_nonce, slot, commitment, staking_sk)
   threshold = value * (t0 + t1 * value)
   assert ticket < threshold
   ```
 
 - The entropy contribution is derived from the slot and the note.
   ```python
-  assert entropy_contribution == zkhash(FiniteField(b"NONCE_CONTRIB_V1", byte_order="little", modulus= p), slot, commitment, sk)
+  assert entropy_contribution == zkhash(FiniteField(b"NONCE_CONTRIB_V1", byte_order="little", modulus= p), slot, commitment, staking_sk)
   ```
 
-- The commitment of the leader reward note is derived from the reward value, the reward nonce and the reward public key.
+- The commitment of the leader reward note is derived from the reward value, the reward nonce and the reward public key, as both the public key and the staking key of the note.
   ```python
-  assert reward_commitment == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), reward_value, reward_nonce, reward_public_key)
+  assert reward_commitment == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), reward_value, reward_nonce, reward_public_key, reward_public_key)
   ```
 
 - The proof is bound to `msg`.
@@ -235,7 +239,7 @@ The leader reward of a block is paid as a note the proof derives the commitment 
 - `reward_public_key` and `reward_nonce` are not revealed. As long as the nonce is private and unpredictable, the commitment hides the key, so the chain shows neither the key a reward is paid to nor whether two blocks pay the same key. Given the public value and a nonce they can guess, anyone holding a public key can test it against the commitment.
 - `reward_value` is in the header so that the proof verifies from the header alone, before the block is reconstructed and in a batch with other proofs of leadership. It is compared with the computed reward once the transactions have run ([Block Proposal Validation](bedrock-block-construction.md#block-proposal-validation)), and a block whose value differs from its reward is invalid whatever its proof says.
 - `reward_value` needs no range check in the circuit. It is read from 8 bytes of the header, so it is below $`2^{64}`$, and a note enters the ledger only with the value of the computed reward.
-- The circuit does not constrain `reward_public_key` and `reward_nonce`, which the leader chooses freely. A key can be reused for any number of blocks. Two rewards of the same value under the same key and nonce are identical notes, of which only one can be spent, which is the risk of the leader alone. The [Wallet Technical Standard](wallet-technical-standard.md#leader-reward-notes) recommends a nonce that avoids it.
+- The circuit does not constrain `reward_public_key` and `reward_nonce`, which the leader chooses freely. `reward_public_key` is both the public key and the staking key of the reward note. A key can be reused for any number of blocks. Two rewards of the same value under the same key and nonce are identical notes, of which only one can be spent, which is the risk of the leader alone. The [Wallet Technical Standard](wallet-technical-standard.md#leader-reward-notes) recommends a nonce that avoids it.
 
 # Appendix
 

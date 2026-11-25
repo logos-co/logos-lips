@@ -181,7 +181,7 @@ BodyRoot          = Hash32
 UncleHeaders      = UncleCount *Header
 UncleCount        = Byte            ; MUST NOT exceed MAX_UNCLES
 
-ProofOfLeadership = Groth16 EntropyContribution RewardCommitment RewardValue
+ProofOfLeadership = Groth16Proof EntropyContribution RewardCommitment RewardValue
 EntropyContribution = FieldElement
 RewardCommitment  = FieldElement
 RewardValue       = UINT64
@@ -191,7 +191,7 @@ ReferenceCount    = UINT16          ; MUST NOT exceed MAX_BLOCK_TXS
 Reference         = 16BYTE          ; REFERENCE_PREFIX_LENGTH bytes
 ```
 
-The terminals `Byte`, `UINT16`, `UINT64`, `Hash32`, `FieldElement` and `Groth16` are those defined in [Mantle Transaction Encoding](bedrock-mantle-encoding.md#common-structures). Note in particular that `FieldElement` is a little-endian BN254 field element, which fixes the byte order of `entropy_contribution` and `reward_commitment`.
+The terminals `Byte`, `UINT16`, `UINT64`, `Hash32`, `FieldElement` and `Groth16Proof` are those defined in [Mantle Transaction Encoding](bedrock-mantle-encoding.md#common-structures). Note in particular that `FieldElement` is a little-endian BN254 field element, which fixes the byte order of `entropy_contribution` and `reward_commitment`.
 
 This yields the following sizes, where `n` is the number of references:
 
@@ -269,7 +269,7 @@ references: list[bytes] = [prefix(mantle_txhash(tx), REFERENCE_PREFIX_LENGTH)
 ```
 
 4. Compute the `header.body_root` over both parts of the body, as defined in step 4 of [Block Header Validation](cryptarchia-protocol.md#block-header-validation): the serialized `uncle_headers` list from step 1, combined with the root of the Merkle tree constructed over the full transaction hashes of the selected transactions used to build `references`. The `references` list is left exactly as long as the selection; it is not padded. This step therefore comes after both uncle selection and transaction selection.
-5. Compute the leader reward of the block as [Block Execution](#block-execution) does, by executing the selected transactions, and set `header.proof_of_leadership.reward_value` to it. Choose a public key `reward_public_key` and a nonce `reward_nonce` for the note, and set `header.proof_of_leadership.reward_commitment` to `derive_note_commitment(Note(reward_value, reward_nonce, reward_public_key))` ([Note Commitment and Nullifier](bedrock-mantle.md#note-commitment-and-nullifier)).
+5. Compute the leader reward of the block as [Block Execution](#block-execution) does, by executing the selected transactions, and set `header.proof_of_leadership.reward_value` to it. Choose a public key `reward_public_key` and a nonce `reward_nonce` for the note, and set `header.proof_of_leadership.reward_commitment` to `derive_note_commitment(Note(reward_value, reward_nonce, reward_public_key, reward_public_key))`, `reward_public_key` being both the public key and the staking key of the note ([Note Commitment and Nullifier](bedrock-mantle.md#note-commitment-and-nullifier)).
 6. Set `header.proof_of_leadership.entropy_contribution` to the entropy contribution of the selected note at the slot, as the [Proof of Leadership](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement) derives it. Generate a valid PoL proving leadership eligibility for `(Epoch, Slot)` based on the selected note, with the public inputs `msg`, the `block_id` of the header reduced modulo $`p`$ ([Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)), and `reward_value`, and the private witnesses `reward_public_key` and `reward_nonce`, and set `header.proof_of_leadership.proof` from it.
 
 7. Assemble the block proposal.
@@ -394,7 +394,7 @@ Given a `ValidBlock` that has successfully passed proposal validation, the node 
 
 Steps 1 and 2 read the epoch, the slot and the state of the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) and of the pending withdrawals, never the transactions of the block, which is what lets them run before those transactions are validated.
 
-The leader reward of step 4 is the one defined in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders), computed from the [Block Rewards](block-rewards.md) of the block and the Execution market tips of its transactions, which is why it comes after them. It is paid as a single note, `Note(reward_value, reward_nonce, reward_public_key)`, whose commitment is the `reward_commitment` of the block: the [Proof of Leadership](cryptarchia-proof-of-leadership.md#leader-reward-note) proves that the commitment opens to `reward_value` and to a key and a nonce the block does not reveal. The commitment is appended to the ledger note set, `LEDGER_SET`, of the [Mantle Ledger](bedrock-mantle.md#ledger):
+The leader reward of step 4 is the one defined in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders), computed from the [Block Rewards](block-rewards.md) of the block and the Execution market tips of its transactions, which is why it comes after them. It is paid as a single note, `Note(reward_value, reward_nonce, reward_public_key, reward_public_key)`, whose commitment is the `reward_commitment` of the block: the [Proof of Leadership](cryptarchia-proof-of-leadership.md#leader-reward-note) proves that the commitment opens to `reward_value` and to a key and a nonce the block does not reveal. The commitment is appended to the ledger note set, `LEDGER_SET`, of the [Mantle Ledger](bedrock-mantle.md#ledger):
 
 ```python
 assert block.header.proof_of_leadership.reward_value == get_leader_reward(block)

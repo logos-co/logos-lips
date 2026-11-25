@@ -167,7 +167,8 @@ Channels let their bridged notes keep participating in Proof of Stake. When a us
 
 | Party | Can | Cannot |
 |---|---|---|
-| Holder of the note's `ZkPublicKey` | Create a PoL with the note and earn its rewards. Sign a step moving the note inside the channel. Withdraw the note alone, paying the fee with a ledger note | Spend the note in any other Operation |
+| Holder of the note's spending secret key | Sign a step moving the note inside the channel. Withdraw the note alone, paying the fee with a ledger note | Spend the note in any other Operation. Create a PoL with the note without the staking secret key |
+| Holder of the note's nullifier key and staking secret key, the same key by default | Create a PoL with the note and earn its rewards under a key of its choice. See when the note is spent | Spend the note. Create a PoL with a note whose staking key is `0` |
 | Channel sequencers | Collect the steps of their users and publish them in the inscriptions of the channel, grouped in mini-blocks in the order they choose, a step consuming an output of the inscription coming in a later mini-block | Move a note without its holder's step |
 
 ### CHANNEL_INSCRIBE

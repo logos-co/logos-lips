@@ -120,7 +120,7 @@ A `UserStep` moves channel notes with the inscription of its holder, and a `Mini
 ### SDP Operations
 
 ```schema
-SDPDeclare    = ServiceType Locators ProviderId ZkId NotePk Inputs CommitmentRoot Value
+SDPDeclare    = ServiceType Locators ProviderId ZkId NotePk NoteStakePk Inputs CommitmentRoot Value
 ServiceType   = Byte          ; 0 = BN
 Locators      = LocatorCount *Locator
 LocatorCount  = Byte          ; Max 8
@@ -128,6 +128,7 @@ Locator       = 2Byte *BYTE   ; Max 329 bytes, multiaddr binary form
 ProviderId    = Ed25519PublicKey
 ZkId          = ZkPublicKey
 NotePk        = ZkPublicKey
+NoteStakePk   = ZkPublicKey
 
 SDPWithdraw   = DeclarationId NoteNullifier Outputs Value
 DeclarationId = Hash32
@@ -204,10 +205,10 @@ SignerIndex    = UINT16
 
 ```schema
 ; Zero-knowledge transfer proof
-ZkTransfer = Groth16
+ZkTransfer = Groth16Proof
 
 ; Cryptographic primitives
-Groth16          = 128BYTE      ; pi_a (32) + pi_b (64) + pi_c (32)
+Groth16Proof     = 128BYTE      ; pi_a (32) + pi_b (64) + pi_c (32)
 ZkPublicKey      = FieldElement
 Ed25519PublicKey = 32BYTE
 Ed25519Signature = 64BYTE

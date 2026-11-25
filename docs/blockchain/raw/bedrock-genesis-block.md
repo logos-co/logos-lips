@@ -55,7 +55,7 @@ The Genesis Block is composed of the Genesis Block Header and the Genesis Mantle
 
 ## Initial Token Distribution
 
-Initial tokens will be distributed through one note for each initial stakeholder, created from the distribution published in an inscription sent to the null channel right after the [Cryptarchia Parameters](#cryptarchia-parameters) inscription. The initial stake allocation is public: everyone can recompute the commitments of the notes and audit the initial supply. Those wishing to hide their initial stake may opt to subdivide their note into a few different notes of equal value.
+Initial tokens will be distributed through one note for each initial stakeholder, created from the distribution published in an inscription sent to the null channel right after the [Cryptarchia Parameters](#cryptarchia-parameters) inscription. The public key of each note is also its staking key. The initial stake allocation is public: everyone can recompute the commitments of the notes and audit the initial supply. Those wishing to hide their initial stake may opt to subdivide their note into a few different notes of equal value.
 
 The distribution inscription is the number of notes as one byte, followed by the value (`UINT64`) and the public key (`ZkPublicKey`) of each note, in order, encoded as in [Mantle Transaction Encoding](bedrock-mantle-encoding.md#common-structures).
 
@@ -91,7 +91,8 @@ distribution_op_id = derive_op_id(DISTRIBUTION_INSCRIPTION)
 STAKE_DISTRIBUTION_NOTES = [
     Note(value=value,
          nonce=derive_note_nonce(distribution_op_id, i, value, public_key),
-         public_key=public_key)
+         public_key=public_key,
+         stake_public_key=public_key)
     for i, (value, public_key) in enumerate(STAKE_DISTRIBUTION)
 ]
 ```
@@ -119,7 +120,7 @@ Blend Network MUST initialize its set of providers. This is done through a set o
 
 Blend enforces a minimal network size for the service to be active. Thus, in order to have an active Blend service at Genesis, we MUST have at least as many declarations in the Genesis block to meet Blend service’s minimal network size [Minimal Network Size](blend-protocol.md#minimal-network-size).
 
-Each declaration names in `note_pk` the key its service note is created under, as any [`SDP_DECLARE`](bedrock-service-declaration-protocol.md#sdp_declare) does.
+Each declaration names in `note_pk` and `note_stake_pk` the keys its service note is created under, as any [`SDP_DECLARE`](bedrock-service-declaration-protocol.md#sdp_declare) does.
 
 **Example**
 
@@ -131,6 +132,7 @@ BLEND_DECLARATIONS = [
         provider_id=PROVIDER_ID_0,
         zk_id=ZK_ID_0,
         note_pk=NOTE_PK_0,
+        note_stake_pk=NOTE_STAKE_PK_0,
         inputs=[],
         commitment_root=EMPTY_MMR_ROOT,
         amount=1000,
@@ -303,6 +305,7 @@ BLEND_DECLARATIONS = [
         provider_id=PROVIDER_ID_0,
         zk_id=ZK_ID_0,
         note_pk=NOTE_PK_0,
+        note_stake_pk=NOTE_STAKE_PK_0,
         inputs=[],
         commitment_root=EMPTY_MMR_ROOT,
         amount=1000,
@@ -360,7 +363,7 @@ Everything else is validated as it would be in any other block, against the stat
 
 Before Genesis, the Ledger holds two [note sets](bedrock-mantle.md#ledger), the ledger note set and the SDP note set. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-mantle.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0)`. The list of pending withdrawals is empty.
 
-When the distribution inscription is executed, the commitment of each initial note, `derive_note_commitment(Note(value, derive_note_nonce(op_id, i, value, public_key), public_key))` for the value and public key published at index `i` and the `op_id` of that inscription, is appended in order to the commitment MMR of the ledger note set, as `execute_adding` does ([Creating Output Notes Execution](bedrock-mantle.md#creating-output-notes-execution)). This step creates the initial notes, which no Operation could create without consuming notes.
+When the distribution inscription is executed, the commitment of each initial note, `derive_note_commitment(Note(value, derive_note_nonce(op_id, i, value, public_key), public_key, public_key))` for the value and public key published at index `i`, as both the public key and the staking key of the note, and the `op_id` of that inscription, is appended in order to the commitment MMR of the ledger note set, as `execute_adding` does ([Creating Output Notes Execution](bedrock-mantle.md#creating-output-notes-execution)). This step creates the initial notes, which no Operation could create without consuming notes.
 
 The pow reward pool is initialized at the same time:
 
