@@ -2731,6 +2731,22 @@ that holds keys. A and B stand for other modules and are local to one item.
   may continue, with the artifact hash taken as fresh integrity evidence, or whether this is an upgrade
   under l.3412. In the second case a system service that keeps state, under an instance that deployment
   rules name, needs a replacement instance at every new build of its host.
+- PM l.1722 against l.1677, l.1682 and l.1756: "An observer sees either the complete installed state
+  before such a mutation or the complete state after it" (l.1722), and "It MUST NOT observe a partially
+  created, removed, or replaced root record" (l.1723). The text does not say whether an `install_package`
+  that also installs dependencies is one mutation, or one for each record. It points to the second: the
+  operation "MUST install missing dependencies before their dependents" (l.1677), after a failure "that
+  dependency MAY remain installed" (l.1682), and "Actual dependency installations that remain committed
+  after a root-operation failure qualify as changes" (l.1756). So an observer that lists, or receives a
+  hint, between two of those commits sees a dependency installed without the root that asked for it.
+  Whether that state may be observed while the operation still runs, and not only after it has failed,
+  is not said.
+- PM l.1656 against l.1355 and l.1495: "`list_packages` returns only exact catalog identities whose
+  source kind the provider implements" (l.1656). The text does not say what the method returns while the
+  provider has no catalog. For that case it speaks of an operation only, which "can resolve a dependency
+  only from a satisfying installed package" (l.1355). An empty list would state that the catalog holds
+  no entry. `package-unavailable` "means the requested package or source could not be located or
+  materialized" (l.1495), and a list request names neither.
 
 ---
 
