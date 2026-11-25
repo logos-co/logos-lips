@@ -29,6 +29,7 @@
 | 1.1.1 | Updated `Max_Body_Length` to 18192 bytes, following the compression of transaction references to 16-byte prefixes and their encoding as a variable-length list (see [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md)). | 2026-08-18 |
 | 1.2.0 | Add the transaction `body_type`, bound a carried transaction to `Max_Body_Length`, and state the fixed-length padding cost it inherits | 2026-09-08 |
 | 1.2.1 | Updated `Max_Body_Length` to 17752 bytes, following the removal of the leader key and of the signatures from block proposals, and the addition of the reward value to their headers (see [Block Construction, Validation and Execution](bedrock-block-construction.md#block-proposal)) | 2026-10-14 |
+| 1.2.2 | Links to Block Construction point to `bedrock-block-construction.md` | 2026-11-25 |
 
 # Introduction
 

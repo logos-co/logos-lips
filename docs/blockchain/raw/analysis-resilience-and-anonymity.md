@@ -22,6 +22,7 @@
 | Version | Changes | Date |
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2025-08-25 |
+| 1.0.1 | Links to the Cryptarchia Protocol point to `cryptarchia-protocol.md` | 2026-11-25 |
 
 # Introduction
 

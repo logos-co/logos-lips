@@ -35,6 +35,7 @@
 | 1.2.1 | Align the initial service declarations with the Service Declaration Protocol: the `BN` service type, the full `DeclarationMessage` shape, and multiaddr locators | 2026-10-01 |
 | 1.2.2 | Renamed the token LGO to LOGOS | 2026-10-29 |
 | 1.3.0 | Support the private ledger of Mantle: the initial notes are created, with nonces derived from its `op_id`, from the distribution published in an inscription to the null channel, which replaces the Transfer Operation, and the declarations consume no note, their amounts counting in the maximum supply. Genesis initializes the block reward stocks and records the commitment roots of the note sets | 2026-11-06 |
+| 1.3.1 | Links to Mantle point to `bedrock-mantle-specification.md`, links to `SDP_DECLARE` to `bedrock-service-declaration-protocol.md`, links to Block Construction to `bedrock-block-construction.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
 
 # Introduction
 

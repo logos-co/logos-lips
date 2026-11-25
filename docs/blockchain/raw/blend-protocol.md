@@ -40,6 +40,7 @@
 | 1.7.0 | Derived the observation window $`W`$ from cover traffic in place of the maximal release delay. | 2026-10-29 |
 | 1.8.0 | Refused a neighbor closed as not live for $`W`$ rounds, restarting its liveness count, in place of shutting it out for the rest of the epoch. | 2026-10-30 |
 | 1.8.1 | Updated the encapsulation-overhead calculation to the `Max_Payload_Length` of 17755 bytes, following the removal of the leader key and of the signatures from block proposals, and the addition of the reward value to their headers. The leader reward is referenced in [Block Execution](bedrock-block-construction.md#block-execution). The base reward is rounded down, and none is calculated without an activity proof | 2026-10-14 |
+| 1.8.2 | Links to Block Construction point to `bedrock-block-construction.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
 
 # Introduction
 

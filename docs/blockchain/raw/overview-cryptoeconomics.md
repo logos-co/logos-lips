@@ -30,6 +30,7 @@
 | 1.3.0 | Add the proof of work reward pool, funded by diverting a share of the collected fees before they reach the rewards pool | 2026-08-31 |
 | 1.4.0 | Define the LEPTON as the indivisible token unit, with one LOGOS equal to $`10^{9}`$ LEPTA | 2026-10-26 |
 | 1.5.0 | Pay the leader reward of a block in the block itself, as a note under a public key the leader keeps private. Aligned the maximum block size with the 2 MiB of [Cryptarchia](cryptarchia-protocol.md#constants). The Execution Gas limit deducts the measured fixed part of the ZkTransfer batch verification. The leader share is 40% of the block reward rounded down, the remainder going to the Blend reward, held in `blend_rewards_pending` until it is paid. The overview figure follows. Removed the reference to the hardware requirements | 2026-10-07 |
+| 1.5.1 | Links to Mantle point to `bedrock-mantle-specification.md`, links to Block Construction to `bedrock-block-construction.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
 
 > **Disclaimer**:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.

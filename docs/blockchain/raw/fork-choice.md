@@ -27,6 +27,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.1.0 | Clarified that `density` counts only the blocks of the chain being measured and excludes the [uncle references](cryptarchia-v1-protocol.md#uncle-references) those blocks carry, since uncles carry no fork-choice weight. | 2026-07-09 |
+| 1.1.1 | Links to the Cryptarchia Protocol point to `cryptarchia-protocol.md` | 2026-11-25 |
 
 # Introduction
 

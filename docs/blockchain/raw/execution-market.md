@@ -29,6 +29,7 @@
 | 1.2.0 | The base fee is routed to the rewards pool less the share diverted to the proof of work reward pool | 2026-08-31 |
 | 1.2.1 | Correct the reachable floor of the base fee from 1 to 7 | 2026-10-26 |
 | 1.3.0 | The priority fees of a block are paid to its builder in the block, within its leader reward. $`G_\text{max}`$ and $`G_\text{target}`$ follow the Execution Gas limit derived from the measured batch verification of the ZkTransfer. The lifecycle figure follows | 2026-10-07 |
+| 1.3.1 | Links to Block Construction point to `bedrock-block-construction.md` | 2026-11-25 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.

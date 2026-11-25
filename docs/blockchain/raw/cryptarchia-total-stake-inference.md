@@ -28,6 +28,7 @@
 | 1.1.0 | Changed `density_over_slots` to count **distinct occupied slots** instead of blocks, including the slots of the [uncles](cryptarchia-v1-protocol.md#uncle-references) referenced by the honest chain's in-period blocks, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md). | 2026-08-06 |
 | 1.1.1 | Changed `tse_p` to a signed 128-bit integer, as the stake estimate counts [LEPTA](overview-cryptoeconomics.md#token-units-and-precision). | 2026-10-27 |
 | 1.1.2 | A carried uncle header has no signature: its Proof of Leadership is bound to it | 2026-10-14 |
+| 1.1.3 | Links to the Cryptarchia Protocol point to `cryptarchia-protocol.md` | 2026-11-25 |
 
 # Introduction
 

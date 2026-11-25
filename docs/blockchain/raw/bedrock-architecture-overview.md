@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2025-08-22 |
 | 1.1.0 | Remove references to DA Replace Nomos with Logos Blockchain | 2026-01-14 |
 | 1.2.0 | Fees and funds are carried by Transfer Operations over private notes, and every channel has a note set of its own. The figure of a Mantle Transaction shows only Operations | 2026-11-06 |
+| 1.2.1 | Links to the Cryptarchia Protocol point to `cryptarchia-protocol.md` | 2026-11-25 |
 
 # Introduction
 

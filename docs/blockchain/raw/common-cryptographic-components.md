@@ -27,6 +27,7 @@
 | 1.1.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
 | 1.2.0 | Strict EdDSA verification: reject small-order public keys and small-order `R` | 2026-09-22 |
 | 1.3.0 | Removed the ZkSignature scheme, no longer used by any Operation. The three-element nullifier uses the hash function mode | 2026-10-07 |
+| 1.3.1 | Links to Mantle point to `bedrock-mantle-specification.md` | 2026-11-25 |
 
 # Introduction
 

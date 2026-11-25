@@ -23,6 +23,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2025-08-20 |
 | 1.0.1 | Renamed Nomos to Logos Blockchain | 2026-04-17 |
+| 1.0.2 | Links to Block Construction point to `bedrock-block-construction.md` | 2026-11-25 |
 
 # Introduction
 

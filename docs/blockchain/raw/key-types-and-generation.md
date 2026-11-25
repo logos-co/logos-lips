@@ -28,6 +28,7 @@
 | 1.0.1 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.1.0 | Add the Proof of Work Nonce | 2026-08-31 |
 | 1.1.1 | The Non-ephemeral Quota Key is a `ZkSecretKey` whose public key is derived as in Mantle | 2026-10-07 |
+| 1.1.2 | Links to Mantle point to `bedrock-mantle-specification.md` | 2026-11-25 |
 
 # Introduction
 

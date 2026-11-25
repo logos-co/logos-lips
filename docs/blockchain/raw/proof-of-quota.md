@@ -29,6 +29,7 @@
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection; benchmark the three branch circuit | 2026-09-08 |
 | 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen, and its nullifier absent from the nullifier IMT of that set at that time. Paths and selectors follow the Merkle path convention of Mantle, from the leaf level up, the commitment path and the path in the eligible tree having depth 40. `pol_epoch_nonce`, `pol_t0` and `pol_t1` are field elements, as in the Proof of Leadership, and `core_sk` is the Non-ephemeral Quota Key | 2026-11-06 |
+| 1.3.1 | Links to Mantle point to `bedrock-mantle-specification.md` | 2026-11-25 |
 
 
 # Introduction

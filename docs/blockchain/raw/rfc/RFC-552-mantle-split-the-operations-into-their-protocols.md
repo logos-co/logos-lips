@@ -32,7 +32,7 @@ The channel Operations are specified in Mantle Channels, the SDP Operations in t
 
 ## No rule changes
 
-The split moves text and repoints links. No payload, opcode, validation rule, execution step, Execution Gas cost or encoding differs, so nodes and wallets need no change and no migration. Mantle, the Service Declaration Protocol and Proof of Work each take a minor version, and Mantle Channels starts at 1.0.0.
+The split moves text and repoints links. No payload, opcode, validation rule, execution step, Execution Gas cost or encoding differs, so nodes and wallets need no change and no migration. Mantle, the Service Declaration Protocol and Proof of Work each take a minor version, Mantle Channels starts at 1.0.0, and every other changed document takes a patch version.
 
 # Details
 
@@ -81,15 +81,27 @@ Version 1.3.0. Proof of Work specifies `## Proof of Work Operations` under `# Pr
 | [Mantle Channels](../bedrock-mantle-channels.md) | Created | 1.0.0, published as `bedrock-mantle-channels.md` |
 | [Service Declaration Protocol](../bedrock-service-declaration-protocol.md) | Modified | 1.10.0 |
 | [Proof of Work](../proof-of-work.md) | Modified | 1.3.0 |
-| [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | link targets only |
-| [Bedrock Genesis Block](../bedrock-genesis-block.md) | Modified | link targets only |
-| [Service Reward Distribution Protocol](../bedrock-service-reward-distribution.md) | Modified | link targets only |
-| [Block Construction, Validation and Execution](../bedrock-block-construction.md) | Modified | link targets only |
-| [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | link targets only |
-| [Common Cryptographic Components](../common-cryptographic-components.md) | Modified | link target only |
-| [Cryptarchia Protocol](../cryptarchia-protocol.md) | Modified | link target only |
-| [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | link targets only |
-| [Key Types and Generation](../key-types-and-generation.md) | Modified | link target only |
-| [Cryptoeconomics](../overview-cryptoeconomics.md) | Modified | link targets only |
-| [Proof of Quota](../proof-of-quota.md) | Modified | link targets only |
-| [Wallet Technical Standard](../wallet-technical-standard.md) | Modified | link targets only |
+| [Block Construction, Validation and Execution](../bedrock-block-construction.md) | Modified | 1.4.1, published as `bedrock-block-construction.md`; link targets only |
+| [Cryptarchia Protocol](../cryptarchia-protocol.md) | Modified | 1.3.1, published as `cryptarchia-protocol.md`; link targets only |
+| [Cryptarchia Bootstrapping & Synchronization](../cryptarchia-bootstr-sync.md) | Modified | 1.0.4, published as `cryptarchia-bootstr-sync.md` with its images under `cryptarchia-bootstr-sync/`; link targets only |
+| [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | 1.8.1, link targets only |
+| [Bedrock Genesis Block](../bedrock-genesis-block.md) | Modified | 1.3.1, link targets only |
+| [Service Reward Distribution Protocol](../bedrock-service-reward-distribution.md) | Modified | 1.4.1, link targets only |
+| [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | 2.0.1, link targets only |
+| [Common Cryptographic Components](../common-cryptographic-components.md) | Modified | 1.3.1, link target only |
+| [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | 1.2.1, link targets only |
+| [Key Types and Generation](../key-types-and-generation.md) | Modified | 1.1.2, link target only |
+| [Cryptoeconomics](../overview-cryptoeconomics.md) | Modified | 1.5.1, link targets only |
+| [Proof of Quota](../proof-of-quota.md) | Modified | 1.3.1, link targets only |
+| [Wallet Technical Standard](../wallet-technical-standard.md) | Modified | 1.2.1, link targets only |
+| [Analysis: Resilience and Anonymity](../analysis-resilience-and-anonymity.md) | Modified | 1.0.1, link target only |
+| [Analysis: Static Minimum Stake Estimation for Service Declaration Protocol](../analysis-static-minimum-stake-estimation-for-service-declaration-protocol.md) | Modified | 1.0.3, link target only |
+| [Analysis: Total Stake Inference](../analysis-total-stake-inference.md) | Modified | 1.0.1, link target only |
+| [Overview: Bedrock Architecture](../bedrock-architecture-overview.md) | Modified | 1.2.1, link target only |
+| [Blend Protocol](../blend-protocol.md) | Modified | 1.8.2, link targets only |
+| [Block Rewards](../block-rewards.md) | Modified | 1.4.1, link targets only |
+| [Total Stake Inference](../cryptarchia-total-stake-inference.md) | Modified | 1.1.3, link targets only |
+| [Execution Market](../execution-market.md) | Modified | 1.3.1, link targets only |
+| [Cryptarchia Fork Choice Rule](../fork-choice.md) | Modified | 1.1.1, link target only |
+| [Network Wire Format](../network-wire-format.md) | Modified | 1.0.2, link target only |
+| [Payload Formatting](../payload-formatting.md) | Modified | 1.2.2, link targets only |

@@ -26,6 +26,7 @@
 | 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
 | 1.3.0 | Count every amount in LEPTA, which scales three constants of the integer rule by $`10^{9}`$ and widens its intermediates to 128 bits | 2026-10-29 |
 | 1.4.0 | Keep the reserve, the pool, the pending Blend share and the window of pooled fees as integer consensus state in LEPTA, the Blend rewards an epoch does not distribute returning to the pool, the release capped at the reserve balance, with the integer reference averaging the pooled fees over the 120-block window as the reward equation does. Redraw the system design and project the circulating supply over 10 years with a per-block simulation | 2026-10-07 |
+| 1.4.1 | Links to Block Construction point to `bedrock-block-construction.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
