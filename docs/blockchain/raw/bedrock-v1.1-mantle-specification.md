@@ -1442,7 +1442,7 @@ pow_nullifiers: set[zkhash]
 
 Transfer prove the correct consumption and creation of notes. Because notes aren't transparent, this is done by a ZK proof (see [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer)), proving the correctness of the transfer and outputting the excess value of the transfer balance to pay for the fees.
 
-A Transfer hides the commitments related to the nullifiers it's spending. It also hides the values and public keys of its notes behind the created commitments. It reveals the nullifiers of the notes spended, the commitments of the created notes, their amount, the commitment root it names and its `excess_value` that is the difference between the value consumed and the value created.
+A Transfer hides the commitments related to the nullifiers it's spending. It also hides the values and public keys of its notes behind the created commitments. It reveals the nullifiers of the notes spent, the commitments of the created notes, their amount, the commitment root it names and its `excess_value` that is the difference between the value consumed and the value created.
 
 ### Payload
 
