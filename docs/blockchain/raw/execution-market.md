@@ -29,6 +29,7 @@
 | 1.2.0 | The base fee is routed to the rewards pool less the share diverted to the proof of work reward pool | 2026-08-31 |
 | 1.2.1 | Correct the reachable floor of the base fee from 1 to 7 | 2026-10-26 |
 | 1.3.0 | The priority fees of a block are paid to its builder in the block, within its leader reward. $`G_\text{max}`$ and $`G_\text{target}`$ follow the Execution Gas limit derived from the measured batch verification of the ZkTransfer. The lifecycle figure follows | 2026-10-07 |
+| 1.3.1 | Links to Block Construction point to `bedrock-block-construction.md` | 2026-11-25 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -54,7 +55,7 @@ The design is founded on a target-based mechanism, philosophically aligned with 
 
 To further enhance security, this specification addresses a known vulnerability in the classic EIP-1559 design. As demonstrated by recent research ([Cachin et al., 2023](https://arxiv.org/pdf/2304.11478)), EIP-1559 is susceptible to base fee manipulation by rational, non-myopic block builders. Our design incorporates a direct mitigation for this threat, as proposed in [Cachin et al., 2023](https://arxiv.org/pdf/2304.11478): an Exponential Moving Average (EMA) based update rule for the base fee. Given the EMA nature of this update, these enhancements smooth fluctuations in execution gas consumption, making the protocol significantly more resilient to strategic manipulation without compromising its core benefits of responsiveness and predictability
 
-Furthermore, as opposed to the standard EIP-1559 mechanism, where the base fee is burned and tips are immediately given to miners, in our setting we route the base fees into a rewards pool, and the block builder receives the tips in the block itself, within its leader reward, paid as a note whose spending does not reveal it, to preserve its privacy ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)). The base fees are not paid to the block builder directly, although the protocol fixes them: a builder receiving the base fees of its own block could fill it with its own transactions at no cost, and push the base fee up for every user, the manipulation that burning the base fee prevents in EIP-1559. The pooled base fees still reach the leaders, in their blocks, through the block reward, which averages the pooled fees over the last 120 blocks ([Block Rewards](block-rewards.md)).
+Furthermore, as opposed to the standard EIP-1559 mechanism, where the base fee is burned and tips are immediately given to miners, in our setting we route the base fees into a rewards pool, and the block builder receives the tips in the block itself, within its leader reward, paid as a note whose spending does not reveal it, to preserve its privacy ([Block Execution](bedrock-block-construction.md#block-execution)). The base fees are not paid to the block builder directly, although the protocol fixes them: a builder receiving the base fees of its own block could fill it with its own transactions at no cost, and push the base fee up for every user, the manipulation that burning the base fee prevents in EIP-1559. The pooled base fees still reach the leaders, in their blocks, through the block reward, which averages the pooled fees over the last 120 blocks ([Block Rewards](block-rewards.md)).
 
 # Overview
 
@@ -64,7 +65,7 @@ The mechanism operates on four core principles:
 
 - Dynamic Base Fee: A protocol-defined base_fee for Execution Gas must be paid for a transaction to be included in a block. This fee adjusts automatically based on a smoothed average of recent network demand relative to a predefined capacity target, ensuring sustainable network load. This base_fee is the minimal threshold to be paid for the transaction to be accepted by the block builder.
 - Priority Fee (Tip): To incentivize faster inclusion by block builders, users add a priority_fee on top of the base fee. This creates a simple and transparent auction for block space during periods of high demand. The proceeds of this goes to the block builder.
-- Fee Splitting and Pooling: The two fee components are treated differently. The base_fee, less the share diverted to the [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool), is routed to the rewards pool, removing it from circulation. As usage grows, more base fees are routed to the pool and removed from circulation, which creates a direct link between network activity and the circulating supply of the native token. The priority_fee is paid to the block builder in the block, together with 40% of the block reward, the remaining 60% going to Blend nodes. Spending the block builder reward note does not reveal it, which preserves the privacy of the builder ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
+- Fee Splitting and Pooling: The two fee components are treated differently. The base_fee, less the share diverted to the [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool), is routed to the rewards pool, removing it from circulation. As usage grows, more base fees are routed to the pool and removed from circulation, which creates a direct link between network activity and the circulating supply of the native token. The priority_fee is paid to the block builder in the block, together with 40% of the block reward, the remaining 60% going to Blend nodes. Spending the block builder reward note does not reveal it, which preserves the privacy of the builder ([Block Execution](bedrock-block-construction.md#block-execution)).
 
 The entire lifecycle can be visualized in the following flow:
 
@@ -150,7 +151,7 @@ def construct_block(mempool, base_fee, gt, G_max):
     return block_txs
 ```
 
-`applies(tx, block_txs)` holds when `tx` is valid in the state left by the previously selected transactions, per [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation).
+`applies(tx, block_txs)` holds when `tx` is valid in the state left by the previously selected transactions, per [Block Proposal Validation](bedrock-block-construction.md#block-proposal-validation).
 
 ## On-Chain Rules: Fee Update and Revenue
 

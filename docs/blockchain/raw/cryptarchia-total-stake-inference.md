@@ -28,6 +28,7 @@
 | 1.1.0 | Changed `density_over_slots` to count **distinct occupied slots** instead of blocks, including the slots of the [uncles](cryptarchia-v1-protocol.md#uncle-references) referenced by the honest chain's in-period blocks, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md). | 2026-08-06 |
 | 1.1.1 | Changed `tse_p` to a signed 128-bit integer, as the stake estimate counts [LEPTA](overview-cryptoeconomics.md#token-units-and-precision). | 2026-10-27 |
 | 1.1.2 | A carried uncle header has no signature: its Proof of Leadership is bound to it | 2026-10-14 |
+| 1.1.3 | Links to the Cryptarchia Protocol point to `cryptarchia-protocol.md` | 2026-11-25 |
 
 # Introduction
 
@@ -39,7 +40,7 @@ The total active stake can be inferred by observing the slot occupancy rate: a h
 
 The stake inference algorithm adjusts the previous total stake estimate based on the difference between the empirical slot activation rate (measured as the growth rate of the honest chain) and the expected slot activation rate. A large difference serves as an indicator that the total stake estimate is not accurate and must be adjusted.
 
-To measure the slot activation rate more accurately, the block count also includes the [uncle blocks](cryptarchia-v1-protocol.md#uncle-references) referenced by the honest chain. An uncle is a genuine lottery win, backed by a valid Proof of Leadership, that was lost to a fork instead of becoming part of the honest chain. Each block may reference several uncles, and the same uncle may be referenced by more than one block; the count is taken over distinct occupied slots, so each slot — whether occupied by a canonical block, a referenced uncle, or both — is counted only once. Without uncle references, these occupied slots would not be observed and the inference would underestimate the participation. Every uncle referenced from within the observation period contributes to the count, with no verification-based filtering: the headers are carried with the referencing blocks, and their validity is a condition of those blocks' own validity, so an uncle present in the chain has already been verified and every node holding the chain counts exactly the same set. Since forks are predominantly caused by network delays, counting referenced uncles also mitigates the accuracy loss under increased network delays noted below.
+To measure the slot activation rate more accurately, the block count also includes the [uncle blocks](cryptarchia-protocol.md#uncle-references) referenced by the honest chain. An uncle is a genuine lottery win, backed by a valid Proof of Leadership, that was lost to a fork instead of becoming part of the honest chain. Each block may reference several uncles, and the same uncle may be referenced by more than one block; the count is taken over distinct occupied slots, so each slot — whether occupied by a canonical block, a referenced uncle, or both — is counted only once. Without uncle references, these occupied slots would not be observed and the inference would underestimate the participation. Every uncle referenced from within the observation period contributes to the count, with no verification-based filtering: the headers are carried with the referencing blocks, and their validity is a condition of those blocks' own validity, so an uncle present in the chain has already been verified and every node holding the chain counts exactly the same set. Since forks are predominantly caused by network delays, counting referenced uncles also mitigates the accuracy loss under increased network delays noted below.
 
 This algorithm has been analyzed and shown to have good accuracy, precision and convergence speed. A caveat to note is that accuracy decreases with increased network delays. The analysis can be found in [\[Analysis\] Total Stake Inference](analysis-total-stake-inference.md).
 
@@ -53,13 +54,13 @@ This algorithm has been analyzed and shown to have good accuracy, precision and 
 | --- | --- | --- | --- |
 | `beta` | 1.0 | learning rate | Controls how quickly we adjust to new participation levels.  Lower values for `beta` give a more stable / gradual adjustment, while higher values give faster convergence but at the cost of less stability. |
 | `PERIOD` | $`6\lfloor \frac{k}{f} \rfloor`$ | observation period | The length of the observation period in slots. |
-| `f` | *inherited from* [Constants](cryptarchia-v1-protocol.md#constants) | slot activation coefficient | The target rate of occupied slots. Not all slots contain blocks, many are empty. |
-| `k` | *inherited from* [Constants](cryptarchia-v1-protocol.md#constants) | security parameter | Block depth finality. Blocks deeper than `k` on any given chain are considered immutable. |
+| `f` | *inherited from* [Constants](cryptarchia-protocol.md#constants) | slot activation coefficient | The target rate of occupied slots. Not all slots contain blocks, many are empty. |
+| `k` | *inherited from* [Constants](cryptarchia-protocol.md#constants) | security parameter | Block depth finality. Blocks deeper than `k` on any given chain are considered immutable. |
 
 ### Functions
 
 - $`\textbf{density\_over\_slots}(s, p)`$
-  *Returns the number of distinct occupied slots among the* $`p`$ *slots following slot* $`s`$*: a slot in* $`[s, s+p)`$ *counts if it holds a block of the honest chain and/or one or more* [uncles](cryptarchia-v1-protocol.md#uncle-references) *referenced by the blocks of the honest chain that lie in* $`[s, s+p)`$ *themselves, and each slot is counted at most once — a slot that holds both a canonical block and a referenced uncle, or several referenced uncles, still counts once. A block outside the range contributes neither its own slot nor the slots of the uncles it references, so the value for a past range is closed once that range ends.*
+  *Returns the number of distinct occupied slots among the* $`p`$ *slots following slot* $`s`$*: a slot in* $`[s, s+p)`$ *counts if it holds a block of the honest chain and/or one or more* [uncles](cryptarchia-protocol.md#uncle-references) *referenced by the blocks of the honest chain that lie in* $`[s, s+p)`$ *themselves, and each slot is counted at most once — a slot that holds both a canonical block and a referenced uncle, or several referenced uncles, still counts once. A block outside the range contributes neither its own slot nor the slots of the uncles it references, so the value for a past range is closed once that range ends.*
 
 ## Algorithm
 

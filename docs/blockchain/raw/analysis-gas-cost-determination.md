@@ -35,6 +35,7 @@
 | 1.7.0 | Per-signature Ed25519 cost re-measured with strict verification ([Common Cryptographic Components](common-cryptographic-components.md) 1.2.0): 56 → 59 Execution Gas, `SDP_DECLARE_GAS` 646 → 649 | 2026-09-24 |
 | 1.7.1 | [RFC] The SDP costs price the per-service identifier checks and no lock-period check | 2026-10-05 |
 | 1.8.0 | Follow the private ledger of Mantle: the notes are proven with a ZkTransfer and spent by nullifier, channel inscriptions carry the ZkTransfer of their steps, channel withdrawals and SDP withdrawals carry a ZkTransfer, the proof of work claim carries no proof, and the `CHANNEL_TRANSFER` and `LEADER_CLAIM` Operations are removed. The ZkTransfer is priced from the measured batch verification of Groth16 proofs, a fixed part per block and 619 Execution Gas per proof | 2026-10-07 |
+| 1.8.1 | Links to Mantle point to `bedrock-mantle.md`, links to `CHANNEL_INSCRIBE` to `bedrock-mantle-channels.md` and links to Block Construction to `bedrock-block-construction.md` | 2026-11-25 |
 
 # Introduction
 
@@ -83,7 +84,7 @@ SDP_ACTIVE_GAS                = 59
 CLAIM_POW_REWARD_GAS          = 0
 ```
 
-where `steps` is the number of [steps](bedrock-v1.1-mantle-specification.md#channel_inscribe) of the inscription, a step being a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer.
+where `steps` is the number of [steps](bedrock-mantle-channels.md#channel_inscribe) of the inscription, a step being a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer.
 
 These values come from our implementation observations as described in [Gas determination from measures](#gas-determination-from-measures).  To get these numbers, we based our calculations on the following measures:
 
@@ -96,7 +97,7 @@ Comparison, list searching, hashes and operation in small fields are neglected. 
 
 # Transfer
 
-The Execution Gas of the Transfer Operation compensates for the verification of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proof.
+The Execution Gas of the Transfer Operation compensates for the verification of the [ZkTransfer](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) proof.
 
 Execution: ~619k CPU cycles.
 
@@ -109,7 +110,7 @@ Input gas covers the computational cost of verifying that one nullifier is not i
 Execution: negligible.
 
 - Verification that the nullifier is not in the set: negligible.
-- Verification that the commitment root is one of the last [`ROOT_WINDOW`](bedrock-v1.1-mantle-specification.md#ledger) blocks: negligible.
+- Verification that the commitment root is one of the last [`ROOT_WINDOW`](bedrock-mantle.md#ledger) blocks: negligible.
 - Insertion of the nullifier in the nullifier set: negligible.
 
 ## Output Gas
@@ -118,7 +119,7 @@ Output gas accounts for the computational resources required for the inclusion o
 
 Execution: negligible.
 
-- Appending of the commitment to the commitment [Merkle Mountain Range](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) (MMR): negligible.
+- Appending of the commitment to the commitment [Merkle Mountain Range](bedrock-mantle.md#commitment-merkle-mountain-range) (MMR): negligible.
 
 ## Channel Inscription
 
@@ -136,7 +137,7 @@ Execution: ~59k CPU cycles + ~619k CPU cycles * steps.
 
 ## Channel Deposit
 
-The Execution Gas of the Channel Deposit Operation compensates for the verification of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proof and for the check of the inputs.
+The Execution Gas of the Channel Deposit Operation compensates for the verification of the [ZkTransfer](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) proof and for the check of the inputs.
 
 Execution: ~619k CPU cycles.
 
@@ -147,7 +148,7 @@ Execution: ~619k CPU cycles.
 
 ## Channel Withdraw
 
-The Execution Gas of the Channel Withdraw Operation compensates for the verification of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proof of the holder and for the check of the inputs.
+The Execution Gas of the Channel Withdraw Operation compensates for the verification of the [ZkTransfer](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) proof of the holder and for the check of the inputs.
 
 Execution: ~619k CPU cycles.
 
@@ -241,7 +242,7 @@ Over 100 iterations, verifying an Eddsa25519 signature with strict verification 
 
 ### Groth16 Proof Batch Verification
 
-The ZkTransfer proofs of a block are verified in a single batch, as described in [Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs). For `n` proofs under one verification key with `N` public inputs, the batch does the following work:
+The ZkTransfer proofs of a block are verified in a single batch, as described in [Batch verification of ZK proofs](bedrock-block-construction.md#batch-verification-of-zk-proofs). For `n` proofs under one verification key with `N` public inputs, the batch does the following work:
 
 - Once per batch, whatever `n`: it folds the public inputs of all the proofs with the random coefficients `r_i`, computes one multi-scalar multiplication (MSM) over the `N + 1` input points of the key, runs the Miller loops of the three terms of the key (`α`, the folded inputs and `π_C`), and one final exponentiation.
 - Once per proof: it multiplies `π_A` by `r_i`, runs the Miller loop of `(r_i π_A, π_B)`, and adds `π_C` to an MSM over the `n` proofs.

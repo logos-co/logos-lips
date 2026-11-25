@@ -33,6 +33,7 @@
 | 1.3.3 | One reward note per `zk_id`, and none for a zero reward, matching the implementation | 2026-09-01 |
 | 1.3.4 | Adopted "active message" as the single name for the message | 2026-09-02 |
 | 1.4.0 | Reward notes are private notes whose commitments are appended to the commitment MMR of the ledger note set, their nonce derived from `hash(ServiceType \|\| epoch_number)` and their output number. The Blend reward is paid from `blend_rewards_pending`, what it does not distribute returning to `rewards_pool` | 2026-10-07 |
+| 1.4.1 | Links to Mantle point to `bedrock-mantle.md`, links to `SDP_ACTIVE` and the SDP epoch finalization to `bedrock-service-declaration-protocol.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
 
 # Introduction
 
@@ -49,7 +50,7 @@ This document describes the protocol's logic for deterministically distributing 
 
 The protocol unfolds over three key phases, aligned with validator epochs:
 
-1. **Service Activity Tracking** (epoch N+1): Service validators submit signed active messages to attest to their participation of epoch N through a Mantle Transaction (see [SDP_ACTIVE](bedrock-v1.1-mantle-specification.md#sdp_active)).
+1. **Service Activity Tracking** (epoch N+1): Service validators submit signed active messages to attest to their participation of epoch N through a Mantle Transaction (see [SDP_ACTIVE](bedrock-service-declaration-protocol.md#sdp_active)).
 2. **Service Reward Derivation** (End of epoch N+1): Nodes compute each validator’s reward based on validated active messages and the different service reward policies.
 3. **Service Reward Distribution** (First block of epoch N+2): Rewards are distributed to validators marked as active for the service. This is done by inserting new notes in the ledger corresponding to the reward amount for each active validator.
 
@@ -64,7 +65,7 @@ The protocol unfolds over three key phases, aligned with validator epochs:
 
 ## Activity tracking
 
-Throughout epoch **N+1**, the block proposers integrate Mantle Transactions containing [SDP_ACTIVE Operations](bedrock-v1.1-mantle-specification.md#sdp_active). These transactions originate from service validators and are used to [derive their activity according to the service provided policy](bedrock-service-declaration-protocol.md). The protocol does not prescribe a unique activity rule: each service defines what qualifies as valid participation, enabling flexibility across different services.
+Throughout epoch **N+1**, the block proposers integrate Mantle Transactions containing [SDP_ACTIVE Operations](bedrock-service-declaration-protocol.md#sdp_active). These transactions originate from service validators and are used to [derive their activity according to the service provided policy](bedrock-service-declaration-protocol.md). The protocol does not prescribe a unique activity rule: each service defines what qualifies as valid participation, enabling flexibility across different services.
 
 Service validators are economically incentivized to participate actively since only active validators will be rewarded. Moreover, by decoupling activity submission from reward calculation, the system remains robust to network latency.
 
@@ -82,7 +83,7 @@ Where $`Rewards\_Epoch`$ are the total rewards of epoch **N**. The $`Rewards\_Ep
 
 ## Service Reward Distribution
 
-Starting immediately after epoch **N+1**, service rewards are distributed in the first block of epoch **N+2.** The rewards are inserted directly in the ledger without triggering any Mantle validation: the commitment of each reward note is appended to the commitment MMR of the ledger note set of the [Mantle Ledger](bedrock-v1.1-mantle-specification.md#ledger). The nonce of each note is `derive_note_nonce(op_id, output_number, value, zk_id)` ([Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)), using the result of `hash(`[`ServiceType`](bedrock-service-declaration-protocol.md)`|| epoch_number)` as the `op_id`, where `ServiceType` is serialized as its canonical one-byte discriminant ([Service Types](bedrock-service-declaration-protocol.md#service-types)) and `epoch_number` as the 4 bytes of an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch). A `zk_id` whose reward amount is zero receives no note. The output number is the position of the `zk_id` among the rewarded `zk_id`s, sorted in ascending order.
+Starting immediately after epoch **N+1**, service rewards are distributed in the first block of epoch **N+2.** The rewards are inserted directly in the ledger without triggering any Mantle validation: the commitment of each reward note is appended to the commitment MMR of the ledger note set of the [Mantle Ledger](bedrock-mantle.md#ledger). The nonce of each note is `derive_note_nonce(op_id, output_number, value, zk_id)` ([Note Commitment and Nullifier](bedrock-mantle.md#note-commitment-and-nullifier)), using the result of `hash(`[`ServiceType`](bedrock-service-declaration-protocol.md)`|| epoch_number)` as the `op_id`, where `ServiceType` is serialized as its canonical one-byte discriminant ([Service Types](bedrock-service-declaration-protocol.md#service-types)) and `epoch_number` as the 4 bytes of an [`EpochNumber`](cryptarchia-protocol.md#epoch). A `zk_id` whose reward amount is zero receives no note. The output number is the position of the `zk_id` among the rewarded `zk_id`s, sorted in ascending order.
 
 The reward must:
 
@@ -94,4 +95,4 @@ The reward must:
 
 Nodes indirectly verify the correct inclusion of rewards because all consensus-validating nodes must maintain the same ledger view to derive the commitment roots of recent blocks and the eligible roots, which serve as inputs for verifying the transactions and the [Proof of Leadership](cryptarchia-proof-of-leadership.md).
 
-After the epoch-**N** rewards are distributed, withdrawn declarations whose last rewardable epoch was **N** are removed by Mantle as part of the same epoch transition (see [SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
+After the epoch-**N** rewards are distributed, withdrawn declarations whose last rewardable epoch was **N** are removed by Mantle as part of the same epoch transition (see [SDP Epoch Finalization](bedrock-service-declaration-protocol.md#sdp-epoch-finalization)).

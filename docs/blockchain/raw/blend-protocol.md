@@ -39,7 +39,8 @@
 | 1.6.2 | The node count and the neighbor distinction read the `provider_id`s of the Blend declarations, which the Service Declaration Protocol keeps unique | 2026-10-27 |
 | 1.7.0 | Derived the observation window $`W`$ from cover traffic in place of the maximal release delay. | 2026-10-29 |
 | 1.8.0 | Refused a neighbor closed as not live for $`W`$ rounds, restarting its liveness count, in place of shutting it out for the rest of the epoch. | 2026-10-30 |
-| 1.8.1 | Updated the encapsulation-overhead calculation to the `Max_Payload_Length` of 17755 bytes, following the removal of the leader key and of the signatures from block proposals, and the addition of the reward value to their headers. The leader reward is referenced in [Block Execution](bedrock-v1.1-block-construction.md#block-execution). The base reward is rounded down, and none is calculated without an activity proof | 2026-10-14 |
+| 1.8.1 | Updated the encapsulation-overhead calculation to the `Max_Payload_Length` of 17755 bytes, following the removal of the leader key and of the signatures from block proposals, and the addition of the reward value to their headers. The leader reward is referenced in [Block Execution](bedrock-block-construction.md#block-execution). The base reward is rounded down, and none is calculated without an activity proof | 2026-10-14 |
+| 1.8.2 | Links to Block Construction point to `bedrock-block-construction.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
 
 # Introduction
 
@@ -234,7 +235,7 @@ A payload the Blend network fails to deliver is broadcast directly by its sender
 
 A node must be encouraged to follow the protocol, which means that it must be rewarded for the contribution it is making. Otherwise, honest nodes might become lazy nodes, nodes that are not motivated to follow the protocol due to a lack of incentives. In simple terms, a lazy node will not work until it gets paid. Therefore, we motivate the following set of protocol actions:
 
-1. **Message generation**: a node must be motivated to generate messages according to the protocol, where generation means that a new message is created that is not the outcome of the processing. This is especially important for cover messages. Data messages already incentivize the node that is generating them: a block proposal rewards its sender directly through the consensus-defined rewarding mechanism ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), and a transaction is sent because its sender wants it included in a block.
+1. **Message generation**: a node must be motivated to generate messages according to the protocol, where generation means that a new message is created that is not the outcome of the processing. This is especially important for cover messages. Data messages already incentivize the node that is generating them: a block proposal rewards its sender directly through the consensus-defined rewarding mechanism ([Block Execution](bedrock-block-construction.md#block-execution)), and a transaction is sent because its sender wants it included in a block.
 2. **Message relaying**: a node must be motivated to relay every received message, where relaying means that a node forwards all messages it received to its neighbors to deliver messages to their next destinations (blend nodes).
 3. **Message processing**: a node must be motivated to process every received message, where processing means that a node has decapsulated and delayed the message.
 4. **Message broadcasting**: a node must be motivated to broadcast any data message it processed, where broadcasting means that a node sends the processed message to the Logos Blockchain network broadcasting channel.
@@ -425,7 +426,7 @@ Nodes that value privacy above block rewards should disable this fallback and ab
 
 When a sender **detects** a Blend network failure to broadcast, the sender broadcasts the payload directly to the Logos Blockchain broadcasting channel.
 
-The deadline is the message traversal time, so a directly broadcast payload never reaches the network earlier than a delivered one. [Block Proposal Reconstruction](bedrock-v1.1-block-construction.md#block-proposal-reconstruction) assumes that delay for the transactions a proposal references.
+The deadline is the message traversal time, so a directly broadcast payload never reaches the network earlier than a delivered one. [Block Proposal Reconstruction](bedrock-block-construction.md#block-proposal-reconstruction) assumes that delay for the transactions a proposal references.
 
 ## Rewarding
 
@@ -480,7 +481,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`W = \lceil M_W / (F_C \cdot (1 + R_C) \cdot \beta_C) \rceil = 30`$ rounds, the observation window: the rounds in which a core connection carries $`M_W`$ messages from cover traffic alone ([Expected Traffic](#expected-traffic)).
 - $`M_W = 90`$ messages. With a smaller $`M_W`$, a node more often reads an honest neighbor as not live and closes its connection ([Connectivity Maintenance](#connectivity-maintenance)). With a larger one, a neighbor that delivers nothing holds a connection slot for longer, a neighbor closed as not live is refused for longer, and a blacklist entry lasts longer.
 - $`F_C=1`$, the network generates one cover message per round on average.
-- $`F_D=1/30`$, the network generates one block proposal every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-v1-protocol.md)).
+- $`F_D=1/30`$, the network generates one block proposal every $`30`$ rounds on average ([Cryptarchia Protocol](cryptarchia-protocol.md)).
 - $`F_T = 130/30`$, the network carries $`130`$ messages per slot of $`30`$ rounds, each carrying one transaction ([Payload Formatting](payload-formatting.md)), whatever quota backs them: $`\left(F_1 / \beta_{max} - \max(F_C \cdot (1 + R_C), F_D \cdot (1 + R_D))\right) \cdot 30 = 130`$ at $`F_1 = 16`$ ([Expected Traffic](#expected-traffic)).
 - $`R_C=0`$ and $`R_D=1`$: a cover message is not replicated, and a block proposal is replicated once. A transaction is not replicated.
 - $`\Phi_{CC}=4`$, the peering degree ([Connectivity Maintenance](#connectivity-maintenance)). $`3 \le \Phi_{CC} \le 5`$. Below $`3`$ a node opens no connection of its own; above $`5`$ nodes must open more connections than nodes can accept, and dials are refused.
@@ -666,7 +667,7 @@ $$
 L_{Avg} = E \cdot F_D = \dfrac{648000}{30} = 21600,
 $$
 
-where $`E=648000`$ and $`F_D=1/30`$ are taken from the [Cryptarchia Protocol](cryptarchia-v1-protocol.md). This is equivalent to the average rate of a slot having an elected leader.
+where $`E=648000`$ and $`F_D=1/30`$ are taken from the [Cryptarchia Protocol](cryptarchia-protocol.md). This is equivalent to the average rate of a slot having an elected leader.
 
 Finally, let us define the leadership quota for node $`n`$ ($`Q^{n}_L`$), which can **only** be calculated by the node $`n`$:
 
@@ -851,7 +852,7 @@ A node $`n`$ constructs a message $`\mathbf M = (\mathbf H, \mathbf h, \mathbf P
 
 3. $`\mathbf P`$ is a payload.
 
->**Encapsulation Overhead Calculation:** Assuming that we use Groth16 SNARKs as a proving system, we need $`160`$ bytes per PoQ ($`128`$ for proof and $`32`$ for nullifier) quota. Which gives us $`289`$ bytes per hop (proof of quota $`160`$ bytes + proof of selection $`32`$ bytes + public key $`32`$ bytes + signature $`64`$ bytes + last flag $`1`$ byte) plus $`256`$ bytes for the public header. Which for $`3`$ hops gives us $`1123`$ bytes in total. That is added to the payload being encapsulated, which is `Max_Payload_Length` = $`17755`$ bytes ([Message Formatting](message-formatting.md)): the padded `Max_Body_Length` of [Payload Formatting](payload-formatting.md), set from the maximum size of the block proposal defined in [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md), plus the 3-byte payload header. The encapsulation therefore adds $`\approx 6.3\%`$.
+>**Encapsulation Overhead Calculation:** Assuming that we use Groth16 SNARKs as a proving system, we need $`160`$ bytes per PoQ ($`128`$ for proof and $`32`$ for nullifier) quota. Which gives us $`289`$ bytes per hop (proof of quota $`160`$ bytes + proof of selection $`32`$ bytes + public key $`32`$ bytes + signature $`64`$ bytes + last flag $`1`$ byte) plus $`256`$ bytes for the public header. Which for $`3`$ hops gives us $`1123`$ bytes in total. That is added to the payload being encapsulated, which is `Max_Payload_Length` = $`17755`$ bytes ([Message Formatting](message-formatting.md)): the padded `Max_Body_Length` of [Payload Formatting](payload-formatting.md), set from the maximum size of the block proposal defined in [Block Construction, Validation and Execution](bedrock-block-construction.md), plus the 3-byte payload header. The encapsulation therefore adds $`\approx 6.3\%`$.
 
 ### Formatting
 
@@ -1032,7 +1033,7 @@ class ActivityProof:
 
 Where:
 
-- `EpochNumber` is the number of the epoch for which the activity proof is generated, as defined in [Epoch](cryptarchia-v1-protocol.md#epoch).
+- `EpochNumber` is the number of the epoch for which the activity proof is generated, as defined in [Epoch](cryptarchia-protocol.md#epoch).
 - `ProofOfQuota` is defined as in [Proof of Quota](proof-of-quota.md).
 - `ProofOfSelection` is defined in [Proof of Selection](#proof-of-selection).
 - `SigningKey` is the key used to sign the `ProofOfQuota`.

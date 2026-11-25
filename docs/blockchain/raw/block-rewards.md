@@ -26,6 +26,7 @@
 | 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
 | 1.3.0 | Count every amount in LEPTA, which scales three constants of the integer rule by $`10^{9}`$ and widens its intermediates to 128 bits | 2026-10-29 |
 | 1.4.0 | Keep the reserve, the pool, the pending Blend share and the window of pooled fees as integer consensus state in LEPTA, the Blend rewards an epoch does not distribute returning to the pool, the release capped at the reserve balance, with the integer reference averaging the pooled fees over the 120-block window as the reward equation does. Redraw the system design and project the circulating supply over 10 years with a per-block simulation | 2026-10-07 |
+| 1.4.1 | Links to Block Construction point to `bedrock-block-construction.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -117,7 +118,7 @@ The calibration of these parameters can be found in [\[Analysis\] Block Reward P
 
 The following values are read at the block at height $`t`$:
 
-- $`D_{0,t}`$ is the inferred total stake of the epoch of the block ([Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference)).
+- $`D_{0,t}`$ is the inferred total stake of the epoch of the block ([Total Stake Inference](cryptarchia-protocol.md#total-stake-inference)).
 - $`D_{1,t} = R_\text{block}`$ is the amount of Execution base fees and Permanent Storage fees collected in the block and routed to the rewards pool, net of the share diverted to the [Proof of Work Reward Pool](overview-cryptoeconomics.md#proof-of-work-reward-pool). Refer to [Execution Market](execution-market.md) and [Storage Markets](storage-markets.md) for how the fees are computed.
 - $`\bar{R}_t = \dfrac{1}{T} \sum_{\tau=t-T+1}^{t} D_{1,\tau}`$ is the average pooled reward: the moving average of $`R_\text{block}`$ over the look-back window $`T`$, the blocks before the first one counting as pooling nothing.
 
@@ -251,7 +252,7 @@ $$
 R_t = \iota_t + \pi_t.
 $$
 
-The reserve balance `rewards_reserve`, the pool balance `rewards_pool`, the Blend share of the last closed epoch `blend_rewards_closed` and the Blend share of the current epoch `blend_rewards_pending` are consensus state, set at Genesis to $`B_0 = 10^{18}`$, $`0`$, $`0`$ and $`0`$. The nodes also keep `pooled_fees_window`, the pooled fees of the last $`120`$ blocks, `0` for the blocks before the first one. When the leader reward of a block is computed ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), the pooled fees of the block enter the window, the reserve pays $`\iota_t`$, the pool receives the pooled fees of the block and pays $`\pi_t`$, the Blend share of the reward waits to be paid, and the proof of work share of the fees of the block is credited to the [Proof of Work Reward Pool](proof-of-work.md#reward-pool):
+The reserve balance `rewards_reserve`, the pool balance `rewards_pool`, the Blend share of the last closed epoch `blend_rewards_closed` and the Blend share of the current epoch `blend_rewards_pending` are consensus state, set at Genesis to $`B_0 = 10^{18}`$, $`0`$, $`0`$ and $`0`$. The nodes also keep `pooled_fees_window`, the pooled fees of the last $`120`$ blocks, `0` for the blocks before the first one. When the leader reward of a block is computed ([Block Execution](bedrock-block-construction.md#block-execution)), the pooled fees of the block enter the window, the reserve pays $`\iota_t`$, the pool receives the pooled fees of the block and pays $`\pi_t`$, the Blend share of the reward waits to be paid, and the proof of work share of the fees of the block is credited to the [Proof of Work Reward Pool](proof-of-work.md#reward-pool):
 
 ```python
 # pooled_fees is D_1_t, the pooled fees of the block, and total_stake is D_0_t
@@ -311,7 +312,7 @@ def block_reward(total_stake: TokenValue, pooled_fees_window: list[TokenValue],
 The projection simulates the reward of every block over $`10`$ years with the [Parameters](#parameters) above, computing $`A_t`$ and $`R_t`$ as specified for each block, and the reserve and pool balances as in [Pool Accounting and Supply Dynamics](#pool-accounting-and-supply-dynamics). It assumes the following behavior of the network:
 
 - Blocks: $`2880`$ per day, for $`10`$ years.
-- Inferred total stake: it is read once per epoch of $`10 \lfloor k/f \rfloor`$ slots of [Cryptarchia](cryptarchia-v1-protocol.md), that is every $`21,600`$ blocks. Its deviation $`\delta_t`$ starts at $`1`$, no stake, and converges to $`0`$, entering $`(-I_{max}, I_{max})`$ after $`2`$ years: $`\delta_t = e^{-t/\tau}`$ with $`\tau = 2 / \ln(100)`$ years. It carries a Gaussian noise of standard deviation $`0.1`$, drawn per epoch.
+- Inferred total stake: it is read once per epoch of $`10 \lfloor k/f \rfloor`$ slots of [Cryptarchia](cryptarchia-protocol.md), that is every $`21,600`$ blocks. Its deviation $`\delta_t`$ starts at $`1`$, no stake, and converges to $`0`$, entering $`(-I_{max}, I_{max})`$ after $`2`$ years: $`\delta_t = e^{-t/\tau}`$ with $`\tau = 2 / \ln(100)`$ years. It carries a Gaussian noise of standard deviation $`0.1`$, drawn per epoch.
 - Pooling rate: the fees pooled per year converge to $`0.5\%`$ of the maximum supply with the same time constant $`\tau`$, with a daily log-normal noise of volatility $`10\%`$. The fees of a block are drawn from a Poisson number of transactions, $`100`$ per block on average, so the fees vary from one block to the next around that rate. The fees are net of the share diverted to the proof of work reward pool, whose claims are not modeled.
 
 Net circulating growth is the release from the reserve minus what the pool keeps of the fees, in percent of the maximum supply:

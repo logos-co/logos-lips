@@ -22,6 +22,7 @@
 | 1.0.0 | Initial revision. | 2026-09-09 |
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
 | 1.2.0 | A reward claim searches a nonce for the public key to be paid, carries no signature and hashes no epoch nonce. Each block credits its fee share to the pool, and the reward per claim stays fixed for the epoch | 2026-11-06 |
+| 1.2.1 | The claim of proof of work rewards, `CLAIM_POW_REWARD`, is specified in this document. Links to Mantle point to `bedrock-mantle.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
 
 # Introduction
 
@@ -34,7 +35,7 @@ The puzzles are measured against separate thresholds that follow separate object
 - the reward threshold keeps the number of paid claims per block near a target,
 - and the Blend threshold keeps admission to the network affordable when the network is quiet and dearer when it is busy.
 
-This document specifies the puzzle, the two thresholds, the pow reward pool and the reward it pays per claim, and the window within which a reward may be claimed. The Blend side of the mechanism is specified in [Proof of Quota](proof-of-quota.md) and the claim Operation in [Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward); this document holds what both depend on.
+This document specifies the puzzle, the two thresholds, the pow reward pool and the reward it pays per claim, the window within which a reward may be claimed, and the claim Operation, [CLAIM_POW_REWARD](#claim_pow_reward). The Blend side of the mechanism is specified in [Proof of Quota](proof-of-quota.md); this document holds what it depends on.
 
 # Overview
 
@@ -96,7 +97,7 @@ graph TB
     vc -- "accepted" --> ac["epoch_pow_reward<br/>paid to the key<br/>ticket spent<br/>pow_reward_pool falls"]
 ```
 
-A miner picks a value and hashes it into a **ticket**. The hash is `zkhash` over the value and the [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce). For a claim, the hash covers instead the tag `POW_CLAIM_V1`, the public key to be paid, the value and the [Block ID](cryptarchia-v1-protocol.md#block-id) of the referenced block: that block is at most the [acceptance window](#acceptance-window) old, so its Block ID binds the claim to the chain and makes the ticket unpredictable before the block exists, as the epoch nonce does. Tickets and **thresholds** are numbers in $`\mathbb{F}_p`$, the BN254 scalar field of [Poseidon2](common-cryptographic-components.md#poseidon2-zk-friendly-hash-function). A ticket satisfies a threshold when the ticket is below it, as [Puzzle Target](#puzzle-target) specifies. The miner keeps picking values, each sampled with full entropy, until one ticket satisfies the threshold.
+A miner picks a value and hashes it into a **ticket**. The hash is `zkhash` over the value and the [Epoch Nonce](cryptarchia-protocol.md#epoch-nonce). For a claim, the hash covers instead the tag `POW_CLAIM_V1`, the public key to be paid, the value and the [Block ID](cryptarchia-protocol.md#block-id) of the referenced block: that block is at most the [acceptance window](#acceptance-window) old, so its Block ID binds the claim to the chain and makes the ticket unpredictable before the block exists, as the epoch nonce does. Tickets and **thresholds** are numbers in $`\mathbb{F}_p`$, the BN254 scalar field of [Poseidon2](common-cryptographic-components.md#poseidon2-zk-friendly-hash-function). A ticket satisfies a threshold when the ticket is below it, as [Puzzle Target](#puzzle-target) specifies. The miner keeps picking values, each sampled with full entropy, until one ticket satisfies the threshold.
 
 Each use searches its own value against its own threshold, so a solution works for one use only. For Blend admission the miner searches a private nonce against `difficulty_blend`. The nonce stays secret. [Proof of Quota](proof-of-quota.md) proves the miner holds one, and that buys the quota of blending operations given in [Proof of Work Quota](blend-protocol.md#proof-of-work-quota). Nothing about it reaches the chain. For a reward the miner picks the public key to be paid and searches a nonce against `difficulty_reward`. The miner should pick a public key it has not used in another claim, since the claims paid to one key are linked, and so are the Transfers spending them. The miner then publishes a `CLAIM_POW_REWARD` Operation in a transaction.
 
@@ -107,11 +108,127 @@ A validator checks a claim against the `difficulty_reward` the previous block pr
 - the referenced block is canonical and inside the acceptance window,
 - `epoch_pow_reward` is positive and `pow_reward_pool` still holds it.
 
-[Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward) specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays `epoch_pow_reward` to the key, marks the ticket spent, and subtracts the same amount from `pow_reward_pool`.
+[CLAIM_POW_REWARD](#claim_pow_reward) specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays `epoch_pow_reward` to the key, marks the ticket spent, and subtracts the same amount from `pow_reward_pool`.
 
 A node computes five values from the chain. `pow_reward_pool` and the set of spent tickets change when a claim is accepted. `difficulty_reward` is recomputed after every block, from the number of claims in that block. Each block credits `pow_reward_pool` with a share of its fees, and `epoch_pow_reward` is recomputed from the pool at each epoch boundary. `difficulty_blend` is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. [Reward Difficulty](#reward-difficulty), [Reward Pool](#reward-pool) and [Blend Difficulty](#blend-difficulty) specify the three computations.
 
 A node keeps a spent ticket only while its referenced block is inside the window, so the set stays small. [Acceptance Window](#acceptance-window) gives the window in slots.
+
+## Proof of Work Operations
+
+Validators must maintain the following state to process proof of work Operations:
+
+```python
+pow_reward_pool: TokenValue      # Reserve the rewards are paid from
+epoch_pow_reward: TokenValue     # Reward per claim, fixed for the epoch
+difficulty_reward: PowTarget     # the reward threshold, retargeted every block
+pow_nullifiers: set[zkhash]      # Spent solutions, retained for the acceptance window
+block_slots: dict[hash, SlotNumber]  # Slots of recently seen blocks, for the window check
+```
+
+`PowTarget`, the acceptance window, and the maintenance of `pow_reward_pool`, `epoch_pow_reward` and `difficulty_reward` between blocks are specified in [Details](#details).
+
+### CLAIM_POW_REWARD
+
+This Operation claims a reward from the proof of work [reward pool](#reward-pool) by presenting a puzzle solution.
+
+#### Payload
+
+```python
+class ClaimPowRewardOp:
+    block_hash: hash           # Block ID of a recent canonical block the solution is anchored to
+    public_key: ZkPublicKey    # Key the reward note is paid to
+    nonce: zkhash              # Value searched for a ticket satisfying the reward threshold
+```
+
+`block_hash` is the [Block ID](cryptarchia-protocol.md#block-id) of that block.
+
+#### Proof
+
+  The proof is empty.
+
+#### Execution Gas
+
+  Claim Operations have a fixed Execution Gas cost of `EXECUTION_CLAIM_POW_REWARD_GAS`. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
+
+#### Validation
+
+  *Given*
+
+```python
+claim: ClaimPowRewardOp            # the CLAIM_POW_REWARD payload
+ledger: Ledger
+
+current_slot: SlotNumber           # slot of the block including this claim
+WINDOW: SlotNumber                 # the acceptance window, in slots
+difficulty_reward: PowTarget       # retargeted every block
+pow_nullifiers: set[zkhash]        # spent solutions, retained for WINDOW
+pow_reward_pool: TokenValue
+epoch_pow_reward: TokenValue
+```
+
+  `WINDOW` is derived in [Acceptance Window](#acceptance-window). The ticket hashes no epoch nonce: the referenced block is at most `WINDOW` slots old, so its hash already binds the claim to the chain and makes the ticket unpredictable before that block exists.
+
+  *Validate*
+
+```python
+# 1. Claiming must be enabled for this block: the pool must be able to cover a reward.
+assert epoch_pow_reward > 0
+assert pow_reward_pool >= epoch_pow_reward
+
+# 2. The referenced block must be canonical and within the acceptance window.
+block = get_block_from_hash(claim.block_hash)   # None if unknown or not canonical
+assert block is not None
+assert 0 <= current_slot - block.slot <= WINDOW
+
+# 3. The ticket must satisfy the reward threshold.
+puzzle_ticket = zkhash(FiniteField(b"POW_CLAIM_V1", byte_order="little", modulus=p),
+                       claim.public_key,
+                       claim.nonce,
+                       FiniteField(claim.block_hash, byte_order="little", modulus=p))
+assert puzzle_ticket < difficulty_reward
+
+# 4. The solution must not have been claimed before. The nullifier is the ticket.
+assert puzzle_ticket not in pow_nullifiers
+
+# 5. Construct a single output note of value epoch_pow_reward under the public key
+#    given in the payload, and add it to the buffer of the ledger note set.
+claim_id = derive_op_id(claim)
+output_note = Note(
+    value = epoch_pow_reward,
+    nonce = derive_note_nonce(claim_id, 0, epoch_pow_reward, claim.public_key),
+    public_key = claim.public_key,
+)
+ledger.sets[LEDGER_SET].tx_commitment_buffer.append(derive_note_commitment(output_note))
+```
+
+#### Execution
+
+  *Given*
+
+```python
+claim: ClaimPowRewardOp
+puzzle_ticket: zkhash              # computed in validation step 3
+output_note: Note                  # constructed in validation step 5
+
+ledger: Ledger
+pow_reward_pool: TokenValue
+epoch_pow_reward: TokenValue       # fixed for the epoch
+pow_nullifiers: set[zkhash]
+```
+
+  *Execute*
+
+  1. Add `puzzle_ticket` to the `pow_nullifiers` set. The entry is retained until the claim's referenced block leaves the [acceptance window](#acceptance-window).
+  2. Insert the output note into the ledger note set:
+      ```python
+      ledger.sets[LEDGER_SET].execute_adding([derive_note_commitment(output_note)])
+      ```
+
+  3. Reduce the `pow_reward_pool` by the same amount:
+      ```python
+      pow_reward_pool = checked_uint64(pow_reward_pool - epoch_pow_reward)
+      ```
 
 # Details
 
@@ -122,13 +239,13 @@ A node keeps a spent ticket only while its referenced block is inside the window
 | $`p`$ | field modulus | Modulus of the scalar field $`\mathbb{F}_p`$ of [Poseidon2](common-cryptographic-components.md#poseidon2-zk-friendly-hash-function); tickets and thresholds are its elements. |
 | $`T`$ | target claims per block | `TARGET_CLAIMS_PER_BLOCK`, the accepted rate the reward threshold steers toward. |
 | $`\rho`$ | distribution rate | `EPOCH_POW_DISTRIBUTION_RATE_NUM / EPOCH_POW_DISTRIBUTION_RATE_DEN`, the fraction of the pool an epoch distributes at the target rate. |
-| $`N_b`$ | expected blocks per epoch | `EXPECTED_BLOCKS_PER_EPOCH`, the epoch length in slots of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) times $`f`$. |
+| $`N_b`$ | expected blocks per epoch | `EXPECTED_BLOCKS_PER_EPOCH`, the epoch length in slots of [Epoch Schedule](cryptarchia-protocol.md#epoch-schedule) times $`f`$. |
 | $`W_b`$ | window depth | `EXPECTED_BLOCKS_PER_WINDOW`, the acceptance window in expected blocks. |
 | $`F`$, $`P`$ | smoothing factor and precision | `EMA_SMOOTHING_FACTOR` and `EMA_SMOOTHING_PRECISION`; the reward update weighs the previous estimate $`F`$ out of $`P`$. |
 | $`\alpha = a / b`$ | damping exponent | `BLEND_DAMPING_NUM / BLEND_DAMPING_DEN`, the Blend update's response to the load ratio. |
 | $`S_{cap}`$ | maximum supply | The hard cap of [Block Rewards](block-rewards.md). |
-| $`f`$ | slot activation coefficient | The probability that a slot has a leader, $`1/30`$, from [Constants](cryptarchia-v1-protocol.md#constants). |
-| $`k`$ | security parameter | $`2160`$, from [Constants](cryptarchia-v1-protocol.md#constants). |
+| $`f`$ | slot activation coefficient | The probability that a slot has a leader, $`1/30`$, from [Constants](cryptarchia-protocol.md#constants). |
+| $`k`$ | security parameter | $`2160`$, from [Constants](cryptarchia-protocol.md#constants). |
 
 ## Parameters
 
@@ -162,7 +279,7 @@ The parameters must give an `epoch_pow_reward` above the fee of a claim transact
 
 `PowTarget` is an element of $`\mathbb{F}_p`$, as every ticket is. A ticket satisfies a target when its canonical integer representative in $`[0, p-1]`$ is strictly below the target's; a smaller target is a harder puzzle. A representative is at most 254 bits, so a 256-bit unsigned integer holds any target.
 
-The two updates below multiply and divide targets as integers rather than in the fixed-width types of [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic), and cap their result at or below $`p - 1`$, so that it converts back to a field element without reduction. Every intermediate fits in **512 bits**: the reward retarget's product reaches $`2^{261}`$ and the Blend radicand $`2^{493}`$. Each operation is integer addition, multiplication, floor division or comparison, and `integer_nth_root` returns the exact floor, so two implementations agree exactly.
+The two updates below multiply and divide targets as integers rather than in the fixed-width types of [Arithmetic](bedrock-mantle.md#arithmetic), and cap their result at or below $`p - 1`$, so that it converts back to a field element without reduction. Every intermediate fits in **512 bits**: the reward retarget's product reaches $`2^{261}`$ and the Blend radicand $`2^{493}`$. Each operation is integer addition, multiplication, floor division or comparison, and `integer_nth_root` returns the exact floor, so two implementations agree exactly.
 
 ## Reward Pool
 
@@ -176,11 +293,11 @@ def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -> TokenValue:
     return (pow_reward_pool * EPOCH_POW_DISTRIBUTION_RATE_NUM) // denominator
 ```
 
-Each block, once its transactions have run, credits the pool with its share `POW_SHARE / SHARE_DEN` of the fees it collected ([Block Rewards](block-rewards.md#deterministic-implementation)), so the claims of a block draw on what the blocks before it paid. At each epoch boundary, before any block of the new epoch is processed, `epoch_pow_reward` is set to `compute_epoch_pow_reward(pow_reward_pool)` and held for the epoch, so every claim of an epoch pays the same whatever the fees of its blocks. The division rounds down, and the remainder stays in the pow reward pool. All arithmetic here is checked, in accordance with [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic).
+Each block, once its transactions have run, credits the pool with its share `POW_SHARE / SHARE_DEN` of the fees it collected ([Block Rewards](block-rewards.md#deterministic-implementation)), so the claims of a block draw on what the blocks before it paid. At each epoch boundary, before any block of the new epoch is processed, `epoch_pow_reward` is set to `compute_epoch_pow_reward(pow_reward_pool)` and held for the epoch, so every claim of an epoch pays the same whatever the fees of its blocks. The division rounds down, and the remainder stays in the pow reward pool. All arithmetic here is checked, in accordance with [Arithmetic](bedrock-mantle.md#arithmetic).
 
 ### Exhaustion within an epoch
 
-The reward is fixed for the epoch while every claim draws on the pool and every block credits it. The first condition of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation, that the reward is positive and the pool covers it, is evaluated for every claim against the pool as it stands at that point in the block, and a claim it rejects invalidates its transaction. When the reward is positive, claiming resumes in the block after the fee shares of the blocks bring the pool back to the reward, or at the next epoch boundary at which the recomputed reward is positive and the pow reward pool covers it, whichever comes first. A reward of `0` holds for its epoch whatever the fees. Since the pool receives only the share `POW_SHARE / SHARE_DEN` of a fee, paying fees to resume claiming costs `SHARE_DEN / POW_SHARE` times what the pool lacks: a pool just short of the reward can make one claim cheap, and each further reward costs `SHARE_DEN / POW_SHARE` times its value in fees, less what the payer earns back through block rewards.
+The reward is fixed for the epoch while every claim draws on the pool and every block credits it. The first condition of [CLAIM_POW_REWARD](#claim_pow_reward) validation, that the reward is positive and the pool covers it, is evaluated for every claim against the pool as it stands at that point in the block, and a claim it rejects invalidates its transaction. When the reward is positive, claiming resumes in the block after the fee shares of the blocks bring the pool back to the reward, or at the next epoch boundary at which the recomputed reward is positive and the pow reward pool covers it, whichever comes first. A reward of `0` holds for its epoch whatever the fees. Since the pool receives only the share `POW_SHARE / SHARE_DEN` of a fee, paying fees to resume claiming costs `SHARE_DEN / POW_SHARE` times what the pool lacks: a pool just short of the reward can make one claim cheap, and each further reward costs `SHARE_DEN / POW_SHARE` times its value in fees, less what the payer earns back through block rewards.
 
 ## Acceptance Window
 
@@ -188,7 +305,7 @@ $$
 \mathrm{WINDOW} = \left\lfloor \frac{W_b}{f} \right\rfloor
 $$
 
-With $`W_b = 10`$ and $`f = 1/30`$, `WINDOW` is $`300`$ slots. A claim's referenced block must be canonical and at most `WINDOW` slots older than the block including the claim; the check is step 2 of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation. A nullifier may be discarded once the block its claim referenced has left the window.
+With $`W_b = 10`$ and $`f = 1/30`$, `WINDOW` is $`300`$ slots. A claim's referenced block must be canonical and at most `WINDOW` slots older than the block including the claim; the check is step 2 of [CLAIM_POW_REWARD](#claim_pow_reward) validation. A nullifier may be discarded once the block its claim referenced has left the window.
 
 ## Reward Difficulty
 
@@ -211,7 +328,7 @@ The update is multiplicative in the current target, so a target of zero never re
 
 ## Blend Difficulty
 
-`difficulty_blend` for epoch $`N`$ is computed at the lottery-constants snapshot of epoch $`N-1`$ specified in [Epoch](cryptarchia-v1-protocol.md#epoch), the moment epoch $`N`$'s nonce is fixed, from the blocks of epoch $`N-2`$, and is the public input `pow_blend_difficulty` of [Proof of Quota](proof-of-quota.md) for the whole of epoch $`N`$. For epochs 0 and 1 it is `BLEND_DIFFICULTY_BASE`; the schedule begins with epoch 2, computed during epoch 1 from epoch 0's blocks.
+`difficulty_blend` for epoch $`N`$ is computed at the lottery-constants snapshot of epoch $`N-1`$ specified in [Epoch](cryptarchia-protocol.md#epoch), the moment epoch $`N`$'s nonce is fixed, from the blocks of epoch $`N-2`$, and is the public input `pow_blend_difficulty` of [Proof of Quota](proof-of-quota.md) for the whole of epoch $`N`$. For epochs 0 and 1 it is `BLEND_DIFFICULTY_BASE`; the schedule begins with epoch 2, computed during epoch 1 from epoch 0's blocks.
 
 ```python
 def compute_epoch_blend_difficulty(epoch_blocks: list[Block],   # the blocks of epoch N-2

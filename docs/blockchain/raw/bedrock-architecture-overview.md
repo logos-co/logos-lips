@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2025-08-22 |
 | 1.1.0 | Remove references to DA Replace Nomos with Logos Blockchain | 2026-01-14 |
 | 1.2.0 | Fees and funds are carried by Transfer Operations over private notes, and every channel has a note set of its own. The figure of a Mantle Transaction shows only Operations | 2026-11-06 |
+| 1.2.1 | Links to the Cryptarchia Protocol point to `cryptarchia-protocol.md` | 2026-11-25 |
 
 # Introduction
 
@@ -72,7 +73,7 @@ Every Mantle channel also has a note set of its own. Users bridge tokens from Be
 
 ## Cryptarchia
 
-Bedrock Mantle is powered by the [Cryptarchia Protocol](cryptarchia-v1-protocol.md), a highly scalable, permisionless consensus protocol optimized for privacy and resilience. Cryptarchia is a Private Proof of Stake (PPoS) consensus protocol with properties very similar to Bitcoin. Just like in Bitcoin, where a miner’s hashing power is not revealed when they win a block, we ensure privacy for block proposers by breaking the link between a proposal and its proposer. Unlike Bitcoin, the Logos Blockchain extends block proposer confidentiality to the network layer by routing proposals through the Blend Network, making network analysis attacks prohibitively expensive.
+Bedrock Mantle is powered by the [Cryptarchia Protocol](cryptarchia-protocol.md), a highly scalable, permisionless consensus protocol optimized for privacy and resilience. Cryptarchia is a Private Proof of Stake (PPoS) consensus protocol with properties very similar to Bitcoin. Just like in Bitcoin, where a miner’s hashing power is not revealed when they win a block, we ensure privacy for block proposers by breaking the link between a proposal and its proposer. Unlike Bitcoin, the Logos Blockchain extends block proposer confidentiality to the network layer by routing proposals through the Blend Network, making network analysis attacks prohibitively expensive.
 
 ## Sovereign Zones
 

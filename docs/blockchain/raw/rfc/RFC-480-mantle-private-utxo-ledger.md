@@ -112,7 +112,7 @@ The sum of the Execution Gas of the transactions of a block is a validity rule. 
 
 ## 1. Note sets
 
-A note is `(value, nonce, public_key)`, stored as its commitment `derive_note_commitment(note)`. Each note set keeps the commitments of its notes in an MMR and the nullifiers `derive_note_nullifier(commitment, sk)` of its spent notes in an IMT, `sk` being the secret key of the holder ([Note Commitment and Nullifier](../bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier)).
+A note is `(value, nonce, public_key)`, stored as its commitment `derive_note_commitment(note)`. Each note set keeps the commitments of its notes in an MMR and the nullifiers `derive_note_nullifier(commitment, sk)` of its spent notes in an IMT, `sk` being the secret key of the holder ([Note Commitment and Nullifier](../bedrock-mantle.md#note-commitment-and-nullifier)).
 
 ```python
 LEDGER_SET = 0
@@ -137,12 +137,12 @@ class Ledger:
     pending_withdrawals: list[(Slot, int, list[NoteNullifier], list[NoteCommitment])]
 ```
 
-- A `NoteNullifier` is the nullifier of a note, a `NoteCommitment` its commitment and a `MerkleRoot` the root of a Merkle tree, each an element of the field ([Notes](../bedrock-v1.1-mantle-specification.md#notes)).
+- A `NoteNullifier` is the nullifier of a note, a `NoteCommitment` its commitment and a `MerkleRoot` the root of a Merkle tree, each an element of the field ([Notes](../bedrock-mantle.md#notes)).
 - Creating a channel appends a new, empty note set to `sets`, so it is also the next leaf of the eligible tree of the Proof of Leadership, and its index is stored as `ChannelState.note_set`. The null channel, which only receives the Genesis inscriptions, gets none, and no deposit, withdrawal or step can target it.
 - The commitment MMR root is the root of the Merkle tree of depth `NOTE_SET_DEPTH` = 40 whose leaves are the commitments in insertion order, empty leaves holding `0`. The ledger keeps its peaks: `mmr_append` adds a commitment, and `mmr_root` computes the root from the peaks.
 - The nullifier IMT has depth `NOTE_SET_DEPTH` too and appends leaves in insertion order. At depth 32 a set would fill in about 72 days of transfers of 8 outputs at the Execution Gas target, and in about 50 years at depth 40, for 243 constraints per extra level and no change to the verification gas. A leaf is `NullifierLeaf(nullifier, next_nullifier)`, a nullifier and the next greater nullifier of the set, hashed with the domain separation tag (DST) `NULLIFIER_IMT_LEAF_V1`. Proving a nullifier absent needs these two fields alone, and a node inserts in the tree natively, so a leaf holds no pointer to the leaf of its next nullifier. The first leaf is the sentinel `(0, 0)`, and positions past the last leaf hold `0`.
-- `assert_spendable(inputs)`, which checks that the inputs are non-empty, distinct and unspent, `verify_transfer(...)`, `execute_spending(inputs)` and `execute_adding(outputs)` are [methods of `NoteSet`](../bedrock-v1.1-mantle-specification.md#input-notes-spendability-validation), called as `ledger.sets[LEDGER_SET].execute_adding(...)`.
-- An Operation references a recent `commitment_root`, and its [ZkTransfer](../bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) is proven against `tx_commitment_root`, that root with the set's buffer appended, or only the commitments before its mini-block for a channel step (§2). `verify_transfer` calls the method `tx_commitment_root`, which checks once that the root is recent and appends the buffer, then `ZkTransfer_verify(...)`, the verifier of the proof. `SDP_WITHDRAW` references no root and calls `ZkTransfer_verify(...)` directly (§4).
+- `assert_spendable(inputs)`, which checks that the inputs are non-empty, distinct and unspent, `verify_transfer(...)`, `execute_spending(inputs)` and `execute_adding(outputs)` are [methods of `NoteSet`](../bedrock-mantle.md#input-notes-spendability-validation), called as `ledger.sets[LEDGER_SET].execute_adding(...)`.
+- An Operation references a recent `commitment_root`, and its [ZkTransfer](../bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) is proven against `tx_commitment_root`, that root with the set's buffer appended, or only the commitments before its mini-block for a channel step (§2). `verify_transfer` calls the method `tx_commitment_root`, which checks once that the root is recent and appends the buffer, then `ZkTransfer_verify(...)`, the verifier of the proof. `SDP_WITHDRAW` references no root and calls `ZkTransfer_verify(...)` directly (§4).
 - The ZkTransfer has 4 inputs and 8 outputs, marked used by the public flags `inputs_active` and `outputs_active`. The verifier sets the flags from the lengths of `inputs` and `outputs`, and an Operation with more than 4 inputs or 8 outputs is invalid. The circuit checks each flag is boolean, an inactive input or output holds value `0`, and the nullifiers of the active inputs are pairwise distinct.
 - The `excess_value` of `TRANSFER`, `CHANNEL_DEPOSIT` and `SDP_WITHDRAW` adds to the transaction balance. Steps and withdrawals carry none, and the excess of `SDP_DECLARE` is its stake.
 - `derive_note_nonce(op_id, output_number, value, public_key)`, the nonce of a note the ledger creates, uses the DST `NOTE_NONCE_V1`.
@@ -294,13 +294,13 @@ A wallet should draw the nonce of each reward note at random, and keeps the note
 
 | Specification | Status | Note |
 | --- | --- | --- |
-| [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | Revision 2.0.0 |
+| [Mantle](../bedrock-mantle.md) | Modified | Revision 2.0.0 |
 | [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | Revision 1.2.0 |
-| [Block Construction](../bedrock-v1.1-block-construction.md) | Modified | Revision 1.4.0 |
+| [Block Construction](../bedrock-block-construction.md) | Modified | Revision 1.4.0 |
 | [Block Rewards](../block-rewards.md) | Modified | Revision 1.4.0 |
 | [Cryptoeconomics Overview](../overview-cryptoeconomics.md) | Modified | Revision 1.5.0 |
 | [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | Revision 2.0.0 |
-| [Cryptarchia Protocol](../cryptarchia-v1-protocol.md) | Modified | Revision 1.3.0 |
+| [Cryptarchia Protocol](../cryptarchia-protocol.md) | Modified | Revision 1.3.0 |
 | [Proof of Quota](../proof-of-quota.md) | Modified | Revision 1.3.0 |
 | [Message Encapsulation](../message-encapsulation.md) | Modified | Revision 1.2.1 |
 | [Genesis Block](../bedrock-genesis-block.md) | Modified | Revision 1.3.0 |
@@ -317,7 +317,7 @@ A wallet should draw the nonce of each reward note at random, and keeps the note
 | [Blend Protocol](../blend-protocol.md) | Modified | leader reward reference, encapsulation overhead and rounding of the base reward, Revision 1.8.1 |
 | [Payload Formatting](../payload-formatting.md) | Modified | Revision 1.2.1 |
 | [Message Formatting](../message-formatting.md) | Modified | Revision 1.0.3 |
-| [Bootstrapping and Synchronization](../cryptarchia-v1-bootstr-sync.md) | Modified | Revision 1.0.3 |
+| [Bootstrapping and Synchronization](../cryptarchia-bootstr-sync.md) | Modified | Revision 1.0.3 |
 | [Total Stake Inference](../cryptarchia-total-stake-inference.md) | Modified | Revision 1.1.2 |
 | [Cross-Channel Messaging Template](../../deprecated/template-cross-channel-messaging.md) | Deprecated | moved to `deprecated/` |
 | [Anonymous Leaders Reward](../../deprecated/bedrock-anonymous-leaders-reward.md) | Deprecated | moved to `deprecated/` |

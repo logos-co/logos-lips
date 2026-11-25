@@ -29,6 +29,7 @@
 | 1.1.0 | [RFC] Remove Concept of a Session | 2026-06-22 |
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection; benchmark the three branch circuit | 2026-09-08 |
 | 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen, and its nullifier absent from the nullifier IMT of that set at that time. Paths and selectors follow the Merkle path convention of Mantle, from the leaf level up, the commitment path and the path in the eligible tree having depth 40. `pol_epoch_nonce`, `pol_t0` and `pol_t1` are field elements, as in the Proof of Leadership, and `core_sk` is the Non-ephemeral Quota Key | 2026-11-06 |
+| 1.3.1 | Links to Mantle point to `bedrock-mantle.md` | 2026-11-25 |
 
 
 # Introduction
@@ -106,7 +107,7 @@ class ProofOfQuotaWitness:
     pow_nonce: zkhash                          # Private nonce the prover ground to solve the puzzle
 ```
 
-Note that every inputs and outputs of zero-knowledge proofs are all scalar field elements. `NOTE_SET_DEPTH` is the depth of the trees of a note set ([Mantle](bedrock-v1.1-mantle-specification.md#ledger)) and `ELIGIBLE_DEPTH` the depth of the eligible tree ([Proof of Leadership](cryptarchia-proof-of-leadership.md#eligible-sets)). Every path and its selectors follow the Merkle path convention of [Mantle](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range): from the leaf level up, a selector being the bit of the leaf index at its level. `path_root`, defined there, computes the root of a path, and `merkle_verify(root, path, selectors, leaf)` is `path_root(leaf, path, selectors) == root`. The proof checks that every selector is a bit, `s * (1 - s) == 0`.
+Note that every inputs and outputs of zero-knowledge proofs are all scalar field elements. `NOTE_SET_DEPTH` is the depth of the trees of a note set ([Mantle](bedrock-mantle.md#ledger)) and `ELIGIBLE_DEPTH` the depth of the eligible tree ([Proof of Leadership](cryptarchia-proof-of-leadership.md#eligible-sets)). Every path and its selectors follow the Merkle path convention of [Mantle](bedrock-mantle.md#commitment-merkle-mountain-range): from the leaf level up, a selector being the bit of the leaf index at its level. `path_root`, defined there, computes the root of a path, and `merkle_verify(root, path, selectors, leaf)` is `path_root(leaf, path, selectors) == root`. The proof checks that every selector is a bit, `s * (1 - s) == 0`.
 
 ### Constraints
 
@@ -121,7 +122,7 @@ Such that the following constraints hold:
 
 **Step 3:** If the prover indicated that the node is a potential leader node for the proof, the proof checks that:
 
-  1. The leader node possesses a note that would win a slot in the consensus lottery. Unlike leadership conditions, the proof of quota doesn't verify that the note is still unspent; it verifies that the note was unspent when the stake distribution was frozen: the nullifier of the note is not in the [Nullifier Indexed Merkle Tree](bedrock-v1.1-mantle-specification.md#nullifier-indexed-merkle-tree) of its note set at that time. This enables potential provers to generate the PoQ well in advance, and since commitments are never removed from a note set, it keeps a holder from multiplying its leader quota by re-creating its note before the freeze. All other lottery constraints, including the membership of the note commitment in its note set under the eligible root of the time the stake distribution was frozen, are the same as in [Zero-knowledge Proof Statement](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement).
+  1. The leader node possesses a note that would win a slot in the consensus lottery. Unlike leadership conditions, the proof of quota doesn't verify that the note is still unspent; it verifies that the note was unspent when the stake distribution was frozen: the nullifier of the note is not in the [Nullifier Indexed Merkle Tree](bedrock-mantle.md#nullifier-indexed-merkle-tree) of its note set at that time. This enables potential provers to generate the PoQ well in advance, and since commitments are never removed from a note set, it keeps a holder from multiplying its leader quota by re-creating its note before the freeze. All other lottery constraints, including the membership of the note commitment in its note set under the eligible root of the time the stake distribution was frozen, are the same as in [Zero-knowledge Proof Statement](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement).
   2. The index is valid: `index < leader_quota`.
 
 **Step 4:** If the prover indicated that the proof is backed by proof of work, the proof checks that:

@@ -23,6 +23,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision. | 2025-08-20 |
 | 1.0.1 | Renamed Nomos to Logos Blockchain | 2026-04-17 |
+| 1.0.2 | Links to Block Construction point to `bedrock-block-construction.md` | 2026-11-25 |
 
 # Introduction
 
@@ -83,7 +84,7 @@ Logos Blockchain messages are encoded using bincode - a compact binary serializa
 
 The complete specification can be found in the [official documentation](https://docs.rs/bincode/latest/bincode/).
 
-This applies to transport-level message framing. Consensus structures that must be byte-identical across implementations define their own canonical encoding instead, and where they do, that encoding takes precedence: see [Mantle Transaction Encoding](mantle-transaction-encoding.md) for transactions and [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding) for the block proposal.
+This applies to transport-level message framing. Consensus structures that must be byte-identical across implementations define their own canonical encoding instead, and where they do, that encoding takes precedence: see [Mantle Transaction Encoding](mantle-transaction-encoding.md) for transactions and [Canonical Encoding](bedrock-block-construction.md#canonical-encoding) for the block proposal.
 
 # Reference
 

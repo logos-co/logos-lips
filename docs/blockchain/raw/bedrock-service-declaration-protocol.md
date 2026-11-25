@@ -37,6 +37,7 @@
 | 1.7.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a declaration covers one service, a note backs one declaration per service, and a `nonce` carries the `created` epoch of its declaration | 2026-10-01 |
 | 1.8.0 | The minimum stake is one `MinStake` of `threshold` and the block number `timestamp`, matching the implementation | 2026-10-27 |
 | 1.9.0 | Support the private ledger of Mantle: a declaration consumes notes and creates its own service note under the `note_pk` it names in the SDP note set, the withdrawal consumes it with a ZkTransfer, releases its outputs when the declaration is removed and carries no `nonce`, and the active and withdraw messages are signed by the `provider_id` | 2026-11-06 |
+| 1.9.1 | The SDP Operations `SDP_DECLARE`, `SDP_WITHDRAW` and `SDP_ACTIVE`, their common structures and the SDP epoch finalization are specified in this document. Links to Mantle point to `bedrock-mantle.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
 
 # Introduction
 
@@ -69,7 +70,7 @@ The logic of the protocol is straightforward.
 4. The node must confirm its activity with a service-specific minimum frequency; otherwise, its declaration is inactive.
 5. The node sends a withdrawal message. It provides the service for one more epoch. Its declaration is removed and the notes of its withdrawal released once that epoch has been rewarded.
 
-> The protocol messages are subject to a finality that means messages become part of the immutable ledger after a delay. The delay at which it happens is defined by the consensus. Therefore, the protocol’s progress must be tracked from the perspective of the latest finalized block, not the tip of the chain. Otherwise, the protocol and services using it would need to handle chain reorganizations, which we must avoid due to their potential to break services. Hence, the services must use a snapshot from a fully finalized epoch: `finalized_epoch = current_epoch - 2`. For more details about finalization, refer to [Cryptarchia Protocol](cryptarchia-v1-protocol.md).
+> The protocol messages are subject to a finality that means messages become part of the immutable ledger after a delay. The delay at which it happens is defined by the consensus. Therefore, the protocol’s progress must be tracked from the perspective of the latest finalized block, not the tip of the chain. Otherwise, the protocol and services using it would need to handle chain reorganizations, which we must avoid due to their potential to break services. Hence, the services must use a snapshot from a fully finalized epoch: `finalized_epoch = current_epoch - 2`. For more details about finalization, refer to [Cryptarchia Protocol](cryptarchia-protocol.md).
 
 # Construction
 
@@ -98,7 +99,7 @@ Each service type is assigned a one-byte discriminant, given by the enum value a
 
 The minimum stake is a global value that defines the minimum stake a node must have to perform any service.
 
-The minimum stake is one `MinStake`, which holds the `threshold`, a [`TokenValue`](bedrock-v1.1-mantle-specification.md#notes), and the `timestamp`, a `BlockHeight`. A `BlockHeight` is a 64-bit unsigned integer. The `timestamp` exists only to match the deployment configuration of the implementation. No rule reads it.
+The minimum stake is one `MinStake`, which holds the `threshold`, a [`TokenValue`](bedrock-mantle.md#notes), and the `timestamp`, a `BlockHeight`. A `BlockHeight` is a 64-bit unsigned integer. The `timestamp` exists only to match the deployment configuration of the implementation. No rule reads it.
 
 ```python
 class MinStake:
@@ -113,7 +114,7 @@ For more information on how the minimum stake is calculated, please refer to the
 The service parameters structure defines the parameters set necessary for correctly handling interaction between the protocol and services. Each of the service types defined above must be mapped to a set of the following parameters:
 
 - `inactivity_period` defines the number of epochs after the epoch recorded in `active` for which the declaration remains active; after that, it is inactive and excluded from the service's participant set in the same way as a withdrawn declaration ([**Withdraw**](#withdraw)). A value of `2 + k` tolerates `k` consecutive missed reports ([Message Timing](#message-timing)). Any value below 2 excludes every declaration.
-- `epoch` defines the epoch number at which the parameter was set; it is an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch).
+- `epoch` defines the epoch number at which the parameter was set; it is an [`EpochNumber`](cryptarchia-protocol.md#epoch).
 
 ```python
 class ServiceParameters:
@@ -166,7 +167,7 @@ At any epoch `n`, the most recent report a snapshot can contain was included in 
 | `e` | The message is included, with `withdraw_at = e+2`. |
 | `e+1` | The node is in the participant set (`n < withdraw_at`) and provides the service. It reports its epoch-`e` activity. |
 | `e+2` | Every service excludes the declaration (`n >= withdraw_at`). The node reports its epoch-`e+1` activity. The epoch-`e` reward is distributed in the first block. |
-| `e+3` | The epoch-`e+1` reward is distributed and the declaration is removed in the first block ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)). |
+| `e+3` | The epoch-`e+1` reward is distributed and the declaration is removed in the first block ([SDP Epoch Finalization](#sdp-epoch-finalization)). |
 
 ### Identifiers
 
@@ -213,8 +214,8 @@ Where:
 - `locators` are the addresses of the validator ([Locators](#locators));
 - `provider_id` and `zk_id` are the identifiers of the validator ([Identifiers](#identifiers));
 - `note_pk` is the `ZkPublicKey` the service note is created under. No check reads it and no proof covers its secret, so, as for the outputs of a Transfer, the wallet is responsible for it: a `note_pk` whose secret nobody holds locks the stake for good;
-- `inputs` are the [`NoteNullifier`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) of the notes the declaration consumes, proven by a [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) against `commitment_root`;
-- `commitment_root` is the root of the [commitment Merkle Mountain Range (MMR)](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) of the ledger note set at the end of one of the last [`ROOT_WINDOW`](bedrock-v1.1-mantle-specification.md#ledger) blocks;
+- `inputs` are the [`NoteNullifier`](bedrock-mantle.md#note-commitment-and-nullifier) of the notes the declaration consumes, proven by a [ZkTransfer](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) against `commitment_root`;
+- `commitment_root` is the root of the [commitment Merkle Mountain Range (MMR)](bedrock-mantle.md#commitment-merkle-mountain-range) of the ledger note set at the end of one of the last [`ROOT_WINDOW`](bedrock-mantle.md#ledger) blocks;
 - `amount` is the value of the one service note the declaration creates under the `note_pk`, used for minimum stake threshold verification purposes.
 
 ### **Declaration Storage**
@@ -248,7 +249,7 @@ Where:
 
 A `Nonce` is a 64-bit unsigned integer, `lifecycle_epoch · 2^32 + sequence`:
 
-- `lifecycle_epoch` is the high 32 bits, an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch);
+- `lifecycle_epoch` is the high 32 bits, an [`EpochNumber`](cryptarchia-protocol.md#epoch);
 - `sequence` is the low 32 bits.
 
 An active message is valid only if its `nonce`:
@@ -339,11 +340,11 @@ Where:
 
 The message must be signed by the `provider_id` key of the declaration.
 
-A [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) by the holder of the service note, who has the secret of the `note_pk`, proves the spend, against the service note of the declaration only. The message carries no `nonce`: it is valid only while the declaration has no withdrawal scheduled, and its nullifier is consumed once. The service note is consumed when the message is included, so its stake leaves Proof of Stake at once, and the `outputs` are released to the ledger when the declaration is removed.
+A [ZkTransfer](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) by the holder of the service note, who has the secret of the `note_pk`, proves the spend, against the service note of the declaration only. The message carries no `nonce`: it is valid only while the declaration has no withdrawal scheduled, and its nullifier is consumed once. The service note is consumed when the message is included, so its stake leaves Proof of Stake at once, and the `outputs` are released to the ledger when the declaration is removed.
 
 ### Serialization
 
-Each message is the payload of one Mantle Operation ([Mantle](bedrock-v1.1-mantle-specification.md#service-declaration-protocol-sdp-operations)), serialized as the production of the [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations) named below, its fields in the order the message lists them:
+Each message is the payload of one Mantle Operation ([SDP Operations](#service-declaration-protocol-sdp-operations)), serialized as the production of the [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations) named below, its fields in the order the message lists them:
 
 | Message | Operation | Production |
 | --- | --- | --- |
@@ -388,7 +389,7 @@ If all of the above conditions are fulfilled, then the declaration is stored on 
 
 ### Active
 
-The Active action marks a provider as actively providing its service. It requires sending a valid `ActiveMessage` (as defined in [Active Message](#active-message)), which is relayed to the service-specific node activity logic (as indicated by the service type in [Common SDP Structures](bedrock-v1.1-mantle-specification.md#common-sdp-structures)).
+The Active action marks a provider as actively providing its service. It requires sending a valid `ActiveMessage` (as defined in [Active Message](#active-message)), which is relayed to the service-specific node activity logic (as indicated by the service type in [Common SDP Structures](#common-sdp-structures)).
 
 The Active action updates the `active` value of the `DeclarationInfo`. A declaration considered inactive is not removed from the registry, and an accepted active message makes it active again. A declaration is removed only by withdrawal ([**Withdraw**](#withdraw)); a removed declaration cannot become active again.
 
@@ -412,7 +413,7 @@ The Withdraw action withdraws a service declaration. It requires sending a valid
 
 Let `e` be the epoch of the block that contained the `WithdrawMessage`; `withdraw_at` records `e+2` ([Snapshots](#snapshots)). A declaration whose `withdraw_at` an epoch has reached is excluded from that epoch's [Active Set](#active-set).
 
-The node provides the service through epoch `withdraw_at - 1`, its last rewardable epoch. The declaration is removed and the notes of its withdrawal released to the ledger at epoch `withdraw_at + 1` ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
+The node provides the service through epoch `withdraw_at - 1`, its last rewardable epoch. The declaration is removed and the notes of its withdrawal released to the ledger at epoch `withdraw_at + 1` ([SDP Epoch Finalization](#sdp-epoch-finalization)).
 
 The logic of the withdraw action is:
 
@@ -423,8 +424,8 @@ The logic of the withdraw action is:
     3. The `withdraw_at` of the `DeclarationInfo` is `None`.
     4. The ZkTransfer consumes the unspent service note of the declaration and balances the `outputs`.
 3. If any of the above is not correct, then discard the message and stop.
-4. Set the `withdraw_at` of the `DeclarationInfo` to the current epoch number plus two, consume the service note, and keep the `outputs` pending until the first slot of epoch `withdraw_at + 1` ([SDP_WITHDRAW](bedrock-v1.1-mantle-specification.md#sdp_withdraw)).
-5. At epoch `withdraw_at + 1`, right after the final reward is paid out, the Mantle epoch finalization step removes the `DeclarationInfo`, and the pending `outputs` are released to the ledger ([SDP Epoch Finalization](bedrock-v1.1-mantle-specification.md#sdp-epoch-finalization)).
+4. Set the `withdraw_at` of the `DeclarationInfo` to the current epoch number plus two, consume the service note, and keep the `outputs` pending until the first slot of epoch `withdraw_at + 1` ([SDP_WITHDRAW](#sdp_withdraw)).
+5. At epoch `withdraw_at + 1`, right after the final reward is paid out, the Mantle epoch finalization step removes the `DeclarationInfo`, and the pending `outputs` are released to the ledger ([SDP Epoch Finalization](#sdp-epoch-finalization)).
 
 ### Query
 
@@ -435,9 +436,420 @@ A node must answer the following queries from the finalized state ([Snapshots](#
 
 A query for a `declaration_id` or a `service_type` the finalized state does not hold returns an error.
 
-## Mantle and ZK Proofs
+## Service Declaration Protocol (SDP) Operations
 
-For more information about Mantle and ZK proofs, please refer to [Mantle](bedrock-v1.1-mantle-specification.md).
+These Operations implement the Service Declaration Protocol.
+
+Validators must keep the following state when implementing SDP Operations:
+
+```python
+providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
+```
+
+`declarations` holds one map per `ServiceType`, keyed by `declaration_id`.
+`providers` maps a provider identity to its declaration in each service.
+`find_declaration` returns the service and the entry of a `declaration_id`, or
+`None` when no service holds it:
+
+```python
+def find_declaration(declarations, declaration_id):
+    for service, entries in declarations.items():
+        if declaration_id in entries:
+            return service, entries[declaration_id]
+    return None
+```
+
+### Common SDP Structures
+
+```python
+class ServiceType(Enum):
+    BN=0 # Blend Network; the one-byte discriminant is the canonical encoding
+
+class Locator(bytes):
+    # multiaddr binary form; the canonical encoding
+    # (see SDP: Locators)
+    def validate(self):
+        assert len(self) <= 329
+        assert validate_multiaddr(self)
+
+class MinStake:
+    threshold: TokenValue # stake value
+    timestamp: BlockHeight # see SDP: Minimum Stake
+
+class ServiceParameters:
+    inactivity_period: NumberOfEpochs # number of epochs
+    epoch: EpochNumber                # epoch number at which the Service Parameters were set
+
+class DeclarationInfo:
+    service: ServiceType
+    provider_id: Ed25519PublicKey
+    service_note: NoteCommitment            # the note of the SDP note set staked by the declaration
+    locators: list[Locator]
+    zk_id: ZkPublicKey
+    created: EpochNumber
+    active: EpochNumber
+    withdraw_at: EpochNumber | None
+    # lifecycle_epoch << 32 | sequence, see Declaration Storage in the SDP
+    nonce: int
+```
+
+### SDP_DECLARE
+
+The service registration follows the definition given in [**Declaration Message**](#declaration-message):
+
+#### Payload
+
+```python
+class DeclarationMessage:
+    service_type: ServiceType
+    locators: list[Locator]
+    provider_id: Ed25519PublicKey
+    zk_id: ZkPublicKey
+    note_pk: ZkPublicKey
+    inputs: list[NoteNullifier]
+    commitment_root: MerkleRoot
+    amount: TokenValue
+```
+
+`note_pk` is the key the service note is created under. No check reads it and no proof covers its secret, so getting it right is the wallet's responsibility, as for the outputs of a Transfer: a `note_pk` whose secret nobody holds locks the stake for good, and a declarer who keeps the secret offline can keep the stake under a cold key.
+
+Service notes are introduced in [Service notes](bedrock-mantle.md#service-notes) and serve as Service collaterals. They cannot be spent before the owner withdraws its participation from the declared service.
+
+#### Proof
+
+```python
+class DeclarationProof:
+    zk_proof: ZkTransfer             # proving spendability over inputs
+    provider_sig: Ed25519Signature  # signature proving ownership of provider key
+```
+
+  see: [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer).
+
+#### Execution Gas
+
+  SDP Declare Operations have a fixed Execution Gas cost of `EXECUTION_SDP_DECLARE_GAS`. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
+
+#### Validation
+
+  *Given*
+
+```python
+txhash: hash                    # the txhash of the transaction we are validating
+declaration: DeclarationMessage # the declaration we are validating
+proof: DeclarationProof
+
+min_stake: MinStake      # the (global) minimum stake setting
+ledger: Ledger           # the note sets
+providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
+```
+
+  *Validate*
+
+  The declaration is verified according to [Declare](#declare).
+
+  1. Ensure no identifier is already taken
+     ([Identifier Uniqueness](#identifier-uniqueness)),
+     the `declaration_id` being derived as in [Declaration Storage](#declaration-storage).
+      ```python
+      declare_id = declaration_id(declaration)
+      assert declare_id not in declarations[declaration.service_type]
+      assert declaration.provider_id not in providers[declaration.service_type]
+      ```
+
+  2. Ensure the locators list is non-empty and has no more than 8 entries.
+      ```python
+      assert len(declaration.locators) >= 1
+      assert len(declaration.locators) <= 8
+      ```
+
+  3. Ensure the inputs are spendable and the value is sufficient for joining the service.
+      ```python
+      ledger.sets[LEDGER_SET].assert_spendable(declaration.inputs)
+      assert declaration.amount >= min_stake.threshold
+      ```
+
+  4. Ensure ownership over the inputs and `provider_id`.
+      ```python
+      assert ledger.sets[LEDGER_SET].verify_transfer(declaration.inputs,
+                                                     [], # no outputs
+                                                     declaration.amount,
+                                                     declaration.commitment_root,
+                                                     FiniteField(txhash, byte_order="little", modulus = p),
+                                                     proof.zk_proof)
+      assert Ed25519_verify(txhash, declaration.provider_id, proof.provider_sig)
+      ```
+
+#### Execution
+
+  *Given*
+
+```python
+declaration: DeclarationMessage # the declaration we are executing
+current_epoch: EpochNumber
+ledger: Ledger
+providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
+```
+
+  *Execute*
+
+  1. Consume the inputs in the ledger note set.
+      ```python
+      ledger.sets[LEDGER_SET].execute_spending(declaration.inputs)
+      ```
+
+  2. Create the service note under the `note_pk` in the [SDP note set](bedrock-mantle.md#ledger), `SDP_SET`, its nonce and commitment derived as in [Note Commitment and Nullifier](bedrock-mantle.md#note-commitment-and-nullifier).
+      ```python
+      declaration_op_id = derive_op_id(declaration)
+      service_note = Note(
+          value=declaration.amount,
+          nonce=derive_note_nonce(declaration_op_id, 0, declaration.amount, declaration.note_pk),
+          public_key=declaration.note_pk
+      )
+      ledger.sets[SDP_SET].execute_adding([derive_note_commitment(service_note)])
+      ```
+
+  3. Index the provider identity by this declaration.
+      ```python
+      declare_id = declaration_id(declaration)
+      providers[declaration.service_type][declaration.provider_id] = declare_id
+      ```
+
+  4. Store the declaration as explained in [**Declaration Storage**](#declaration-storage).
+      ```python
+      declarations[declaration.service_type][declare_id] = DeclarationInfo(
+          service=declaration.service_type,
+          provider_id=declaration.provider_id,
+          service_note=derive_note_commitment(service_note),
+          locators=declaration.locators,
+          zk_id=declaration.zk_id,
+          created=current_epoch,
+          active=current_epoch + 2,
+          withdraw_at=None,
+          nonce=current_epoch << 32,  # lifecycle_epoch = created, sequence = 0
+      )
+      ```
+
+### SDP_WITHDRAW
+
+The service withdrawal follows the definition given in [Withdraw Message](#withdraw-message).
+
+#### Payload
+
+```python
+class WithdrawMessage:
+    declaration: DeclarationId
+    service_note_nullifier: NoteNullifier  # nullifier of the service note of the declaration
+    outputs: list[NoteCommitment]          # commitments of the notes created in the ledger note set
+    excess_value: TokenValue               # the excess to pay the fees
+```
+
+The withdrawal consumes the service note of the declaration and creates the notes that return its value. Its ZkTransfer is proven against the root of an empty MMR to which only the service note is appended. That root is computed from the commitment held in the declaration, so the nullifier is the one of this service note and of no other note. A withdrawal carries no nonce: it is valid only while the declaration has no withdrawal scheduled, and that single nullifier is consumed once, so it cannot be replayed.
+
+The service note is consumed when the withdrawal is posted, so the stake leaves Proof of Stake at once and its excess pays the fees. The outputs wait in the [`pending_withdrawals`](bedrock-mantle.md#ledger) of the ledger, as an entry with no input, until the declaration is removed at the first slot of epoch `withdraw_at + 1`, where [`release_withdrawals`](bedrock-mantle-channels.md#channel_withdraw) creates them in the ledger note set. Having no input to check, the entry is always released, so the value of the service note is counted once.
+
+#### Proof
+
+  A signature from the `provider_id` attached to the declaration and a [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) by the holder of the service note, who has the secret of the `note_pk`, are required for withdrawing from a service.
+
+```python
+class WithdrawProof:
+    zk_proof: ZkTransfer             # consuming the service note
+    provider_sig: Ed25519Signature   # signature proving ownership of provider key
+```
+
+#### Execution Gas
+
+  SDP Withdraw Operations have a fixed Execution Gas cost of `EXECUTION_SDP_WITHDRAW_GAS`. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
+
+#### Validation
+
+  *Given*
+
+```python
+txhash: hash # Mantle transaction hash of the tx containing this operation
+withdraw: WithdrawMessage
+proof: WithdrawProof
+
+ledger: Ledger
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
+```
+
+  *Validate*
+
+  Validate SDP withdrawal according to [**Withdraw**](#withdraw).
+
+  1. Ensure declaration exists.
+      ```python
+      found = find_declaration(declarations, withdraw.declaration)
+      assert found is not None
+      _, declare_info = found
+      ```
+  2. Ensure the declaration is not already scheduled for withdrawal.
+      ```python
+      assert declare_info.withdraw_at is None
+      ```
+  3. Ensure the `provider_id` attached to this declaration authorized this Operation.
+      ```python
+      assert Ed25519_verify(txhash, declare_info.provider_id, proof.provider_sig)
+      ```
+  4. Ensure the service note of the declaration is unspent, consumed by its holder and balances the outputs, with [`ZkTransfer_verify`](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) against the [`mmr_root`](bedrock-mantle.md#commitment-merkle-mountain-range) of the single peak holding the service note.
+      ```python
+      ledger.sets[SDP_SET].assert_spendable([withdraw.service_note_nullifier])
+      assert ZkTransfer_verify([withdraw.service_note_nullifier],
+                               withdraw.outputs,
+                               withdraw.excess_value,
+                               mmr_root([(declare_info.service_note, 0)]),  # one peak, the service note
+                               FiniteField(txhash, byte_order="little", modulus = p),
+                               proof.zk_proof)
+      ```
+
+#### Execution
+
+  *Given*
+
+```python
+withdraw: WithdrawMessage
+
+current_epoch: EpochNumber # current epoch
+ledger: Ledger
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
+```
+
+  *Execute*
+
+  Executes the withdrawal protocol [**Withdraw**](#withdraw).
+
+  1. Update the declaration info with the withdrawal epoch.
+      ```python
+      _, declare_info = find_declaration(declarations, withdraw.declaration)
+      declare_info.withdraw_at = current_epoch + 2
+      ```
+
+  2. Consume the service note in the SDP note set.
+      ```python
+      ledger.sets[SDP_SET].execute_spending([withdraw.service_note_nullifier])
+      ```
+
+  3. Keep the outputs in the [`pending_withdrawals`](bedrock-mantle.md#ledger) of the ledger, with no input, until the first slot of epoch `withdraw_at + 1`, `EPOCH_LENGTH` being the number of slots of an epoch ([Epoch Schedule](cryptarchia-protocol.md#epoch-schedule)).
+      ```python
+      ledger.pending_withdrawals.append(((declare_info.withdraw_at + 1) * EPOCH_LENGTH,
+                                         SDP_SET,
+                                         [],
+                                         withdraw.outputs))
+      ```
+
+### SDP Epoch Finalization
+
+Withdrawn declarations are removed by Mantle as part of the epoch transition,
+not when the `WithdrawMessage` is processed. The rewards of epoch
+`withdraw_at - 1` ([Withdraw](#withdraw))
+are distributed in the first block of epoch `withdraw_at + 1` (see
+[Service Reward Distribution Protocol](bedrock-service-reward-distribution.md)).
+In that same block, after the rewards have been distributed, every declaration
+with `withdraw_at + 1 <= current_epoch` is removed and the outputs of its withdrawal
+released, through its [pending withdrawal](#sdp_withdraw).
+Declarations that withdrew without earning a final reward are removed by the
+same step.
+
+  *Given*
+
+```python
+current_epoch: EpochNumber
+providers: dict[ServiceType, dict[Ed25519PublicKey, DeclarationId]]
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
+```
+
+  *Execute*
+
+  For every `service`, `declare_id`, `declare_info` in `declarations` where
+  `declare_info.withdraw_at is not None and declare_info.withdraw_at + 1 <= current_epoch`:
+
+  1. Release the provider identity the declaration held.
+      ```python
+      del providers[service][declare_info.provider_id]
+      ```
+
+  2. Remove the declaration.
+      ```python
+      del declarations[service][declare_id]
+      ```
+
+### SDP_ACTIVE
+
+The service active action follows the definition given in [Active Message](#active-message).
+
+#### Payload
+
+```python
+class Active:
+    declaration: DeclarationId
+    nonce: int
+    metadata: ActivityMetadata # tagged service-specific activity metadata
+```
+
+#### Proof
+
+  A signature from the `provider_id` attached to the declaration.
+
+```python
+Ed25519Signature
+```
+
+#### Execution Gas
+
+  SDP Active Operations have a fixed Execution Gas cost of `EXECUTION_SDP_ACTIVE_GAS`. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
+
+#### Validation
+
+  *Given*
+
+```python
+txhash: hash # Mantle transaction hash of the tx containing this operation
+active: Active
+signature: Ed25519Signature
+
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
+```
+
+  *Validate*
+
+`active.metadata` MUST satisfy the encoding and validation rules of its selected [activity-metadata variant](mantle-transaction-encoding.md#sdp-operations). The current Blend variant follows [Blend Protocol — Active Message](blend-protocol.md#active-message).
+
+```python
+found = find_declaration(declarations, active.declaration)
+assert found is not None
+_, declaration_info = found
+
+assert active.nonce >> 32 == declaration_info.created
+assert active.nonce & 0xFFFFFFFF > declaration_info.nonce & 0xFFFFFFFF
+
+assert Ed25519_verify(txhash, declaration_info.provider_id, signature)
+```
+
+#### Execution
+
+  *Given*
+
+```python
+active: Active
+
+current_epoch: EpochNumber # epoch of the block containing this operation
+declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
+```
+
+  *Execute*
+
+  Executes the active protocol [Active](#active). If the service-specific activity logic rejects the message, the Operation is invalid.
+
+  1. Update the declaration info with the nonce and the epoch.
+      ```python
+      _, declaration_info = find_declaration(declarations, active.declaration)
+      declaration_info.nonce = active.nonce
+      declaration_info.active = current_epoch
+      ```
 
 # Default Service Parameters
 

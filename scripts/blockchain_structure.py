@@ -60,8 +60,8 @@ FILE_ASSIGNMENTS = {
     "blockchain/raw/network-wire-format.md": ("P2P Network", "Network Wire Format"),
 
     # Consensus
-    "blockchain/raw/cryptarchia-v1-protocol.md": ("Consensus", "Cryptarchia Protocol"),
-    "blockchain/raw/cryptarchia-v1-bootstr-sync.md": ("Consensus", "Cryptarchia Bootstrapping & Synchronization"),
+    "blockchain/raw/cryptarchia-protocol.md": ("Consensus", "Cryptarchia Protocol"),
+    "blockchain/raw/cryptarchia-bootstr-sync.md": ("Consensus", "Cryptarchia Bootstrapping & Synchronization"),
     "blockchain/raw/fork-choice.md": ("Consensus", "Cryptarchia Fork Choice Rule"),
     "blockchain/raw/cryptarchia-total-stake-inference.md": ("Consensus", "Total Stake Inference"),
     "blockchain/raw/cryptarchia-proof-of-leadership.md": ("Consensus", "Proof of Leadership"),
@@ -74,7 +74,8 @@ FILE_ASSIGNMENTS = {
     # Mantle
     "blockchain/raw/bedrock-architecture-overview.md": ("Mantle", "[Overview] Bedrock Architecture"),
     "blockchain/deprecated/v1.0.0-bedrock-architecture-overview.md": ("Mantle", "[1.0.0] [Overview] Bedrock Architecture"),
-    "blockchain/raw/bedrock-v1.1-mantle-specification.md": ("Mantle", "Mantle"),
+    "blockchain/raw/bedrock-mantle.md": ("Mantle", "Mantle"),
+    "blockchain/raw/bedrock-mantle-channels.md": ("Mantle", "Mantle Channels"),
     "blockchain/raw/proof-of-work.md": ("Mantle", "Proof of Work"),
     "blockchain/deprecated/v1.4.0-mantle.md": ("Mantle", "[1.4.0] Mantle"),
     "blockchain/deprecated/v1.3.0-mantle.md": ("Mantle", "[1.3.0] Mantle"),
@@ -82,7 +83,7 @@ FILE_ASSIGNMENTS = {
     "blockchain/deprecated/v1.2.0-mantle.md": ("Mantle", "[1.2.0] Mantle"),
     "blockchain/deprecated/v1.1.0-mantle.md": ("Mantle", "[1.1.0] Mantle"),
     "blockchain/deprecated/v1.0.0-mantle.md": ("Mantle", "[1.0.0] Mantle"),
-    "blockchain/raw/bedrock-v1.1-block-construction.md": ("Mantle", "Block Construction, Validation and Execution"),
+    "blockchain/raw/bedrock-block-construction.md": ("Mantle", "Block Construction, Validation and Execution"),
     "blockchain/deprecated/v1.1.0-bedrock-block-construction.md": ("Mantle", "[1.1.0] Block Construction, Validation and Execution"),
     "blockchain/deprecated/v1.1.0-bedrock-block-construction-alt.md": ("Mantle", "[1.1.0] Block Construction, Validation and Execution_2"),
     "blockchain/deprecated/v1.0.0-bedrock-block-construction.md": ("Mantle", "[1.0.0] Block Construction, Validation and Execution"),

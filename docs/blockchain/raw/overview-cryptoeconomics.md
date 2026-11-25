@@ -29,7 +29,8 @@
 | 1.2.2 | Stated that the minimum stake of a service is locked in a service note | 2026-08-27 |
 | 1.3.0 | Add the proof of work reward pool, funded by diverting a share of the collected fees before they reach the rewards pool | 2026-08-31 |
 | 1.4.0 | Define the LEPTON as the indivisible token unit, with one LOGOS equal to $`10^{9}`$ LEPTA | 2026-10-26 |
-| 1.5.0 | Pay the leader reward of a block in the block itself, as a note under a public key the leader keeps private. Aligned the maximum block size with the 2 MiB of [Cryptarchia](cryptarchia-v1-protocol.md#constants). The Execution Gas limit deducts the measured fixed part of the ZkTransfer batch verification. The leader share is 40% of the block reward rounded down, the remainder going to the Blend reward, held in `blend_rewards_pending` until it is paid. The overview figure follows. Removed the reference to the hardware requirements | 2026-10-07 |
+| 1.5.0 | Pay the leader reward of a block in the block itself, as a note under a public key the leader keeps private. Aligned the maximum block size with the 2 MiB of [Cryptarchia](cryptarchia-protocol.md#constants). The Execution Gas limit deducts the measured fixed part of the ZkTransfer batch verification. The leader share is 40% of the block reward rounded down, the remainder going to the Blend reward, held in `blend_rewards_pending` until it is paid. The overview figure follows. Removed the reference to the hardware requirements | 2026-10-07 |
+| 1.5.1 | Links to Mantle point to `bedrock-mantle.md`, links to Block Construction to `bedrock-block-construction.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
 
 > **Disclaimer**:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -58,13 +59,13 @@ In this section we present an overview of the cryptoeconomical aspects of the Lo
 - Tokens serve three main purposes:
     - Paying for transaction processing resources used: [Fee Markets](#fee-markets).
     - Declaring service participation: node operators lock a [Minimum Stake](#minimum-stake) through the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) to become Blend Service providers.
-    - PoS Participation: leaders can propose (build) blocks by [participating in a lottery](cryptarchia-v1-protocol.md) where their chances of winning are proportional to their number of owned and unmoved tokens (aged tokens).
+    - PoS Participation: leaders can propose (build) blocks by [participating in a lottery](cryptarchia-protocol.md) where their chances of winning are proportional to their number of owned and unmoved tokens (aged tokens).
 - Transactions may incur up to two types of fees:
     - Execution fee: covers the computational resources consumed by the transaction.
     - Permanent Storage fee: covers the permanent Ledger storage resources consumed by the transaction.
 - Execution base fees and storage fees are routed into the rewards pool for each block, removing them from circulation, except for the share diverted to the [Proof of Work Reward Pool](#proof-of-work-reward-pool).
 - Rewards are distributed per block for leaders and on an epoch basis for Blend nodes:
-    - Leaders (block proposers) include Mantle Transactions in every block. Each transaction pays Permanent Storage and Execution fees: the storage fees and the Execution base fees are routed into the rewards pool, and the Execution tips go to the leader of the block according to the [Execution Market](execution-market.md). For each block, a reward is calculated following the [Block Rewards](block-rewards.md). These two sources determine the total rewards allocated to leaders, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders), which correspond to tips from the Execution market and 40% of block rewards. The leader receives them in the block itself, as a note under a public key it keeps private (see [Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
+    - Leaders (block proposers) include Mantle Transactions in every block. Each transaction pays Permanent Storage and Execution fees: the storage fees and the Execution base fees are routed into the rewards pool, and the Execution tips go to the leader of the block according to the [Execution Market](execution-market.md). For each block, a reward is calculated following the [Block Rewards](block-rewards.md). These two sources determine the total rewards allocated to leaders, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders), which correspond to tips from the Execution market and 40% of block rewards. The leader receives them in the block itself, as a note under a public key it keeps private (see [Block Execution](bedrock-block-construction.md#block-execution)).
     - Blend nodes provide Blend service to the network for at least one epoch. Using the same [Block Rewards](block-rewards.md), the protocol determines the total rewards allocated to the Blend network, as explained in [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders) which correspond to 60% of the block rewards. 
     When an epoch $`e`$  ends, Blend validators have one additional epoch $`e+1`$  to send an active message used by the [Reward Distribution Protocols](#reward-distribution-protocols) to determine reward distribution among validators. During the first block of epoch $`e+2$, Blend validators from epoch $`e`$ receive their portion of [Blend Service and Consensus Leaders](#blend-service-and-consensus-leaders) rewards, with proportions determined by the [Reward Distribution Protocols](#reward-distribution-protocols). These rewards are distributed at the start of the next epoch.
 - The [Service Rewards Distribution Protocol](#service-rewards-distribution-protocol) handles payments of rewards for Blend Services to individual nodes.
@@ -75,7 +76,7 @@ In this section we present an overview of the cryptoeconomical aspects of the Lo
 
 The **LEPTON**, plural LEPTA, is the indivisible unit of the native token. One LOGOS is $`10^{9}`$ LEPTA. Every token amount is an integer count of LEPTA, and every gas price is an integer count of LEPTA per gas unit.
 
-The hard cap $`S_{cap}`$ of [Block Rewards](block-rewards.md), $`10^{10}`$ LOGOS, is $`10^{19}`$ LEPTA. Counted in LEPTA, the hard cap must not exceed $`2^{64}-1`$, the largest `TokenValue` of [Mantle](bedrock-v1.1-mantle-specification.md#notes), or no note could hold the whole supply. At $`10^{9}`$ LEPTA per LOGOS, this bounds the hard cap at $`\lfloor (2^{64}-1)/10^{9} \rfloor = 18{,}446{,}744{,}073`$ LOGOS.
+The hard cap $`S_{cap}`$ of [Block Rewards](block-rewards.md), $`10^{10}`$ LOGOS, is $`10^{19}`$ LEPTA. Counted in LEPTA, the hard cap must not exceed $`2^{64}-1`$, the largest `TokenValue` of [Mantle](bedrock-mantle.md#notes), or no note could hold the whole supply. At $`10^{9}`$ LEPTA per LOGOS, this bounds the hard cap at $`\lfloor (2^{64}-1)/10^{9} \rfloor = 18{,}446{,}744{,}073`$ LOGOS.
 
 | Unit (singular / plural) | Symbol | In LEPTA | In LOGOS |
 | --- | --- | --- | --- |
@@ -95,7 +96,7 @@ To provide a service, a node must lock in a service note a minimum number of tok
 
 ## Gas
 
-Mantle Transactions (see [Mantle - Mantle Transaction](bedrock-v1.1-mantle-specification.md)) consume different types of Gas related to the various fee markets. Gas serves as a unit of measurement to quantify the computational or storage effort required to process a Ledger Transaction or an Operation. Gas is a unit of account that was introduced to normalize and facilitate the pricing of resources. Through the gas, the protocol is defining a way to measure computational demand for Operations and Ledge Transactions. The costs for these computational resources are defined by the leaders/nodes.
+Mantle Transactions (see [Mantle - Mantle Transaction](bedrock-mantle.md)) consume different types of Gas related to the various fee markets. Gas serves as a unit of measurement to quantify the computational or storage effort required to process a Ledger Transaction or an Operation. Gas is a unit of account that was introduced to normalize and facilitate the pricing of resources. Through the gas, the protocol is defining a way to measure computational demand for Operations and Ledge Transactions. The costs for these computational resources are defined by the leaders/nodes.
 
 The two types of Gas are:
 
@@ -106,7 +107,7 @@ In Logos Blockchain, Permanent Storage Gas is determined for an entire encoded M
 
 ## Fee Markets
 
-Users (L1 wallets, node operators, or leaders) pay [fees in Logos Blockchain for their Mantle Transactions](bedrock-v1.1-mantle-specification.md) to compensate for service usage. Logos Blockchain operates with two distinct fee markets. The goal of each market is to ensure fair compensation, sustainability, and proper incentives. However each market has its own unique characteristics:
+Users (L1 wallets, node operators, or leaders) pay [fees in Logos Blockchain for their Mantle Transactions](bedrock-mantle.md) to compensate for service usage. Logos Blockchain operates with two distinct fee markets. The goal of each market is to ensure fair compensation, sustainability, and proper incentives. However each market has its own unique characteristics:
 
 - The Execution fee market covers the validation and execution of Mantle Transactions. The consensus does not directly limit the number of CPU cycles or Execution Gas per block but a fee regulating mechanism is necessary to be compliant with minimum hardware requirements of a node. The fees must regulate the use of CPU cycles for validation and execution of the blockchain.
 - The Permanent Storage fee market covers the permanent storage of encoded Mantle Transactions. Blocks are limited to 2MiB with a maximum of 1024 Mantle Transactions per block. However, the fees must reduce the maximum amount of Storage to meet the minimum hardware requirements.
@@ -123,7 +124,7 @@ We define "reasonable" as limiting the Execution Gas such that a potential leade
 
 Consensus nodes must validate and execute a block using a small percentage of their CPU but during a longer period than the 1 second period for leaders, as they don't have the strict timing constraints that affect consensus and would increase forking. Using only 20% of their CPU, consensus nodes can validate and execute such blocks in approximately 4 seconds.
 
-Block verification also requires a fixed amount of Execution Gas for the ZK proofs it verifies in batch ([Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs)). The fixed part of the batch verification of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proofs is 3,540,612 CPU cycles ([Gas Cost Determination](analysis-gas-cost-determination.md#groth16-proof-batch-verification)), so we reduce the Execution Gas limit by 3,541.
+Block verification also requires a fixed amount of Execution Gas for the ZK proofs it verifies in batch ([Batch verification of ZK proofs](bedrock-block-construction.md#batch-verification-of-zk-proofs)). The fixed part of the batch verification of the [ZkTransfer](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) proofs is 3,540,612 CPU cycles ([Gas Cost Determination](analysis-gas-cost-determination.md#groth16-proof-batch-verification)), so we reduce the Execution Gas limit by 3,541.
 
 Therefore, $`\text{limit}_{\text{Ex}} := 3,196,459`$ Execution Gas. This limit is also important to guarantee a rapid syncing of the chain.
 
@@ -133,7 +134,7 @@ More details on the execution fee calculations can be found in [Execution Market
 
 ### Permanent Storage Fee Market
 
-Permanent Storage fees cover the permanent storage of Mantle Transactions. This market is subject to a strict maximum block size limit of 2MiB with a maximum of 1024 Mantle Transactions per block. While stored transactions consume execution resources, certain operations, such as Channel Inscribe or Channel Config, can consume only a limited amount of Execution Gas with no restriction on Permanent Storage consumption. This creates a corner case where a block could, in principle, be filled entirely with such Operations until the limit is reached. To prevent extensive usage of block space and to maintain predictability, [Cryptarchia](cryptarchia-v1-protocol.md) imposes a maximum block size limit of 2 MiB. This cap is a protocol parameter and is chosen such that it remains compatible with the storage limit defined below.
+Permanent Storage fees cover the permanent storage of Mantle Transactions. This market is subject to a strict maximum block size limit of 2MiB with a maximum of 1024 Mantle Transactions per block. While stored transactions consume execution resources, certain operations, such as Channel Inscribe or Channel Config, can consume only a limited amount of Execution Gas with no restriction on Permanent Storage consumption. This creates a corner case where a block could, in principle, be filled entirely with such Operations until the limit is reached. To prevent extensive usage of block space and to maintain predictability, [Cryptarchia](cryptarchia-protocol.md) imposes a maximum block size limit of 2 MiB. This cap is a protocol parameter and is chosen such that it remains compatible with the storage limit defined below.
 
 In the storage context, the minimum hardware requirement is expressed as the amount of data to be stored per year. With every block full at the 2 MiB cap, one block every 30 seconds on average, the network generates roughly 2.2 Terabytes of data per year, which can be seen as a technical limit.
 
@@ -158,7 +159,7 @@ The following sections explain how these principles apply to different roles in 
 The Blend service and the leaders proposing the blocks share a same block reward that is calculated for each block based on a KPI function. This KPI function takes as input the inferred total stake and the amount of Execution and Permanent Storage fees of the block. How the KPI function calculates each block reward is explained in [Block Rewards](block-rewards.md).
 
 - Blend rewards are distributed among all active Blend Nodes. Blend rewards are composed of a fraction of the block rewards. These rewards of epoch $`e`$ are defined when a new Blend epoch $`e+1`$ starts (a defined number of blocks) and are allocated to nodes based on their reported Active Messages and the [Reward Distribution Protocols](#reward-distribution-protocols) during epoch $`e+2`$ . The [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md) manages the direct payment to nodes.
-- Leaders receive, for each block they propose, a single note whose value is a fraction of the block reward plus the [Execution Market](execution-market.md) tips of that block. The note is created during the execution of the block under a public key the leader keeps private ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
+- Leaders receive, for each block they propose, a single note whose value is a fraction of the block reward plus the [Execution Market](execution-market.md) tips of that block. The note is created during the execution of the block under a public key the leader keeps private ([Block Execution](bedrock-block-construction.md#block-execution)).
 
 Each block reward of each block is split as follows between the Blend service and the leader:
 
@@ -222,7 +223,7 @@ The emission rate factor is computed in part from the pooling rate, so the relea
 
 ### Leaders
 
-To protect leaders' privacy, a leader must not be linked to the spending of its rewards. The leader reward of a block is created in the block as a note under a public key and a nonce the leader keeps private: the block header holds only the value and the commitment of the note, which the Proof of Leadership derives ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)). The note commitment is linked to the block, but spending the note reveals neither its commitment nor its value ([Mantle Ledger](bedrock-v1.1-mantle-specification.md#mantle-ledger)), so the reward cannot be followed once spent, as long as the leader does not publish its value, for instance by staking reward notes in an SDP declaration, whose amount is public.
+To protect leaders' privacy, a leader must not be linked to the spending of its rewards. The leader reward of a block is created in the block as a note under a public key and a nonce the leader keeps private: the block header holds only the value and the commitment of the note, which the Proof of Leadership derives ([Block Execution](bedrock-block-construction.md#block-execution)). The note commitment is linked to the block, but spending the note reveals neither its commitment nor its value ([Mantle Ledger](bedrock-mantle.md#mantle-ledger)), so the reward cannot be followed once spent, as long as the leader does not publish its value, for instance by staking reward notes in an SDP declaration, whose amount is public.
 
 ### Blend Service
 
