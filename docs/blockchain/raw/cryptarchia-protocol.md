@@ -37,6 +37,7 @@
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
 | 1.3.0 | Follow the private ledger of Mantle: the eligible leader notes commitment is the eligible root over the note sets of the ledger, and a Proof of Leadership verifies against the latest eligible root. The `leader_voucher` header field is replaced with the `reward_commitment` and the `reward_value` of the note paying the leader reward. The Proof of Leadership is bound to the block by its block ID: the `leader_key` header field and the block signatures are removed, and an uncle entry is a header. The block ID leaves out the proof of leadership, which is not unique. The eligible root of the epoch state is named `eligible_aged`. Rule 4 is checked before rule 10 and the validation of the transactions on every path, and a failure of rule 2 or rule 3 found before it is a bad copy | 2026-11-06 |
 | 1.3.1 | The document is published as `cryptarchia-protocol.md`. Links to Mantle point to `bedrock-mantle-specification.md`, links to Block Construction to `bedrock-block-construction.md` and links to Bootstrapping and Synchronization to `cryptarchia-bootstr-sync.md` | 2026-11-25 |
+| 1.3.2 | The transaction Merkle root, body root and block ID test vectors cover the rollup Operations and follow the encoding of `ChannelInscribe` and `SDPDeclare` | 2026-11-25 |
 
 # Introduction
 

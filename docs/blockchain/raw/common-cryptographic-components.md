@@ -28,6 +28,7 @@
 | 1.2.0 | Strict EdDSA verification: reject small-order public keys and small-order `R` | 2026-09-22 |
 | 1.3.0 | Removed the ZkSignature scheme, no longer used by any Operation. The three-element nullifier uses the hash function mode | 2026-10-07 |
 | 1.3.1 | Links to Mantle point to `bedrock-mantle-specification.md` | 2026-11-25 |
+| 1.4.0 | The nullifier key derivation `zkhash(NF_KDF_V1, spending_sk)` uses the compression mode, and the note nullifier hashes the nullifier key `nf_sk` | 2026-11-25 |
 
 # Introduction
 

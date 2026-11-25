@@ -31,6 +31,7 @@
 | 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen, and its nullifier absent from the nullifier IMT of that set at that time. Paths and selectors follow the Merkle path convention of Mantle, from the leaf level up, the commitment path and the path in the eligible tree having depth 40. `pol_epoch_nonce`, `pol_t0` and `pol_t1` are field elements, as in the Proof of Leadership, and `core_sk` is the Non-ephemeral Quota Key | 2026-11-06 |
 | 1.3.1 | Links to Mantle point to `bedrock-mantle-specification.md` | 2026-11-25 |
 | 1.4.0 | Require `pol_sl` to be a slot of the epoch in every branch, with the public inputs `pol_window_first_slot` and `pol_window_last_slot` | 2026-11-10 |
+| 1.5.0 | The leader branch takes the nullifier key and the staking secret key of the PoL note, `pol_nullifier_key` and `pol_staking_secret_key`, follows the Proof of Leadership over the staking key of the note, and derives the selection randomness of a leader from the staking secret key. The proof is encoded as a `Groth16Proof` | 2026-11-25 |
 
 
 # Introduction

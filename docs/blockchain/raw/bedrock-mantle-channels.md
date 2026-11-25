@@ -20,6 +20,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision: the channel Operations moved from [Mantle](bedrock-mantle-specification.md). | 2026-11-25 |
+| 1.1.0 | A channel has a kind, fixed at its creation: a native channel is created by its first configuration, a `CHANNEL_CONFIG` whose `parent` is `ZERO`, and the channel Operations of this document act on existing native channels, rollup channels being specified in [Mantle Rollups](bedrock-mantle-rollups.md). The null channel is a native channel that exists before Genesis. A `Step` is bound to its `step_id`, hashed under the DST `STEP_V1`. Leading with a channel note takes its nullifier key and its staking secret key, and moving or withdrawing it takes its spending secret key | 2026-11-25 |
 
 # Introduction
 
