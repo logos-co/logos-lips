@@ -199,7 +199,7 @@ Mantle validators will ensure the following:
         validate_mantle_op(mantle_txhash(tx), op.opcode, op.payload, op_proof)
         tx_execution_gas = checked_uint64(tx_execution_gas + execution_gas(op, ledger, channels))
         # the excess of the ZkTransfer of these Operations pays the fees
-        if op.opcode in (TRANSFER, CHANNEL_DEPOSIT, SDP_WITHDRAW):
+        if op.opcode in (TRANSFER, CHANNEL_DEPOSIT, ROLLUP_DEPOSIT, SDP_WITHDRAW):
             tx_balance = checked_uint64(tx_balance + op.payload.excess_value)
         execute_mantle_op(op.opcode, op.payload)
     for note_set in note_sets_appended_to(tx):  # the note sets the transaction appended a commitment to
