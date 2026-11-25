@@ -349,12 +349,14 @@ def uncle_candidates(B) -> Set[Block]:
     return {X for X in T if
               valid_uncle(UncleReference(block_id(X), X.slot), B)
               and X.slot not in occupied
-              # The nodes that validate B then hold the branch too, and the choice does not
-              # reveal when the proposer received it.
+              # The other nodes hold X by then, so the choice does not reveal when the proposer
+              # received it.
+              and X.slot + T_M <= B.slot
+              # The nodes that validate B hold the branch.
               and all(broadcast(Y) or block_id(Y) in referenced for Y in branch(X, B))}
 ```
 
-`branch(X, B)` is the blocks after the fork point of $`X`$ up to $`X`$, and `fork_point(X, B)` is its fork point. `broadcast(Y)` holds once $`T_M`$ rounds ([Global Parameters](blend-protocol.md#global-parameters)) have passed since the node received $`Y`$ on the broadcasting channel ([Broadcasting](blend-protocol.md#broadcasting-2)) or sent $`Y`$ there.
+`branch(X, B)` is the blocks after the fork point of $`X`$ up to $`X`$, and `fork_point(X, B)` is its fork point. `T_M` is the message traversal time ([Global Parameters](blend-protocol.md#global-parameters)) in slots. `broadcast(Y)` holds if the node received $`Y`$ on the broadcasting channel ([Broadcasting](blend-protocol.md#broadcasting-2)) or sent $`Y`$ there.
 
 The proposer then takes at most `MAX_UNCLES` of these candidates, oldest fork point first, and sets `uncles` to the result:
 
