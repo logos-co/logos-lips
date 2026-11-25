@@ -25,17 +25,23 @@
 
 Rollup channels let a Zone compute its state off chain and settle it on chain with proofs of its state transitions. This document specifies the rollup Operations; the Mantle Transaction that carries them and the ledger they act on are specified in [Mantle](bedrock-mantle.md), and the sequencing they share with native channels in [Mantle Channels](bedrock-mantle-channels.md).
 
-# Operations
+# Overview
 
-## Rollup Operations
+## Rollup Channels
 
 A rollup channel is a channel whose state follows a state transition function (STF), a Groth16 circuit its creator chooses. Its sequencers take turns, following the [round-robin](bedrock-mantle-channels.md#decentralized-sequencing) of every channel, to post the data of its state transitions with [`ROLLUP_INSCRIBE`](#rollup_inscribe). Anyone then proves these inscriptions with [`ROLLUP_PROVE`](#rollup_prove), one at a time and in the order they were inscribed. Each proof is a step of the rollup, the application of one inscription by `ROLLUP_PROVE`: a proof of its STF takes the rollup from its state root to the next one, and the step mints pending [deposits](#rollup_deposit), moves the notes of the rollup and pays some of them out to the ledger. The steps of the proven prefix of the inscriptions give the state of the rollup, and the inscriptions after it wait for their steps. A step reads the slot of the block that included its inscription, so a rollup can depend on time while every prover knows the inputs of a step as soon as its inscription is in a block.
 
-**What the ledger checks.** The notes of a rollup live in a note set of their own, which only `ROLLUP_PROVE` spends ([Ledger](bedrock-mantle.md#ledger)). Each transfer of a step is a [ZkTransfer](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) with an `excess_value` of `0`, so whatever the STF, the ledger checks that a step keeps the value of the notes it moves and spends no note twice. A faulty STF can give the funds of its rollup to the wrong users but never create value, so the notes of a rollup take part in Proof of Stake as safely as ledger notes. A rollup whose funds take part in Proof of Stake should give the notes its transfers create the staking keys of their users, and never `PK0` as their staking key ([Keys](bedrock-mantle.md#keys)), since the deposit note of a step has staking key `0`. The STF proof decides who gets what: which deposits a step mints, and which notes its transfers consume, create and pay out.
+## What the Ledger Checks
 
-**Sequencers can only delay.** No signature reconfigures a rollup channel: each step carries the next accredited keys and rotation parameters of the rollup, which its STF proof covers, so only the rules of the STF change who sequences the rollup. The round-robin hands the turn to the next accredited key when the timeframe or the timeout of a sequencer elapses, so a sequencer that refuses to inscribe a transition only delays it until a sequencer that accepts it takes its turn, provided the configuration of the rollup sets a timeframe; a timeout alone replaces only a sequencer that inscribes nothing. Anyone posts the steps, so no party can hold back the proof of an inscription, and a step applies exactly the data its sequencer inscribed when the STF circuit recomputes the `op_id` of that inscription, as [STF Verification Key](#stf-verification-key) recommends.
+The notes of a rollup live in a note set of their own, which only `ROLLUP_PROVE` spends ([Ledger](bedrock-mantle.md#ledger)). Each transfer of a step is a [ZkTransfer](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) with an `excess_value` of `0`, so whatever the STF, the ledger checks that a step keeps the value of the notes it moves and spends no note twice. A faulty STF can give the funds of its rollup to the wrong users but never create value, so the notes of a rollup take part in Proof of Stake as safely as ledger notes. A rollup whose funds take part in Proof of Stake should give the notes its transfers create the staking keys of their users, and never `PK0` as their staking key ([Keys](bedrock-mantle.md#keys)), since the deposit note of a step has staking key `0`. The STF proof decides who gets what: which deposits a step mints, and which notes its transfers consume, create and pay out.
 
-**Recommendations.** The ledger leaves the following choices to the rollup, and they are recommended to a rollup that wants any prover to be able to prove it:
+## Sequencers Can Only Delay
+
+No signature reconfigures a rollup channel: each step carries the next accredited keys and rotation parameters of the rollup, which its STF proof covers, so only the rules of the STF change who sequences the rollup. The round-robin hands the turn to the next accredited key when the timeframe or the timeout of a sequencer elapses, so a sequencer that refuses to inscribe a transition only delays it until a sequencer that accepts it takes its turn, provided the configuration of the rollup sets a timeframe; a timeout alone replaces only a sequencer that inscribes nothing. Anyone posts the steps, so no party can hold back the proof of an inscription, and a step applies exactly the data its sequencer inscribed when the STF circuit recomputes the `op_id` of that inscription, as [STF Verification Key](#stf-verification-key) recommends.
+
+## Recommendations
+
+The ledger leaves the following choices to the rollup, and they are recommended to a rollup that wants any prover to be able to prove it:
 
 - Hold the notes of the rollup by `PK0` ([Keys](bedrock-mantle.md#keys)), the public key whose secret key everyone knows, so that no step depends on a key one party holds.
 - Make a step depend only on its inscription, which the STF circuit reads through its `op_id` ([STF Verification Key](#stf-verification-key)), and on the state before it, so that every prover computes the same step from public data.
@@ -43,7 +49,13 @@ A rollup channel is a channel whose state follows a state transition function (S
 - Pay the provers inside the rollup, since the ledger pays nothing for a step and its prover pays the fees of its Mantle Transaction.
 - Publish what lets a prover recompute the notes of the rollup, such as their openings or the data they derive from, since a ZkTransfer consuming a note takes its opening.
 
-**What the ledger does not guarantee.** Funds leave a rollup only through its steps: a user exits when a step pays it out, and no withdrawal bypasses the STF. If no sequencer inscribes, no step can be proven and the funds of the rollup stay frozen. Users trust the STF circuit of the rollup, the rule by which its steps change its verification key, and the setup of each key: a faulty circuit, or a key whose setup lets someone forge proofs, can pay the funds of the rollup to anyone.
+## What the Ledger Does Not Guarantee
+
+Funds leave a rollup only through its steps: a user exits when a step pays it out, and no withdrawal bypasses the STF. If no sequencer inscribes, no step can be proven and the funds of the rollup stay frozen. Users trust the STF circuit of the rollup, the rule by which its steps change its verification key, and the setup of each key: a faulty circuit, or a key whose setup lets someone forge proofs, can pay the funds of the rollup to anyone.
+
+# Operations
+
+## Rollup Operations
 
 ### Rollup State
 
