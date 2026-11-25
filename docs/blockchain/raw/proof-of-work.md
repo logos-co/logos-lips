@@ -23,6 +23,7 @@
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
 | 1.2.0 | A reward claim searches a nonce for the public key to be paid, carries no signature and hashes no epoch nonce. Each block credits its fee share to the pool, and the reward per claim stays fixed for the epoch | 2026-11-06 |
 | 1.2.1 | The claim of proof of work rewards, `CLAIM_POW_REWARD`, is specified in this document. Links to Mantle point to `bedrock-mantle.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
+| 1.3.0 | The note a reward claim creates has the public key of the claim as both its public key and its staking key | 2026-11-25 |
 
 # Introduction
 

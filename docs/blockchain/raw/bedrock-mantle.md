@@ -51,6 +51,7 @@
 | 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
 | 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each with its own inscription, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and independent of the epoch nonce, and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A declaration names in `note_pk` the key of its service note, and `SDP_WITHDRAW` carries no nonce, consumes the service note, and releases its outputs with the channel withdrawals when its declaration is removed. A channel deposit carries an `inscription`. The commitment MMR and the nullifier IMT of a note set have depth `NOTE_SET_DEPTH` = 40, and a commitment root stays recent for `ROOT_WINDOW` = 1024 blocks | 2026-11-06 |
 | 2.0.1 | The channel Operations are specified in Mantle Channels, the SDP Operations in the Service Declaration Protocol and the claim of proof of work rewards in Proof of Work; the Opcodes table links every Operation; the document is published as `bedrock-mantle.md`, links to Block Construction point to `bedrock-block-construction.md` and links to Mantle Transaction Encoding to `bedrock-mantle-encoding.md` | 2026-11-25 |
+| 2.1.0 | A note carries a staking key, `stake_public_key`, hashed in its commitment, and a note whose staking key is `0` cannot lead. The Keys section derives the nullifier key `nf_sk` from the spending secret key and the public key from `nf_sk`, the nullifier hashes `nf_sk`, and the ZkTransfer proves the spending secret key; `PK0` and `NF_SK0` are the keys of the spending secret key `0`. The Opcodes table lists `ROLLUP_CREATE`, `ROLLUP_INSCRIBE`, `ROLLUP_DEPOSIT` and `ROLLUP_PROVE` at `0x40` to `0x43`: the excess value of `ROLLUP_DEPOSIT` pays fees, the proofs of `ROLLUP_PROVE` are bound to the `op_id` of the inscription they prove and verified against the live MMR of the rollup note set, and rollup channels share the note set indices of channels. The test vectors cover the rollup Operations | 2026-11-25 |
 
 # Introduction
 
@@ -684,7 +685,7 @@ class ZkTransferPublic:
     excess_value: TokenValue        # the value of the inputs left over by the outputs
     tx_commitment_root: MerkleRoot  # the referenced commitment_root extended with the tx_commitment_buffer of the set,
                                     # or the commitments before its mini-block for a channel step,
-                                    # the live MMR of the rollup note set for ROLLUP_PROVE and the single-note MMR for SDP_WITHDRAW
+                                    # the live MMR of the rollup note set for ROLLUP_PROVE, or the single-note MMR for SDP_WITHDRAW
     msg: zkhash                     # the message the proof is bound to
 ```
 

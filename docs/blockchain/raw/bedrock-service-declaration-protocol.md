@@ -38,6 +38,7 @@
 | 1.8.0 | The minimum stake is one `MinStake` of `threshold` and the block number `timestamp`, matching the implementation | 2026-10-27 |
 | 1.9.0 | Support the private ledger of Mantle: a declaration consumes notes and creates its own service note under the `note_pk` it names in the SDP note set, the withdrawal consumes it with a ZkTransfer, releases its outputs when the declaration is removed and carries no `nonce`, and the active and withdraw messages are signed by the `provider_id` | 2026-11-06 |
 | 1.9.1 | The SDP Operations `SDP_DECLARE`, `SDP_WITHDRAW` and `SDP_ACTIVE`, their common structures and the SDP epoch finalization are specified in this document. Links to Mantle point to `bedrock-mantle.md`, links to the Cryptarchia Protocol to `cryptarchia-protocol.md` and links to Mantle Transaction Encoding to `bedrock-mantle-encoding.md` | 2026-11-25 |
+| 1.10.0 | A declaration names the staking key `note_stake_pk` of its service note, and its `DeclarationInfo` keeps `note_pk` and `note_stake_pk`, the keys the rewards of the validator are created under. The `zk_id` is the key the validator proves in the Proof of Quota and holds no funds | 2026-11-25 |
 
 # Introduction
 

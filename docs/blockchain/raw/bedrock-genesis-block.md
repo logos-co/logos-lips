@@ -36,6 +36,7 @@
 | 1.2.2 | Renamed the token LGO to LOGOS | 2026-10-29 |
 | 1.3.0 | Support the private ledger of Mantle: the initial notes are created, with nonces derived from its `op_id`, from the distribution published in an inscription to the null channel, which replaces the Transfer Operation, and the declarations consume no note, their amounts counting in the maximum supply. Genesis initializes the block reward stocks and records the commitment roots of the note sets | 2026-11-06 |
 | 1.3.1 | Links to Mantle point to `bedrock-mantle.md`, links to `SDP_DECLARE` to `bedrock-service-declaration-protocol.md`, links to Block Construction to `bedrock-block-construction.md`, links to the Cryptarchia Protocol to `cryptarchia-protocol.md` and links to Mantle Transaction Encoding to `bedrock-mantle-encoding.md` | 2026-11-25 |
+| 1.4.0 | The public key of each initial note is also its staking key, and each initial declaration names the staking key `note_stake_pk` of its service note. The null channel, a native channel whose only accredited key is the null key, exists before Genesis, and the Cryptarchia inscription extends it from its `tip_hash`, `ZERO`. The null proof of leadership is 128 zero bytes | 2026-11-25 |
 
 # Introduction
 

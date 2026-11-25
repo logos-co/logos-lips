@@ -34,6 +34,7 @@
 | 1.3.4 | Adopted "active message" as the single name for the message | 2026-09-02 |
 | 1.4.0 | Reward notes are private notes whose commitments are appended to the commitment MMR of the ledger note set, their nonce derived from `hash(ServiceType \|\| epoch_number)` and their output number. The Blend reward is paid from `blend_rewards_pending`, what it does not distribute returning to `rewards_pool` | 2026-10-07 |
 | 1.4.1 | Links to Mantle point to `bedrock-mantle.md`, links to `SDP_ACTIVE` and the SDP epoch finalization to `bedrock-service-declaration-protocol.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
+| 1.5.0 | The reward note of a `zk_id` is created under the `note_pk` and the `note_stake_pk` of its declaration, its nonce derived over `note_pk` | 2026-11-25 |
 
 # Introduction
 
