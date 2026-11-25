@@ -380,3 +380,245 @@ ledger: Ledger
       chan.kind.deposits[derive_op_id(deposit)] = PendingDeposit(value=deposit.value,
                                                                  intent=deposit.intent)
       ```
+
+### ROLLUP_PROVE
+
+Apply the oldest unproven inscription of a rollup channel with a step of the rollup. Anyone posts it: the step mints the pending deposits it lists into one note of the rollup note set, applies its transfers to the notes of the rollup and pays their payouts to the ledger note set, and sets the next state root, accredited keys and rotation parameters of the rollup, and optionally its next verification key, all of which its STF proof covers.
+
+A step proves only the oldest entry of `unproven`, so a node never holds a proof it has not applied. Provers compute the steps of consecutive inscriptions in parallel, each from the state the step before it leaves, and the mempool orders the steps by their inscriptions. The transfers of a step are verified against the live commitment MMR root of the rollup note set, which a prover knows in advance since only this Operation appends to that set, so consecutive steps of a rollup can share a block, and even a Mantle Transaction.
+
+#### Payload
+
+```python
+class RollupTransfer:
+    inputs: list[NoteNullifier]    # nullifiers of the consumed notes of the rollup note set
+    outputs: list[NoteCommitment]  # commitments of the created notes of the rollup note set
+    payouts: list[NoteCommitment]  # commitments of the notes created in the ledger note set
+
+class RollupProve:
+    channel: ChannelId                               # 32 bytes, the rollup channel
+    deposits: list[Hash]                             # the op_id of each pending deposit the step mints
+    transfers: list[RollupTransfer]                  # the transfers of the step, in the order they apply
+    state_root: zkhash                               # the next state root of the rollup
+    keys: list[Ed25519PublicKey]                     # the next accredited keys, limited to 65 535 keys
+    posting_timeframe: u32                           # number of slots (0 = infinity)
+    posting_timeout: u32                             # number of slots (0 = no timeout)
+    verification_key: Groth16VerificationKey | None  # the next key of the STF proofs, None to keep the current one
+```
+
+The deposits a step mints become one note of the rollup note set, the deposit note, which holds their total value. It is held by `PK0`, so that any prover can spend it in a transfer of the step or of a later step, and its staking key is `0`, so that no one leads with it ([Keys](bedrock-mantle-specification.md#keys)). Its nonce derives from the `op_id` of the inscription the step proves, and a step proves an inscription once, so no two deposit notes share a commitment.
+
+Each `RollupTransfer` is a [ZkTransfer](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) whose outputs are its `outputs` followed by its `payouts`, and it balances exactly, with an `excess_value` of `0`. A step therefore pays no fee: its prover pays the fees of its Mantle Transaction with another Operation of it, such as a Transfer.
+
+The step that [`ROLLUP_INSCRIBE`](#rollup_inscribe) recommends for an inscription the STF cannot apply, with no deposit, no transfer and the same state root, is valid: every transfer consumes at least one note, as `assert_spendable` requires, but a step can have no transfer.
+
+The STF proof covers the effects of the step through `effects_hash`, its fifth public input: the value and intent of every minted deposit, in the order of `deposits`, the inputs, outputs and payouts of every transfer, and the digest of the next configuration. The configuration digest is a BLAKE2b-256 hash, under the DST `ROLLUP_CONFIG_V1`, of the encoded next accredited keys, rotation parameters and optional verification key, as the `RollupProve` of the encoding encodes them, reduced modulo $`p`$ as `op_id` is.
+
+```python
+def rollup_config_digest(keys: list[Ed25519PublicKey],
+                         posting_timeframe: u32,
+                         posting_timeout: u32,
+                         verification_key: Groth16VerificationKey | None) -> zkhash:
+    h = Hasher() # /!\ This is a classic hash not a zkhash /!\
+    h.update(b"ROLLUP_CONFIG_V1")
+    h.update(encode(keys))               # KeyCount *Signer of the encoding
+    h.update(encode(posting_timeframe))  # PostingTimeframe
+    h.update(encode(posting_timeout))    # PostingTimeout
+    h.update(encode(verification_key))   # OptionalKey
+    return FiniteField(h.digest(), byte_order="little", modulus= p)
+
+def rollup_effects_hash(minted: list[PendingDeposit],
+                        transfers: list[RollupTransfer],
+                        config_digest: zkhash) -> zkhash:
+    effects = [FiniteField(len(minted), byte_order="little", modulus= p)]
+    for deposit in minted:
+        effects.append(FiniteField(deposit.value, byte_order="little", modulus= p))
+        effects.append(deposit.intent)
+    effects.append(FiniteField(len(transfers), byte_order="little", modulus= p))
+    for transfer in transfers:
+        for notes in (transfer.inputs, transfer.outputs, transfer.payouts):
+            effects.append(FiniteField(len(notes), byte_order="little", modulus= p))
+            effects.extend(notes)
+    return zkhash(
+        FiniteField(b"ROLLUP_EFFECTS_V1", byte_order="little", modulus= p),
+        *effects,
+        config_digest)
+```
+
+#### Proof
+
+```python
+class RollupProveOpProof:
+    transfer_proofs: list[ZkTransfer]  # one per transfer, in the order of the transfers
+    stf_proof: Groth16Proof            # the proof of the STF, under the current key of the rollup
+```
+
+The ZkTransfers and the STF proof of a step are bound to the `op_id` of the inscription it proves, which is the `msg` of every ZkTransfer and the third public input of the STF proof, and not to the `mantle_txhash`, so anyone can post the step. A copy of the step in another Mantle Transaction applies the same step, and only once, since the step removes its inscription from `unproven`.
+
+#### Execution Gas
+
+  Rollup Prove Operations have an Execution Gas cost of `EXECUTION_TRANSFER_GAS * len(transfers) + EXECUTION_ROLLUP_PROOF_GAS`, the cost of the transfers and of the STF proof, plus `EXECUTION_ROLLUP_KEY_GAS` when the payload carries a next verification key. See [Gas Determination](bedrock-mantle-specification.md#gas-determination) for the Execution Gas values.
+
+#### Validation
+
+  *Given*
+
+```python
+prove: RollupProve
+proof: RollupProveOpProof
+
+channels: dict[ChannelId, ChannelState]
+
+ledger: Ledger
+```
+
+  *Validate*
+
+  1. Ensure the channel exists, is a rollup channel and has an unproven inscription. The step proves the oldest one, `k`, whose `op_id` binds its proofs.
+      ```python
+      assert prove.channel in channels
+      chan = channels[prove.channel]
+      assert isinstance(chan.kind, RollupChannel)
+      rollup = chan.kind
+      assert len(rollup.unproven) > 0
+      (k, slot_k) = rollup.unproven[0]
+      msg = FiniteField(k, byte_order="little", modulus= p)
+      ```
+
+  2. Ensure the minted deposits are distinct and pending, and sum their values.
+      ```python
+      assert len(prove.deposits) == len(set(prove.deposits))
+      minted = []
+      for deposit_id in prove.deposits:
+          assert deposit_id in rollup.deposits
+          minted.append(rollup.deposits[deposit_id])
+      total = checked_uint64(sum(deposit.value for deposit in minted))
+      ```
+
+  3. Derive the deposit note, if the minted deposits hold any value.
+      ```python
+      deposit_outputs = []
+      if total > 0:
+          deposit_note = Note(value=total,
+                              nonce=derive_note_nonce(k, 0, total, PK0),
+                              public_key=PK0,
+                              stake_public_key=0)
+          deposit_outputs = [derive_note_commitment(deposit_note)]
+      ```
+
+  4. Start from the commitment MMR of the rollup note set as it stands, extended with the deposit note.
+      ```python
+      note_set = ledger.sets[rollup.note_set]
+      peaks = list(note_set.commitments)
+      for note_commitment in deposit_outputs:
+          mmr_append(peaks, note_commitment)
+      ```
+
+  5. Ensure every transfer is spendable in the rollup note set and balances exactly, in the order of the transfers. A transfer can consume the deposit note and the outputs of the earlier transfers of the step, never a note an earlier transfer of the step consumes.
+      ```python
+      assert len(proof.transfer_proofs) == len(prove.transfers)
+      step_nullifiers = set()  # the nullifiers of the earlier transfers of the step
+      for (transfer, transfer_proof) in zip(prove.transfers, proof.transfer_proofs):
+          note_set.assert_spendable(transfer.inputs)
+          for note_nullifier in transfer.inputs:
+              assert note_nullifier not in step_nullifiers
+              step_nullifiers.add(note_nullifier)
+          assert ZkTransfer_verify(transfer.inputs,
+                                   transfer.outputs + transfer.payouts,
+                                   0,  # a transfer of a step balances exactly
+                                   mmr_root(peaks),
+                                   msg,
+                                   transfer_proof)
+          # the later transfers of the step cover the outputs of this transfer
+          for note_commitment in transfer.outputs:
+              mmr_append(peaks, note_commitment)
+      ```
+
+  6. Ensure the next configuration is one [`ROLLUP_CREATE`](#rollup_create) accepts: accredited keys with indexes the round-robin can hold in a `u16`, and, if the step carries a next verification key, every point of it on its curve, in its prime-order subgroup and not the point at infinity.
+      ```python
+      assert 0 < len(prove.keys) < 2**16
+      key = prove.verification_key
+      if key is not None:
+          for point in [key.alpha] + key.ic:
+              assert is_valid_g1(point)
+          for point in [key.beta, key.gamma, key.delta]:
+              assert is_valid_g2(point)
+      ```
+
+  7. Verify the STF proof under the current key of the rollup, from its state root to the next one, for the inscription `k`, the slot of its block and the effects of the step.
+      ```python
+      config_digest = rollup_config_digest(prove.keys,
+                                           prove.posting_timeframe,
+                                           prove.posting_timeout,
+                                           prove.verification_key)
+      assert Groth16_verify(rollup.key,
+                            [rollup.state_root,
+                             prove.state_root,
+                             msg,
+                             FiniteField(slot_k, byte_order="little", modulus= p),
+                             rollup_effects_hash(minted, prove.transfers, config_digest)],
+                            proof.stf_proof)
+      ```
+
+  8. Add the payouts to the buffer of the ledger note set.
+      ```python
+      for transfer in prove.transfers:
+          ledger.sets[LEDGER_SET].tx_commitment_buffer.extend(transfer.payouts)
+      ```
+
+#### Execution
+
+  *Given*
+
+```python
+prove: RollupProve
+
+channels: dict[ChannelId, ChannelState]
+ledger: Ledger
+block_slot: Slot
+```
+
+  *Execute*
+
+  1. Mint the deposits: remove them from the pending deposits, and add the deposit note to the rollup note set.
+      ```python
+      chan = channels[prove.channel]
+      rollup = chan.kind
+      note_set = ledger.sets[rollup.note_set]
+      (k, _) = rollup.unproven[0]
+      total = sum(rollup.deposits[deposit_id].value for deposit_id in prove.deposits)
+      for deposit_id in prove.deposits:
+          del rollup.deposits[deposit_id]
+      if total > 0:
+          note_set.execute_adding([derive_note_commitment(Note(value=total,
+                                                               nonce=derive_note_nonce(k, 0, total, PK0),
+                                                               public_key=PK0,
+                                                               stake_public_key=0))])
+      ```
+
+  2. Apply the transfers, in their order: consume their inputs and create their outputs in the rollup note set, and create their payouts in the ledger note set.
+      ```python
+      for transfer in prove.transfers:
+          note_set.execute_spending(transfer.inputs)
+          note_set.execute_adding(transfer.outputs)
+          ledger.sets[LEDGER_SET].execute_adding(transfer.payouts)
+      ```
+
+  3. Remove the proven inscription, and set the next state root and, if the step carries one, the next verification key with the pairing $`e(\alpha, \beta)`$ of its points.
+      ```python
+      rollup.unproven.pop(0)
+      rollup.state_root = prove.state_root
+      if prove.verification_key is not None:
+          key = prove.verification_key
+          rollup.key = Groth16StoredKey(key=key, alpha_beta=pairing(key.alpha, key.beta))
+      ```
+
+  4. Set the next accredited keys and rotation parameters, and restart the round-robin, as a [`CHANNEL_CONFIG`](bedrock-mantle-channels.md#channel_config) does.
+      ```python
+      chan.accredited_keys = prove.keys
+      chan.tip_slot = block_slot
+      chan.tip_sequencer = 0
+      chan.tip_sequencer_starting_slot = block_slot
+      chan.posting_timeframe = prove.posting_timeframe
+      chan.posting_timeout = prove.posting_timeout
+      ```
