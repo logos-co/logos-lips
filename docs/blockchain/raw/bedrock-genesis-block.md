@@ -35,7 +35,7 @@
 | 1.2.1 | Align the initial service declarations with the Service Declaration Protocol: the `BN` service type, the full `DeclarationMessage` shape, and multiaddr locators | 2026-10-01 |
 | 1.2.2 | Renamed the token LGO to LOGOS | 2026-10-29 |
 | 1.3.0 | Support the private ledger of Mantle: the initial notes are created, with nonces derived from its `op_id`, from the distribution published in an inscription to the null channel, which replaces the Transfer Operation, and the declarations consume no note, their amounts counting in the maximum supply. Genesis initializes the block reward stocks and records the commitment roots of the note sets | 2026-11-06 |
-| 1.3.1 | Links to Mantle point to `bedrock-mantle-specification.md`, links to `SDP_DECLARE` to `bedrock-service-declaration-protocol.md`, links to Block Construction to `bedrock-block-construction.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
+| 1.3.1 | Links to Mantle point to `bedrock-mantle.md`, links to `SDP_DECLARE` to `bedrock-service-declaration-protocol.md`, links to Block Construction to `bedrock-block-construction.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
 
 # Introduction
 
@@ -45,7 +45,7 @@ The Genesis Block defines the starting state for the Bedrock chain, including th
 
 The Genesis Block establishes the initializing values for the various protocols and services. This includes the initial token distribution, initial nodes participating in Blend Network and the result of running the epoch nonce ceremony.
 
-The block body is a single Mantle Transaction (see [Mantle](bedrock-mantle-specification.md)). The bedrock services are initialized through `SDP_DECLARE` Operations embedded in the Mantle Transaction’s Operations list and protocol initializing constants are encoded through a `CHANNEL_INSCRIBE` Operation also embedded in the Operations list, followed by a second `CHANNEL_INSCRIBE` Operation publishing the initial distribution, from which the notes of the initial token holders are created.
+The block body is a single Mantle Transaction (see [Mantle](bedrock-mantle.md)). The bedrock services are initialized through `SDP_DECLARE` Operations embedded in the Mantle Transaction’s Operations list and protocol initializing constants are encoded through a `CHANNEL_INSCRIBE` Operation also embedded in the Operations list, followed by a second `CHANNEL_INSCRIBE` Operation publishing the initial distribution, from which the notes of the initial token holders are created.
 
 Not all protocol constants are encoded in the Genesis block. The principle we use to decide whether a value should be in the Genesis block or not is whether it is a value that is derived from blockchain activity or whether it is updated through a protocol update (hard / soft fork). For example, the epoch nonce is updated through normal blockchain Operations and therefore it should be specified in the Genesis block. Gas constants are only changed through protocol updates and hard forks and therefore they will be hardcoded in the node implementation.
 
@@ -59,11 +59,11 @@ Initial tokens will be distributed through one note for each initial stakeholder
 
 The distribution inscription is the number of notes as one byte, followed by the value (`UINT64`) and the public key (`ZkPublicKey`) of each note, in order, encoded as in [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures).
 
-The note at index `i` takes the nonce `derive_note_nonce(op_id, i, value, public_key)`, as every note the ledger creates ([Note Commitment and Nullifier](bedrock-mantle-specification.md#note-commitment-and-nullifier)), `op_id` being the `op_id` of the distribution inscription. That inscription names the Cryptarchia inscription as its parent, so no other Operation shares its `op_id`, and no two initial notes share a nonce.
+The note at index `i` takes the nonce `derive_note_nonce(op_id, i, value, public_key)`, as every note the ledger creates ([Note Commitment and Nullifier](bedrock-mantle.md#note-commitment-and-nullifier)), `op_id` being the `op_id` of the distribution inscription. That inscription names the Cryptarchia inscription as its parent, so no other Operation shares its `op_id`, and no two initial notes share a nonce.
 
 In order to participate in the Cryptarchia lottery, stakeholders must generate their note keys in accordance with the Proof of Leadership protocol specified at [Protocol](cryptarchia-proof-of-leadership.md#protocol).
 
-The initial state of the Ledger will be derived when the distribution inscription is executed, that is, the commitment of each initial note will be appended to the commitment MMR of the ledger note set ([Mantle Ledger Initialization](#mantle-ledger-initialization)). `EMPTY_MMR_ROOT` is `mmr_root([])`, the root of the empty [commitment MMR](bedrock-mantle-specification.md#commitment-merkle-mountain-range), and `derive_note_commitment` gives the commitment of a note ([Note Commitment and Nullifier](bedrock-mantle-specification.md#note-commitment-and-nullifier)).
+The initial state of the Ledger will be derived when the distribution inscription is executed, that is, the commitment of each initial note will be appended to the commitment MMR of the ledger note set ([Mantle Ledger Initialization](#mantle-ledger-initialization)). `EMPTY_MMR_ROOT` is `mmr_root([])`, the root of the empty [commitment MMR](bedrock-mantle.md#commitment-merkle-mountain-range), and `derive_note_commitment` gives the commitment of a note ([Note Commitment and Nullifier](bedrock-mantle.md#note-commitment-and-nullifier)).
 
 **Example**
 
@@ -336,7 +336,7 @@ GENESIS_BLOCK = (GENESIS_HEADER, [], [GENESIS_MANTLE_TX])
 
 # Initializing Bedrock
 
-Bedrock is initialized by validating and executing the Genesis Mantle Transaction under the ordinary Mantle rules, [Validation](bedrock-mantle-specification.md#validation) and [Execution](bedrock-mantle-specification.md#execution), with the exemptions listed in [Genesis Validation Exemptions](#genesis-validation-exemptions) and no others. Its Operations are validated and executed one after the other in the order they appear, each against the state the preceding ones left.
+Bedrock is initialized by validating and executing the Genesis Mantle Transaction under the ordinary Mantle rules, [Validation](bedrock-mantle.md#validation) and [Execution](bedrock-mantle.md#execution), with the exemptions listed in [Genesis Validation Exemptions](#genesis-validation-exemptions) and no others. Its Operations are validated and executed one after the other in the order they appear, each against the state the preceding ones left.
 
 The Genesis block is not a block proposal and is not validated as one: none of the checks of [Block Proposal Validation](bedrock-block-construction.md#block-proposal-validation) apply, and no validation or execution is done for the Genesis block header, in particular processing of `proof_of_leadership` is skipped.
 
@@ -350,17 +350,17 @@ The checks below, and only these, are skipped when the Genesis Mantle Transactio
 
 1. **Every proof and signature.** No Operation proof is verified at Genesis: neither the `Ed25519Signature` of the inscriptions, nor the `provider_sig` and the `zk_proof` of the `SDP_DECLARE` Operations. The inscriptions are signed by the null key whose secret key nobody holds, and the keys a declaration would prove are already fixed by the out of band agreement on the Genesis block, so verifying them would establish nothing a node does not already have to trust. The `op_proofs` list still holds one entry per Operation, of the type that Operation requires, and those entries are placeholders.
 
-2. **The transaction balance covering the mandatory fees.** The Genesis Mantle Transaction consumes no note, so it has no excess to pay any fee from. Step 3 of [Validation](bedrock-mantle-specification.md#validation) is skipped, no mandatory fee is charged and no `tx_priority_tip` is derived. The Genesis Mantle Transaction is accounted as costing no gas.
+2. **The transaction balance covering the mandatory fees.** The Genesis Mantle Transaction consumes no note, so it has no excess to pay any fee from. Step 3 of [Validation](bedrock-mantle.md#validation) is skipped, no mandatory fee is charged and no `tx_priority_tip` is derived. The Genesis Mantle Transaction is accounted as costing no gas.
 
-3. **The inputs of the `SDP_DECLARE` Operations.** The Genesis `SDP_DECLARE` Operations must have no inputs, so the requirement that inputs be non-empty ([Input Notes Spendability Validation](bedrock-mantle-specification.md#input-notes-spendability-validation)) does not apply and there is no spendability to check. They are the only Operations of the chain allowed to consume nothing. No proof being verified at Genesis, a nullifier given there could not be tied to a note: only the holder of a note can compute its nullifier, so a declaration naming an arbitrary one would create a service note on top of a distributed note that stays spendable, and a nullifier of `0` would be the one of the sentinel leaf of the [Nullifier Indexed Merkle Tree](bedrock-mantle-specification.md#nullifier-indexed-merkle-tree).
+3. **The inputs of the `SDP_DECLARE` Operations.** The Genesis `SDP_DECLARE` Operations must have no inputs, so the requirement that inputs be non-empty ([Input Notes Spendability Validation](bedrock-mantle.md#input-notes-spendability-validation)) does not apply and there is no spendability to check. They are the only Operations of the chain allowed to consume nothing. No proof being verified at Genesis, a nullifier given there could not be tied to a note: only the holder of a note can compute its nullifier, so a declaration naming an arbitrary one would create a service note on top of a distributed note that stays spendable, and a nullifier of `0` would be the one of the sentinel leaf of the [Nullifier Indexed Merkle Tree](bedrock-mantle.md#nullifier-indexed-merkle-tree).
 
 Everything else is validated as it would be in any other block, against the state the Operations preceding it left, the transaction level check that there is one `op_proofs` entry per Operation included.
 
 ## Mantle Ledger Initialization
 
-Before Genesis, the Ledger holds two [note sets](bedrock-mantle-specification.md#ledger), the ledger note set and the SDP note set. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-mantle-specification.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0)`. The list of pending withdrawals is empty.
+Before Genesis, the Ledger holds two [note sets](bedrock-mantle.md#ledger), the ledger note set and the SDP note set. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-mantle.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0)`. The list of pending withdrawals is empty.
 
-When the distribution inscription is executed, the commitment of each initial note, `derive_note_commitment(Note(value, derive_note_nonce(op_id, i, value, public_key), public_key))` for the value and public key published at index `i` and the `op_id` of that inscription, is appended in order to the commitment MMR of the ledger note set, as `execute_adding` does ([Creating Output Notes Execution](bedrock-mantle-specification.md#creating-output-notes-execution)). This step creates the initial notes, which no Operation could create without consuming notes.
+When the distribution inscription is executed, the commitment of each initial note, `derive_note_commitment(Note(value, derive_note_nonce(op_id, i, value, public_key), public_key))` for the value and public key published at index `i` and the `op_id` of that inscription, is appended in order to the commitment MMR of the ledger note set, as `execute_adding` does ([Creating Output Notes Execution](bedrock-mantle.md#creating-output-notes-execution)). This step creates the initial notes, which no Operation could create without consuming notes.
 
 The pow reward pool is initialized at the same time:
 

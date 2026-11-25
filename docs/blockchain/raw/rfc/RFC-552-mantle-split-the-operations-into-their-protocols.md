@@ -38,11 +38,11 @@ The split moves text and repoints links. No payload, opcode, validation rule, ex
 
 ## Mantle
 
-Version 2.0.1, published as `bedrock-mantle-specification.md`. Mantle specifies the Mantle Transaction, the ledger, TRANSFER under `## Ledger Operations`, and the tables and vectors shared by all Operations. The Opcodes table links each Operation to the section that specifies it:
+Version 2.0.1, published as `bedrock-mantle.md`. Mantle specifies the Mantle Transaction, the ledger, TRANSFER under `## Ledger Operations`, and the tables and vectors shared by all Operations. The Opcodes table links each Operation to the section that specifies it:
 
 | **Operation** | **Opcode** | **Specified in** |
 | --- | --- | --- |
-| `TRANSFER` | `0x00` | [Mantle](../bedrock-mantle-specification.md#transfer) |
+| `TRANSFER` | `0x00` | [Mantle](../bedrock-mantle.md#transfer) |
 | `CHANNEL_CONFIG`, `CHANNEL_INSCRIBE`, `CHANNEL_DEPOSIT`, `CHANNEL_WITHDRAW` | `0x10`-`0x13` | [Mantle Channels](../bedrock-mantle-channels.md#channel-operations) |
 | `SDP_DECLARE`, `SDP_WITHDRAW`, `SDP_ACTIVE` | `0x20`-`0x22` | [Service Declaration Protocol](../bedrock-service-declaration-protocol.md#service-declaration-protocol-sdp-operations) |
 | `CLAIM_POW_REWARD` | `0x30` | [Proof of Work](../proof-of-work.md#claim_pow_reward) |
@@ -66,7 +66,7 @@ Version 1.2.1. Proof of Work specifies `## Proof of Work Operations` under `# Pr
 - The Service Declaration Protocol drops its `## Mantle and ZK Proofs` section, a pointer to Mantle that the SDP Operations section replaces.
 - TRANSFER takes the section shape of the other Operations, `### TRANSFER` with `####` subsections, and the label `*Execute*`. `CLAIM_POW_REWARD` takes the heading `#### Execution Gas` and the label `*Execute*`.
 - Two Mantle sentences refer to the Operations without the word "below", one of them through the Opcodes table.
-- The blockchain documents carry no version in their file names, since each document keeps its version in its revision history: `bedrock-v1.1-mantle-specification.md` becomes `bedrock-mantle-specification.md`, `bedrock-v1.1-block-construction.md` becomes `bedrock-block-construction.md`, `cryptarchia-v1-protocol.md` becomes `cryptarchia-protocol.md`, and `cryptarchia-v1-bootstr-sync.md` becomes `cryptarchia-bootstr-sync.md` with its image folder `cryptarchia-bootstr-sync/`. Mantle Channels is published as `bedrock-mantle-channels.md`. Every link to them follows, in the documents listed in [Affected Specifications](#affected-specifications) and in the RFC documents of [PR #480](RFC-480-mantle-private-utxo-ledger.md) and [PR #503](RFC-503-cryptoeconomics-define-the-lepton-as-the-indivisible-token-unit.md). Historical documents, merged RFC documents and the revision rows published on master keep their links, and the PR lists the links left dead.
+- The blockchain documents carry no version in their file names, since each document keeps its version in its revision history: `bedrock-v1.1-mantle-specification.md` becomes `bedrock-mantle.md`, `bedrock-v1.1-block-construction.md` becomes `bedrock-block-construction.md`, `cryptarchia-v1-protocol.md` becomes `cryptarchia-protocol.md`, and `cryptarchia-v1-bootstr-sync.md` becomes `cryptarchia-bootstr-sync.md` with its image folder `cryptarchia-bootstr-sync/`. Mantle Channels is published as `bedrock-mantle-channels.md`. Every link to them follows, in the documents listed in [Affected Specifications](#affected-specifications) and in the RFC documents of [PR #480](RFC-480-mantle-private-utxo-ledger.md) and [PR #503](RFC-503-cryptoeconomics-define-the-lepton-as-the-indivisible-token-unit.md). Historical documents, merged RFC documents and the revision rows published on master keep their links, and the PR lists the links left dead.
 - `scripts/blockchain_structure.py` maps the files under their names and places Mantle Channels under Mantle in the generated summary, beside Mantle and Proof of Work.
 
 # Implementation
@@ -77,7 +77,7 @@ Version 1.2.1. Proof of Work specifies `## Proof of Work Operations` under `# Pr
 
 | Specification | Status | Note |
 | --- | --- | --- |
-| [Mantle](../bedrock-mantle-specification.md) | Modified | 2.0.1, published as `bedrock-mantle-specification.md` |
+| [Mantle](../bedrock-mantle.md) | Modified | 2.0.1, published as `bedrock-mantle.md` |
 | [Mantle Channels](../bedrock-mantle-channels.md) | Created | 1.0.0, published as `bedrock-mantle-channels.md` |
 | [Service Declaration Protocol](../bedrock-service-declaration-protocol.md) | Modified | 1.9.1 |
 | [Proof of Work](../proof-of-work.md) | Modified | 1.2.1 |

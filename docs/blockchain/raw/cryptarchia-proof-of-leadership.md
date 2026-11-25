@@ -28,7 +28,7 @@
 | 1.1.0 | Remove the protection against adaptive adversary from PoL removing a non-enforced feature, simplifying work for engineers, improving UX and performances of PoL and PoQ. Update the performance according to the new circuit. Remove the notion of NOMOS in DSTs | 2026-01-29 |
 | 1.1.1 | Introduced a discussion for when the value of a participating note is way higher than the total estimated stake | 2026-06-24 |
 | 1.2.0 | Support the private ledger of Mantle: a note is eligible from any note set of the ledger, committed together in the eligible root, and proven unspent by the non-membership of its nullifier. The proof is bound to its block by `msg`, its block ID, replacing the leader key, and derives the commitment of the leader reward note from the public reward value and a private key and nonce. The commitment, nullifier and eligible tree paths have depth 40 | 2026-11-06 |
-| 1.2.1 | Links to Mantle point to `bedrock-mantle-specification.md`, links to Block Construction to `bedrock-block-construction.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
+| 1.2.1 | Links to Mantle point to `bedrock-mantle.md`, links to Block Construction to `bedrock-block-construction.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
 
 # Introduction
 
@@ -81,7 +81,7 @@ Our description differs from the original paper proposition, proving that a note
 
 In order to prove that the winning note exists and existed at the start of the previous epoch, and that it is unspent, every node must compute the eligible root.
 
-Every [note set](bedrock-mantle-specification.md#ledger) of the Mantle Ledger is eligible: the ledger note set, the SDP note set and the note set of every channel. The eligible root commits to all of them. It is the root of a Merkle tree of depth `ELIGIBLE_DEPTH` whose leaf at position $`i`$ hashes the root of the commitment [Merkle Mountain Range](bedrock-mantle-specification.md#commitment-merkle-mountain-range) (MMR) and the root of the [nullifier Indexed Merkle Tree](bedrock-mantle-specification.md#nullifier-indexed-merkle-tree) (IMT) of the note set of index $`i`$, every position past the last note set holding the value $`0`$, a capacity that blocks full of channel creations take about 55 years to fill:
+Every [note set](bedrock-mantle.md#ledger) of the Mantle Ledger is eligible: the ledger note set, the SDP note set and the note set of every channel. The eligible root commits to all of them. It is the root of a Merkle tree of depth `ELIGIBLE_DEPTH` whose leaf at position $`i`$ hashes the root of the commitment [Merkle Mountain Range](bedrock-mantle.md#commitment-merkle-mountain-range) (MMR) and the root of the [nullifier Indexed Merkle Tree](bedrock-mantle.md#nullifier-indexed-merkle-tree) (IMT) of the note set of index $`i`$, every position past the last note set holding the value $`0`$, a capacity that blocks full of channel creations take about 55 years to fill:
 
 ```python
 ELIGIBLE_DEPTH = 40  # depth of the eligible tree, which holds one leaf per note set
@@ -102,7 +102,7 @@ def eligible_root(sets: list[NoteSet]) -> MerkleRoot:
     return mmr_root(peaks)
 ```
 
-`mmr_append` and `mmr_root` are those of the [commitment MMR](bedrock-mantle-specification.md#commitment-merkle-mountain-range), which compute the same tree, with `ELIGIBLE_DEPTH` in place of [`NOTE_SET_DEPTH`](bedrock-mantle-specification.md#ledger), and `commitment_root()` and `nullifier_root()` are the [methods of a note set](bedrock-mantle-specification.md#nullifier-indexed-merkle-tree) giving these two roots. `zkhash` is the [Poseidon2 hash](common-cryptographic-components.md), and a `MerkleRoot` is the root of a Merkle tree.
+`mmr_append` and `mmr_root` are those of the [commitment MMR](bedrock-mantle.md#commitment-merkle-mountain-range), which compute the same tree, with `ELIGIBLE_DEPTH` in place of [`NOTE_SET_DEPTH`](bedrock-mantle.md#ledger), and `commitment_root()` and `nullifier_root()` are the [methods of a note set](bedrock-mantle.md#nullifier-indexed-merkle-tree) giving these two roots. `zkhash` is the [Poseidon2 hash](common-cryptographic-components.md), and a `MerkleRoot` is the root of a Merkle tree.
 
 The first leaf is the ledger note set, the second the SDP note set, and the next ones the channels in the order they were created. Its root when the stake distribution was frozen is `eligible_aged`, and its latest root is `eligible_latest`.
 
@@ -152,9 +152,9 @@ class ProofOfLeadershipWitness:
     reward_nonce: NoteNonce                   # nonce of the leader reward note
 ```
 
-`ZkSecretKey`, `ZkPublicKey`, `TokenValue`, `NoteNonce`, `NoteCommitment` and `NoteNullifier` are the types of [Notes](bedrock-mantle-specification.md#notes) in Mantle.
+`ZkSecretKey`, `ZkPublicKey`, `TokenValue`, `NoteNonce`, `NoteCommitment` and `NoteNullifier` are the types of [Notes](bedrock-mantle.md#notes) in Mantle.
 
-Every path and its selectors follow the Merkle path convention of [Mantle](bedrock-mantle-specification.md#commitment-merkle-mountain-range): from the leaf level up, a selector being the bit of the leaf index at its level. `path_root`, defined there, computes the root of a path, and the proof checks that every selector is a bit, `s * (1 - s) == 0`.
+Every path and its selectors follow the Merkle path convention of [Mantle](bedrock-mantle.md#commitment-merkle-mountain-range): from the leaf level up, a selector being the bit of the leaf index at its level. `path_root`, defined there, computes the root of a path, and the proof checks that every selector is a bit, `s * (1 - s) == 0`.
 
 Every `<` between field elements compares their canonical integer representatives in $`[0, p)`$: the circuit decomposes each operand into 254 bits and checks that the decomposition is below $`p`$.
 
@@ -180,7 +180,7 @@ Such that the following constraints hold:
       selectors=set_selectors)
   ```
 
-- The note is unspent: its nullifier is not in the latest [Nullifier Indexed Merkle Tree](bedrock-mantle-specification.md#nullifier-indexed-merkle-tree) of the same note set, the same `set_selectors` placing both leaves at the position of that set.
+- The note is unspent: its nullifier is not in the latest [Nullifier Indexed Merkle Tree](bedrock-mantle.md#nullifier-indexed-merkle-tree) of the same note set, the same `set_selectors` placing both leaves at the position of that set.
   ```python
   nullifier = zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), commitment, sk)
   low_leaf = zkhash(FiniteField(b"NULLIFIER_IMT_LEAF_V1", byte_order="little", modulus= p),

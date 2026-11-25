@@ -37,11 +37,11 @@
 | 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
 | 1.11.0 | [RFC] `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-10-27 |
 | 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CommitmentRoot` and `Value`, user steps, tagged by their kind and with their own `Inscription`, in the `MiniBlocks` of `ChannelInscribe`, holder withdrawals, the `Inscription` of `ChannelDeposit`, the SDP payloads over notes with `NotePk` in `SDPDeclare` and no `Nonce` in `SDPWithdraw`, `PowNonce` and no `EpochNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-11-06 |
-| 2.0.1 | Links to Mantle point to `bedrock-mantle-specification.md` and links to `CHANNEL_INSCRIBE` to `bedrock-mantle-channels.md` | 2026-11-25 |
+| 2.0.1 | Links to Mantle point to `bedrock-mantle.md` and links to `CHANNEL_INSCRIBE` to `bedrock-mantle-channels.md` | 2026-11-25 |
 
 # Introduction
 
-This document specifies the canonical encoding of Mantle transactions (see [Mantle - Mantle Transaction](bedrock-mantle-specification.md)) and its sub-components. Transactions sent through the mempool and included in blocks use this encoding.
+This document specifies the canonical encoding of Mantle transactions (see [Mantle - Mantle Transaction](bedrock-mantle.md)) and its sub-components. Transactions sent through the mempool and included in blocks use this encoding.
 
 # Overview
 
@@ -170,7 +170,7 @@ NoteNullifier  = FieldElement ; nullifier of a note
 CommitmentRoot = FieldElement ; MMR root of note commitments
 ```
 
-Commitments and nullifiers are defined in [Note Commitment and Nullifier](bedrock-mantle-specification.md#note-commitment-and-nullifier) of Mantle, and the root of the commitments of a note set in its [Commitment Merkle Mountain Range](bedrock-mantle-specification.md#commitment-merkle-mountain-range) (MMR).
+Commitments and nullifiers are defined in [Note Commitment and Nullifier](bedrock-mantle.md#note-commitment-and-nullifier) of Mantle, and the root of the commitments of a note set in its [Commitment Merkle Mountain Range](bedrock-mantle.md#commitment-merkle-mountain-range) (MMR).
 
 ## Op Proofs
 

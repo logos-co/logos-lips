@@ -36,7 +36,7 @@
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
 | 1.3.0 | Follow the private ledger of Mantle: the eligible leader notes commitment is the eligible root over the note sets of the ledger, and a Proof of Leadership verifies against the latest eligible root. The `leader_voucher` header field is replaced with the `reward_commitment` and the `reward_value` of the note paying the leader reward. The Proof of Leadership is bound to the block by its block ID: the `leader_key` header field and the block signatures are removed, and an uncle entry is a header. The block ID leaves out the proof of leadership, which is not unique. The eligible root of the epoch state is named `eligible_aged`. Rule 4 is checked before rule 10 and the validation of the transactions on every path, and a failure of rule 2 or rule 3 found before it is a bad copy | 2026-11-06 |
-| 1.3.1 | The document is published as `cryptarchia-protocol.md`. Links to Mantle point to `bedrock-mantle-specification.md`, links to Block Construction to `bedrock-block-construction.md` and links to Bootstrapping and Synchronization to `cryptarchia-bootstr-sync.md` | 2026-11-25 |
+| 1.3.1 | The document is published as `cryptarchia-protocol.md`. Links to Mantle point to `bedrock-mantle.md`, links to Block Construction to `bedrock-block-construction.md` and links to Bootstrapping and Synchronization to `cryptarchia-bootstr-sync.md` | 2026-11-25 |
 
 # Introduction
 
@@ -560,7 +560,7 @@ Cryptarchia depends on honest nodes having relatively in-sync clocks. We are cur
 
 ## Test Vectors
 
-The transactions used to derive the transaction Merkle root are the single-Operation transactions of the [Mantle Test Vectors](bedrock-mantle-specification.md#test-vectors), one per Operation, and each leaf is the hash of one of them. That root is one of the two inputs to the `body_root` defined in step 4 of [Block Header Validation](#block-header-validation), alongside the serialized carried `uncle_headers`. The vectors below are derived from this specification, with BLAKE2b-256 as `hash`, and a Merkle node hashing the concatenation of its two children.
+The transactions used to derive the transaction Merkle root are the single-Operation transactions of the [Mantle Test Vectors](bedrock-mantle.md#test-vectors), one per Operation, and each leaf is the hash of one of them. That root is one of the two inputs to the `body_root` defined in step 4 of [Block Header Validation](#block-header-validation), alongside the serialized carried `uncle_headers`. The vectors below are derived from this specification, with BLAKE2b-256 as `hash`, and a Merkle node hashing the concatenation of its two children.
 
 | Input | Output |
 |-|-|
