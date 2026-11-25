@@ -10,7 +10,7 @@
 
 ## Reviewer Orientation
 
-Read [Mantle Rollups](../bedrock-mantle-rollups.md) first, from `## Rollup Operations` to the end: it is new, and every other change serves it or follows the note of four fields. The PR sits on [PR #552](https://github.com/logos-co/logos-lips/pull/552), which places the channel Operations in Mantle Channels, and on [PR #480](https://github.com/logos-co/logos-lips/pull/480), the private note ledger.
+Read [Mantle Rollups](../bedrock-mantle-rollups.md) first, from `# Overview` to the end: it is new, and every other change serves it or follows the note of four fields. The PR sits on [PR #552](https://github.com/logos-co/logos-lips/pull/552), which places the channel Operations in Mantle Channels, and on [PR #480](https://github.com/logos-co/logos-lips/pull/480), the private note ledger.
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
@@ -166,7 +166,7 @@ A node that follows this PR and one that follows its base disagree on every note
 
 ## Mantle Rollups
 
-Version 1.0.0, a new document, published as `bedrock-mantle-rollups.md`. It specifies the rollup channels and their four Operations, each with the sections Payload, Proof, Execution Gas, Validation and Execution. Its overview states what the ledger checks, why the sequencers can only delay, what it recommends to a rollup that wants any prover to prove it, and what it does not guarantee.
+Version 1.0.0, a new document, published as `bedrock-mantle-rollups.md`. It specifies the rollup channels and their four Operations, each with the sections Payload, Proof, Execution Gas, Validation and Execution. Its Overview, between the Introduction and the Operations as in Mantle and Mantle Channels, describes rollup channels and states what the ledger checks, why the sequencers can only delay, what it recommends to a rollup that wants any prover to prove it, and what it does not guarantee.
 
 The state of a rollup is the `kind` of its `ChannelState`:
 
