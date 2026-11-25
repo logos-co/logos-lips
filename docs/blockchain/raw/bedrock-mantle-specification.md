@@ -51,7 +51,7 @@
 | 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
 | 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each with its own inscription, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and independent of the epoch nonce, and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A declaration names in `note_pk` the key of its service note, and `SDP_WITHDRAW` carries no nonce, consumes the service note, and releases its outputs with the channel withdrawals when its declaration is removed. A channel deposit carries an `inscription`. The commitment MMR and the nullifier IMT of a note set have depth `NOTE_SET_DEPTH` = 40, and a commitment root stays recent for `ROOT_WINDOW` = 1024 blocks | 2026-11-06 |
 | 2.0.1 | The channel Operations are specified in Mantle Channels, the SDP Operations in the Service Declaration Protocol and the claim of proof of work rewards in Proof of Work; the Opcodes table links every Operation; the document is published as `bedrock-mantle-specification.md`, and links to Block Construction point to `bedrock-block-construction.md` | 2026-11-25 |
-| 2.1.0 | A note carries a staking key, `stake_public_key`, hashed in its commitment, and a note whose staking key is `0` cannot lead. The Keys section derives the nullifier key `nf_sk` from the spending secret key and the public key from `nf_sk`, the nullifier hashes `nf_sk`, and the ZkTransfer proves the spending secret key; `PK0` and `NF_SK0` are the keys of the spending secret key `0`. The Opcodes table lists `ROLLUP_CREATE`, `ROLLUP_INSCRIBE`, `ROLLUP_DEPOSIT` and `ROLLUP_PROVE` at `0x40` to `0x43`: the excess value of `ROLLUP_DEPOSIT` pays fees, the proofs of `ROLLUP_PROVE` are bound to the `op_id` of the inscription they prove and verified against the live MMR of the rollup note set, and rollup channels share the note set indices of channels. The test vectors cover the rollup Operations | 2026-11-25 |
+| 2.1.0 | A note carries a staking key, `stake_public_key`, hashed in its commitment, and a note whose staking key is `0` cannot lead. The Keys section derives the nullifier key `nf_sk` from the spending secret key and the public key from `nf_sk`, the nullifier hashes `nf_sk`, and the ZkTransfer proves the spending secret key; `PK0` and `NF_SK0` are the keys of the spending secret key `0`. The Opcodes table lists `ROLLUP_CREATE`, `ROLLUP_INSCRIBE`, `ROLLUP_DEPOSIT` and `ROLLUP_PROVE` at `0x40` to `0x43`: the excess value of `ROLLUP_DEPOSIT` pays fees, the proofs of `ROLLUP_PROVE` are bound to the `op_id` of the inscription they prove and verified against the live MMR of the rollup note set, and rollup channels share the note set indices of channels. The test vectors cover the rollup Operations and follow the encoding of `ChannelInscribe` and `SDPDeclare` | 2026-11-25 |
 
 # Introduction
 
@@ -73,7 +73,7 @@ Logos Blockchain features are exposed through Mantle Operations, which can be co
 
 ## Mantle Ledger
 
-The Mantle Ledger enables asset transfers using a private note-based ledger. The ledger tracks three kinds of notes, each in note sets of its own: regular notes, service notes (collateral for service declarations) and channel notes (channel bridge funds). Every note participates in Proof of Stake through its [staking key](#keys), unless that key is `0`. Each note set has a commitment Merkle Mountain Range (MMR) and a nullifier Indexed Merkle Tree (IMT).
+The Mantle Ledger enables asset transfers using a private note-based ledger. The ledger tracks three kinds of notes, each in note sets of its own: regular notes, service notes (collateral for service declarations) and channel notes (the funds of native and rollup channels). Every note participates in Proof of Stake through its [staking key](#keys), unless that key is `0`. Each note set has a commitment Merkle Mountain Range (MMR) and a nullifier Indexed Merkle Tree (IMT).
 
 ## Transaction Fees
 
@@ -276,7 +276,7 @@ Each Operation is specified in the document of its protocol, and this table, the
 
 Transfer prove the correct consumption and creation of notes. Because notes aren't transparent, this is done by a ZK proof (see [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer)), proving the correctness of the transfer and outputting the excess value of the transfer balance to pay for the fees.
 
-A Transfer hides the commitments related to the nullifiers it's spending. It also hides the values and public keys of its notes behind the created commitments. It reveals the nullifiers of the notes spent, the commitments of the created notes, their amount, the commitment root it names and its `excess_value` that is the difference between the value consumed and the value created.
+A Transfer hides the commitments related to the nullifiers it's spending. It also hides the values, public keys and staking keys of its notes behind the created commitments. It reveals the nullifiers of the notes spent, the commitments of the created notes, their amount, the commitment root it names and its `excess_value` that is the difference between the value consumed and the value created.
 
 #### Payload
 
@@ -401,7 +401,7 @@ No secret key is known whose public key is `0`, so a note whose staking key is `
 
 ### Note Commitment and Nullifier
 
-A note can be uniquely identified by its fields. Any two notes with the same fields share a commitment and a nullifier, so only one of them can be spent: value can be lost this way, never created. For notes the ledger creates itself, such as rewards and service notes, the nonce can be derived from the Operation that created it and its output number: `(op_id, output_number)` if each Operation are uniquely identifiable. For this reason, every Operation that output notes have a unique payload that is used to derive the Operation identifier.
+A note can be uniquely identified by its fields. Any two notes with the same fields share a commitment and a nullifier, so only one of them can be spent: value can be lost this way, never created. For notes the ledger creates itself, such as rewards and service notes, the nonce can be derived from the Operation that created it and its output number: `(op_id, output_number)` if each Operation are uniquely identifiable. For this reason, every Operation that output notes have a unique payload that is used to derive the Operation identifier. The deposit note of a [rollup step](bedrock-mantle-rollups.md#rollup_prove) derives its nonce from the `op_id` of the inscription the step proves.
 
 ```python
 def derive_op_id(payload) -> Hash:
