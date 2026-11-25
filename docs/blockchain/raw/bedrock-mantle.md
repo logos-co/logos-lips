@@ -670,8 +670,6 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_SDP_WITHDRAW_GAS | 678 |
 | EXECUTION_SDP_ACTIVE_GAS | 59 |
 | EXECUTION_CLAIM_POW_REWARD_GAS | 0 |
-| EXECUTION_ROLLUP_KEY_GAS | 1896 |
-| EXECUTION_ROLLUP_PROOF_GAS | 2451 |
 
 ## Zero Knowledge Transfer Proof (ZkTransfer)
 
