@@ -32,13 +32,13 @@ The channel Operations are specified in Mantle Channels, the SDP Operations in t
 
 ## No rule changes
 
-The split moves text and repoints links. No payload, opcode, validation rule, execution step, Execution Gas cost or encoding differs, so nodes and wallets need no change and no migration. Mantle, the Service Declaration Protocol and Proof of Work each take a minor version, Mantle Channels starts at 1.0.0, and every other changed document takes a patch version.
+The split moves text and repoints links. No payload, opcode, validation rule, execution step, Execution Gas cost or encoding differs, so nodes and wallets need no change and no migration. Every changed document takes a patch version, and Mantle Channels starts at 1.0.0.
 
 # Details
 
 ## Mantle
 
-Version 2.1.0, published as `bedrock-mantle-specification.md`. Mantle specifies the Mantle Transaction, the ledger, TRANSFER under `## Ledger Operations`, and the tables and vectors shared by all Operations. The Opcodes table links each Operation to the section that specifies it:
+Version 2.0.1, published as `bedrock-mantle-specification.md`. Mantle specifies the Mantle Transaction, the ledger, TRANSFER under `## Ledger Operations`, and the tables and vectors shared by all Operations. The Opcodes table links each Operation to the section that specifies it:
 
 | **Operation** | **Opcode** | **Specified in** |
 | --- | --- | --- |
@@ -53,11 +53,11 @@ Version 1.0.0, slug 246, published as `bedrock-mantle-channels.md`. Mantle Chann
 
 ## Service Declaration Protocol
 
-Version 1.10.0. The Service Declaration Protocol specifies `## Service Declaration Protocol (SDP) Operations` under `# Construction`: the validator state, Common SDP Structures, `SDP_DECLARE`, `SDP_WITHDRAW`, SDP Epoch Finalization and `SDP_ACTIVE`.
+Version 1.9.1. The Service Declaration Protocol specifies `## Service Declaration Protocol (SDP) Operations` under `# Construction`: the validator state, Common SDP Structures, `SDP_DECLARE`, `SDP_WITHDRAW`, SDP Epoch Finalization and `SDP_ACTIVE`.
 
 ## Proof of Work
 
-Version 1.3.0. Proof of Work specifies `## Proof of Work Operations` under `# Protocol`: the validator state and `CLAIM_POW_REWARD`. The Introduction lists the claim Operation among what the document specifies.
+Version 1.2.1. Proof of Work specifies `## Proof of Work Operations` under `# Protocol`: the validator state and `CLAIM_POW_REWARD`. The Introduction lists the claim Operation among what the document specifies.
 
 ## Chores
 
@@ -77,10 +77,10 @@ Version 1.3.0. Proof of Work specifies `## Proof of Work Operations` under `# Pr
 
 | Specification | Status | Note |
 | --- | --- | --- |
-| [Mantle](../bedrock-mantle-specification.md) | Modified | 2.1.0, published as `bedrock-mantle-specification.md` |
+| [Mantle](../bedrock-mantle-specification.md) | Modified | 2.0.1, published as `bedrock-mantle-specification.md` |
 | [Mantle Channels](../bedrock-mantle-channels.md) | Created | 1.0.0, published as `bedrock-mantle-channels.md` |
-| [Service Declaration Protocol](../bedrock-service-declaration-protocol.md) | Modified | 1.10.0 |
-| [Proof of Work](../proof-of-work.md) | Modified | 1.3.0 |
+| [Service Declaration Protocol](../bedrock-service-declaration-protocol.md) | Modified | 1.9.1 |
+| [Proof of Work](../proof-of-work.md) | Modified | 1.2.1 |
 | [Block Construction, Validation and Execution](../bedrock-block-construction.md) | Modified | 1.4.1, published as `bedrock-block-construction.md`; link targets only |
 | [Cryptarchia Protocol](../cryptarchia-protocol.md) | Modified | 1.3.1, published as `cryptarchia-protocol.md`; link targets only |
 | [Cryptarchia Bootstrapping & Synchronization](../cryptarchia-bootstr-sync.md) | Modified | 1.0.4, published as `cryptarchia-bootstr-sync.md` with its images under `cryptarchia-bootstr-sync/`; link targets only |

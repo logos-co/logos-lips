@@ -19,7 +19,7 @@
 
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
-| 1.0.0 | Initial revision. | 2026-11-25 |
+| 1.0.0 | Initial revision: the channel Operations moved from [Mantle](bedrock-mantle-specification.md). | 2026-11-25 |
 
 # Introduction
 
