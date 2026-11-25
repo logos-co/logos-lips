@@ -72,7 +72,7 @@ Logos Blockchain features are exposed through Mantle Operations, which can be co
 
 ## Mantle Ledger
 
-The Mantle Ledger enables asset transfers using a private note-based ledger. The ledger tracks three kinds of notes, each in note sets of its own: regular notes, service notes (collateral for service declarations) and channel notes (channel bridge funds). All of them participate in Proof of Stake. Each note set has a commitment Merkle Mountain Range (MMR) and a nullifier Indexed Merkle Tree (IMT).
+The Mantle Ledger enables asset transfers using a private note-based ledger. The ledger tracks three kinds of notes, each in note sets of its own: regular notes, service notes (collateral for service declarations) and channel notes (channel bridge funds). Every note participates in Proof of Stake through its [staking key](#keys), unless that key is `0`. Each note set has a commitment Merkle Mountain Range (MMR) and a nullifier Indexed Merkle Tree (IMT).
 
 ## Transaction Fees
 
@@ -354,16 +354,43 @@ ledger: Ledger
 
 ## Notes
 
-Notes are composed of three fields representing their value and their owner:
+Notes are composed of four fields representing their value, their holder and their staker:
 
 ```python
 class Note:
     value: TokenValue   # uint64
     nonce: NoteNonce	# to avoid two notes having the same commitment
-    public_key: ZkPublicKey # 32 bytes
+    public_key: ZkPublicKey # 32 bytes, the holder, whose nullifier key derives the nullifier
+    stake_public_key: ZkPublicKey  # 32 bytes, the staking key, whose secret the Proof of Leadership takes
 ```
 
-`MerkleRoot`, `NoteCommitment`, `NoteNullifier` and `NoteNonce` are `zkhash` values, elements of $`\mathbb{F}_p`$. A `NoteCommitment` hashes the fields of a note and identifies it without revealing them, and a `NoteNullifier` hashes the commitment and the secret key of the holder and is published when the note is spent.
+`MerkleRoot`, `NoteCommitment`, `NoteNullifier` and `NoteNonce` are `zkhash` values, elements of $`\mathbb{F}_p`$. A `NoteCommitment` hashes the fields of a note and identifies it without revealing them, and a `NoteNullifier` hashes the commitment and the nullifier key of the holder and is published when the note is spent.
+
+### Keys
+
+The holder of a note keeps three secrets. Its spending secret key `spending_sk` derives its nullifier key `nf_sk`, which derives the `public_key` of the note, and its staking secret key `staking_sk` derives the staking key `stake_public_key` of the note:
+
+```python
+nf_sk = zkhash(FiniteField(b"NF_KDF_V1", byte_order="little", modulus= p), spending_sk)
+public_key = zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), nf_sk)
+stake_public_key = zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), staking_sk)
+```
+
+These derivations use the compression mode of Poseidon2 ([Common Cryptographic Components](common-cryptographic-components.md)), each over a single field element.
+
+`PK0` and `NF_SK0` are the keys of the spending secret key `0`, which everyone knows:
+
+```python
+NF_SK0 = zkhash(FiniteField(b"NF_KDF_V1", byte_order="little", modulus= p), 0)
+PK0 = zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), NF_SK0)
+```
+
+Anyone can spend a note `PK0` holds. `NF_SK0` is public, so `PK0` should never be the staking key of such a note: anyone could lead with it, taking `NF_SK0` as nullifier key and as staking secret key.
+
+- **Spending.** A [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) proves `spending_sk`, from which it derives `nf_sk`, then the `public_key` and the nullifier of the note. Spending a note takes `spending_sk`, and no other secret.
+- **Leading.** A [Proof of Leadership](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement) proves the `public_key` from `nf_sk`, which ties the nullifier it shows unspent to the note, and the `stake_public_key` from `staking_sk`, which derives the lottery ticket. The nullifier key sits between the spending secret key and the public key so that this proof never takes `spending_sk`.
+
+No secret key is known whose public key is `0`, so a note whose staking key is `0` cannot lead. How a wallet chooses these keys, for cold staking and for a cold service declaration, is recommended in the [Wallet Technical Standard](wallet-technical-standard.md#staking-keys).
 
 ### Note Commitment and Nullifier
 
@@ -391,14 +418,15 @@ def derive_note_commitment(note: Note) -> NoteCommitment:
         FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p),
         FiniteField(note.value, byte_order="little", modulus= p),
         note.nonce,
-        note.public_key
+        note.public_key,
+        note.stake_public_key
     )
 	
-def derive_note_nullifier(note_commitment: NoteCommitment, secret_key: ZkSecretKey) -> NoteNullifier:
+def derive_note_nullifier(note_commitment: NoteCommitment, nf_sk: ZkSecretKey) -> NoteNullifier:
     return zkhash(
         FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p),
         note_commitment,
-        secret_key
+        nf_sk
     )
 ```
 
@@ -408,7 +436,7 @@ These note commitments and nullifiers uniquely define notes in the system. Nodes
 
 ### Service notes
 
-Service notes are special notes in Mantle that serve as collateral for Service Declarations. Executing a Declare Operation consumes notes of the ledger note set and creates one service note under the declaration's `note_pk` in the SDP note set, its commitment kept with the declaration. A note of the SDP note set is spent only by the Withdraw Operation of its declaration, and the notes that withdrawal creates enter the ledger note set when the declaration is removed. Service notes participate in Proof of Stake.
+Service notes are special notes in Mantle that serve as collateral for Service Declarations. Executing a Declare Operation consumes notes of the ledger note set and creates one service note under the declaration's `note_pk` and `note_stake_pk` in the SDP note set, its commitment kept with the declaration. A note of the SDP note set is spent only by the Withdraw Operation of its declaration, and the notes that withdrawal creates enter the ledger note set when the declaration is removed. Service notes participate in Proof of Stake.
 
 ## Ledger
 
@@ -660,41 +688,44 @@ The prover knows a witness:
 
 ```python
 class ZkTransferWitness:
-    inputs_sk: list[ZkSecretKey]           # (len = 4) the secret key of each input
+    inputs_spending_sk: list[ZkSecretKey]  # (len = 4) the spending secret key of each input
+    inputs_stake_pk: list[ZkPublicKey]     # the staking key of each input note
     inputs_nonce: list[zkhash]             # the nonce of each input note
     inputs_value: list[TokenValue]         # the value of each input note
     inputs_selectors: list[list[boolean]]  # (len = 4 x NOTE_SET_DEPTH) the Merkle path direction of each input
     inputs_path: list[list[zkhash]]        # (len = 4 x NOTE_SET_DEPTH) the Merkle path of each input
     outputs_pk: list[ZkPublicKey]          # (len = 8) the public key of each output note
+    outputs_stake_pk: list[ZkPublicKey]    # the staking key of each output note
     outputs_nonce: list[zkhash]            # the nonce of each output note
     outputs_value: list[TokenValue]        # the value of each output note
 ```
 
-Such that the following constraints hold, where `inputs_pk` and `inputs_commitment` are the public keys and commitments the circuit derives for the inputs:
+Such that the following constraints hold, where `inputs_nf_sk`, `inputs_pk` and `inputs_commitment` are the nullifier keys, public keys and commitments the circuit derives for the inputs:
 
-- Each public key is derived from the corresponding secret key.
+- Each nullifier key is derived from the corresponding spending secret key, and each public key from the nullifier key ([Keys](#keys)).
   ```python
   assert all(
-      inputs_pk[i] == zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), inputs_sk[i])
-      for i in range(len(inputs_sk))
+      inputs_nf_sk[i] == zkhash(FiniteField(b"NF_KDF_V1", byte_order="little", modulus= p), inputs_spending_sk[i])
+      and inputs_pk[i] == zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), inputs_nf_sk[i])
+      for i in range(len(inputs_spending_sk))
   )
   ```
   
-- Each input flag is boolean, and each input commitment is derived from the public key, the nonce and the value.
+- Each input flag is boolean, and each input commitment is derived from the value, the nonce, the public key and the staking key. The staking key is not proven: spending a note takes its spending secret key alone.
   ```python
   assert all(
       inputs_active[i] * (1 - inputs_active[i]) == 0
-      and inputs_commitment[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i])
-      for i in range(len(inputs_sk))
+      and inputs_commitment[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), inputs_value[i], inputs_nonce[i], inputs_pk[i], inputs_stake_pk[i])
+      for i in range(len(inputs_spending_sk))
   )
   ```
   
-- Each active input nullifier is derived from the secret key and the input commitment, and each inactive input has value 0.
+- Each active input nullifier is derived from the nullifier key and the input commitment, and each inactive input has value 0.
   ```python
   assert all(
-      inputs[i] == zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), inputs_commitment[i], inputs_sk[i])
+      inputs[i] == zkhash(FiniteField(b"NOTE_NF_V1", byte_order="little", modulus= p), inputs_commitment[i], inputs_nf_sk[i])
       if inputs_active[i] else inputs_value[i] == 0
-      for i in range(len(inputs_sk))
+      for i in range(len(inputs_spending_sk))
   )
   ```
   
@@ -702,8 +733,8 @@ Such that the following constraints hold, where `inputs_pk` and `inputs_commitme
   ```python
   assert all(
       inputs[i] != inputs[j]
-      for i in range(len(inputs_sk))
-      for j in range(i + 1, len(inputs_sk))
+      for i in range(len(inputs_spending_sk))
+      for j in range(i + 1, len(inputs_spending_sk))
       if inputs_active[i] and inputs_active[j]
   )
   ```
@@ -712,21 +743,21 @@ Such that the following constraints hold, where `inputs_pk` and `inputs_commitme
   ```python
   assert all(
       inputs_selectors[i][j] * (1 - inputs_selectors[i][j]) == 0
-      for i in range(len(inputs_sk))
+      for i in range(len(inputs_spending_sk))
       for j in range(len(inputs_selectors[i]))
   )
   assert all(
       path_root(inputs_commitment[i], inputs_path[i], inputs_selectors[i]) == tx_commitment_root
       or not inputs_active[i]
-      for i in range(len(inputs_sk))
+      for i in range(len(inputs_spending_sk))
   )
   ```
 
-- Each output flag is boolean, each active output commitment is derived from the public key, the nonce and the value, and each inactive output has value 0.
+- Each output flag is boolean, each active output commitment is derived from the value, the nonce, the public key and the staking key, and each inactive output has value 0.
   ```python
   assert all(
       outputs_active[i] * (1 - outputs_active[i]) == 0
-      and (outputs[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), outputs_value[i], outputs_nonce[i], outputs_pk[i])
+      and (outputs[i] == zkhash(FiniteField(b"NOTE_CM_V1", byte_order="little", modulus= p), outputs_value[i], outputs_nonce[i], outputs_pk[i], outputs_stake_pk[i])
            if outputs_active[i] else outputs_value[i] == 0)
       for i in range(len(outputs_pk))
   )

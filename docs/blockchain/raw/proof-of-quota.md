@@ -92,7 +92,8 @@ class ProofOfQuotaWitness:
     core_path_selectors: list[bool]            # Indicates how to read the core_path (if Merkle nodes are left or right in the path)
     # This part is filled randomly by core nodes and by proof of work provers
     pol_sl: int                                # PoL slot
-    pol_secret_key: int                        # PoL note secret key
+    pol_nullifier_key: zkhash                  # PoL note nullifier key
+    pol_staking_secret_key: zkhash             # PoL note staking secret key
     pol_note_value: int                        # PoL note value
     pol_note_nonce: zkhash                     # PoL note nonce
     pol_commitment_aged_path: list[zkhash]     # PoL Merkle path proving the note commitment membership in the commitment Merkle Mountain Range (MMR) of its note set (len = NOTE_SET_DEPTH)
@@ -122,7 +123,7 @@ Such that the following constraints hold:
 
 **Step 3:** If the prover indicated that the node is a potential leader node for the proof, the proof checks that:
 
-  1. The leader node possesses a note that would win a slot in the consensus lottery. Unlike leadership conditions, the proof of quota doesn't verify that the note is still unspent; it verifies that the note was unspent when the stake distribution was frozen: the nullifier of the note is not in the [Nullifier Indexed Merkle Tree](bedrock-mantle-specification.md#nullifier-indexed-merkle-tree) of its note set at that time. This enables potential provers to generate the PoQ well in advance, and since commitments are never removed from a note set, it keeps a holder from multiplying its leader quota by re-creating its note before the freeze. All other lottery constraints, including the membership of the note commitment in its note set under the eligible root of the time the stake distribution was frozen, are the same as in [Zero-knowledge Proof Statement](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement).
+  1. The leader node possesses a note that would win a slot in the consensus lottery. Unlike leadership conditions, the proof of quota doesn't verify that the note is still unspent; it verifies that the note was unspent when the stake distribution was frozen: the nullifier of the note is not in the [Nullifier Indexed Merkle Tree](bedrock-mantle-specification.md#nullifier-indexed-merkle-tree) of its note set at that time. This enables potential provers to generate the PoQ well in advance, and since commitments are never removed from a note set, it keeps a holder from multiplying its leader quota by re-creating its note before the freeze. All other lottery constraints, including the derivation of the public key from the nullifier key and of the staking key from the staking secret key, the commitment over the staking key of the note, so that a note qualifies unless its staking key is `0`, and the membership of the note commitment in its note set under the eligible root of the time the stake distribution was frozen, are the same as in [Zero-knowledge Proof Statement](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement).
   2. The index is valid: `index < leader_quota`.
 
 **Step 4:** If the prover indicated that the proof is backed by proof of work, the proof checks that:
@@ -140,7 +141,7 @@ key_nullifier = zkhash(b"KEY_NULLIFIER_V1", selection_randomness)
   Where `sk` is:
 
   - The `core_sk`, the [Non-ephemeral Quota Key](key-types-and-generation.md#non-ephemeral-quota-key) of the node, if the node is a core node.
-  - The secret key of the PoL note if it’s a leader node.
+  - The staking secret key of the PoL note if it’s a leader node, which stays private even when the nullifier key of the note is public.
   - The `pow_nonce` if the proof is backed by proof of work.
 
   and `period_nonce` is:
@@ -181,7 +182,8 @@ is_leader = would_win_leadership(pol_epoch_nonce,
         pol_t1,
         pol_eligible_aged,
         pol_sl,
-        pol_secret_key,
+        pol_nullifier_key,
+        pol_staking_secret_key,
         pol_note_value,
         pol_note_nonce,
         pol_commitment_aged_path,
@@ -210,7 +212,7 @@ assert( is_registered
 # branch reuses pol_epoch_nonce, so that term would be zero by construction.
 selection_randomness = zkhash(
         b"SELECTION_RANDOMNESS_V1",
-        core_sk + (pol_secret_key - core_sk) * L1 + (pow_nonce - core_sk) * L2,
+        core_sk + (pol_staking_secret_key - core_sk) * L1 + (pow_nonce - core_sk) * L2,
         index,
         pol_epoch_nonce + (pol_sl - pol_epoch_nonce) * L1)
 key_nullifier = zkhash(b"KEY_NULLIFIER_V1", selection_randomness)

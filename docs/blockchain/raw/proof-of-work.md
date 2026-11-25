@@ -192,12 +192,14 @@ assert puzzle_ticket < difficulty_reward
 assert puzzle_ticket not in pow_nullifiers
 
 # 5. Construct a single output note of value epoch_pow_reward under the public key
-#    given in the payload, and add it to the buffer of the ledger note set.
+#    given in the payload, which is also its staking key, and add it to the buffer
+#    of the ledger note set.
 claim_id = derive_op_id(claim)
 output_note = Note(
     value = epoch_pow_reward,
     nonce = derive_note_nonce(claim_id, 0, epoch_pow_reward, claim.public_key),
     public_key = claim.public_key,
+    stake_public_key = claim.public_key,
 )
 ledger.sets[LEDGER_SET].tx_commitment_buffer.append(derive_note_commitment(output_note))
 ```
