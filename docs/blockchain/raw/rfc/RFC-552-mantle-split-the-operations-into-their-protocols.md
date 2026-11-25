@@ -14,7 +14,7 @@ Every Operation keeps its rules, payload, opcode, Execution Gas and encoding. Th
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
-| 1 | Medium | **Start here**: [Mantle](#affected-specifications), [what Mantle keeps](#mantle) | the Opcodes table links every Operation; the transaction, ledger, Gas Determination and Test Vectors cover all of them |
+| 1 | Medium | **Start here**: [Mantle](#affected-specifications), [what Mantle keeps](#what-mantle-keeps) | the Opcodes table links every Operation; the transaction, ledger, Gas Determination and Test Vectors cover all of them |
 | 2 | Medium | **Start here**: [Mantle Channels](#affected-specifications), [channel Operations](#mantle-channels) | the 647 moved lines match their source; links into Mantle resolve |
 | 3 | Medium | [Service Declaration Protocol](#affected-specifications), [SDP Operations](#service-declaration-protocol) | the moved block sits under `# Construction`; links to its own sections are local |
 | 4 | Medium | [Proof of Work](#affected-specifications), [claim Operation](#proof-of-work) | the claim Operation sits under `# Protocol`; the Introduction names it |
@@ -32,7 +32,7 @@ The channel Operations are specified in Mantle Channels, the SDP Operations in t
 
 ## No rule changes
 
-The split moves text and repoints links. No payload, opcode, validation rule, execution step, Execution Gas cost or encoding differs, so nodes and wallets need no change and no migration. Each moved document takes a minor version.
+The split moves text and repoints links. No payload, opcode, validation rule, execution step, Execution Gas cost or encoding differs, so nodes and wallets need no change and no migration. Mantle, the Service Declaration Protocol and Proof of Work each take a minor version, and Mantle Channels starts at 1.0.0.
 
 # Details
 
