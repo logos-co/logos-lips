@@ -361,7 +361,7 @@ Everything else is validated as it would be in any other block, against the stat
 
 ## Mantle Ledger Initialization
 
-Before Genesis, the Ledger holds two [note sets](bedrock-mantle-specification.md#ledger), the ledger note set and the SDP note set. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-mantle-specification.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0)`. The list of pending withdrawals is empty.
+Before Genesis, the Ledger holds two [note sets](bedrock-mantle-specification.md#ledger), the ledger note set and the SDP note set. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-mantle-specification.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0)`. The list of pending withdrawals is empty. The state also holds the [null channel](bedrock-mantle-channels.md#channel-operations), a native channel with no note set whose only accredited key is the null key and whose `tip_hash` is `ZERO`, and no other channel.
 
 When the distribution inscription is executed, the commitment of each initial note, `derive_note_commitment(Note(value, derive_note_nonce(op_id, i, value, public_key), public_key, public_key))` for the value and public key published at index `i`, as both the public key and the staking key of the note, and the `op_id` of that inscription, is appended in order to the commitment MMR of the ledger note set, as `execute_adding` does ([Creating Output Notes Execution](bedrock-mantle-specification.md#creating-output-notes-execution)). This step creates the initial notes, which no Operation could create without consuming notes.
 
@@ -378,7 +378,7 @@ Once the Genesis Mantle Transaction is executed, every note set whose commitment
 
 ## Cryptarchia Initialization
 
-The Mantle Transaction contains an inscription sent to the null channel containing the parameters for initializing Cryptarchia. It is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature: the null channel does not exist yet, so the inscription must carry a `parent` of `ZERO`, and its execution creates that channel with the null key as its only accredited key.
+The Mantle Transaction contains an inscription sent to the null channel containing the parameters for initializing Cryptarchia. It is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature, whose `parent` is `ZERO`, the `tip_hash` of the null channel ([Mantle Ledger Initialization](#mantle-ledger-initialization)).
 
 Two conditions are specific to Genesis. The inscription must be addressed to the null channel and signed by the null key, an inscription anywhere else not being a set of Cryptarchia parameters. It must also decode to exactly the three parameters, encoded as [Cryptarchia Parameters](#cryptarchia-parameters) specifies and with no trailing bytes. A node that cannot decode them has no clock, no chain identifier and no lottery randomness, and must reject the Genesis block.
 
