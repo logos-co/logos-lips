@@ -25,6 +25,24 @@
 
 Channels let Zones post their updates on chain and bridge notes between Zones and Bedrock. This document specifies the channel Operations; the Mantle Transaction that carries them and the ledger they act on are specified in [Mantle](bedrock-mantle.md).
 
+# Overview
+
+## Channels
+
+A channel is a virtual chain of messages that overlays the Cryptarchia blockchain, and the Clients and Followers of a Zone watch its channel to learn the state of that Zone. Each message references its parent through a parent hash, so the sequencers of a Zone post new updates without waiting for finality, and each configuration names the configuration it supersedes. See [Message Ordering](#message-ordering).
+
+## Sequencers
+
+The key that signs the first message to an unclaimed channel becomes its only accredited key. The accredited keys of a channel form a committee that configures the channel and takes turns writing its messages, following a round-robin algorithm. See [Decentralized Sequencing](#decentralized-sequencing).
+
+## Bridged Notes
+
+Each channel has its own note set, whose notes keep counting toward Proof of Stake. Only the holder of a channel note can spend it: inside the channel with a step that the sequencers publish in an inscription, or out of the channel with a withdrawal that takes effect `WITHDRAW_DELAY` slots later. A sequencer orders the moves of a channel but never makes one. See [Bridging](#bridging).
+
+## Operations of a Channel
+
+Four Operations act on channels. [`CHANNEL_INSCRIBE`](#channel_inscribe) writes a message to a channel and applies the steps of its users, and [`CHANNEL_CONFIG`](#channel_config) overwrites its configuration; either one creates a channel that does not exist. [`CHANNEL_DEPOSIT`](#channel_deposit) consumes notes of the ledger note set and creates notes of the channel note set, and [`CHANNEL_WITHDRAW`](#channel_withdraw) does the reverse once its delay has passed.
+
 # Operations
 
 ## Channel Operations

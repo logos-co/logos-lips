@@ -49,7 +49,7 @@ Version 2.0.1, published as `bedrock-mantle.md`. Mantle specifies the Mantle Tra
 
 ## Mantle Channels
 
-Version 1.0.0, slug 246, published as `bedrock-mantle-channels.md`. Mantle Channels specifies `## Channel Operations`: Message Ordering, Decentralized Sequencing, Bridging, and the Operations `CHANNEL_INSCRIBE`, `CHANNEL_CONFIG`, `CHANNEL_DEPOSIT` and `CHANNEL_WITHDRAW`, under a `# Operations` heading. Its Introduction points to Mantle for the transaction that carries the channel Operations and for the ledger they act on.
+Version 1.0.0, slug 246, published as `bedrock-mantle-channels.md`. Mantle Channels opens with an Introduction and an Overview, and specifies `## Channel Operations`: Message Ordering, Decentralized Sequencing, Bridging, and the Operations `CHANNEL_INSCRIBE`, `CHANNEL_CONFIG`, `CHANNEL_DEPOSIT` and `CHANNEL_WITHDRAW`, under a `# Operations` heading. Its Introduction points to Mantle for the transaction that carries the channel Operations and for the ledger they act on.
 
 ## Service Declaration Protocol
 
