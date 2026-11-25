@@ -32,17 +32,19 @@ Channels let Zones post their updates on chain and bridge notes between Zones an
 
 A [channel](#channel-operations) is a virtual chain of [messages](#channel_inscribe) that overlays the [Cryptarchia](cryptarchia-protocol.md) blockchain, and the Clients and Followers of a [Zone](bedrock-architecture-overview.md#sovereign-zones) watch its channel to learn the state of that Zone. Each message references its parent through a parent hash, so the [sequencers](#decentralized-sequencing) of a Zone post new updates without waiting for [finality](cryptarchia-protocol.md#latest-immutable-block), and each [configuration](#channel_config) names the configuration it supersedes. See [Message Ordering](#message-ordering).
 
+A channel is a native channel or a rollup channel, a kind fixed at its creation. This document specifies native channels, and [Mantle Rollups](bedrock-mantle-rollups.md) specifies rollup channels. The null channel is a native channel that exists before Genesis.
+
 ## Sequencers
 
-The key that signs the first [message](#channel_inscribe) to an unclaimed channel becomes its only [accredited key](#message-ordering). The accredited keys of a channel form a committee that [configures the channel](#channel_config) and takes turns writing its messages, following a round-robin algorithm. See [Decentralized Sequencing](#decentralized-sequencing).
+A native channel is created by its first configuration, a [`CHANNEL_CONFIG`](#channel_config) whose `parent` is `ZERO`, and the keys it lists become its [accredited keys](#message-ordering). The accredited keys of a channel form a committee that configures the channel and takes turns writing its [messages](#channel_inscribe), following a round-robin algorithm. See [Decentralized Sequencing](#decentralized-sequencing).
 
 ## Bridged Notes
 
-Each channel but the [null channel](#message-ordering) has its own [note set](bedrock-mantle.md#ledger), whose notes keep counting toward [Proof of Stake](cryptarchia-proof-of-leadership.md#eligible-sets). Only the holder of a channel note can spend it: inside the channel with a step that the [sequencers](#decentralized-sequencing) publish in an [inscription](#channel_inscribe), or out of the channel with a [withdrawal](#channel_withdraw) that takes effect `WITHDRAW_DELAY` [slots](cryptarchia-protocol.md#slot) later. A sequencer orders the moves of a channel but never makes one. See [Bridging](#bridging).
+Each native channel but the [null channel](#message-ordering) has its own [note set](bedrock-mantle.md#ledger), whose notes keep counting toward [Proof of Stake](cryptarchia-proof-of-leadership.md#eligible-sets). Only the holder of a channel note can spend it: inside the channel with a step that the [sequencers](#decentralized-sequencing) publish in an [inscription](#channel_inscribe), or out of the channel with a [withdrawal](#channel_withdraw) that takes effect `WITHDRAW_DELAY` [slots](cryptarchia-protocol.md#slot) later. A sequencer orders the moves of a channel but never makes one. See [Bridging](#bridging).
 
 ## Operations of a Channel
 
-Four [Operations](bedrock-mantle.md#operations) act on channels. [`CHANNEL_INSCRIBE`](#channel_inscribe) writes a message to a channel and applies the steps of its users, and [`CHANNEL_CONFIG`](#channel_config) overwrites its configuration; either one creates a channel that does not exist. [`CHANNEL_DEPOSIT`](#channel_deposit) consumes notes of the [ledger note set](bedrock-mantle.md#ledger) and creates notes of the channel note set, and [`CHANNEL_WITHDRAW`](#channel_withdraw) does the reverse once its delay has passed.
+Four [Operations](bedrock-mantle.md#operations) act on native channels. [`CHANNEL_INSCRIBE`](#channel_inscribe) writes a message to an existing channel and applies the steps of its users, and [`CHANNEL_CONFIG`](#channel_config) overwrites its configuration, or creates a channel that does not exist, with a `parent` of `ZERO`. [`CHANNEL_DEPOSIT`](#channel_deposit) consumes notes of the [ledger note set](bedrock-mantle.md#ledger) and creates notes of the channel note set, and [`CHANNEL_WITHDRAW`](#channel_withdraw) does the reverse once its delay has passed.
 
 # Operations
 
