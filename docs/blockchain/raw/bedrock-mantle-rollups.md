@@ -280,3 +280,103 @@ block_slot: Slot
       ```
 
 The slot of the block is recorded with the [`op_id`](bedrock-mantle-specification.md#note-commitment-and-nullifier) of the inscription because the STF proof of its step takes it as a public input: it is fixed once the inscription is in a block, and the prover reads it from the ledger.
+
+### ROLLUP_DEPOSIT
+
+Deposit value into a rollup channel. The deposit consumes notes of the ledger note set and creates no note: it records a [pending deposit](#rollup-state) of its value and its intent in the `deposits` of the rollup, under its [`op_id`](bedrock-mantle-specification.md#note-commitment-and-nullifier), until a [`ROLLUP_PROVE`](#rollup_prove) mints it into the note set of the rollup.
+
+A deposit waits until a step chosen by the sequencers of the rollup mints it, and the ledger never refunds it, so the STF alone decides when the rollup takes it in. Its ZkTransfer has no outputs, so the change of the depositor comes from a [Transfer](bedrock-mantle-specification.md#transfer) earlier in the same Mantle Transaction, which splits off the value to deposit into notes the deposit then consumes.
+
+#### Payload
+
+```python
+class RollupDeposit:
+    channel: ChannelId
+    inputs: list[NoteNullifier]  # nullifiers of the consumed notes of the ledger note set
+    commitment_root: MerkleRoot  # the MMR root of the ledger note set at the end of one of the last ROOT_WINDOW blocks
+    excess_value: TokenValue     # the excess to pay the fees
+    value: TokenValue            # the value deposited
+    intent: zkhash               # the hash of what the depositor expects from the rollup
+    inscription: bytes           # the zone message of the deposit
+```
+
+#### Proof
+
+  A Rollup Deposit proves the ownership of the notes being consumed, and that their value is the deposited value plus the excess value, using a [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) with no outputs.
+
+```python
+ZkTransfer
+```
+
+#### Execution Gas
+
+  Rollup Deposit Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_DEPOSIT_GAS`, the cost of a deposit. See [Gas Determination](bedrock-mantle-specification.md#gas-determination) for the Execution Gas values.
+
+#### Validation
+
+  *Given*
+
+```python
+mantle_txhash_fr: zkhash # mantle_txhash of the tx containing this Operation, reduced modulo p
+deposit: RollupDeposit
+deposit_proof: ZkTransfer
+
+channels: dict[ChannelId, ChannelState]
+
+ledger: Ledger
+```
+
+  *Validate*
+
+  1. Ensure the inscription does not exceed [`MAX_OPERATION_DATA_SIZE`](mantle-transaction-encoding.md#channel-operations).
+      ```python
+      assert len(deposit.inscription) <= MAX_OPERATION_DATA_SIZE
+      ```
+
+  2. Ensure the channel exists and is a rollup channel.
+      ```python
+      assert deposit.channel in channels
+      chan = channels[deposit.channel]
+      assert isinstance(chan.kind, RollupChannel)
+      ```
+
+  3. Ensure all inputs are spendable in the [ledger note set](bedrock-mantle-specification.md#ledger), `LEDGER_SET`.
+      ```python
+      ledger.sets[LEDGER_SET].assert_spendable(deposit.inputs)
+      ```
+
+  4. Validate ownership over the consumed notes, and that their value covers the deposited value and the excess value.
+      ```python
+      assert ledger.sets[LEDGER_SET].verify_transfer(deposit.inputs,
+                                                     [],
+                                                     checked_uint64(deposit.excess_value + deposit.value),
+                                                     deposit.commitment_root,
+                                                     mantle_txhash_fr,
+                                                     deposit_proof)
+      ```
+
+#### Execution
+
+  *Given*
+
+```python
+deposit: RollupDeposit
+
+channels: dict[ChannelId, ChannelState]
+
+ledger: Ledger
+```
+
+  *Execute*
+
+  1. Consume the inputs in the ledger note set.
+      ```python
+      ledger.sets[LEDGER_SET].execute_spending(deposit.inputs)
+      ```
+
+  2. Record the deposit as pending under its `op_id`.
+      ```python
+      chan = channels[deposit.channel]
+      chan.kind.deposits[derive_op_id(deposit)] = PendingDeposit(value=deposit.value,
+                                                                 intent=deposit.intent)
+      ```
