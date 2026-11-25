@@ -349,7 +349,7 @@ The Genesis Mantle Transaction holds, in this order, the `CHANNEL_INSCRIBE` Oper
 
 ## Genesis Validation Exemptions
 
-The checks below, and only these, are skipped when the Genesis Mantle Transaction is processed. Each one is skipped because the Genesis block, having no state before it and no signer the chain knows about, cannot satisfy it.
+The checks below, and only these, are skipped when the Genesis Mantle Transaction is processed. Each one is skipped because the Genesis block, coming before any note exists and signed by keys that are either fixed out of band or held by no one, cannot satisfy it.
 
 1. **Every proof and signature.** No Operation proof is verified at Genesis: neither the `Ed25519Signature` of the inscriptions, nor the `provider_sig` and the `zk_proof` of the `SDP_DECLARE` Operations. The inscriptions are signed by the null key whose secret key nobody holds, and the keys a declaration would prove are already fixed by the out of band agreement on the Genesis block, so verifying them would establish nothing a node does not already have to trust. The `op_proofs` list still holds one entry per Operation, of the type that Operation requires, and those entries are placeholders.
 
@@ -361,7 +361,7 @@ Everything else is validated as it would be in any other block, against the stat
 
 ## Mantle Ledger Initialization
 
-Before Genesis, the Ledger holds two [note sets](bedrock-mantle-specification.md#ledger), the ledger note set and the SDP note set. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-mantle-specification.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0)`. The list of pending withdrawals is empty. The state also holds the [null channel](bedrock-mantle-channels.md#channel-operations), a native channel with no note set whose only accredited key is the null key and whose `tip_hash` is `ZERO`, and no other channel.
+Before Genesis, the Ledger holds two [note sets](bedrock-mantle-specification.md#ledger), the ledger note set and the SDP note set. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-mantle-specification.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0)`. The list of pending withdrawals is empty. The state also holds the [null channel](bedrock-mantle-channels.md#message-ordering), a native channel with no note set whose only accredited key is the null key and whose `tip_hash` is `ZERO`, and no other channel.
 
 When the distribution inscription is executed, the commitment of each initial note, `derive_note_commitment(Note(value, derive_note_nonce(op_id, i, value, public_key), public_key, public_key))` for the value and public key published at index `i`, as both the public key and the staking key of the note, and the `op_id` of that inscription, is appended in order to the commitment MMR of the ledger note set, as `execute_adding` does ([Creating Output Notes Execution](bedrock-mantle-specification.md#creating-output-notes-execution)). This step creates the initial notes, which no Operation could create without consuming notes.
 
