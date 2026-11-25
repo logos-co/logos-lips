@@ -446,7 +446,7 @@ The notes live in note sets, each with its own commitment MMR and nullifier IMT.
 | --- | --- | --- | --- |
 | Ledger | `LEDGER_SET = 0` | the notes of transfers, rewards and withdrawals | Transfers, deposits and declarations |
 | SDP | `SDP_SET = 1` | service notes | the Withdraw Operation of their declaration |
-| Channel | `2` onward, in the order the channels were created, the null channel having none | channel notes | the steps of the channel's inscriptions, and withdrawals |
+| Native channel | `2` onward, in the order the channels were created, the null channel having none | channel notes | the steps of the channel's inscriptions, and withdrawals |
 
 Two parameters fix the trees of a note set and how long their roots can be proven against:
 
