@@ -29,16 +29,16 @@ Rollup channels let a Zone compute its state off chain and settle it on chain wi
 
 ## Rollup Operations
 
-A rollup channel is a channel whose state follows a state transition function (STF), a Groth16 circuit its creator chooses. Its sequencers take turns, following the [round-robin](bedrock-mantle-channels.md#decentralized-sequencing) of every channel, to post the data of its state transitions with [`ROLLUP_INSCRIBE`](#rollup_inscribe). Anyone then proves these inscriptions with [`ROLLUP_PROVE`](#rollup_prove), one at a time and in the order they were inscribed. Each proof is a step of the rollup: a proof of its STF takes the rollup from its state root to the next one, and the step mints pending [deposits](#rollup_deposit), moves the notes of the rollup and pays some of them out to the ledger. The proven prefix of the inscriptions is the finalized state of the rollup, and the inscriptions after it wait for their steps. A step reads the slot of the block that included its inscription, so a rollup can depend on time while every prover knows the inputs of a step as soon as its inscription is in a block.
+A rollup channel is a channel whose state follows a state transition function (STF), a Groth16 circuit its creator chooses. Its sequencers take turns, following the [round-robin](bedrock-mantle-channels.md#decentralized-sequencing) of every channel, to post the data of its state transitions with [`ROLLUP_INSCRIBE`](#rollup_inscribe). Anyone then proves these inscriptions with [`ROLLUP_PROVE`](#rollup_prove), one at a time and in the order they were inscribed. Each proof is a step of the rollup, the application of one inscription by `ROLLUP_PROVE`: a proof of its STF takes the rollup from its state root to the next one, and the step mints pending [deposits](#rollup_deposit), moves the notes of the rollup and pays some of them out to the ledger. The proven prefix of the inscriptions is the proven state of the rollup, and the inscriptions after it wait for their steps. A step reads the slot of the block that included its inscription, so a rollup can depend on time while every prover knows the inputs of a step as soon as its inscription is in a block.
 
-**What the ledger checks.** The notes of a rollup live in a note set of their own, which only `ROLLUP_PROVE` spends ([Ledger](bedrock-mantle-specification.md#ledger)). Each transfer of a step is a [ZkTransfer](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) with an `excess_value` of `0`, so whatever the STF, the ledger checks that a step keeps the value of the notes it moves and spends no note twice. A faulty STF can give the funds of its rollup to the wrong users but never create value, so the notes of a rollup take part in Proof of Stake as safely as ledger notes. The STF proof decides who gets what: which deposits a step mints, and which notes its transfers consume, create and pay out.
+**What the ledger checks.** The notes of a rollup live in a note set of their own, which only `ROLLUP_PROVE` spends ([Ledger](bedrock-mantle-specification.md#ledger)). Each transfer of a step is a [ZkTransfer](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) with an `excess_value` of `0`, so whatever the STF, the ledger checks that a step keeps the value of the notes it moves and spends no note twice. A faulty STF can give the funds of its rollup to the wrong users but never create value, so the notes of a rollup take part in Proof of Stake as safely as ledger notes. A rollup whose funds take part in Proof of Stake should give the notes its transfers create the staking keys of their users, and never `PK0` ([Keys](bedrock-mantle-specification.md#keys)), since the deposit note of a step has staking key `0`. The STF proof decides who gets what: which deposits a step mints, and which notes its transfers consume, create and pay out.
 
-**Sequencers can only delay.** No signature reconfigures a rollup channel: each step carries the next accredited keys and rotation parameters of the rollup, which its STF proof covers, so only the rules of the STF change who sequences the rollup. The round-robin hands the turn to the next accredited key when the timeframe or the timeout of a sequencer elapses, so a sequencer that refuses to inscribe a transition only delays it until a sequencer that accepts it takes its turn, provided the configuration of the rollup sets a timeframe; a timeout alone replaces only a sequencer that inscribes nothing. Anyone posts the steps, so no party can hold back the proof of an inscription.
+**Sequencers can only delay.** No signature reconfigures a rollup channel: each step carries the next accredited keys and rotation parameters of the rollup, which its STF proof covers, so only the rules of the STF change who sequences the rollup. The round-robin hands the turn to the next accredited key when the timeframe or the timeout of a sequencer elapses, so a sequencer that refuses to inscribe a transition only delays it until a sequencer that accepts it takes its turn, provided the configuration of the rollup sets a timeframe; a timeout alone replaces only a sequencer that inscribes nothing. Anyone posts the steps, so no party can hold back the proof of an inscription, and a step applies exactly the data its sequencer inscribed when the STF circuit recomputes the `op_id` of that inscription, as [STF Verification Key](#stf-verification-key) recommends.
 
 **Recommendations.** The ledger leaves the following choices to the rollup, and they are recommended to a rollup that wants any prover to be able to prove it:
 
 - Hold the notes of the rollup by `PK0` ([Keys](bedrock-mantle-specification.md#keys)), the public key whose secret key everyone knows, so that no step depends on a key one party holds.
-- Make a step depend only on its inscription and on the state before it, so that every prover computes the same step from public data.
+- Make a step depend only on its inscription, which the STF circuit reads through the `op_id` of the inscription ([STF Verification Key](#stf-verification-key)), and on the state before it, so that every prover computes the same step from public data.
 - Credit every minted deposit in the state of the rollup as its intent asks, since the ledger merges the deposits a step mints into one note and leaves their accounting to the STF.
 - Pay the provers inside the rollup, since the ledger pays nothing for a step and its prover pays the fees of its Mantle Transaction.
 - Publish what lets a prover recompute the notes of the rollup, such as their openings or the data they derive from, since a ZkTransfer consuming a note takes its opening.
@@ -64,7 +64,7 @@ class PendingDeposit:
     intent: zkhash     # the hash of what the depositor expects from the rollup
 ```
 
-A pending deposit waits in `deposits` until a step mints it. A step proves only the oldest entry of `unproven`, so every step starts from the state root the previous step left, and the finalized state of the rollup is always a prefix of its inscriptions.
+A pending deposit waits in `deposits` until a step mints it. A step proves only the oldest entry of `unproven`, so every step starts from the state root the previous step left, and the proven state of the rollup is always a prefix of its inscriptions.
 
 ### STF Verification Key
 
@@ -84,6 +84,8 @@ class Groth16StoredKey:
 `G1` and `G2` are points of the groups of BN254 of these names, and `alpha`, `beta`, `gamma`, `delta` and `ic` are the points of a [Groth16](common-cryptographic-components.md#groth16-zk-snark) verification key.
 
 An STF proof always has five public inputs: the state root of the rollup, its next state root, the `op_id` of the inscription it proves, the slot of the block that included that inscription, and `effects_hash`, the hash of the effects of the step ([`ROLLUP_PROVE`](#rollup_prove)). Since the size of a Groth16 verification key depends only on its number of public inputs, every rollup key has the same size, and the ledger stores and verifies the key of every rollup the same way.
+
+A rollup that applies the data of its inscriptions should have its STF circuit recompute the `op_id` it takes as its third public input from the encoded [`RollupInscribe`](#rollup_inscribe) it applies, so that its proof covers exactly the data, parent and signer its sequencer inscribed. The circuit then hashes the inscription with BLAKE2b, over up to [`MAX_OPERATION_DATA_SIZE`](mantle-transaction-encoding.md#channel-operations) bytes of data.
 
 `Groth16_verify(key, public_inputs, proof)` verifies a [Groth16](common-cryptographic-components.md#groth16-zk-snark) proof against a verification key, given with the pairing $`e(\alpha, \beta)`$ stored with it, and its public inputs. `pairing(P, Q)` is the optimal ate pairing of BN254, from $`\mathbb{G}_1 \times \mathbb{G}_2`$ to $`\mathbb{G}_T`$, the subgroup of order $`p`$ of $`\mathbb{F}_{q^{12}}^*`$, $`q`$ being the modulus of the base field of BN254, whose elements take 384 bytes.
 
@@ -179,7 +181,7 @@ The pairing $`e(\alpha, \beta)`$, an element of $`\mathbb{G}_T`$ of 384 bytes, i
 
 Write the data of a state transition to a rollup channel, the data being permanently stored on the Logos Blockchain. The current sequencer of the rollup posts it, extending the tip of the channel as an inscription of a native channel does, and the inscription joins the unproven inscriptions of the rollup, which its steps prove in that order.
 
-The ledger does not read the data of the inscription: the STF does. A rollup should let its STF prove, for an inscription it cannot apply, a step that mints no deposit, makes no transfer and keeps its state root, so that the inscription does not block the ones after it.
+The ledger does not read the data of the inscription: the STF does, through its `op_id` ([STF Verification Key](#stf-verification-key)). A rollup should let its STF prove, for an inscription it cannot apply, a step that mints no deposit, makes no transfer and keeps its state root, so that the inscription does not block the ones after it.
 
 #### Payload
 
@@ -285,7 +287,7 @@ The slot of the block is recorded with the [`op_id`](bedrock-mantle-specificatio
 
 Deposit value into a rollup channel. The deposit consumes notes of the ledger note set and creates no note: it records a [pending deposit](#rollup-state) of its value and its intent in the `deposits` of the rollup, under its [`op_id`](bedrock-mantle-specification.md#note-commitment-and-nullifier), until a [`ROLLUP_PROVE`](#rollup_prove) mints it into the note set of the rollup.
 
-A deposit waits until a step chosen by the sequencers of the rollup mints it, and the ledger never refunds it, so the STF decides when the rollup takes it in. Its ZkTransfer has no outputs, so the change of the depositor comes from a [Transfer](bedrock-mantle-specification.md#transfer) earlier in the same Mantle Transaction, which splits off the value to deposit into notes the deposit then consumes.
+A deposit waits until a step chosen by the sequencers of the rollup mints it, and the ledger never refunds it, so the STF decides when the rollup takes it in. Its ZkTransfer has no outputs, so the change of the depositor comes from a [Transfer](bedrock-mantle-specification.md#transfer) earlier in the same Mantle Transaction, which splits off the value to deposit into notes the deposit then consumes. The ledger keeps only the value and intent of a deposit: its inscription publishes data for the zone, which its `intent` can commit to.
 
 #### Payload
 
@@ -412,7 +414,7 @@ Each `RollupTransfer` is a [ZkTransfer](bedrock-mantle-specification.md#zero-kno
 
 The step that [`ROLLUP_INSCRIBE`](#rollup_inscribe) recommends for an inscription the STF cannot apply, with no deposit, no transfer and the same state root, is valid: every transfer consumes at least one note, as `assert_spendable` requires, but a step can have no transfer.
 
-The STF proof covers the effects of the step through `effects_hash`, its fifth public input: the value and intent of every minted deposit, in the order of `deposits`, the inputs, outputs and payouts of every transfer, and the digest of the next configuration. The configuration digest is a BLAKE2b-256 hash, under the DST `ROLLUP_CONFIG_V1`, of the encoded next accredited keys, rotation parameters and optional verification key, as the [`RollupProve`](mantle-transaction-encoding.md#rollup-operations) of the encoding encodes them, reduced modulo $`p`$ as `op_id` is. A rollup should keep the digest of its configuration in its state, so that its STF circuit compares the digest the ledger computes with the one its next state holds and never recomputes BLAKE2b, its transactions approving any change of the digest.
+The STF proof covers the effects of the step through `effects_hash`, its fifth public input: the value and intent of every minted deposit, in the order of `deposits`, the inputs, outputs and payouts of every transfer, and the digest of the next configuration. The configuration digest is a BLAKE2b-256 hash, under the DST `ROLLUP_CONFIG_V1`, of the encoded next accredited keys, rotation parameters and optional verification key, as the [`RollupProve`](mantle-transaction-encoding.md#rollup-operations) of the encoding encodes them, reduced modulo $`p`$ as `op_id` is. A rollup should keep the digest of its configuration in its state, so that its STF circuit compares the digest the ledger computes with the one its next state holds and never recomputes the configuration digest, its transactions approving any change of the digest.
 
 ```python
 def rollup_config_digest(keys: list[Ed25519PublicKey],
@@ -625,4 +627,4 @@ block_slot: Slot
           chan.posting_timeout = prove.posting_timeout
       ```
 
-A step that keeps the configuration leaves the turn to the rotation of the sequencers, so the steps themselves never pin the turn to one sequencer.
+A step that keeps the configuration leaves the turn to the rotation of the sequencers, so the steps themselves never pin the turn to one sequencer. A change of configuration applies from the block of its step, not from the block of its inscription: the inscriptions after `k` that come before that step are signed under the current keys, and a sequencer a step removes stays accredited until that step is proven.
