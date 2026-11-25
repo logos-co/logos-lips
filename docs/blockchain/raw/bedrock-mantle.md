@@ -446,8 +446,8 @@ The notes live in note sets, each with its own commitment MMR and nullifier IMT.
 | --- | --- | --- | --- |
 | Ledger | `LEDGER_SET = 0` | the notes of transfers, rewards and withdrawals | Transfers, deposits and declarations |
 | SDP | `SDP_SET = 1` | service notes | the Withdraw Operation of their declaration |
-| Native channel | `2` onward, one per native or rollup channel in the order the channels were created, the null channel having none | channel notes | the steps of the channel's inscriptions, and withdrawals |
-| Rollup channel | its place in the sequence above, taken at its creation | the notes of the rollup | the [`ROLLUP_PROVE`](bedrock-mantle-rollups.md#rollup_prove) Operations of the rollup only |
+| Native channel | `2` onward, shared with rollup channels in the order the channels were created, the null channel having none | channel notes | the steps of the channel's inscriptions, and withdrawals |
+| Rollup channel | `2` onward, shared with native channels in the order the channels were created | the notes of the rollup | the [`ROLLUP_PROVE`](bedrock-mantle-rollups.md#rollup_prove) Operations of the rollup only |
 
 Two parameters fix the trees of a note set and how long their roots can be proven against:
 

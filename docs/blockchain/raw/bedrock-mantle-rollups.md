@@ -33,11 +33,11 @@ A rollup channel is a channel whose state follows a state transition function (S
 
 **What the ledger checks.** The notes of a rollup live in a note set of their own, which only `ROLLUP_PROVE` spends ([Ledger](bedrock-mantle-specification.md#ledger)). Each transfer of a step is a [ZkTransfer](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) with an `excess_value` of `0`, so whatever the STF, the ledger checks that a step keeps the value of the notes it moves and spends no note twice. A faulty STF can give the funds of its rollup to the wrong users but never create value, so the notes of a rollup take part in Proof of Stake as safely as ledger notes. The STF proof decides who gets what: which deposits a step mints, and which notes its transfers consume, create and pay out.
 
-**Sequencers can only delay.** No signature reconfigures a rollup channel: each step carries the next accredited keys and rotation parameters of the rollup, which its STF proof covers, so only the rules of the STF change who sequences the rollup. The round-robin hands the turn to the next accredited key when the timeframe or the timeout of a sequencer elapses, so a sequencer that refuses to inscribe a transition only delays it until a sequencer that accepts it takes its turn, provided the configuration of the rollup sets a timeframe or a timeout. Anyone posts the steps, so no party can hold back the proof of an inscription.
+**Sequencers can only delay.** No signature reconfigures a rollup channel: each step carries the next accredited keys and rotation parameters of the rollup, which its STF proof covers, so only the rules of the STF change who sequences the rollup. The round-robin hands the turn to the next accredited key when the timeframe or the timeout of a sequencer elapses, so a sequencer that refuses to inscribe a transition only delays it until a sequencer that accepts it takes its turn, provided the configuration of the rollup sets a timeframe; a timeout alone replaces only a sequencer that inscribes nothing. Anyone posts the steps, so no party can hold back the proof of an inscription.
 
 **Recommendations.** The ledger leaves the following choices to the rollup, and they are recommended to a rollup that wants any prover to be able to prove it:
 
-- Hold the notes of the rollup by `PK0` ([Keys](bedrock-mantle-specification.md#keys)), the public key every prover can spend with, so that no step depends on a key one party holds.
+- Hold the notes of the rollup by `PK0` ([Keys](bedrock-mantle-specification.md#keys)), the public key whose secret key everyone knows, so that no step depends on a key one party holds.
 - Make a step depend only on its inscription and on the state before it, so that every prover computes the same step from public data.
 - Credit every minted deposit in the state of the rollup as its intent asks, since the ledger merges the deposits a step mints into one note and leaves their accounting to the STF.
 - Pay the provers inside the rollup, since the ledger pays nothing for a step and its prover pays the fees of its Mantle Transaction.
@@ -179,7 +179,7 @@ The pairing $`e(\alpha, \beta)`$, an element of $`\mathbb{G}_T`$ of 384 bytes, i
 
 Write the data of a state transition to a rollup channel, the data being permanently stored on the Logos Blockchain. The current sequencer of the rollup posts it, extending the tip of the channel as an inscription of a native channel does, and the inscription joins the unproven inscriptions of the rollup, which its steps prove in that order.
 
-The ledger does not read the data of the inscription: the STF does. A rollup should prove an inscription its STF rejects with a step that mints no deposit, makes no transfer and keeps its state root, so that the inscription does not block the ones after it.
+The ledger does not read the data of the inscription: the STF does. A rollup should let its STF prove, for an inscription it cannot apply, a step that mints no deposit, makes no transfer and keeps its state root, so that the inscription does not block the ones after it.
 
 #### Payload
 
