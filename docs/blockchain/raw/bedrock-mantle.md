@@ -179,7 +179,7 @@ channels: dict[ChannelId, ChannelState]
 
 The state validation reads is not a fixed snapshot: it advances as the block is processed. A Mantle Transaction is validated against the state left by the Mantle Transactions preceding it in the block, as defined in [Block Proposal Validation](bedrock-block-construction.md#block-proposal-validation), and validation and execution then follow one another Operation by Operation, in the order the Operations appear: the Operation at index `i` is validated against the state the Operations at indices `0` to `i-1` left, then executed to produce the state the Operation at index `i+1` is validated against. This is what the `ledger`, `channels` and `declarations` given to each Operation denote.
 
-The commitment MMRs of the [note sets](#ledger) that some Operations are proven against follow the same Operation by Operation progression, but locally to the Mantle Transaction. Every Operation adding notes to the ledger note set or to a channel note set appends their commitments to the buffer of that set for the Mantle Transaction, its `tx_commitment_buffer`, when validated, and every Operation referencing a commitment MMR root of a set references the root of that set at one of the last [`ROOT_WINDOW`](#ledger) blocks, against which it is verified once the buffer of the set is appended to it. A channel step, proven before the Mantle Transaction exists, is verified against its root extended with the buffer as it stands when its mini-block starts, so that its proof depends on what precedes its mini-block and not on its position inside it ([CHANNEL_INSCRIBE](bedrock-mantle-channels.md#channel_inscribe)). `SDP_WITHDRAW` references no root: its proof is verified against the root of an MMR holding only the service note of its declaration ([SDP_WITHDRAW](bedrock-service-declaration-protocol.md#sdp_withdraw)). `ROLLUP_PROVE` references no root either: its transfers are verified against the commitment MMR of the note set of its rollup as it stands, which only that Operation appends to, and add nothing to the buffer of that set ([ROLLUP_PROVE](bedrock-mantle-rollups.md#rollup_prove)). An Operation can therefore consume the outputs of a previous Operation of the same Mantle Transaction without waiting for a block to include them.
+The commitment MMRs of the [note sets](#ledger) that some Operations are proven against follow the same Operation by Operation progression, but locally to the Mantle Transaction. Every Operation adding notes to the ledger note set or to a channel note set appends their commitments to the buffer of that set for the Mantle Transaction, its `tx_commitment_buffer`, when validated, and every Operation referencing a commitment MMR root of a set references the root of that set at one of the last [`ROOT_WINDOW`](#ledger) blocks, against which it is verified once the buffer of the set is appended to it. A channel step, proven before the Mantle Transaction exists, is verified against its root extended with the buffer as it stands when its mini-block starts, so that its proof depends on what precedes its mini-block and not on its position inside it ([CHANNEL_INSCRIBE](bedrock-mantle-channels.md#channel_inscribe)). `SDP_WITHDRAW` references no root: its proof is verified against the root of an MMR holding only the service note of its declaration ([SDP_WITHDRAW](bedrock-service-declaration-protocol.md#sdp_withdraw)). `ROLLUP_PROVE` references no root either: its transfers are verified against the commitment MMR of the note set of its rollup as it stands, which only that Operation appends to, and it adds nothing to the buffer of that set ([ROLLUP_PROVE](bedrock-mantle-rollups.md#rollup_prove)). An Operation can therefore consume the outputs of a previous Operation of the same Mantle Transaction without waiting for a block to include them.
 
 Atomicity is what a failed check means, not simultaneity. If any of the checks below fails, the whole Mantle Transaction is invalid: none of its Operations takes effect, whether or not it was reached. An invalid Mantle Transaction is never skipped over either, the block including it being invalid and nothing of that block being executed.
 
@@ -198,7 +198,7 @@ Mantle validators will ensure the following:
         assert op.opcode in MANTLE_OPCODES
         validate_mantle_op(mantle_txhash(tx), op.opcode, op.payload, op_proof)
         tx_execution_gas = checked_uint64(tx_execution_gas + execution_gas(op, ledger, channels))
-        # the excess of the ZkTransfer of these Operations pays the fees
+        # the excess_value of these Operations pays the fees
         if op.opcode in (TRANSFER, CHANNEL_DEPOSIT, ROLLUP_DEPOSIT, SDP_WITHDRAW):
             tx_balance = checked_uint64(tx_balance + op.payload.excess_value)
         execute_mantle_op(op.opcode, op.payload)
@@ -261,7 +261,13 @@ Each Operation is specified in the document of its protocol, and this table, the
 | [SDP_ACTIVE](bedrock-service-declaration-protocol.md#sdp_active) | 0x22 | Signal that you are still an active participant of a Bedrock Service. |
 | *RESERVED* | *0x23 - 0x2F* |  |
 | [CLAIM_POW_REWARD](proof-of-work.md#claim_pow_reward) | 0x30 | Claim a reward from the pow reward pool. |
-| *RESERVED* | *0x31 - 0xFF* |  |
+| *RESERVED* | *0x31 - 0x3F* |  |
+| [ROLLUP_CREATE](bedrock-mantle-rollups.md#rollup_create) | 0x40 | Create a rollup channel with the verification key of its state transition function. |
+| [ROLLUP_INSCRIBE](bedrock-mantle-rollups.md#rollup_inscribe) | 0x41 | Write the data of a state transition onto a rollup channel. |
+| [ROLLUP_DEPOSIT](bedrock-mantle-rollups.md#rollup_deposit) | 0x42 | Deposit notes into a rollup channel, pending until a step mints them. |
+| [ROLLUP_PROVE](bedrock-mantle-rollups.md#rollup_prove) | 0x43 | Apply the oldest unproven inscription of a rollup channel with a proven step. |
+| *RESERVED* | *0x44 - 0x4F* |  |
+| *RESERVED* | *0x50 - 0xFF* |  |
 
 ## Ledger Operations
 
@@ -664,6 +670,8 @@ From the [[Analysis\] Gas Cost Determination](analysis-gas-cost-determination.md
 | EXECUTION_SDP_WITHDRAW_GAS | 678 |
 | EXECUTION_SDP_ACTIVE_GAS | 59 |
 | EXECUTION_CLAIM_POW_REWARD_GAS | 0 |
+| EXECUTION_ROLLUP_KEY_GAS | 1896 |
+| EXECUTION_ROLLUP_PROOF_GAS | 2451 |
 
 ## Zero Knowledge Transfer Proof (ZkTransfer)
 
@@ -677,7 +685,8 @@ class ZkTransferPublic:
     outputs_active: list[boolean]   # (len = 8) whether each output creates a note
     excess_value: TokenValue        # the value of the inputs left over by the outputs
     tx_commitment_root: MerkleRoot  # the referenced commitment_root extended with the tx_commitment_buffer of the set,
-                                    # or the commitments before its mini-block for a channel step
+                                    # or the commitments before its mini-block for a channel step,
+                                    # the live MMR of the rollup note set for ROLLUP_PROVE and the single-note MMR for SDP_WITHDRAW
     msg: zkhash                     # the message the proof is bound to
 ```
 

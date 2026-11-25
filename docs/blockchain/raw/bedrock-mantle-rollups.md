@@ -285,7 +285,7 @@ The slot of the block is recorded with the [`op_id`](bedrock-mantle-specificatio
 
 Deposit value into a rollup channel. The deposit consumes notes of the ledger note set and creates no note: it records a [pending deposit](#rollup-state) of its value and its intent in the `deposits` of the rollup, under its [`op_id`](bedrock-mantle-specification.md#note-commitment-and-nullifier), until a [`ROLLUP_PROVE`](#rollup_prove) mints it into the note set of the rollup.
 
-A deposit waits until a step chosen by the sequencers of the rollup mints it, and the ledger never refunds it, so the STF alone decides when the rollup takes it in. Its ZkTransfer has no outputs, so the change of the depositor comes from a [Transfer](bedrock-mantle-specification.md#transfer) earlier in the same Mantle Transaction, which splits off the value to deposit into notes the deposit then consumes.
+A deposit waits until a step chosen by the sequencers of the rollup mints it, and the ledger never refunds it, so the STF decides when the rollup takes it in. Its ZkTransfer has no outputs, so the change of the depositor comes from a [Transfer](bedrock-mantle-specification.md#transfer) earlier in the same Mantle Transaction, which splits off the value to deposit into notes the deposit then consumes.
 
 #### Payload
 
@@ -412,7 +412,7 @@ Each `RollupTransfer` is a [ZkTransfer](bedrock-mantle-specification.md#zero-kno
 
 The step that [`ROLLUP_INSCRIBE`](#rollup_inscribe) recommends for an inscription the STF cannot apply, with no deposit, no transfer and the same state root, is valid: every transfer consumes at least one note, as `assert_spendable` requires, but a step can have no transfer.
 
-The STF proof covers the effects of the step through `effects_hash`, its fifth public input: the value and intent of every minted deposit, in the order of `deposits`, the inputs, outputs and payouts of every transfer, and the digest of the next configuration. The configuration digest is a BLAKE2b-256 hash, under the DST `ROLLUP_CONFIG_V1`, of the encoded next accredited keys, rotation parameters and optional verification key, as the `RollupProve` of the encoding encodes them, reduced modulo $`p`$ as `op_id` is. A rollup should keep the digest of its configuration in its state, so that its STF circuit compares the digest the ledger computes with the one its state holds and never recomputes BLAKE2b, a change of configuration entering the state as a digest the transactions of the rollup approve.
+The STF proof covers the effects of the step through `effects_hash`, its fifth public input: the value and intent of every minted deposit, in the order of `deposits`, the inputs, outputs and payouts of every transfer, and the digest of the next configuration. The configuration digest is a BLAKE2b-256 hash, under the DST `ROLLUP_CONFIG_V1`, of the encoded next accredited keys, rotation parameters and optional verification key, as the `RollupProve` of the encoding encodes them, reduced modulo $`p`$ as `op_id` is. A rollup should keep the digest of its configuration in its state, so that its STF circuit compares the digest the ledger computes with the one its next state holds and never recomputes BLAKE2b, its transactions approving any change of the digest.
 
 ```python
 def rollup_config_digest(keys: list[Ed25519PublicKey],

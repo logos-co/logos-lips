@@ -82,9 +82,15 @@ SDP_DECLARE_GAS               = 678
 SDP_WITHDRAW_GAS              = 678
 SDP_ACTIVE_GAS                = 59
 CLAIM_POW_REWARD_GAS          = 0
+ROLLUP_CREATE_GAS             = ROLLUP_KEY_GAS
+ROLLUP_INSCRIBE_GAS           = 59
+ROLLUP_DEPOSIT_GAS            = 619
+ROLLUP_PROVE_GAS              = 619 * transfers + ROLLUP_PROOF_GAS (+ ROLLUP_KEY_GAS with a next key)
+ROLLUP_KEY_GAS                = 1896
+ROLLUP_PROOF_GAS              = 2451
 ```
 
-where `steps` is the number of [steps](bedrock-mantle-channels.md#channel_inscribe) of the inscription, a step being a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer.
+where `steps` is the number of [steps](bedrock-mantle-channels.md#channel_inscribe) of the inscription, a step being a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer, and `transfers` is the number of [transfers](bedrock-mantle-rollups.md#rollup_prove) of a `ROLLUP_PROVE`, each a ZkTransfer moving notes of the rollup note set.
 
 These values come from our implementation observations as described in [Gas determination from measures](#gas-determination-from-measures).  To get these numbers, we based our calculations on the following measures:
 
@@ -92,6 +98,10 @@ These values come from our implementation observations as described in [Gas dete
 | --- | --- |
 | ZkTransfer batch verification of `n` proofs (27 public inputs) | 3,540,612 + n x 618,797 |
 | Eddsa25519 signature verification | 59,200 |
+| STF proof verification, alone (measured with 3 public inputs) | 2,221,544 |
+| Line coefficients of `-γ` and `-δ` of a verification key | 228,669 |
+| Subgroup checks of the 3 G2 points of a verification key | 573,324 |
+| Pairing `e(α, β)` of a verification key | 1,322,111 |
 
 Comparison, list searching, hashes and operation in small fields are neglected. The ZkTransfer proofs of a block are verified in one batch, whose cost is a fixed part plus a part proportional to the number of proofs. The fixed part is paid by everyone and deducted from the block directly, through the Execution Gas limit of the block ([Execution Fee Market](overview-cryptoeconomics.md#execution-fee-market)). The user then pays only for the part that is proportional to the number of proofs.
 
@@ -123,7 +133,7 @@ Execution: negligible.
 
 ## Channel Inscription
 
-The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, checking the chaining sequence of the channel, and verifying the ZkTransfer of each step. The execution encompasses creating channel records (if not previously used), applying the steps to the channel note set and updating the tip of the channel.
+The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, checking the chaining sequence of the channel, and verifying the ZkTransfer of each step. The execution encompasses applying the steps to the channel note set and updating the tip of the channel.
 
 Execution: ~59k CPU cycles + ~619k CPU cycles * steps.
 
@@ -222,6 +232,50 @@ Execution: negligible.
 
 A claim is intended to pay its own fee out of the reward it creates. The claim adds no Execution Gas to that fee, so the floor the per-claim reward must clear is set by the Permanent Storage fee of the transaction and the Execution Gas of the Transfer spending the reward note.
 
+## Rollup Create
+
+The validation checks that every point of the verification key is on its curve, in its prime-order subgroup and not the point at infinity. The execution computes the pairing `e(α, β)` of the key, stores both, and creates the channel with its note set.
+
+Execution: ~1,896k CPU cycles.
+
+- Subgroup checks of the 3 G2 points: 573,324 cycles.
+- Curve checks of the 7 G1 points and of the 3 G2 points: part of their decompression, not counted.
+- Pairing `e(α, β)`: 1,322,111 cycles.
+- Storage of the key and creation of the channel and of its note set: negligible.
+
+## Rollup Inscription
+
+The validation verifies an Eddsa25519 signature, confirms that the signer is the current sequencer of the rollup channel and checks the chaining sequence of the channel. The execution updates the tip of the channel and queues the inscription for its step.
+
+Execution: ~59k CPU cycles.
+
+- Verification of the Ed25519 signature: 59,200 cycles.
+- Verification of the signer and of channel sequencing: negligible.
+- Update of the channel state and queueing of the inscription: negligible.
+
+## Rollup Deposit
+
+The Execution Gas of the Rollup Deposit Operation compensates for the verification of the [ZkTransfer](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proof and for the check of the inputs.
+
+Execution: ~619k CPU cycles.
+
+- Verification of the ZkTransfer in the batch of the block: 618,797 cycles.
+- Verification that the nullifiers are not in the set: negligible.
+- Insertion of the nullifiers in the nullifier set: negligible.
+- Recording of the pending deposit: negligible.
+
+## Rollup Prove
+
+The validation verifies the ZkTransfer of each transfer of the step and the STF proof of the rollup, and checks the next configuration and, if the step carries one, the next verification key. The execution mints the deposits, applies the transfers and stores the next state root, configuration and key.
+
+Execution: ~619k CPU cycles * transfers + ~2,451k CPU cycles, plus ~1,896k CPU cycles with a next verification key.
+
+- Verification of the ZkTransfer of each transfer in the batch of the block: 618,797 cycles per transfer.
+- Verification of the STF proof: a single Groth16 verification under the key of its rollup, which cannot share the batch of another rollup, with the line coefficients of `-γ` and `-δ` computed from the stored key: 2,221,544 + 228,669 = 2,450,213 cycles ([Groth16 Proof Verification Alone](#groth16-proof-verification-alone)).
+- Subgroup checks of the next verification key and its pairing `e(α, β)`, when the step carries one: 573,324 + 1,322,111 = 1,895,435 cycles.
+- Verification that the minted deposits are pending and that the nullifiers are not in the set, and derivation of the configuration digest and of the effects hash: negligible.
+- Insertion of the nullifiers, appending of the commitments and update of the rollup state: negligible.
+
 # Annex
 
 ## Gas determination from measures
@@ -298,3 +352,33 @@ Fitted model:
 ![Groth16 batch verification: cycles per proof against the batch size, measured and fitted](analysis-gas-cost-determination/assets/groth16_batch_verification.png)
 
 The cost per proof, `A(N) / n + P`, decreases with the size of the batch towards `P`. The marginal cost of a proof is higher in small batches, about 820k cycles from 1 to 2 proofs, and settles at about 607k cycles from 64 proofs; the fitted `P` lies between the two.
+
+### Groth16 Proof Verification Alone
+
+Each STF proof is verified alone under the key of its rollup, with the verifier of the node for a single proof, `groth16_verify`. That verifier runs three Miller loops and compares their product to `e(α, β)`, stored with the key of the rollup ([Verification Key Validation](#verification-key-validation)), and folds the public inputs with one scalar multiplication each, about 140k cycles per input, where a batch computes one MSM. It is cheaper than a batch of one proof below about 12 public inputs, and more expensive above, which is why the ZkTransfer proofs are always verified in batch.
+
+Measured with the same method as the batch verification:
+
+| N | `groth16_verify` | Batch of one proof |
+| --- | --- | --- |
+| 3 | 2,221,544 | 3,114,519 |
+| 8 | 2,903,506 | 3,342,518 |
+| 27 | 5,550,916 | 4,041,187 |
+| 29 | 5,846,481 | 4,113,633 |
+
+An STF proof has 5 public inputs, and its verification is priced from the measure with 3, on a prepared key: 2,221,544 cycles, to which the line coefficients of `-γ` and `-δ`, 228,669 cycles, are added since the ledger does not store them ([Verification Key Validation](#verification-key-validation)): 2,450,213 cycles.
+
+### Verification Key Validation
+
+A [`ROLLUP_CREATE`](bedrock-mantle-rollups.md#rollup_create), and a [`ROLLUP_PROVE`](bedrock-mantle-rollups.md#rollup_prove) carrying a next verification key, carry a Groth16 verification key of 7 G1 points and 3 G2 points. A G1 point on the curve of BN254 is in its prime-order subgroup, while a G2 point needs a subgroup check of its own: measured with the same method, in the release build, the 3 G2 subgroup checks (`is_in_correct_subgroup_assuming_on_curve`) take 573,324 cycles. The curve checks are part of the decompression of the points, which is the same for every key and every proof and is not counted.
+
+The verification of a proof also needs the key prepared: the pairing `e(α, β)` and the line coefficients of the pairings with `-γ` and `-δ`, which depend on the key alone. The measure of the proof verification above runs on a key prepared beforehand:
+
+| Work | CPU cycles |
+| --- | --- |
+| Preparation of a key with 3 public inputs (`into_prepared`) | 1,704,632 |
+| of which `e(α, β)` | 1,322,111 |
+| of which the line coefficients of `-γ` and `-δ` | 228,669 |
+| Preparation followed by the verification of one proof | 4,062,923 |
+
+The ledger computes `e(α, β)`, the costliest part, once when it stores a key, and stores it with the key: 384 bytes. The line coefficients would take tens of kilobytes of ledger state per rollup, so each STF proof computes them, for 228,669 cycles. The storage of a key is priced from the 3 G2 subgroup checks and the pairing `e(α, β)`, 573,324 + 1,322,111 = 1,895,435 cycles, and the STF proof from its verification and the line coefficients, 2,221,544 + 228,669 = 2,450,213 cycles.
