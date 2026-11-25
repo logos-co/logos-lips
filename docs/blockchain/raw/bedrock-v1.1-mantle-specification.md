@@ -176,7 +176,7 @@ ledger: Ledger
 channels: dict[ChannelId, ChannelState]
 ```
 
-The state validation reads is not a fixed snapshot: it advances as the block is processed. A Mantle Transaction is validated against the state left by the Mantle Transactions preceding it in the block, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), and validation and execution then follow one another Operation by Operation, in the order the Operations appear: the Operation at index `i` is validated against the state the Operations at indices `0` to `i-1` left, then executed to produce the state the Operation at index `i+1` is validated against. This is what the `ledger`, `channels` and `declarations` given to each Operation below denote.
+The state validation reads is not a fixed snapshot: it advances as the block is processed. A Mantle Transaction is validated against the state left by the Mantle Transactions preceding it in the block, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation), and validation and execution then follow one another Operation by Operation, in the order the Operations appear: the Operation at index `i` is validated against the state the Operations at indices `0` to `i-1` left, then executed to produce the state the Operation at index `i+1` is validated against. This is what the `ledger`, `channels` and `declarations` given to each Operation denote.
 
 The commitment MMRs of the [note sets](#ledger) that some Operations are proven against follow the same Operation by Operation progression, but locally to the Mantle Transaction. Every Operation adding notes to the ledger note set or to a channel note set appends their commitments to the buffer of that set for the Mantle Transaction, its `tx_commitment_buffer`, when validated, and every Operation referencing a commitment MMR root of a set references the root of that set at one of the last [`ROOT_WINDOW`](#ledger) blocks, against which it is verified once the buffer of the set is appended to it. A channel step, proven before the Mantle Transaction exists, is verified against its root extended with the buffer as it stands when its mini-block starts, so that its proof depends on what precedes its mini-block and not on its position inside it ([CHANNEL_INSCRIBE](bedrock-v1.1-mantle-channels.md#channel_inscribe)). `SDP_WITHDRAW` references no root: its proof is verified against the root of an MMR holding only the service note of its declaration ([SDP_WITHDRAW](bedrock-service-declaration-protocol.md#sdp_withdraw)). An Operation can therefore consume the outputs of a previous Operation of the same Mantle Transaction without waiting for a block to include them.
 
@@ -238,7 +238,7 @@ SignedMantleTx(
 )
 ```
 
-Mantle Validators execute each Operation in `ops` according to its opcode, in the order the Operations appear and along the state progression [Validation](#validation) defines. The subsections below define, for each opcode, what validating and executing an Operation amount to.
+Mantle Validators execute each Operation in `ops` according to its opcode, in the order the Operations appear and along the state progression [Validation](#validation) defines. The [Opcodes](#opcodes) table links each opcode to the section that defines what validating and executing it amount to.
 
 # Operations
 
@@ -262,13 +262,15 @@ Each Operation is specified in the document of its protocol, and this table, the
 | [CLAIM_POW_REWARD](proof-of-work.md#claim_pow_reward) | 0x30 | Claim a reward from the pow reward pool. |
 | *RESERVED* | *0x31 - 0xFF* |  |
 
-## TRANSFER
+## Ledger Operations
+
+### TRANSFER
 
 Transfer prove the correct consumption and creation of notes. Because notes aren't transparent, this is done by a ZK proof (see [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer)), proving the correctness of the transfer and outputting the excess value of the transfer balance to pay for the fees.
 
 A Transfer hides the commitments related to the nullifiers it's spending. It also hides the values and public keys of its notes behind the created commitments. It reveals the nullifiers of the notes spent, the commitments of the created notes, their amount, the commitment root it names and its `excess_value` that is the difference between the value consumed and the value created.
 
-### Payload
+#### Payload
 
 ```python
 class Transfer:
@@ -279,7 +281,7 @@ class Transfer:
     excess_value: TokenValue       # the excess to pay the fees
 ```
 
-### Proof
+#### Proof
 
   A Transfer proves the inputs, outputs and excess balance with a [Zero Knowledge Transfer Proof (ZkTransfer)](#zero-knowledge-transfer-proof-zktransfer).
 
@@ -287,11 +289,11 @@ class Transfer:
 ZkTransfer
 ```
 
-### Execution Gas
+#### Execution Gas
 
   Transfer have a fixed Execution Gas cost of `EXECUTION_TRANSFER_GAS`. See [Gas Determination](#gas-determination) for the Execution Gas values.
 
-### Validation
+#### Validation
 
   *Given*
 
@@ -325,7 +327,7 @@ ledger: Ledger
       ledger.sets[LEDGER_SET].tx_commitment_buffer.extend(transfer.outputs)
       ```
 
-### Execution
+#### Execution
 
   *Given*
 
@@ -335,7 +337,7 @@ transfer: Transfer
 ledger: Ledger
 ```
 
-  *Execution*
+  *Execute*
 
   1. Remove inputs from the ledger.
       ```python
