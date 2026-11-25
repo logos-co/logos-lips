@@ -241,7 +241,7 @@ Over 100 iterations, verifying an Eddsa25519 signature with strict verification 
 
 ### Groth16 Proof Batch Verification
 
-The ZkTransfer proofs of a block are verified in a single batch, as described in [Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs). For `n` proofs under one verification key with `N` public inputs, the batch does the following work:
+The ZkTransfer proofs of a block are verified in a single batch, as described in [Batch verification of ZK proofs](bedrock-block-construction.md#batch-verification-of-zk-proofs). For `n` proofs under one verification key with `N` public inputs, the batch does the following work:
 
 - Once per batch, whatever `n`: it folds the public inputs of all the proofs with the random coefficients `r_i`, computes one multi-scalar multiplication (MSM) over the `N + 1` input points of the key, runs the Miller loops of the three terms of the key (`α`, the folded inputs and `π_C`), and one final exponentiation.
 - Once per proof: it multiplies `π_A` by `r_i`, runs the Miller loop of `(r_i π_A, π_B)`, and adds `π_C` to an MSM over the `n` proofs.

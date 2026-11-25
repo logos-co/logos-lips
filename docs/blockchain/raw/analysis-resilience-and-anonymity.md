@@ -27,7 +27,7 @@
 
 In order to guide a design of the [Blend Network](blend-protocol.md), this document summarises parameters (and results of analysis) of the [leader election process](analysis-cryptarchia-de-anonymisation-of-relative-stake.md), [communication on trees](analysis-communication-on-trees.md) and [inference of relative stake](analysis-cryptarchia-de-anonymisation-of-relative-stake.md). In addition to this, we considered sampling of linear trees and derived conditions under which results for communication on trees can be used. Also, we analysed the probability of linking a sender node to its message which allows us to quantify the “unlinkability of block proposer.” All these parameters (and results) were used to design (and implement) the “calculator” which can be used to quantify resilience and anonymity of communication in the Blend Network.
 
-Finally, in this document we also analysed strategies which can be used to reduce anonymity failure and statistical properties of number of time-slots between two consecutive blocks in [Cryptarchia](cryptarchia-v1-protocol.md).
+Finally, in this document we also analysed strategies which can be used to reduce anonymity failure and statistical properties of number of time-slots between two consecutive blocks in [Cryptarchia](cryptarchia-protocol.md).
 
 # Analysis
 

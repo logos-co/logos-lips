@@ -124,7 +124,7 @@ The latest immutable block $`B_\text{imm}`$ is the most recent block considered 
 
 This is maintained locally by the [Chain Maintenance](#chain-maintenance) procedure. When the [Online fork choice rule](fork-choice.md) is in use, $`B_\text{imm}`$ corresponds to the $`k`$-deep block. However, it may be deeper than the $`k`$-deep block if the fork choice rule has been switched from Online to [Bootstrap](fork-choice.md). Unlike the $`k`$-deep block, $`B_\text{imm}`$ does not advance as new blocks are added unless the Online fork choice rule is used.
 
-The details of fork choice rule transitions are defined in the bootstrap spec: [Cryptarchia Bootstrapping & Synchronization](cryptarchia-v1-bootstr-sync.md)
+The details of fork choice rule transitions are defined in the bootstrap spec: [Cryptarchia Bootstrapping & Synchronization](cryptarchia-bootstr-sync.md)
 
 ## Slot
 
@@ -258,7 +258,7 @@ The specifications of how a leader can prove that they have won the lottery are 
 
 ### Leader Rewards
 
-As an incentive for producing blocks, leaders are rewarded with every block proposal. The reward is paid in the block itself, as specified in [Block Execution](bedrock-v1.1-block-construction.md#block-execution).
+As an incentive for producing blocks, leaders are rewarded with every block proposal. The reward is paid in the block itself, as specified in [Block Execution](bedrock-block-construction.md#block-execution).
 
 ## Block Chain
 
@@ -274,7 +274,7 @@ After bootstrapping we commit to the most honest looking chain we found and swit
 
 ### Block ID
 
-Block ID is defined by the hash of the block header [Block Header](#block-header), where `hash` is Blake2b as specified in [Common Cryptographic Components](common-cryptographic-components.md). The header commits to the whole block body through $`body\_root`$ (see [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#header)), so the block ID transitively commits to the uncle headers the block carries as well as to its transactions.
+Block ID is defined by the hash of the block header [Block Header](#block-header), where `hash` is Blake2b as specified in [Common Cryptographic Components](common-cryptographic-components.md). The header commits to the whole block body through $`body\_root`$ (see [Block Construction, Validation and Execution](bedrock-block-construction.md#header)), so the block ID transitively commits to the uncle headers the block carries as well as to its transactions.
 
 ```python
 def block_id(header: Header) -> hash
@@ -312,15 +312,15 @@ class ProofOfLeadership:                     # 200 bytes
 
 The proof is bound to the header by its public input `msg`, the block ID of the header (see [Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)).
 
-The field order above is the wire order defined in [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding). The [Block ID](#block-id) preimage above absorbs the `ProofOfLeadership` fields other than the proof in a different order; that is deliberate, since the preimage is a domain-separated enumeration of header fields rather than a re-serialization of the header.
+The field order above is the wire order defined in [Canonical Encoding](bedrock-block-construction.md#canonical-encoding). The [Block ID](#block-id) preimage above absorbs the `ProofOfLeadership` fields other than the proof in a different order; that is deliberate, since the preimage is a domain-separated enumeration of header fields rather than a re-serialization of the header.
 
 ### Block
 
-[Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md)
+[Block Construction, Validation and Execution](bedrock-block-construction.md)
 
 ### Uncle References
 
-A block may reference up to `MAX_UNCLES` **uncles** (see [Constants](#constants)). An uncle is a valid fork block that is not part of the chain of the referencing block but shares a common ancestor with it. A block references an uncle by carrying its full header in the `uncle_headers` field of both the block proposal and the reconstructed block ([Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#block)); the block ID of an uncle is derived from the carried header as $`\textbf{block\_id}(U)`$ and is not recorded separately. Following the list convention of the [Mantle Transaction Encoding](mantle-transaction-encoding.md) — *"Any lists are length-prefixed with fixed width uints"* — the list is serialized as a 1-byte little-endian element count followed by that many fixed-size entries (one byte suffices for the `MAX_UNCLES` bound), so it carries its own length. The header holds no uncle data of its own and is fixed-size; it commits to the carried entries through $`body\_root`$, and hence so does the [Block ID](#block-id). Any node holding a block therefore also holds the headers of the uncles it references, however it obtained that block, and cannot hold a variant of them. The size of a proposal varies with the number of referenced uncles; the indistinguishability of proposals required by the [Blend Protocol](blend-protocol.md) is preserved at the message layer instead: [Payload Formatting](payload-formatting.md) fixes every dispersed payload body to the maximum payload size `Max_Body_Length` — set from the maximum proposal size — padding shorter proposals with random data.
+A block may reference up to `MAX_UNCLES` **uncles** (see [Constants](#constants)). An uncle is a valid fork block that is not part of the chain of the referencing block but shares a common ancestor with it. A block references an uncle by carrying its full header in the `uncle_headers` field of both the block proposal and the reconstructed block ([Block Construction, Validation and Execution](bedrock-block-construction.md#block)); the block ID of an uncle is derived from the carried header as $`\textbf{block\_id}(U)`$ and is not recorded separately. Following the list convention of the [Mantle Transaction Encoding](mantle-transaction-encoding.md) — *"Any lists are length-prefixed with fixed width uints"* — the list is serialized as a 1-byte little-endian element count followed by that many fixed-size entries (one byte suffices for the `MAX_UNCLES` bound), so it carries its own length. The header holds no uncle data of its own and is fixed-size; it commits to the carried entries through $`body\_root`$, and hence so does the [Block ID](#block-id). Any node holding a block therefore also holds the headers of the uncles it references, however it obtained that block, and cannot hold a variant of them. The size of a proposal varies with the number of referenced uncles; the indistinguishability of proposals required by the [Blend Protocol](blend-protocol.md) is preserved at the message layer instead: [Payload Formatting](payload-formatting.md) fixes every dispersed payload body to the maximum payload size `Max_Body_Length` — set from the maximum proposal size — padding shorter proposals with random data.
 
 The only purpose of an uncle reference is to feed the [Total Stake Inference](#total-stake-inference), which infers the total active stake from the number of **occupied slots** — the slots in which at least one leader won the lottery. A referenced uncle is a genuine lottery win, backed by a valid Proof of Leadership, that was lost to a fork (predominantly caused by network delays); its slot was occupied, but without the reference the canonical chain would not observe it. Counting the slots of the referenced uncles alongside those of the canonical blocks recovers those occupied slots and gives a more accurate estimate of the total active stake.
 
@@ -388,7 +388,7 @@ This deterministic rule is simple and, without communication between proposers, 
 
 A referenced uncle never becomes part of the chain:
 
-- The transactions of the uncle are not executed and have no effect on the ledger state (see [Block Execution](bedrock-v1.1-block-construction.md#block-execution)).
+- The transactions of the uncle are not executed and have no effect on the ledger state (see [Block Execution](bedrock-block-construction.md#block-execution)).
 - The uncle carries no weight in the [Fork Choice Rule](fork-choice.md).
 - The uncle grants no block reward.
 
@@ -396,14 +396,14 @@ The only effect of a referenced uncle is its contribution to the [Total Stake In
 
 > **Note:** The uncle reference window spans $`W`$ expected block-intervals — $`W\cdot f^{-1}`$ slots, 360 at the default $`W=12`$ and $`f=1/30`$ — and `MAX_UNCLES` is 4. Forks are predominantly caused by network delays and resolve within a few slots, so this window comfortably captures the forks worth referencing. $`W`$ carries a **virtual upper bound** of $`\lfloor 0.6\,k \rfloor`$ — equivalently $`W\cdot f^{-1} \le 0.6\frac{k}{f} = \frac{s}{5}`$ — virtual in that no validation rule evaluates it: it constrains the choice of the constant itself, limiting the expense of lineage checking — how far back the chain of a referencing block must be reachable to verify an uncle — and any retuning of $`W`$ must stay within it. The bound keeps the window strictly inside the finalization window, which is what the proposer needs: a candidate whose parent is within the window is still present in its block tree, since only forks that diverged deeper than the latest immutable block — at most $`s`$ slots back — are pruned (see [Fork Pruning](#fork-pruning)); because the window is anchored to the parent, which is the divergence point, the two conditions are stated over the same quantity. The [Total Stake Inference](#total-stake-inference) needs no such bound: it counts only the blocks of its observation window and the uncles those blocks carry, so the count of a past window is closed once the window ends whatever the value of $`W`$, and recomputing $`N_\text{BLOCKS}`$ for a past epoch always yields the same value.
 >
-> **Note:** The validity rules are functions only of the referencing chain and the carried entry, and the headers are carried inside the blocks themselves (the `uncle_headers` field of [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#block)) — availability is structural, and referencing an uncle is inseparable from publishing its header. Every node therefore accepts exactly the same blocks and, from them, computes the same $`N_\text{BLOCKS}`$ and the same $`D`$, at any time; a bootstrapping node reproduces the estimate of every past epoch from the chain data alone. An adversary manipulating the visibility of fork blocks can thus affect neither block inclusion nor the agreement of the estimate — only whether its own lottery wins are referenced at all. Because a block carrying an unverifiable entry is rejected outright, no such entry ever becomes chain data, and the cost of checking one is paid once by the receiving node rather than by every node that later synchronizes. The carried headers are retained as part of the chain data, bounded by `MAX_UNCLES` entries per block.
+> **Note:** The validity rules are functions only of the referencing chain and the carried entry, and the headers are carried inside the blocks themselves (the `uncle_headers` field of [Block Construction, Validation and Execution](bedrock-block-construction.md#block)) — availability is structural, and referencing an uncle is inseparable from publishing its header. Every node therefore accepts exactly the same blocks and, from them, computes the same $`N_\text{BLOCKS}`$ and the same $`D`$, at any time; a bootstrapping node reproduces the estimate of every past epoch from the chain data alone. An adversary manipulating the visibility of fork blocks can thus affect neither block inclusion nor the agreement of the estimate — only whether its own lottery wins are referenced at all. Because a block carrying an unverifiable entry is rejected outright, no such entry ever becomes chain data, and the cost of checking one is paid once by the receiving node rather than by every node that later synchronizes. The carried headers are retained as part of the chain data, bounded by `MAX_UNCLES` entries per block.
 
 ### Block Header Validation
 
 Given block $`B=(header, uncle\_headers, transactions)`$ and the block tree $`T`$ where:
 
-- $`header`$ is the header defined in [Header](bedrock-v1.1-block-construction.md#header)
-- $`uncle\_headers`$ is the list of headers of the uncles the block references, defined in [Block](bedrock-v1.1-block-construction.md#block)
+- $`header`$ is the header defined in [Header](bedrock-block-construction.md#header)
+- $`uncle\_headers`$ is the list of headers of the uncles the block references, defined in [Block](bedrock-block-construction.md#block)
 - $`transactions`$ is the sequence of transactions in the block
 
 We say $`\textbf{valid\_header}(B)`$ returns True if all of the following constraints hold, otherwise it returns False.
@@ -429,7 +429,7 @@ We say $`\textbf{valid\_header}(B)`$ returns True if all of the following constr
       )
   ```
 
-  where $`\textbf{merkle\_root}`$ is the root of the Merkle tree built from transaction hashes (see Mantle - Mantle Transaction Hash) as leaves, using `0` to represent the hash of an empty transaction and padding the leaves to the closest power of two, and $`\textbf{serialize}`$ is the list encoding of [Block Proposal](bedrock-v1.1-block-construction.md#block-proposal) — a 1-byte little-endian element count followed by that many entries, so an empty list encodes as a single zero byte. The serialized list is committed directly, with no inner hash: the element count and the fixed 273-byte entries keep the flat preimage unambiguous, and the single `BODY_ROOT_V1` tag versions the whole construction. The carried uncle headers are committed here and hence in the [Block ID](#block-id); a copy of a block that differs in any of those bytes fails this rule under the same block ID, and is a bad copy.
+  where $`\textbf{merkle\_root}`$ is the root of the Merkle tree built from transaction hashes (see Mantle - Mantle Transaction Hash) as leaves, using `0` to represent the hash of an empty transaction and padding the leaves to the closest power of two, and $`\textbf{serialize}`$ is the list encoding of [Block Proposal](bedrock-block-construction.md#block-proposal) — a 1-byte little-endian element count followed by that many entries, so an empty list encodes as a single zero byte. The serialized list is committed directly, with no inner hash: the element count and the fixed 273-byte entries keep the flat preimage unambiguous, and the single `BODY_ROOT_V1` tag versions the whole construction. The carried uncle headers are committed here and hence in the [Block ID](#block-id); a copy of a block that differs in any of those bytes fails this rule under the same block ID, and is a bad copy.
 
 5. $`header.\text{slot} \gt \textbf{fetch\_header}(header.\text{parent\_block}).\text{slot}`$
   Ensure the block’s slot comes after the parent block’s slot.
@@ -456,13 +456,13 @@ We say $`\textbf{valid\_header}(B)`$ returns True if all of the following constr
 
   Every input to these checks comes from the chain of $`B`$ or from the carried entry itself, both of which any node validating $`B`$ necessarily has — the entries travel inside $`B`$ and are committed by its $`body\_root`$. Validity is therefore a function of the block and the chain it extends alone, so all nodes agree on it and an adversary influencing what nodes know of forks cannot influence block inclusion.
 
-The block ID commits neither to the proof of leadership of a block nor to its Operation proofs, and a copy of a block can differ in them or in its body. Rule 4 is therefore checked before rule 10 and before the transactions are validated, on every path, synchronization included. A block failing rule 4, rule 9 or an Operation proof, or failing rule 2 or rule 3 before rule 4 has confirmed its body, is a bad copy: the node discards it without recording a verdict against its block ID. The block ID does commit to `reward_value` and, through $`body\_root`$, to the uncle entries and the transactions, so once rule 4 has confirmed its body, a block failing rule 2, rule 3 or rule 10, carrying a transaction invalid for a reason other than its proofs, or whose `reward_value` differs from its computed leader reward is condemned ([Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation)).
+The block ID commits neither to the proof of leadership of a block nor to its Operation proofs, and a copy of a block can differ in them or in its body. Rule 4 is therefore checked before rule 10 and before the transactions are validated, on every path, synchronization included. A block failing rule 4, rule 9 or an Operation proof, or failing rule 2 or rule 3 before rule 4 has confirmed its body, is a bad copy: the node discards it without recording a verdict against its block ID. The block ID does commit to `reward_value` and, through $`body\_root`$, to the uncle entries and the transactions, so once rule 4 has confirmed its body, a block failing rule 2, rule 3 or rule 10, carrying a transaction invalid for a reason other than its proofs, or whose `reward_value` differs from its computed leader reward is condemned ([Block Proposal Validation](bedrock-block-construction.md#block-proposal-validation)).
 
 ### Chain Maintenance
 
 We define the chain maintenance procedure $`\textbf{on\_block}(state,B)`$ that governs how the block tree $`T`$ is updated.
 
-**Note:** It’s assumed that block contents have already been validated by the execution layer, by applying the transactions of the block in the order they appear starting from the parent block’s execution state with steps 1 and 2 of [Block Execution](bedrock-v1.1-block-construction.md#block-execution) applied, as defined in [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation).
+**Note:** It’s assumed that block contents have already been validated by the execution layer, by applying the transactions of the block in the order they appear starting from the parent block’s execution state with steps 1 and 2 of [Block Execution](bedrock-block-construction.md#block-execution) applied, as defined in [Block Proposal Validation](bedrock-block-construction.md#block-proposal-validation).
 
 $`\text{define } \textbf{on\_block}(state, B)\to state'`$:
 

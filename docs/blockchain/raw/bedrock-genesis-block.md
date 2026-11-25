@@ -337,7 +337,7 @@ GENESIS_BLOCK = (GENESIS_HEADER, [], [GENESIS_MANTLE_TX])
 
 Bedrock is initialized by validating and executing the Genesis Mantle Transaction under the ordinary Mantle rules, [Validation](bedrock-mantle-specification.md#validation) and [Execution](bedrock-mantle-specification.md#execution), with the exemptions listed in [Genesis Validation Exemptions](#genesis-validation-exemptions) and no others. Its Operations are validated and executed one after the other in the order they appear, each against the state the preceding ones left.
 
-The Genesis block is not a block proposal and is not validated as one: none of the checks of [Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation) apply, and no validation or execution is done for the Genesis block header, in particular processing of `proof_of_leadership` is skipped.
+The Genesis block is not a block proposal and is not validated as one: none of the checks of [Block Proposal Validation](bedrock-block-construction.md#block-proposal-validation) apply, and no validation or execution is done for the Genesis block header, in particular processing of `proof_of_leadership` is skipped.
 
 Validating the Genesis Mantle Transaction is not what makes the Genesis block trustworthy. The block is agreed upon out of band, every node starts from the same one, and a node that rejected it would have no chain to join. The checks are kept for two reasons: a malformed or inconsistent Genesis block is then reported when a node is set up rather than surfacing later as unexplained runtime behaviour, and Genesis stays on the ordinary Operation processing path instead of needing an unvalidated path of its own. This is why the exemptions below are a closed list rather than a general licence to skip validation.
 
@@ -370,7 +370,7 @@ The pow reward pool is initialized at the same time:
 
 The block reward stocks are initialized with them: `rewards_reserve` is set to its initial balance $`B_0`$, `rewards_pool`, `blend_rewards_closed` and `blend_rewards_pending` to `0`, and `pooled_fees_window` to $`120`$ zeros, as defined in [Block Rewards](block-rewards.md#deterministic-implementation). The values of the published distribution, the amounts of the `SDP_DECLARE` Operations, the pow reward pool and the rewards reserve must sum to the maximum supply $`S_{cap}`$, and a node for which they do not must reject the Genesis block.
 
-Once the Genesis Mantle Transaction is executed, every note set whose commitment MMR it changed records its commitment MMR root, as at the end of any block ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), so that the transactions of the next blocks can spend the notes created at Genesis.
+Once the Genesis Mantle Transaction is executed, every note set whose commitment MMR it changed records its commitment MMR root, as at the end of any block ([Block Execution](bedrock-block-construction.md#block-execution)), so that the transactions of the next blocks can spend the notes created at Genesis.
 
 ## Cryptarchia Initialization
 
@@ -384,7 +384,7 @@ The Cryptarchia slot clock is initialized to `genesis_time`, `LIB` is set to the
 
 ### Initial Epoch State
 
-Cryptarchia progresses in epochs where the variables governing the lottery are fixed for the duration of an epoch and the activity during that epoch is used to derive the values of those variables for the next epoch. These variables taken together are called the Epoch State. (see [Epoch State](cryptarchia-v1-protocol.md#epoch-state)).
+Cryptarchia progresses in epochs where the variables governing the lottery are fixed for the duration of an epoch and the activity during that epoch is used to derive the values of those variables for the next epoch. These variables taken together are called the Epoch State. (see [Epoch State](cryptarchia-protocol.md#epoch-state)).
 
 To initialize the Epoch State, we derive the epoch variables from the genesis block.
 

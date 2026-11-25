@@ -40,7 +40,7 @@ This document extends the work presented in the [Ouroboros Crypsinous paper](htt
 
 ## References
 
-- [Cryptarchia Protocol](cryptarchia-v1-protocol.md).
+- [Cryptarchia Protocol](cryptarchia-protocol.md).
 
 # Overview
 
@@ -125,7 +125,7 @@ class ProofOfLeadershipPublic:
     reward_commitment: NoteCommitment  # commitment of the leader reward note
 ```
 
-The epoch nonce is defined in [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce) and the aged root in [Epoch State Pseudocode](cryptarchia-v1-protocol.md#epoch-state-pseudocode). The lottery constants are computed with high precision outside the proof (see [Lottery Approximation](#lottery-approximation)), `msg` binds the proof to the proposed block (see [Linking the Proof of Leadership to a Block](#linking-the-proof-of-leadership-to-a-block)), and `reward_value` and `reward_commitment` name the note paying the leader (see [Leader Reward Note](#leader-reward-note)).
+The epoch nonce is defined in [Epoch Nonce](cryptarchia-protocol.md#epoch-nonce) and the aged root in [Epoch State Pseudocode](cryptarchia-protocol.md#epoch-state-pseudocode). The lottery constants are computed with high precision outside the proof (see [Lottery Approximation](#lottery-approximation)), `msg` binds the proof to the proposed block (see [Linking the Proof of Leadership to a Block](#linking-the-proof-of-leadership-to-a-block)), and `reward_value` and `reward_commitment` name the note paying the leader (see [Leader Reward Note](#leader-reward-note)).
 
 The circuit fixes the order of the public signals of the proof: the outputs `entropy_contribution` and `reward_commitment` first, then `slot`, `epoch_nonce`, `t0`, `t1`, `eligible_aged`, `eligible_latest`, `msg` and `reward_value`.
 
@@ -216,23 +216,23 @@ Such that the following constraints hold:
 
 # Linking the Proof of Leadership to a Block
 
-The PoL is bound to the block it proposes through its public input `msg`, the 32-byte [block ID](cryptarchia-v1-protocol.md#block-id) of that block reduced modulo $`p`$:
+The PoL is bound to the block it proposes through its public input `msg`, the 32-byte [block ID](cryptarchia-protocol.md#block-id) of that block reduced modulo $`p`$:
 
 ```python
 msg = FiniteField(block_id(header), byte_order="little", modulus= p)
 ```
 
-- `msg` covers every field of the [header](cryptarchia-v1-protocol.md#block-header) but the proof. `entropy_contribution` and `reward_commitment` are outputs of the proof, but the leader computes them from values it holds before proving. Through `body_root`, `msg` covers the transactions and the uncle headers of the block.
+- `msg` covers every field of the [header](cryptarchia-protocol.md#block-header) but the proof. `entropy_contribution` and `reward_commitment` are outputs of the proof, but the leader computes them from values it holds before proving. Through `body_root`, `msg` covers the transactions and the uncle headers of the block.
 - A PoL is therefore valid for a single block: it cannot be attached to other content, and the leader reward cannot be redirected to another `reward_commitment`.
 - The leader proves the PoL once the content of its block is fixed, which also fixes the reward value.
 
 # Leader Reward Note
 
-The leader reward of a block is paid as a note the proof derives the commitment of ([Block Execution](bedrock-v1.1-block-construction.md#block-execution)), so that the block names the note without revealing who holds it.
+The leader reward of a block is paid as a note the proof derives the commitment of ([Block Execution](bedrock-block-construction.md#block-execution)), so that the block names the note without revealing who holds it.
 
 - `reward_value` and `reward_commitment` are public, in the header. The value says nothing of the leader, since every node computes the reward of a block.
 - `reward_public_key` and `reward_nonce` are not revealed. As long as the nonce is private and unpredictable, the commitment hides the key, so the chain shows neither the key a reward is paid to nor whether two blocks pay the same key. Given the public value and a nonce they can guess, anyone holding a public key can test it against the commitment.
-- `reward_value` is in the header so that the proof verifies from the header alone, before the block is reconstructed and in a batch with other proofs of leadership. It is compared with the computed reward once the transactions have run ([Block Proposal Validation](bedrock-v1.1-block-construction.md#block-proposal-validation)), and a block whose value differs from its reward is invalid whatever its proof says.
+- `reward_value` is in the header so that the proof verifies from the header alone, before the block is reconstructed and in a batch with other proofs of leadership. It is compared with the computed reward once the transactions have run ([Block Proposal Validation](bedrock-block-construction.md#block-proposal-validation)), and a block whose value differs from its reward is invalid whatever its proof says.
 - `reward_value` needs no range check in the circuit. It is read from 8 bytes of the header, so it is below $`2^{64}`$, and a note enters the ledger only with the value of the computed reward.
 - The circuit does not constrain `reward_public_key` and `reward_nonce`, which the leader chooses freely. A key can be reused for any number of blocks. Two rewards of the same value under the same key and nonce are identical notes, of which only one can be spent, which is the risk of the leader alone. The [Wallet Technical Standard](wallet-technical-standard.md#leader-reward-notes) recommends a nonce that avoids it.
 

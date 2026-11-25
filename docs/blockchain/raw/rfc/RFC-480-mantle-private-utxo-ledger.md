@@ -296,11 +296,11 @@ A wallet should draw the nonce of each reward note at random, and keeps the note
 | --- | --- | --- |
 | [Mantle](../bedrock-mantle-specification.md) | Modified | Revision 2.0.0 |
 | [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | Revision 1.2.0 |
-| [Block Construction](../bedrock-v1.1-block-construction.md) | Modified | Revision 1.4.0 |
+| [Block Construction](../bedrock-block-construction.md) | Modified | Revision 1.4.0 |
 | [Block Rewards](../block-rewards.md) | Modified | Revision 1.4.0 |
 | [Cryptoeconomics Overview](../overview-cryptoeconomics.md) | Modified | Revision 1.5.0 |
 | [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | Revision 2.0.0 |
-| [Cryptarchia Protocol](../cryptarchia-v1-protocol.md) | Modified | Revision 1.3.0 |
+| [Cryptarchia Protocol](../cryptarchia-protocol.md) | Modified | Revision 1.3.0 |
 | [Proof of Quota](../proof-of-quota.md) | Modified | Revision 1.3.0 |
 | [Message Encapsulation](../message-encapsulation.md) | Modified | Revision 1.2.1 |
 | [Genesis Block](../bedrock-genesis-block.md) | Modified | Revision 1.3.0 |
@@ -317,7 +317,7 @@ A wallet should draw the nonce of each reward note at random, and keeps the note
 | [Blend Protocol](../blend-protocol.md) | Modified | leader reward reference, encapsulation overhead and rounding of the base reward, Revision 1.8.1 |
 | [Payload Formatting](../payload-formatting.md) | Modified | Revision 1.2.1 |
 | [Message Formatting](../message-formatting.md) | Modified | Revision 1.0.3 |
-| [Bootstrapping and Synchronization](../cryptarchia-v1-bootstr-sync.md) | Modified | Revision 1.0.3 |
+| [Bootstrapping and Synchronization](../cryptarchia-bootstr-sync.md) | Modified | Revision 1.0.3 |
 | [Total Stake Inference](../cryptarchia-total-stake-inference.md) | Modified | Revision 1.1.2 |
 | [Cross-Channel Messaging Template](../../deprecated/template-cross-channel-messaging.md) | Deprecated | moved to `deprecated/` |
 | [Anonymous Leaders Reward](../../deprecated/bedrock-anonymous-leaders-reward.md) | Deprecated | moved to `deprecated/` |

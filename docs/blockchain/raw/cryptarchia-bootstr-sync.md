@@ -35,7 +35,7 @@ When a new node joins the network or a previously-bootstrapped node has been off
 
 This document specifies a protocol for nodes to bootstrap with the honest chain efficiently while mitigating long range attacks. It also defines how to handle the case which the node falls behind after the bootstrapping is complete.
 
-This protocol adheres to the key invariant: We never roll back blocks that are deeper than the latest immutable block $`B_\text{imm}`$ in the local chain $`c_{loc}`$, as defined in [Cryptarchia Protocol](cryptarchia-v1-protocol.md) .
+This protocol adheres to the key invariant: We never roll back blocks that are deeper than the latest immutable block $`B_\text{imm}`$ in the local chain $`c_{loc}`$, as defined in [Cryptarchia Protocol](cryptarchia-protocol.md) .
 
 # Overview
 
@@ -176,9 +176,9 @@ def initial_block_download(ibd_peers: List[Node], local_tree: Tree):
         sleep(T_round)
 ```
 
-![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-81f6-bb41-fdbd8907329f.png)
+![Diagram](cryptarchia-bootstr-sync/assets/1fd261aa-09df-81f6-bb41-fdbd8907329f.png)
 
-The downloaded blocks are validated and added to the local block tree using the fork choice rule determined above. Both block headers and block bodies must be validated. The header validation rules are defined in [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation).
+The downloaded blocks are validated and added to the local block tree using the fork choice rule determined above. Both block headers and block bodies must be validated. The header validation rules are defined in [Block Header Validation](cryptarchia-protocol.md#block-header-validation).
 
 If none of the IBD peers returns its tip (e.g., network errors), the node is terminated with an error, allowing the operator to restart the node with other IBD peers.
 
@@ -200,7 +200,7 @@ A timer must be started when [Listening for New Blocks](#listening-for-new-block
 
 Once [Initial Block Download](#initial-block-download) is complete and [Prolonged Bootstrap Period](#prolonged-bootstrap-period) is started, a node starts listening for new blocks relayed by its peers.
 
-Upon receiving a new block, the node tries to validate and add it to its local block tree, as defined in [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance).
+Upon receiving a new block, the node tries to validate and add it to its local block tree, as defined in [Chain Maintenance](cryptarchia-protocol.md#chain-maintenance).
 
 If the parent of the block is missing from the local block tree, the block cannot be fully validated and added. These blocks are called *orphan blocks*. To handle an orphan block, the node downloads missing blocks as described in [Downloading Blocks](#downloading-blocks), from peers selected as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). If the download fails, the node may retry with newly selected peers before abandoning the orphan block. The retry policy can be configured by implementers.
 
@@ -269,13 +269,13 @@ class GetTipResponse:
 
 A peer that cannot serve these requests yet (e.g. a peer still performing its own [Initial Block Download](#initial-block-download)) may reject them. The requesting node treats the rejection as a failed request.
 
-Each streamed `Block` carries the headers of the uncles it references, in its `uncle_headers` field ([Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md#block)). This is what lets a synchronizing node apply the validity rules of [Uncle References](cryptarchia-v1-protocol.md#uncle-references) to every downloaded block, and then reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) of every past epoch from the uncles those blocks carry, even though it never receives the proposals the blocks were reconstructed from.
+Each streamed `Block` carries the headers of the uncles it references, in its `uncle_headers` field ([Block Construction, Validation and Execution](bedrock-block-construction.md#block)). This is what lets a synchronizing node apply the validity rules of [Uncle References](cryptarchia-protocol.md#uncle-references) to every downloaded block, and then reproduce the [Total Stake Inference](cryptarchia-protocol.md#total-stake-inference) of every past epoch from the uncles those blocks carry, even though it never receives the proposals the blocks were reconstructed from.
 
 The responding peer uses `KnownBlocks` to determine the optimal starting block for the response stream, aiming to minimize the number of blocks to be returned. The requesting node can include any block it believes could assist in this process to the `KnownBlocks.additional_blocks`. To avoid spamming responders, the size of `KnownBlocks.additional_blocks` is limited to 5.
 
 The responding peer finds the latest common ancestor (i.e. LCA) between the `target_block` and each of the known blocks. Then, it returns a stream of blocks, starting from the highest LCA. To mitigate malicious downloading requests, the peer limits the number of blocks to be returned. The detailed implementation is up to implementers, depending on their internal architecture (e.g. storage design).
 
-![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-8138-b041-c737c9e0071c.png)
+![Diagram](cryptarchia-bootstr-sync/assets/1fd261aa-09df-8138-b041-c737c9e0071c.png)
 
 The requesting node should repeat `DownloadBlocksRequest`s by updating the `KnownBlocks` in order to download the next batches of blocks. Each repeated request is sent to newly selected peers, as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). The following code shows how the requesting node can be implemented.
 
@@ -325,11 +325,11 @@ def download_blocks(local_tree: Tree, target_block: BlockId):
 
 If the node is continuing from a previous `DownloadBlocksRequest`, it is important to include the latest downloaded block to the `KnownBlocks.additional_blocks` to avoid downloading duplicate blocks. This also lets the next request be answered correctly by a different peer from the one that answered the previous request.
 
-![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-81c8-b0ff-c858bf97c965.png)
+![Diagram](cryptarchia-bootstr-sync/assets/1fd261aa-09df-81c8-b0ff-c858bf97c965.png)
 
 If the requesting node is downloading blocks up to the peer’s tip $`c_{loc}`$ (e.g. [Initial Block Download](#initial-block-download)), the $`c_{loc}`$ may switch while the node is downloading blocks. [Initial Block Download](#initial-block-download) handles this case by fetching the most recent tips of the IBD peers in each round, and downloading blocks up to those tips. Each download starts from the highest LCA between the new tip and the blocks the node already has.
 
-![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-8157-b410-e2246d81a3fb.png)
+![Diagram](cryptarchia-bootstr-sync/assets/1fd261aa-09df-8157-b410-e2246d81a3fb.png)
 
 ### Selecting Peers for Downloading
 
@@ -376,11 +376,11 @@ A trusted checkpoint provider exposes a HTTP endpoint, allowing nodes to downloa
 
 The bootstrapping node imports the downloaded checkpoint block and ledger state before starting bootstrapping. The imported checkpoint block is used as the latest immutable block $`B_{imm}`$ and the local chain tip $`c_{loc}`$. Starting from the checkpoint block, the same [Initial Block Download](#initial-block-download) is used to downloads blocks up to the tip of the local chain of each peer. As defined in [Setting the Fork Choice Rule](#setting-the-fork-choice-rule), the Bootstrap fork choice rule must be used upon startup.
 
-![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-817b-883e-df4c9ca6ae54.png)
+![Diagram](cryptarchia-bootstr-sync/assets/1fd261aa-09df-817b-883e-df4c9ca6ae54.png)
 
 If it turns out that none of the peers’ local chains are connected to the checkpoint block, the node is terminated with an error, allowing the node operator to select a new checkpoint.
 
-![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-8138-99a6-eab12e93aeb6.png)
+![Diagram](cryptarchia-bootstr-sync/assets/1fd261aa-09df-8138-99a6-eab12e93aeb6.png)
 
 # Details
 
@@ -400,12 +400,12 @@ This protocol configures $`T_\text{offline}`$ to 20 minutes. Here are the advant
 The following example explains why $`T_\text{offline}`$ should not be set too long.
 
 - A local node stopped in the following situation. A malicious peer is building a fork which is now a little shorter ($`k-d`$) than the honest chain.
-![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-81bf-8212-c190c5627c6e.png)
+![Diagram](cryptarchia-bootstr-sync/assets/1fd261aa-09df-81bf-8212-c190c5627c6e.png)
 
 - The local node has been offline shorter than $`T_\text{offline}`$ and just restarted. As defined in this protocol, the Online fork choice rule is used because the offline duration is short.
 - During the offline duration, the malicious peer made its fork longer by adding $`k-d`$ blocks. Now the fork is in the same length as the honest chain.
 - If the malicious peer sends the fork to the restarted node faster than the honest peer, the restarted node will commit to the fork because it has $`k`$ new blocks. Even if the node later receives the honest chain from the honest peer, it cannot revert blocks that are already immutable.
-![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-811a-b946-d313dfbdfd4e.png)
+![Diagram](cryptarchia-bootstr-sync/assets/1fd261aa-09df-811a-b946-d313dfbdfd4e.png)
 
 - If $`T_\text{offline}`$ is short, the malicious peer would not have enough time to make its fork acceptable by the Online rule. Even if the malicious peer made its fork long enough after $`T_\text{offline}`$, the fork will be rejected by the syncing node because it will use the Bootstrap rule if it has been offline longer after $`T_\text{offline}`$.
 

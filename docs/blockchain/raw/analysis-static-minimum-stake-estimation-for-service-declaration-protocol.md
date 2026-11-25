@@ -91,7 +91,7 @@ The following quantities are derived from the definitions above:
 
 ## Staking Ratio ($`r_{\text{stake}}`$)
 
-The [Block Rewards](block-rewards.md) proposes a 30% of TGE tokens as a target for the security of the PoS participation of [Cryptarchia](cryptarchia-v1-protocol.md). This implies that it should not be possible for a single entity to acquire $15\%$ of TGE supply. Therefore, we set $`r_{\text{stake}}=15\%`$.
+The [Block Rewards](block-rewards.md) proposes a 30% of TGE tokens as a target for the security of the PoS participation of [Cryptarchia](cryptarchia-protocol.md). This implies that it should not be possible for a single entity to acquire $15\%$ of TGE supply. Therefore, we set $`r_{\text{stake}}=15\%`$.
 
 ## Number of Service Providers ($`N_{\text{stakers}}`$)
 

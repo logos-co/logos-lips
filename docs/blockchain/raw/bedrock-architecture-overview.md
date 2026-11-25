@@ -72,7 +72,7 @@ Every Mantle channel also has a note set of its own. Users bridge tokens from Be
 
 ## Cryptarchia
 
-Bedrock Mantle is powered by the [Cryptarchia Protocol](cryptarchia-v1-protocol.md), a highly scalable, permisionless consensus protocol optimized for privacy and resilience. Cryptarchia is a Private Proof of Stake (PPoS) consensus protocol with properties very similar to Bitcoin. Just like in Bitcoin, where a miner’s hashing power is not revealed when they win a block, we ensure privacy for block proposers by breaking the link between a proposal and its proposer. Unlike Bitcoin, the Logos Blockchain extends block proposer confidentiality to the network layer by routing proposals through the Blend Network, making network analysis attacks prohibitively expensive.
+Bedrock Mantle is powered by the [Cryptarchia Protocol](cryptarchia-protocol.md), a highly scalable, permisionless consensus protocol optimized for privacy and resilience. Cryptarchia is a Private Proof of Stake (PPoS) consensus protocol with properties very similar to Bitcoin. Just like in Bitcoin, where a miner’s hashing power is not revealed when they win a block, we ensure privacy for block proposers by breaking the link between a proposal and its proposer. Unlike Bitcoin, the Logos Blockchain extends block proposer confidentiality to the network layer by routing proposals through the Blend Network, making network analysis attacks prohibitively expensive.
 
 ## Sovereign Zones
 

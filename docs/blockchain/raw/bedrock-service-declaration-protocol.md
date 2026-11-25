@@ -70,7 +70,7 @@ The logic of the protocol is straightforward.
 4. The node must confirm its activity with a service-specific minimum frequency; otherwise, its declaration is inactive.
 5. The node sends a withdrawal message. It provides the service for one more epoch. Its declaration is removed and the notes of its withdrawal released once that epoch has been rewarded.
 
-> The protocol messages are subject to a finality that means messages become part of the immutable ledger after a delay. The delay at which it happens is defined by the consensus. Therefore, the protocol’s progress must be tracked from the perspective of the latest finalized block, not the tip of the chain. Otherwise, the protocol and services using it would need to handle chain reorganizations, which we must avoid due to their potential to break services. Hence, the services must use a snapshot from a fully finalized epoch: `finalized_epoch = current_epoch - 2`. For more details about finalization, refer to [Cryptarchia Protocol](cryptarchia-v1-protocol.md).
+> The protocol messages are subject to a finality that means messages become part of the immutable ledger after a delay. The delay at which it happens is defined by the consensus. Therefore, the protocol’s progress must be tracked from the perspective of the latest finalized block, not the tip of the chain. Otherwise, the protocol and services using it would need to handle chain reorganizations, which we must avoid due to their potential to break services. Hence, the services must use a snapshot from a fully finalized epoch: `finalized_epoch = current_epoch - 2`. For more details about finalization, refer to [Cryptarchia Protocol](cryptarchia-protocol.md).
 
 # Construction
 
@@ -114,7 +114,7 @@ For more information on how the minimum stake is calculated, please refer to the
 The service parameters structure defines the parameters set necessary for correctly handling interaction between the protocol and services. Each of the service types defined above must be mapped to a set of the following parameters:
 
 - `inactivity_period` defines the number of epochs after the epoch recorded in `active` for which the declaration remains active; after that, it is inactive and excluded from the service's participant set in the same way as a withdrawn declaration ([**Withdraw**](#withdraw)). A value of `2 + k` tolerates `k` consecutive missed reports ([Message Timing](#message-timing)). Any value below 2 excludes every declaration.
-- `epoch` defines the epoch number at which the parameter was set; it is an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch).
+- `epoch` defines the epoch number at which the parameter was set; it is an [`EpochNumber`](cryptarchia-protocol.md#epoch).
 
 ```python
 class ServiceParameters:
@@ -249,7 +249,7 @@ Where:
 
 A `Nonce` is a 64-bit unsigned integer, `lifecycle_epoch · 2^32 + sequence`:
 
-- `lifecycle_epoch` is the high 32 bits, an [`EpochNumber`](cryptarchia-v1-protocol.md#epoch);
+- `lifecycle_epoch` is the high 32 bits, an [`EpochNumber`](cryptarchia-protocol.md#epoch);
 - `sequence` is the low 32 bits.
 
 An active message is valid only if its `nonce`:
@@ -733,7 +733,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       ledger.sets[SDP_SET].execute_spending([withdraw.service_note_nullifier])
       ```
 
-  3. Keep the outputs in the [`pending_withdrawals`](bedrock-mantle-specification.md#ledger) of the ledger, with no input, until the first slot of epoch `withdraw_at + 1`, `EPOCH_LENGTH` being the number of slots of an epoch ([Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule)).
+  3. Keep the outputs in the [`pending_withdrawals`](bedrock-mantle-specification.md#ledger) of the ledger, with no input, until the first slot of epoch `withdraw_at + 1`, `EPOCH_LENGTH` being the number of slots of an epoch ([Epoch Schedule](cryptarchia-protocol.md#epoch-schedule)).
       ```python
       ledger.pending_withdrawals.append(((declare_info.withdraw_at + 1) * EPOCH_LENGTH,
                                          SDP_SET,
