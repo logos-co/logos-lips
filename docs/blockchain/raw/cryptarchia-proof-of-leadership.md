@@ -162,7 +162,7 @@ Every `<` between field elements compares their canonical integer representative
 
 Such that the following constraints hold:
 
-- The public key is derived from the nullifier key, and the staking key from the staking secret key ([Keys](bedrock-mantle-specification.md#keys)).
+- The public key is derived from the nullifier key, and the staking key from the staking secret key ([Keys](bedrock-mantle.md#keys)).
   ```python
   pk = zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), nf_sk)
   stake_pk = zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), staking_sk)

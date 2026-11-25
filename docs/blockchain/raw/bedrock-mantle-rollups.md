@@ -23,7 +23,7 @@
 
 # Introduction
 
-Rollup channels let a Zone compute its state off chain and settle it on chain with proofs of its state transitions. This document specifies the rollup Operations; the Mantle Transaction that carries them and the ledger they act on are specified in [Mantle](bedrock-mantle-specification.md), and the sequencing they share with native channels in [Mantle Channels](bedrock-mantle-channels.md).
+Rollup channels let a Zone compute its state off chain and settle it on chain with proofs of its state transitions. This document specifies the rollup Operations; the Mantle Transaction that carries them and the ledger they act on are specified in [Mantle](bedrock-mantle.md), and the sequencing they share with native channels in [Mantle Channels](bedrock-mantle-channels.md).
 
 # Operations
 
@@ -31,13 +31,13 @@ Rollup channels let a Zone compute its state off chain and settle it on chain wi
 
 A rollup channel is a channel whose state follows a state transition function (STF), a Groth16 circuit its creator chooses. Its sequencers take turns, following the [round-robin](bedrock-mantle-channels.md#decentralized-sequencing) of every channel, to post the data of its state transitions with [`ROLLUP_INSCRIBE`](#rollup_inscribe). Anyone then proves these inscriptions with [`ROLLUP_PROVE`](#rollup_prove), one at a time and in the order they were inscribed. Each proof is a step of the rollup, the application of one inscription by `ROLLUP_PROVE`: a proof of its STF takes the rollup from its state root to the next one, and the step mints pending [deposits](#rollup_deposit), moves the notes of the rollup and pays some of them out to the ledger. The steps of the proven prefix of the inscriptions give the state of the rollup, and the inscriptions after it wait for their steps. A step reads the slot of the block that included its inscription, so a rollup can depend on time while every prover knows the inputs of a step as soon as its inscription is in a block.
 
-**What the ledger checks.** The notes of a rollup live in a note set of their own, which only `ROLLUP_PROVE` spends ([Ledger](bedrock-mantle-specification.md#ledger)). Each transfer of a step is a [ZkTransfer](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) with an `excess_value` of `0`, so whatever the STF, the ledger checks that a step keeps the value of the notes it moves and spends no note twice. A faulty STF can give the funds of its rollup to the wrong users but never create value, so the notes of a rollup take part in Proof of Stake as safely as ledger notes. A rollup whose funds take part in Proof of Stake should give the notes its transfers create the staking keys of their users, and never `PK0` as their staking key ([Keys](bedrock-mantle-specification.md#keys)), since the deposit note of a step has staking key `0`. The STF proof decides who gets what: which deposits a step mints, and which notes its transfers consume, create and pay out.
+**What the ledger checks.** The notes of a rollup live in a note set of their own, which only `ROLLUP_PROVE` spends ([Ledger](bedrock-mantle.md#ledger)). Each transfer of a step is a [ZkTransfer](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) with an `excess_value` of `0`, so whatever the STF, the ledger checks that a step keeps the value of the notes it moves and spends no note twice. A faulty STF can give the funds of its rollup to the wrong users but never create value, so the notes of a rollup take part in Proof of Stake as safely as ledger notes. A rollup whose funds take part in Proof of Stake should give the notes its transfers create the staking keys of their users, and never `PK0` as their staking key ([Keys](bedrock-mantle.md#keys)), since the deposit note of a step has staking key `0`. The STF proof decides who gets what: which deposits a step mints, and which notes its transfers consume, create and pay out.
 
 **Sequencers can only delay.** No signature reconfigures a rollup channel: each step carries the next accredited keys and rotation parameters of the rollup, which its STF proof covers, so only the rules of the STF change who sequences the rollup. The round-robin hands the turn to the next accredited key when the timeframe or the timeout of a sequencer elapses, so a sequencer that refuses to inscribe a transition only delays it until a sequencer that accepts it takes its turn, provided the configuration of the rollup sets a timeframe; a timeout alone replaces only a sequencer that inscribes nothing. Anyone posts the steps, so no party can hold back the proof of an inscription, and a step applies exactly the data its sequencer inscribed when the STF circuit recomputes the `op_id` of that inscription, as [STF Verification Key](#stf-verification-key) recommends.
 
 **Recommendations.** The ledger leaves the following choices to the rollup, and they are recommended to a rollup that wants any prover to be able to prove it:
 
-- Hold the notes of the rollup by `PK0` ([Keys](bedrock-mantle-specification.md#keys)), the public key whose secret key everyone knows, so that no step depends on a key one party holds.
+- Hold the notes of the rollup by `PK0` ([Keys](bedrock-mantle.md#keys)), the public key whose secret key everyone knows, so that no step depends on a key one party holds.
 - Make a step depend only on its inscription, which the STF circuit reads through its `op_id` ([STF Verification Key](#stf-verification-key)), and on the state before it, so that every prover computes the same step from public data.
 - Credit every minted deposit in the state of the rollup as its intent asks, since the ledger merges the deposits a step mints into one note and leaves their accounting to the STF.
 - Pay the provers inside the rollup, since the ledger pays nothing for a step and its prover pays the fees of its Mantle Transaction.
@@ -111,7 +111,7 @@ class RollupCreate:
 
 #### Execution Gas
 
-  Rollup Create Operations have a fixed Execution Gas cost of `EXECUTION_ROLLUP_KEY_GAS`, the cost of the checks of the key and of the pairing $`e(\alpha, \beta)`$. See [Gas Determination](bedrock-mantle-specification.md#gas-determination) for the Execution Gas values.
+  Rollup Create Operations have a fixed Execution Gas cost of `EXECUTION_ROLLUP_KEY_GAS`, the cost of the checks of the key and of the pairing $`e(\alpha, \beta)`$. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -158,7 +158,7 @@ block_slot: Slot
 
   *Execute*
 
-Append a note set for the rollup, as every new channel does ([Ledger](bedrock-mantle-specification.md#ledger)), and store the channel with the sequencing fields of [`default_channel`](bedrock-mantle-channels.md#channel-operations), the rotation parameters of the payload, and the key with the pairing $`e(\alpha, \beta)`$ of its points.
+Append a note set for the rollup, as every new channel does ([Ledger](bedrock-mantle.md#ledger)), and store the channel with the sequencing fields of [`default_channel`](bedrock-mantle-channels.md#channel-operations), the rotation parameters of the payload, and the key with the pairing $`e(\alpha, \beta)`$ of its points.
 
 ```python
 ledger.sets.append(empty_note_set())
@@ -201,7 +201,7 @@ Ed25519Signature  # by the signer, over the mantle_txhash
 
 #### Execution Gas
 
-  Rollup Inscribe Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS`, the cost of an inscription. See [Gas Determination](bedrock-mantle-specification.md#gas-determination) for the Execution Gas values.
+  Rollup Inscribe Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS`, the cost of an inscription. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -281,13 +281,13 @@ block_slot: Slot
       chan.kind.unproven.append((derive_op_id(msg), block_slot))
       ```
 
-The slot of the block is recorded with the [`op_id`](bedrock-mantle-specification.md#note-commitment-and-nullifier) of the inscription because the STF proof of its step takes it as a public input: it is fixed once the inscription is in a block, and the prover reads it from the ledger.
+The slot of the block is recorded with the [`op_id`](bedrock-mantle.md#note-commitment-and-nullifier) of the inscription because the STF proof of its step takes it as a public input: it is fixed once the inscription is in a block, and the prover reads it from the ledger.
 
 ### ROLLUP_DEPOSIT
 
-Deposit value into a rollup channel. The deposit consumes notes of the ledger note set and creates no note: it records a [pending deposit](#rollup-state) of its value and its intent in the `deposits` of the rollup, under its [`op_id`](bedrock-mantle-specification.md#note-commitment-and-nullifier), until a [`ROLLUP_PROVE`](#rollup_prove) mints it into the note set of the rollup.
+Deposit value into a rollup channel. The deposit consumes notes of the ledger note set and creates no note: it records a [pending deposit](#rollup-state) of its value and its intent in the `deposits` of the rollup, under its [`op_id`](bedrock-mantle.md#note-commitment-and-nullifier), until a [`ROLLUP_PROVE`](#rollup_prove) mints it into the note set of the rollup.
 
-A deposit waits until a step chosen by the sequencers of the rollup mints it, and the ledger never refunds it, so the STF decides when the rollup takes it in. Its ZkTransfer has no outputs, so the change of the depositor comes from a [Transfer](bedrock-mantle-specification.md#transfer) earlier in the same Mantle Transaction, which splits off the value to deposit into notes the deposit then consumes. The ledger keeps only the value and intent of a deposit: its inscription publishes data for the zone, which its `intent` can commit to.
+A deposit waits until a step chosen by the sequencers of the rollup mints it, and the ledger never refunds it, so the STF decides when the rollup takes it in. Its ZkTransfer has no outputs, so the change of the depositor comes from a [Transfer](bedrock-mantle.md#transfer) earlier in the same Mantle Transaction, which splits off the value to deposit into notes the deposit then consumes. The ledger keeps only the value and intent of a deposit: its inscription publishes data for the zone, which its `intent` can commit to.
 
 #### Payload
 
@@ -304,7 +304,7 @@ class RollupDeposit:
 
 #### Proof
 
-  A Rollup Deposit proves the ownership of the notes being consumed, and that their value is the deposited value plus the excess value, using a [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) with no outputs.
+  A Rollup Deposit proves the ownership of the notes being consumed, and that their value is the deposited value plus the excess value, using a [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) with no outputs.
 
 ```python
 ZkTransfer
@@ -312,7 +312,7 @@ ZkTransfer
 
 #### Execution Gas
 
-  Rollup Deposit Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_DEPOSIT_GAS`, the cost of a deposit. See [Gas Determination](bedrock-mantle-specification.md#gas-determination) for the Execution Gas values.
+  Rollup Deposit Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_DEPOSIT_GAS`, the cost of a deposit. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -342,7 +342,7 @@ ledger: Ledger
       assert isinstance(chan.kind, RollupChannel)
       ```
 
-  3. Ensure all inputs are spendable in the [ledger note set](bedrock-mantle-specification.md#ledger), `LEDGER_SET`.
+  3. Ensure all inputs are spendable in the [ledger note set](bedrock-mantle.md#ledger), `LEDGER_SET`.
       ```python
       ledger.sets[LEDGER_SET].assert_spendable(deposit.inputs)
       ```
@@ -408,9 +408,9 @@ class RollupProve:
     verification_key: Groth16VerificationKey | None  # the next key of the STF proofs, None to keep the current one
 ```
 
-The deposits a step mints become one note of the rollup note set, the deposit note, which holds their total value. It is held by `PK0`, so that any prover can spend it in a transfer of the step or of a later step, and its staking key is `0`, so that no one leads with it ([Keys](bedrock-mantle-specification.md#keys)). Its nonce derives from the `op_id` of the inscription the step proves, and a step proves an inscription once, so no two deposit notes share a commitment.
+The deposits a step mints become one note of the rollup note set, the deposit note, which holds their total value. It is held by `PK0`, so that any prover can spend it in a transfer of the step or of a later step, and its staking key is `0`, so that no one leads with it ([Keys](bedrock-mantle.md#keys)). Its nonce derives from the `op_id` of the inscription the step proves, and a step proves an inscription once, so no two deposit notes share a commitment.
 
-Each `RollupTransfer` is a [ZkTransfer](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) whose outputs are its `outputs` followed by its `payouts`, and it balances exactly, with an `excess_value` of `0`. A step therefore pays no fee: its prover pays the fees of its Mantle Transaction with another Operation of it, such as a Transfer.
+Each `RollupTransfer` is a [ZkTransfer](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) whose outputs are its `outputs` followed by its `payouts`, and it balances exactly, with an `excess_value` of `0`. A step therefore pays no fee: its prover pays the fees of its Mantle Transaction with another Operation of it, such as a Transfer.
 
 The step that [`ROLLUP_INSCRIBE`](#rollup_inscribe) recommends for an inscription the STF cannot apply, with no deposit, no transfer and the same state root, is valid: every transfer consumes at least one note, as `assert_spendable` requires, but a step can have no transfer.
 
@@ -459,7 +459,7 @@ The ZkTransfers and the STF proof of a step are bound to the `op_id` of the insc
 
 #### Execution Gas
 
-  Rollup Prove Operations have an Execution Gas cost of `EXECUTION_TRANSFER_GAS * len(transfers) + EXECUTION_ROLLUP_PROOF_GAS`, the cost of the transfers and of the STF proof, plus `EXECUTION_ROLLUP_KEY_GAS` when the payload carries a next verification key. See [Gas Determination](bedrock-mantle-specification.md#gas-determination) for the Execution Gas values.
+  Rollup Prove Operations have an Execution Gas cost of `EXECUTION_TRANSFER_GAS * len(transfers) + EXECUTION_ROLLUP_PROOF_GAS`, the cost of the transfers and of the STF proof, plus `EXECUTION_ROLLUP_KEY_GAS` when the payload carries a next verification key. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 

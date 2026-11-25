@@ -303,7 +303,7 @@ Version 1.3.0, from [#526](#chores). The Proof of Quota public values hold the f
 | Specification | Status | Note |
 | --- | --- | --- |
 | [Mantle Rollups](../bedrock-mantle-rollups.md) | Created | 1.0.0 |
-| [Mantle](../bedrock-mantle-specification.md) | Modified | 2.1.0 |
+| [Mantle](../bedrock-mantle.md) | Modified | 2.1.0 |
 | [Mantle Channels](../bedrock-mantle-channels.md) | Modified | 1.1.0 |
 | [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | 2.1.0 |
 | [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | 1.3.0 |
