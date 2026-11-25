@@ -63,7 +63,8 @@ class ChannelState:
     posting_timeout: u32    # number of slots (0 = no timeout)
 
     # Kind, fixed when the channel is created
-    kind: NativeChannel | RollupChannel  # rollup channels are specified in Mantle Rollups
+    kind: NativeChannel | RollupChannel  # RollupChannel is specified in Mantle Rollups,
+                                         # bedrock-mantle-rollups.md
 
 class NativeChannel:
     # Bridging
@@ -89,9 +90,9 @@ def create_channel(channel_id: ChannelId, block_slot: Slot, keys: list[Ed25519Pu
     channels[channel_id] = default_channel(block_slot, keys, NativeChannel(len(ledger.sets) - 1))
 ```
 
-Each channel Operation checks the kind of channel it acts on, and the Operations of this document act on native channels only. A channel thus follows the rules of its kind for its whole life, and the round-robin and the parent and signer checks are the same for every kind.
+Each channel Operation checks the kind of channel it acts on, and the Operations of this document act on native channels only; rollup channels and their Operations are specified in [Mantle Rollups](bedrock-mantle-rollups.md). Since the kind is fixed at creation, a channel follows the rules of its kind for its whole life, and the round-robin and the parent and signer checks of an inscription are the same for every kind.
 
-The null channel, whose `ChannelId` is 32 zero bytes, is a native channel with no note set that exists before Genesis. Its only accredited key is the null key, the Ed25519 public key made of 32 zero bytes, and its other fields are those `default_channel` gives at the Genesis slot `0`, its `tip_hash` and `config_tip_hash` being `ZERO`. It exists from the start so that the Cryptarchia inscription of the [Genesis block](bedrock-genesis-block.md) extends it as any inscription extends its channel, with a `parent` of `ZERO`. It carries the inscriptions of the Genesis block and nothing after them, since it is signed by a key no one holds. It has no note set: no Operation can deposit to it, withdraw from it or publish a step in it.
+The null channel, whose `ChannelId` is 32 zero bytes, is a native channel that exists before Genesis. Its only accredited key is the null key, the Ed25519 public key made of 32 zero bytes, and its other fields are those `default_channel` gives at the Genesis slot `0`, its `tip_hash` and `config_tip_hash` being `ZERO`. It exists from the start so that the Cryptarchia inscription of the [Genesis block](bedrock-genesis-block.md) extends it as any inscription extends its channel, with a `parent` of `ZERO`. It carries the inscriptions of the Genesis block and nothing after them, since it is signed by a key no one holds. It has no note set: no Operation can deposit to it, withdraw from it or publish a step in it.
 
 Note that the user chooses the ChannelId mapping to the ChannelState (but it’s restricted to 32 bytes). We don't currently impose restrictions on it, but we may do so in the future to prevent undesirable behaviors.
 

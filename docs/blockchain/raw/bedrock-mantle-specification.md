@@ -385,7 +385,7 @@ NF_SK0 = zkhash(FiniteField(b"NF_KDF_V1", byte_order="little", modulus= p), 0)
 PK0 = zkhash(FiniteField(b"KDF", byte_order="little", modulus= p), NF_SK0)
 ```
 
-Anyone can spend a note `PK0` holds. `NF_SK0` is public, so `PK0` should never be the staking key of such a note: anyone could lead with it, taking `NF_SK0` as nullifier key and as staking secret key.
+Anyone can spend a note `PK0` holds, such as the notes of a [rollup](bedrock-mantle-rollups.md) that chooses a key every prover knows. `NF_SK0` is public, so `PK0` should never be the staking key of such a note: anyone could lead with it, taking `NF_SK0` as nullifier key and as staking secret key.
 
 - **Spending.** A [ZkTransfer](#zero-knowledge-transfer-proof-zktransfer) proves `spending_sk`, from which it derives `nf_sk`, then the `public_key` and the nullifier of the note. Spending a note takes `spending_sk`, and no other secret.
 - **Leading.** A [Proof of Leadership](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement) proves the `public_key` from `nf_sk`, which ties the nullifier it shows unspent to the note, and the `stake_public_key` from `staking_sk`, which derives the lottery ticket. The nullifier key sits between the spending secret key and the public key so that this proof never takes `spending_sk`.
@@ -446,7 +446,8 @@ The notes live in note sets, each with its own commitment MMR and nullifier IMT.
 | --- | --- | --- | --- |
 | Ledger | `LEDGER_SET = 0` | the notes of transfers, rewards and withdrawals | Transfers, deposits and declarations |
 | SDP | `SDP_SET = 1` | service notes | the Withdraw Operation of their declaration |
-| Native channel | `2` onward, in the order the channels were created, the null channel having none | channel notes | the steps of the channel's inscriptions, and withdrawals |
+| Native channel | `2` onward, one per native or rollup channel in the order the channels were created, the null channel having none | channel notes | the steps of the channel's inscriptions, and withdrawals |
+| Rollup channel | its place in the sequence above, taken at its creation | the notes of the rollup | the [`ROLLUP_PROVE`](bedrock-mantle-rollups.md#rollup_prove) Operations of the rollup only |
 
 Two parameters fix the trees of a note set and how long their roots can be proven against:
 
