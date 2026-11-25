@@ -35,7 +35,7 @@
 | 1.2.3 | Update the test vectors to reflect the parent added in the `CHANNEL_CONFIG` payload | 2026-08-27 |
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
-| 1.3.0 | Allowed a block to reference any fork block as an [uncle](#uncle-references), by its block ID and slot, raised $`W`$ to 240, and made the fork choice consider only chains whose recent blocks reference valid uncles. | 2026-11-24 |
+| 1.3.0 | Allowed a block to reference any fork block as an [uncle](#uncle-references), by its block ID and slot, raised $`W`$ to 240, and made the fork choice consider only chains whose recent blocks reference valid uncles. | 2026-11-25 |
 
 # Introduction
 
@@ -344,13 +344,14 @@ When constructing a block $`B`$, the proposer selects its uncles from the follow
 def uncle_candidates(B) -> Set[Block]:
     # Slots occupied on the chain B extends: its blocks and the uncles they reference.
     occupied = {A.slot for A in ancestors(B)} | {u.slot for A in ancestors(B) for u in A.uncles}
+    referenced = {u.block_id for A in ancestors(B) for u in A.uncles}
 
     return {X for X in T if
               valid_uncle(UncleReference(block_id(X), X.slot), B)
               and X.slot not in occupied
               # The nodes that validate B then hold the branch too, and the choice does not
               # reveal when the proposer received it.
-              and all(broadcast(Y) for Y in branch(X, B))}
+              and all(broadcast(Y) or block_id(Y) in referenced for Y in branch(X, B))}
 ```
 
 `branch(X, B)` is the blocks after the fork point of $`X`$ up to $`X`$, and `fork_point(X, B)` is its fork point. `broadcast(Y)` holds once $`T_M`$ rounds ([Global Parameters](blend-protocol.md#global-parameters)) have passed since the node received $`Y`$ on the broadcasting channel ([Broadcasting](blend-protocol.md#broadcasting-2)) or sent $`Y`$ there.
