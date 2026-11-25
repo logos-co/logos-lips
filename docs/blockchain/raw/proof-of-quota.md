@@ -30,6 +30,7 @@
 | 1.2.0 | Add the proof of work branch: third selector value, `pow_quota` and `pow_blend_difficulty` public inputs, a private `pow_nonce` witness, and Lagrange branch selection; benchmark the three branch circuit | 2026-09-08 |
 | 1.3.0 | Follow the Proof of Leadership of the private ledger: the leader branch proves the note commitment in its note set under the eligible root of the time the stake distribution was frozen, and its nullifier absent from the nullifier IMT of that set at that time. Paths and selectors follow the Merkle path convention of Mantle, from the leaf level up, the commitment path and the path in the eligible tree having depth 40. `pol_epoch_nonce`, `pol_t0` and `pol_t1` are field elements, as in the Proof of Leadership, and `core_sk` is the Non-ephemeral Quota Key | 2026-11-06 |
 | 1.3.1 | Links to Mantle point to `bedrock-mantle.md` | 2026-11-25 |
+| 1.4.0 | Require `pol_sl` to be a slot of the epoch in every branch, with the public inputs `pol_window_first_slot` and `pol_window_last_slot` | 2026-11-10 |
 
 
 # Introduction
@@ -72,11 +73,15 @@ class ProofOfQuotaPublic:
     pol_epoch_nonce: zkhash # PoL Epoch nonce
     pol_t0: zkhash        # PoL constant t0
     pol_t1: zkhash        # PoL constant t1
+    pol_window_first_slot: int # First slot of the epoch (64 bits)
+    pol_window_last_slot: int  # Last slot of the epoch (64 bits)
 ```
 
 The proof's public signal vector is fixed by the circuit: the output first, then the public inputs in the order listed above.
 
 `pow_blend_difficulty` is $`d_{blend}`$ for the epoch, derived in [Blend Difficulty](proof-of-work.md#blend-difficulty).
+
+For the epoch $`ep`$, `pol_window_first_slot` is $`ep \cdot \text{EPOCH\_LENGTH}`$ and `pol_window_last_slot` is $`(ep + 1) \cdot \text{EPOCH\_LENGTH} - 1`$, where $`\text{EPOCH\_LENGTH}`$ is the [epoch length](cryptarchia-protocol.md#epoch-schedule) in slots.
 
 ### Witness
 
@@ -86,12 +91,12 @@ The prover knows a witness:
 class ProofOfQuotaWitness:
     index: int                                 # This is the index of the generated key. Limiting this index limits the maximum number of key generated. (20 bits)
     selector: int                              # Indicates a core node (=0), a leader (=1) or a proof of work solution (=2)
+    pol_sl: int                                # PoL slot: the winning slot for a leader, else any slot of the epoch (64 bits)
     # This part is filled randomly by potential leaders and by proof of work provers
     core_sk: zkhash                            # sk corresponding to the zk_id of the core node
     core_path: list[zkhash]                    # Merkle path proving zk_id membership (len = 20)
     core_path_selectors: list[bool]            # Indicates how to read the core_path (if Merkle nodes are left or right in the path)
     # This part is filled randomly by core nodes and by proof of work provers
-    pol_sl: int                                # PoL slot
     pol_nullifier_key: zkhash                  # PoL note nullifier key
     pol_staking_secret_key: zkhash             # PoL note staking secret key
     pol_note_value: int                        # PoL note value
@@ -116,6 +121,8 @@ Such that the following constraints hold:
 
 **Step 1**: The prover selects an `index` for the chosen key. This index must be lower than the allowed quota and not already used. This index is used to derive the key nullifier in step 5. Limiting the possible values of this index also limit the possible nullifier created which produce the desired effect: limiting the generation of keys to a certain quota. `index` is on 20 bits, so a quota may be at most $`2^{20} - 1`$.
 
+Whatever the branch, `pol_sl` must be a slot of the epoch: `pol_window_first_slot <= pol_sl <= pol_window_last_slot`.
+
 **Step 2:**  If the prover indicated that the node is a core node for the proof, the proof checks that:
 
   1. The core node is registered in the set `N = SDP(epoch)`. This is proven by demonstrating knowledge of a `core_sk` that corresponds to a declared `zk_id`, which is a valid SDP registry for the current `epoch`. The `zk_id` values are stored in a Merkle tree with a fixed depth of 20, with the root provided as a public input. To build the Merkle tree, `zk_id` are ordered from the smallest to the biggest (when seen as natural numbers between 0 and $`p`$) and remaining empty leaves are represented by the `0` after the sorting (appended at the end of the vector). This structure supports up to 1M validators.
@@ -123,7 +130,7 @@ Such that the following constraints hold:
 
 **Step 3:** If the prover indicated that the node is a potential leader node for the proof, the proof checks that:
 
-  1. The leader node possesses a note that would win a slot in the consensus lottery. Unlike leadership conditions, the proof of quota doesn't verify that the note is still unspent; it verifies that the note was unspent when the stake distribution was frozen: the nullifier of the note is not in the [Nullifier Indexed Merkle Tree](bedrock-mantle.md#nullifier-indexed-merkle-tree) of its note set at that time. This enables potential provers to generate the PoQ well in advance, and since commitments are never removed from a note set, it keeps a holder from multiplying its leader quota by re-creating its note before the freeze. All other lottery constraints, including the derivation of the public key from the nullifier key and of the staking key from the staking secret key, the commitment over the staking key of the note, so that a note qualifies unless its staking key is `0`, and the membership of the note commitment in its note set under the eligible root of the time the stake distribution was frozen, are the same as in [Zero-knowledge Proof Statement](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement).
+  1. The leader node possesses a note that would win the slot `pol_sl` in the consensus lottery. Unlike leadership conditions, the proof of quota doesn't verify that the note is still unspent; it verifies that the note was unspent when the stake distribution was frozen: the nullifier of the note is not in the [Nullifier Indexed Merkle Tree](bedrock-mantle.md#nullifier-indexed-merkle-tree) of its note set at that time. This enables potential provers to generate the PoQ well in advance, and since commitments are never removed from a note set, it keeps a holder from multiplying its leader quota by re-creating its note before the freeze. All other lottery constraints, including the derivation of the public key from the nullifier key and of the staking key from the staking secret key, the commitment over the staking key of the note, so that a note qualifies unless its staking key is `0`, and the membership of the note commitment in its note set under the eligible root of the time the stake distribution was frozen, are the same as in [Zero-knowledge Proof Statement](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement).
   2. The index is valid: `index < leader_quota`.
 
 **Step 4:** If the prover indicated that the proof is backed by proof of work, the proof checks that:
@@ -171,6 +178,12 @@ L2 = (selector_squared - selector) * inv_2   # inv_2 is the inverse of 2 in the 
 # saying index < core_quota if selector == 0, index < leader_quota if selector == 1,
 # or index < pow_quota if selector == 2.
 index < core_quota + (leader_quota - core_quota) * L1 + (pow_quota - core_quota) * L2
+
+# Verify pol_sl is a slot of the epoch, whatever the branch. Both differences
+# are taken in the scalar field and must fit 64 bits: for a slot outside the
+# epoch, one of them wraps around the field.
+pol_sl - pol_window_first_slot < 2**64
+pol_window_last_slot - pol_sl < 2**64
 
 # Check if it's a registered core node
 zk_id = zkhash(b"KDF", core_sk)
