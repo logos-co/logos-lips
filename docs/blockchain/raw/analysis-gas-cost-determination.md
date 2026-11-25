@@ -83,7 +83,7 @@ SDP_ACTIVE_GAS                = 59
 CLAIM_POW_REWARD_GAS          = 0
 ```
 
-where `steps` is the number of [steps](bedrock-v1.1-mantle-channels.md#channel_inscribe) of the inscription, a step being a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer.
+where `steps` is the number of [steps](bedrock-mantle-channels.md#channel_inscribe) of the inscription, a step being a local transaction of the channel: a ZkTransfer moving channel notes, signed by their holder and published by a sequencer.
 
 These values come from our implementation observations as described in [Gas determination from measures](#gas-determination-from-measures).  To get these numbers, we based our calculations on the following measures:
 
@@ -96,7 +96,7 @@ Comparison, list searching, hashes and operation in small fields are neglected. 
 
 # Transfer
 
-The Execution Gas of the Transfer Operation compensates for the verification of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proof.
+The Execution Gas of the Transfer Operation compensates for the verification of the [ZkTransfer](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proof.
 
 Execution: ~619k CPU cycles.
 
@@ -109,7 +109,7 @@ Input gas covers the computational cost of verifying that one nullifier is not i
 Execution: negligible.
 
 - Verification that the nullifier is not in the set: negligible.
-- Verification that the commitment root is one of the last [`ROOT_WINDOW`](bedrock-v1.1-mantle-specification.md#ledger) blocks: negligible.
+- Verification that the commitment root is one of the last [`ROOT_WINDOW`](bedrock-mantle-specification.md#ledger) blocks: negligible.
 - Insertion of the nullifier in the nullifier set: negligible.
 
 ## Output Gas
@@ -118,7 +118,7 @@ Output gas accounts for the computational resources required for the inclusion o
 
 Execution: negligible.
 
-- Appending of the commitment to the commitment [Merkle Mountain Range](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) (MMR): negligible.
+- Appending of the commitment to the commitment [Merkle Mountain Range](bedrock-mantle-specification.md#commitment-merkle-mountain-range) (MMR): negligible.
 
 ## Channel Inscription
 
@@ -136,7 +136,7 @@ Execution: ~59k CPU cycles + ~619k CPU cycles * steps.
 
 ## Channel Deposit
 
-The Execution Gas of the Channel Deposit Operation compensates for the verification of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proof and for the check of the inputs.
+The Execution Gas of the Channel Deposit Operation compensates for the verification of the [ZkTransfer](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proof and for the check of the inputs.
 
 Execution: ~619k CPU cycles.
 
@@ -147,7 +147,7 @@ Execution: ~619k CPU cycles.
 
 ## Channel Withdraw
 
-The Execution Gas of the Channel Withdraw Operation compensates for the verification of the [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proof of the holder and for the check of the inputs.
+The Execution Gas of the Channel Withdraw Operation compensates for the verification of the [ZkTransfer](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) proof of the holder and for the check of the inputs.
 
 Execution: ~619k CPU cycles.
 

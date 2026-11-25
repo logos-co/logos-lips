@@ -99,7 +99,7 @@ Each service type is assigned a one-byte discriminant, given by the enum value a
 
 The minimum stake is a global value that defines the minimum stake a node must have to perform any service.
 
-The minimum stake is one `MinStake`, which holds the `threshold`, a [`TokenValue`](bedrock-v1.1-mantle-specification.md#notes), and the `timestamp`, a `BlockHeight`. A `BlockHeight` is a 64-bit unsigned integer. The `timestamp` exists only to match the deployment configuration of the implementation. No rule reads it.
+The minimum stake is one `MinStake`, which holds the `threshold`, a [`TokenValue`](bedrock-mantle-specification.md#notes), and the `timestamp`, a `BlockHeight`. A `BlockHeight` is a 64-bit unsigned integer. The `timestamp` exists only to match the deployment configuration of the implementation. No rule reads it.
 
 ```python
 class MinStake:
@@ -214,8 +214,8 @@ Where:
 - `locators` are the addresses of the validator ([Locators](#locators));
 - `provider_id` and `zk_id` are the identifiers of the validator ([Identifiers](#identifiers));
 - `note_pk` is the `ZkPublicKey` the service note is created under. No check reads it and no proof covers its secret, so, as for the outputs of a Transfer, the wallet is responsible for it: a `note_pk` whose secret nobody holds locks the stake for good;
-- `inputs` are the [`NoteNullifier`](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) of the notes the declaration consumes, proven by a [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) against `commitment_root`;
-- `commitment_root` is the root of the [commitment Merkle Mountain Range (MMR)](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) of the ledger note set at the end of one of the last [`ROOT_WINDOW`](bedrock-v1.1-mantle-specification.md#ledger) blocks;
+- `inputs` are the [`NoteNullifier`](bedrock-mantle-specification.md#note-commitment-and-nullifier) of the notes the declaration consumes, proven by a [ZkTransfer](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) against `commitment_root`;
+- `commitment_root` is the root of the [commitment Merkle Mountain Range (MMR)](bedrock-mantle-specification.md#commitment-merkle-mountain-range) of the ledger note set at the end of one of the last [`ROOT_WINDOW`](bedrock-mantle-specification.md#ledger) blocks;
 - `amount` is the value of the one service note the declaration creates under the `note_pk`, used for minimum stake threshold verification purposes.
 
 ### **Declaration Storage**
@@ -340,7 +340,7 @@ Where:
 
 The message must be signed by the `provider_id` key of the declaration.
 
-A [ZkTransfer](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) by the holder of the service note, who has the secret of the `note_pk`, proves the spend, against the service note of the declaration only. The message carries no `nonce`: it is valid only while the declaration has no withdrawal scheduled, and its nullifier is consumed once. The service note is consumed when the message is included, so its stake leaves Proof of Stake at once, and the `outputs` are released to the ledger when the declaration is removed.
+A [ZkTransfer](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) by the holder of the service note, who has the secret of the `note_pk`, proves the spend, against the service note of the declaration only. The message carries no `nonce`: it is valid only while the declaration has no withdrawal scheduled, and its nullifier is consumed once. The service note is consumed when the message is included, so its stake leaves Proof of Stake at once, and the `outputs` are released to the ledger when the declaration is removed.
 
 ### Serialization
 
@@ -514,7 +514,7 @@ class DeclarationMessage:
 
 `note_pk` is the key the service note is created under. No check reads it and no proof covers its secret, so getting it right is the wallet's responsibility, as for the outputs of a Transfer: a `note_pk` whose secret nobody holds locks the stake for good, and a declarer who keeps the secret offline can keep the stake under a cold key.
 
-Service notes are introduced in [Service notes](bedrock-v1.1-mantle-specification.md#service-notes) and serve as Service collaterals. They cannot be spent before the owner withdraws its participation from the declared service.
+Service notes are introduced in [Service notes](bedrock-mantle-specification.md#service-notes) and serve as Service collaterals. They cannot be spent before the owner withdraws its participation from the declared service.
 
 #### Proof
 
@@ -524,11 +524,11 @@ class DeclarationProof:
     provider_sig: Ed25519Signature  # signature proving ownership of provider key
 ```
 
-  see: [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer).
+  see: [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer).
 
 #### Execution Gas
 
-  SDP Declare Operations have a fixed Execution Gas cost of `EXECUTION_SDP_DECLARE_GAS`. See [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) for the Execution Gas values.
+  SDP Declare Operations have a fixed Execution Gas cost of `EXECUTION_SDP_DECLARE_GAS`. See [Gas Determination](bedrock-mantle-specification.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -600,7 +600,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       ledger.sets[LEDGER_SET].execute_spending(declaration.inputs)
       ```
 
-  2. Create the service note under the `note_pk` in the [SDP note set](bedrock-v1.1-mantle-specification.md#ledger), `SDP_SET`, its nonce and commitment derived as in [Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier).
+  2. Create the service note under the `note_pk` in the [SDP note set](bedrock-mantle-specification.md#ledger), `SDP_SET`, its nonce and commitment derived as in [Note Commitment and Nullifier](bedrock-mantle-specification.md#note-commitment-and-nullifier).
       ```python
       declaration_op_id = derive_op_id(declaration)
       service_note = Note(
@@ -648,11 +648,11 @@ class WithdrawMessage:
 
 The withdrawal consumes the service note of the declaration and creates the notes that return its value. Its ZkTransfer is proven against the root of an empty MMR to which only the service note is appended. That root is computed from the commitment held in the declaration, so the nullifier is the one of this service note and of no other note. A withdrawal carries no nonce: it is valid only while the declaration has no withdrawal scheduled, and that single nullifier is consumed once, so it cannot be replayed.
 
-The service note is consumed when the withdrawal is posted, so the stake leaves Proof of Stake at once and its excess pays the fees. The outputs wait in the [`pending_withdrawals`](bedrock-v1.1-mantle-specification.md#ledger) of the ledger, as an entry with no input, until the declaration is removed at the first slot of epoch `withdraw_at + 1`, where [`release_withdrawals`](bedrock-v1.1-mantle-channels.md#channel_withdraw) creates them in the ledger note set. Having no input to check, the entry is always released, so the value of the service note is counted once.
+The service note is consumed when the withdrawal is posted, so the stake leaves Proof of Stake at once and its excess pays the fees. The outputs wait in the [`pending_withdrawals`](bedrock-mantle-specification.md#ledger) of the ledger, as an entry with no input, until the declaration is removed at the first slot of epoch `withdraw_at + 1`, where [`release_withdrawals`](bedrock-mantle-channels.md#channel_withdraw) creates them in the ledger note set. Having no input to check, the entry is always released, so the value of the service note is counted once.
 
 #### Proof
 
-  A signature from the `provider_id` attached to the declaration and a [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) by the holder of the service note, who has the secret of the `note_pk`, are required for withdrawing from a service.
+  A signature from the `provider_id` attached to the declaration and a [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) by the holder of the service note, who has the secret of the `note_pk`, are required for withdrawing from a service.
 
 ```python
 class WithdrawProof:
@@ -662,7 +662,7 @@ class WithdrawProof:
 
 #### Execution Gas
 
-  SDP Withdraw Operations have a fixed Execution Gas cost of `EXECUTION_SDP_WITHDRAW_GAS`. See [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) for the Execution Gas values.
+  SDP Withdraw Operations have a fixed Execution Gas cost of `EXECUTION_SDP_WITHDRAW_GAS`. See [Gas Determination](bedrock-mantle-specification.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -695,7 +695,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       ```python
       assert Ed25519_verify(txhash, declare_info.provider_id, proof.provider_sig)
       ```
-  4. Ensure the service note of the declaration is unspent, consumed by its holder and balances the outputs, with [`ZkTransfer_verify`](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) against the [`mmr_root`](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) of the single peak holding the service note.
+  4. Ensure the service note of the declaration is unspent, consumed by its holder and balances the outputs, with [`ZkTransfer_verify`](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer) against the [`mmr_root`](bedrock-mantle-specification.md#commitment-merkle-mountain-range) of the single peak holding the service note.
       ```python
       ledger.sets[SDP_SET].assert_spendable([withdraw.service_note_nullifier])
       assert ZkTransfer_verify([withdraw.service_note_nullifier],
@@ -733,7 +733,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
       ledger.sets[SDP_SET].execute_spending([withdraw.service_note_nullifier])
       ```
 
-  3. Keep the outputs in the [`pending_withdrawals`](bedrock-v1.1-mantle-specification.md#ledger) of the ledger, with no input, until the first slot of epoch `withdraw_at + 1`, `EPOCH_LENGTH` being the number of slots of an epoch ([Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule)).
+  3. Keep the outputs in the [`pending_withdrawals`](bedrock-mantle-specification.md#ledger) of the ledger, with no input, until the first slot of epoch `withdraw_at + 1`, `EPOCH_LENGTH` being the number of slots of an epoch ([Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule)).
       ```python
       ledger.pending_withdrawals.append(((declare_info.withdraw_at + 1) * EPOCH_LENGTH,
                                          SDP_SET,
@@ -800,7 +800,7 @@ Ed25519Signature
 
 #### Execution Gas
 
-  SDP Active Operations have a fixed Execution Gas cost of `EXECUTION_SDP_ACTIVE_GAS`. See [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) for the Execution Gas values.
+  SDP Active Operations have a fixed Execution Gas cost of `EXECUTION_SDP_ACTIVE_GAS`. See [Gas Determination](bedrock-mantle-specification.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 

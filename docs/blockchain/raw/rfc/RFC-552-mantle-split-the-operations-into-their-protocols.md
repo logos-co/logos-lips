@@ -38,18 +38,18 @@ The split moves text and repoints links. No payload, opcode, validation rule, ex
 
 ## Mantle
 
-Version 2.1.0. Mantle specifies the Mantle Transaction, the ledger, TRANSFER under `## Ledger Operations`, and the tables and vectors shared by all Operations. The Opcodes table links each Operation to the section that specifies it:
+Version 2.1.0, published as `bedrock-mantle-specification.md`. Mantle specifies the Mantle Transaction, the ledger, TRANSFER under `## Ledger Operations`, and the tables and vectors shared by all Operations. The Opcodes table links each Operation to the section that specifies it:
 
 | **Operation** | **Opcode** | **Specified in** |
 | --- | --- | --- |
-| `TRANSFER` | `0x00` | [Mantle](../bedrock-v1.1-mantle-specification.md#transfer) |
-| `CHANNEL_CONFIG`, `CHANNEL_INSCRIBE`, `CHANNEL_DEPOSIT`, `CHANNEL_WITHDRAW` | `0x10`-`0x13` | [Mantle Channels](../bedrock-v1.1-mantle-channels.md#channel-operations) |
+| `TRANSFER` | `0x00` | [Mantle](../bedrock-mantle-specification.md#transfer) |
+| `CHANNEL_CONFIG`, `CHANNEL_INSCRIBE`, `CHANNEL_DEPOSIT`, `CHANNEL_WITHDRAW` | `0x10`-`0x13` | [Mantle Channels](../bedrock-mantle-channels.md#channel-operations) |
 | `SDP_DECLARE`, `SDP_WITHDRAW`, `SDP_ACTIVE` | `0x20`-`0x22` | [Service Declaration Protocol](../bedrock-service-declaration-protocol.md#service-declaration-protocol-sdp-operations) |
 | `CLAIM_POW_REWARD` | `0x30` | [Proof of Work](../proof-of-work.md#claim_pow_reward) |
 
 ## Mantle Channels
 
-Version 1.0.0, slug 246. Mantle Channels specifies `## Channel Operations`: Message Ordering, Decentralized Sequencing, Bridging, and the Operations `CHANNEL_INSCRIBE`, `CHANNEL_CONFIG`, `CHANNEL_DEPOSIT` and `CHANNEL_WITHDRAW`, under a `# Operations` heading. Its Introduction points to Mantle for the transaction that carries the channel Operations and for the ledger they act on.
+Version 1.0.0, slug 246, published as `bedrock-mantle-channels.md`. Mantle Channels specifies `## Channel Operations`: Message Ordering, Decentralized Sequencing, Bridging, and the Operations `CHANNEL_INSCRIBE`, `CHANNEL_CONFIG`, `CHANNEL_DEPOSIT` and `CHANNEL_WITHDRAW`, under a `# Operations` heading. Its Introduction points to Mantle for the transaction that carries the channel Operations and for the ledger they act on.
 
 ## Service Declaration Protocol
 
@@ -66,7 +66,8 @@ Version 1.3.0. Proof of Work specifies `## Proof of Work Operations` under `# Pr
 - The Service Declaration Protocol drops its `## Mantle and ZK Proofs` section, a pointer to Mantle that the SDP Operations section replaces.
 - TRANSFER takes the section shape of the other Operations, `### TRANSFER` with `####` subsections, and the label `*Execute*`. `CLAIM_POW_REWARD` takes the heading `#### Execution Gas` and the label `*Execute*`.
 - Two Mantle sentences refer to the Operations without the word "below", one of them through the Opcodes table.
-- `scripts/blockchain_structure.py` places Mantle Channels under Mantle in the generated summary, beside Mantle and Proof of Work.
+- The Mantle documents carry no version in their file names, since each document keeps its version in its revision history: `bedrock-v1.1-mantle-specification.md` becomes `bedrock-mantle-specification.md`, and Mantle Channels is published as `bedrock-mantle-channels.md`. Every link to them follows, in the documents above and in [Common Cryptographic Components](../common-cryptographic-components.md), [Cryptarchia Protocol](../cryptarchia-v1-protocol.md), [Proof of Leadership](../cryptarchia-proof-of-leadership.md), [Key Types and Generation](../key-types-and-generation.md), [Cryptoeconomics](../overview-cryptoeconomics.md), [Proof of Quota](../proof-of-quota.md) and [Wallet Technical Standard](../wallet-technical-standard.md), and in the RFC documents of [PR #480](RFC-480-mantle-private-utxo-ledger.md) and [PR #503](RFC-503-cryptoeconomics-define-the-lepton-as-the-indivisible-token-unit.md). Historical documents and revision rows keep their links, and the PR lists the links left dead.
+- `scripts/blockchain_structure.py` maps both files and places Mantle Channels under Mantle in the generated summary, beside Mantle and Proof of Work.
 
 # Implementation
 
@@ -76,12 +77,19 @@ Version 1.3.0. Proof of Work specifies `## Proof of Work Operations` under `# Pr
 
 | Specification | Status | Note |
 | --- | --- | --- |
-| [Mantle](../bedrock-v1.1-mantle-specification.md) | Modified | 2.1.0 |
-| [Mantle Channels](../bedrock-v1.1-mantle-channels.md) | Created | 1.0.0 |
+| [Mantle](../bedrock-mantle-specification.md) | Modified | 2.1.0, published as `bedrock-mantle-specification.md` |
+| [Mantle Channels](../bedrock-mantle-channels.md) | Created | 1.0.0, published as `bedrock-mantle-channels.md` |
 | [Service Declaration Protocol](../bedrock-service-declaration-protocol.md) | Modified | 1.10.0 |
 | [Proof of Work](../proof-of-work.md) | Modified | 1.3.0 |
-| [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | link target only |
+| [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | link targets only |
 | [Bedrock Genesis Block](../bedrock-genesis-block.md) | Modified | link targets only |
 | [Service Reward Distribution Protocol](../bedrock-service-reward-distribution.md) | Modified | link targets only |
 | [Block Construction, Validation and Execution](../bedrock-v1.1-block-construction.md) | Modified | link targets only |
-| [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | link target only |
+| [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | link targets only |
+| [Common Cryptographic Components](../common-cryptographic-components.md) | Modified | link target only |
+| [Cryptarchia Protocol](../cryptarchia-v1-protocol.md) | Modified | link target only |
+| [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | link targets only |
+| [Key Types and Generation](../key-types-and-generation.md) | Modified | link target only |
+| [Cryptoeconomics](../overview-cryptoeconomics.md) | Modified | link targets only |
+| [Proof of Quota](../proof-of-quota.md) | Modified | link targets only |
+| [Wallet Technical Standard](../wallet-technical-standard.md) | Modified | link targets only |

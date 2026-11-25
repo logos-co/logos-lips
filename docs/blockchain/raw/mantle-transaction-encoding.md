@@ -40,7 +40,7 @@
 
 # Introduction
 
-This document specifies the canonical encoding of Mantle transactions (see [Mantle - Mantle Transaction](bedrock-v1.1-mantle-specification.md)) and its sub-components. Transactions sent through the mempool and included in blocks use this encoding.
+This document specifies the canonical encoding of Mantle transactions (see [Mantle - Mantle Transaction](bedrock-mantle-specification.md)) and its sub-components. Transactions sent through the mempool and included in blocks use this encoding.
 
 # Overview
 
@@ -112,7 +112,7 @@ Parent            = Hash32
 Signer            = Ed25519PublicKey
 ```
 
-A `UserStep` moves channel notes with the inscription of its holder, and a `MiniBlock` groups the steps proven against the same state of the transaction buffer, as [CHANNEL_INSCRIBE](bedrock-v1.1-mantle-channels.md#channel_inscribe) defines them. A `Step` starts with the byte of its kind; a decoder MUST reject an unknown kind.
+A `UserStep` moves channel notes with the inscription of its holder, and a `MiniBlock` groups the steps proven against the same state of the transaction buffer, as [CHANNEL_INSCRIBE](bedrock-mantle-channels.md#channel_inscribe) defines them. A `Step` starts with the byte of its kind; a decoder MUST reject an unknown kind.
 
 `MAX_OPERATION_DATA_SIZE` MUST be exactly **1,835,008 bytes**. The payloads of the `Inscription` of a `ChannelInscribe` and of the `Inscription` of each of its steps MUST together be at most `MAX_OPERATION_DATA_SIZE` bytes, and the payload of the `Inscription` of a `ChannelDeposit` MUST be at most `MAX_OPERATION_DATA_SIZE` bytes, each excluding its `UINT32` length prefix. A decoder MUST reject a `ChannelInscribe` when the declared or decoded payload lengths of its inscriptions sum to more than the limit, and a `ChannelDeposit` when the declared or decoded payload length of its inscription exceeds it.
 
@@ -169,7 +169,7 @@ NoteNullifier  = FieldElement ; nullifier of a note
 CommitmentRoot = FieldElement ; MMR root of note commitments
 ```
 
-Commitments and nullifiers are defined in [Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) of Mantle, and the root of the commitments of a note set in its [Commitment Merkle Mountain Range](bedrock-v1.1-mantle-specification.md#commitment-merkle-mountain-range) (MMR).
+Commitments and nullifiers are defined in [Note Commitment and Nullifier](bedrock-mantle-specification.md#note-commitment-and-nullifier) of Mantle, and the root of the commitments of a note set in its [Commitment Merkle Mountain Range](bedrock-mantle-specification.md#commitment-merkle-mountain-range) (MMR).
 
 ## Op Proofs
 

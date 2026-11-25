@@ -149,7 +149,7 @@ class ClaimPowRewardOp:
 
 #### Execution Gas
 
-  Claim Operations have a fixed Execution Gas cost of `EXECUTION_CLAIM_POW_REWARD_GAS`. See [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) for the Execution Gas values.
+  Claim Operations have a fixed Execution Gas cost of `EXECUTION_CLAIM_POW_REWARD_GAS`. See [Gas Determination](bedrock-mantle-specification.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -279,7 +279,7 @@ The parameters must give an `epoch_pow_reward` above the fee of a claim transact
 
 `PowTarget` is an element of $`\mathbb{F}_p`$, as every ticket is. A ticket satisfies a target when its canonical integer representative in $`[0, p-1]`$ is strictly below the target's; a smaller target is a harder puzzle. A representative is at most 254 bits, so a 256-bit unsigned integer holds any target.
 
-The two updates below multiply and divide targets as integers rather than in the fixed-width types of [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic), and cap their result at or below $`p - 1`$, so that it converts back to a field element without reduction. Every intermediate fits in **512 bits**: the reward retarget's product reaches $`2^{261}`$ and the Blend radicand $`2^{493}`$. Each operation is integer addition, multiplication, floor division or comparison, and `integer_nth_root` returns the exact floor, so two implementations agree exactly.
+The two updates below multiply and divide targets as integers rather than in the fixed-width types of [Arithmetic](bedrock-mantle-specification.md#arithmetic), and cap their result at or below $`p - 1`$, so that it converts back to a field element without reduction. Every intermediate fits in **512 bits**: the reward retarget's product reaches $`2^{261}`$ and the Blend radicand $`2^{493}`$. Each operation is integer addition, multiplication, floor division or comparison, and `integer_nth_root` returns the exact floor, so two implementations agree exactly.
 
 ## Reward Pool
 
@@ -293,7 +293,7 @@ def compute_epoch_pow_reward(pow_reward_pool: TokenValue) -> TokenValue:
     return (pow_reward_pool * EPOCH_POW_DISTRIBUTION_RATE_NUM) // denominator
 ```
 
-Each block, once its transactions have run, credits the pool with its share `POW_SHARE / SHARE_DEN` of the fees it collected ([Block Rewards](block-rewards.md#deterministic-implementation)), so the claims of a block draw on what the blocks before it paid. At each epoch boundary, before any block of the new epoch is processed, `epoch_pow_reward` is set to `compute_epoch_pow_reward(pow_reward_pool)` and held for the epoch, so every claim of an epoch pays the same whatever the fees of its blocks. The division rounds down, and the remainder stays in the pow reward pool. All arithmetic here is checked, in accordance with [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic).
+Each block, once its transactions have run, credits the pool with its share `POW_SHARE / SHARE_DEN` of the fees it collected ([Block Rewards](block-rewards.md#deterministic-implementation)), so the claims of a block draw on what the blocks before it paid. At each epoch boundary, before any block of the new epoch is processed, `epoch_pow_reward` is set to `compute_epoch_pow_reward(pow_reward_pool)` and held for the epoch, so every claim of an epoch pays the same whatever the fees of its blocks. The division rounds down, and the remainder stays in the pow reward pool. All arithmetic here is checked, in accordance with [Arithmetic](bedrock-mantle-specification.md#arithmetic).
 
 ### Exhaustion within an epoch
 

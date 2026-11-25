@@ -23,17 +23,17 @@
 
 # Introduction
 
-Channels let Zones post their updates on chain and bridge notes between Zones and Bedrock. This document specifies the channel Operations; the Mantle Transaction that carries them and the ledger they act on are specified in [Mantle](bedrock-v1.1-mantle-specification.md).
+Channels let Zones post their updates on chain and bridge notes between Zones and Bedrock. This document specifies the channel Operations; the Mantle Transaction that carries them and the ledger they act on are specified in [Mantle](bedrock-mantle-specification.md).
 
 # Operations
 
 ## Channel Operations
 
-Channels allow Zones to post their updates on chain. Channels form virtual chains that overlay on top of the Cryptarchia blockchain. Clients and Followers of a Zone can watch its channel to learn the state of that Zone. Each channel has its own [note set](bedrock-v1.1-mantle-specification.md#ledger), enabling bridging between Zones and Bedrock.
+Channels allow Zones to post their updates on chain. Channels form virtual chains that overlay on top of the Cryptarchia blockchain. Clients and Followers of a Zone can watch its channel to learn the state of that Zone. Each channel has its own [note set](bedrock-mantle-specification.md#ledger), enabling bridging between Zones and Bedrock.
 
 ### Message Ordering
 
-Channels form virtual chains by having each message reference its parent message. The order of messages in these channels is enforced by the sequencer by building a hash chain of messages, i.e. new messages reference the previous messages through a parent hash. Given that Cryptarchia has long finality times, these message parent references allow Zone sequencers to continue to post new updates to channels without having to wait for finality. No matter how Cryptarchia forks and reorgs, the channel messages from honest sequencers will eventually be re-included in a way that satisfies the virtual chain order, with one limit: a step is valid only against a commitment root recorded in the last [`ROOT_WINDOW`](bedrock-v1.1-mantle-specification.md#ledger) blocks of the fork it lands on. A reorg that moves the channel deposits or the steps a step builds on into other blocks can leave its root absent from the winning fork, which invalidates the inscription carrying the step and the inscriptions chained after it, and the sequencer, who cannot prove the step again for its holder, re-publishes the chain without it.
+Channels form virtual chains by having each message reference its parent message. The order of messages in these channels is enforced by the sequencer by building a hash chain of messages, i.e. new messages reference the previous messages through a parent hash. Given that Cryptarchia has long finality times, these message parent references allow Zone sequencers to continue to post new updates to channels without having to wait for finality. No matter how Cryptarchia forks and reorgs, the channel messages from honest sequencers will eventually be re-included in a way that satisfies the virtual chain order, with one limit: a step is valid only against a commitment root recorded in the last [`ROOT_WINDOW`](bedrock-mantle-specification.md#ledger) blocks of the fork it lands on. A reorg that moves the channel deposits or the steps a step builds on into other blocks can leave its root absent from the winning fork, which invalidates the inscription carrying the step and the inscriptions chained after it, and the sequencer, who cannot prove the step again for its holder, re-publishes the chain without it.
 
 Configurations form a second hash chain within the channel: each configuration names the configuration it supersedes, so a pending reconfiguration stays valid while the sequencer keeps posting inscriptions.
 
@@ -133,7 +133,7 @@ def round_robin(block_slot: Slot, channel: ChannelState) -> (u16, u64):
 
 ### Bridging
 
-Channels let their bridged notes keep participating in Proof of Stake. When a user deposits notes into a channel, they are not turned into inert collateral. They are consumed and re-created as notes of the channel's note set, which continue to count toward Proof of Stake and can still be used to create PoLs (see [Ledger](bedrock-v1.1-mantle-specification.md#ledger)). Two goals motivate this design:
+Channels let their bridged notes keep participating in Proof of Stake. When a user deposits notes into a channel, they are not turned into inert collateral. They are consumed and re-created as notes of the channel's note set, which continue to count toward Proof of Stake and can still be used to create PoLs (see [Ledger](bedrock-mantle-specification.md#ledger)). Two goals motivate this design:
 
 - **More PoS participation, stronger security.** Funds deposited into a channel would otherwise leave the staking set. Keeping them as channel notes means the capital backing the application layer also backs consensus security, so bridging does not shrink the stake that secures the chain.
 - **No split between security and application.** A user no longer has to choose between staking funds or using them in a channel. The same funds do both at once. They stay usable inside the channel while still earning Proof of Leadership rewards, so capital is never fragmented between the two.
@@ -176,13 +176,13 @@ class Inscribe:
 
 The steps of an inscription are user steps, and the [encoding](mantle-transaction-encoding.md#channel-operations) tags each step with its kind.
 
-A `NoteNullifier` is the nullifier of a note and a `NoteCommitment` its commitment, as [Note Commitment and Nullifier](bedrock-v1.1-mantle-specification.md#note-commitment-and-nullifier) defines them, and a `MerkleRoot` the root of a Merkle tree.
+A `NoteNullifier` is the nullifier of a note and a `NoteCommitment` its commitment, as [Note Commitment and Nullifier](bedrock-mantle-specification.md#note-commitment-and-nullifier) defines them, and a `MerkleRoot` the root of a Merkle tree.
 
 A step is signed by the holder of the notes it consumes, off-chain and before the Mantle Transaction carrying it exists. Its ZkTransfer is therefore bound to the step itself rather than to the `mantle_txhash`, and it balances exactly, with an `excess_value` of `0`.
 
 The `inscription` of the `Inscribe` is the message of the sequencer, and the `inscription` of a step the zone message of the holder of the step. The ZkTransfer of the step binds its inscription together with its inputs and outputs, so a sequencer publishes the message a holder signed with the move it signed, or drops the step whole. The inscription of the `Inscribe` and the inscriptions of its steps count together against `MAX_OPERATION_DATA_SIZE`.
 
-The steps of an inscription are grouped in mini-blocks. The proof of a step is verified, by the [`verify_transfer`](bedrock-v1.1-mantle-specification.md#input-notes-spendability-validation) method of the note set, against its referenced root extended with the buffer of the channel note set as it stands when the mini-block of the step starts: the commitments the earlier Operations of the Mantle Transaction and the earlier mini-blocks of the inscription added. A step can therefore consume the notes of earlier blocks and the outputs of the earlier mini-blocks, but not the outputs of its own mini-block. Its proof depends on what precedes its mini-block and not on its position inside it, and the holders prove their steps independently of one another:
+The steps of an inscription are grouped in mini-blocks. The proof of a step is verified, by the [`verify_transfer`](bedrock-mantle-specification.md#input-notes-spendability-validation) method of the note set, against its referenced root extended with the buffer of the channel note set as it stands when the mini-block of the step starts: the commitments the earlier Operations of the Mantle Transaction and the earlier mini-blocks of the inscription added. A step can therefore consume the notes of earlier blocks and the outputs of the earlier mini-blocks, but not the outputs of its own mini-block. Its proof depends on what precedes its mini-block and not on its position inside it, and the holders prove their steps independently of one another:
 
 - The steps of the first mini-block, when no earlier Operation of the Mantle Transaction added to the channel note set, are proven against their recent root alone, so a sequencer collects the steps of many users and publishes them in the order it chooses. A sequencer should place an Operation adding to that note set after the inscription: if it comes first, every step of the first mini-block covers what it adds.
 - If the first mini-block adds 400 commitments to the buffer, every step of the second mini-block covers these 400: it can consume the outputs of the first mini-block, and the steps of the second mini-block are again ordered freely among themselves. The same holds for the next mini-blocks.
@@ -215,7 +215,7 @@ class ChannelInscribeOpProof:
 
 #### Execution Gas
 
-  Channel Inscribe Operations have an Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_TRANSFER_GAS * len(steps)`. See [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) for the Execution Gas values.
+  Channel Inscribe Operations have an Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS + EXECUTION_TRANSFER_GAS * len(steps)`. See [Gas Determination](bedrock-mantle-specification.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -351,7 +351,7 @@ class ChannelConfig:
 
 #### Proof
 
-A Channel Config is authorized by a threshold of the channel's accredited keys using [Multiple Ed25519 Signatures Verification](bedrock-v1.1-mantle-specification.md#multiple-ed25519-signatures-verification).
+A Channel Config is authorized by a threshold of the channel's accredited keys using [Multiple Ed25519 Signatures Verification](bedrock-mantle-specification.md#multiple-ed25519-signatures-verification).
 
 ```python
 class ChannelConfigOpProof:
@@ -363,7 +363,7 @@ class ChannelConfigOpProof:
 
 #### Execution Gas
 
-  Channel Config Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_CONFIG_GAS * configuration_threshold`, where `configuration_threshold` is the one held in the channel state, and `0` for a channel that does not exist yet. See [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) for the Execution Gas values.
+  Channel Config Operations have a linear Execution Gas cost equal to `EXECUTION_CHANNEL_CONFIG_GAS * configuration_threshold`, where `configuration_threshold` is the one held in the channel state, and `0` for a channel that does not exist yet. See [Gas Determination](bedrock-mantle-specification.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -483,7 +483,7 @@ class ChannelDeposit:
 
 #### Proof
 
-  A Channel Deposit proves the ownership of the notes being consumed, the created notes and the excess value using a [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer).
+  A Channel Deposit proves the ownership of the notes being consumed, the created notes and the excess value using a [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer).
 
 ```python
 ZkTransfer
@@ -491,7 +491,7 @@ ZkTransfer
 
 #### Execution Gas
 
-  Channel Deposit Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_DEPOSIT_GAS`. See [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) for the Execution Gas values.
+  Channel Deposit Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_DEPOSIT_GAS`. See [Gas Determination](bedrock-mantle-specification.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -520,7 +520,7 @@ ledger: Ledger
       assert channels[deposit.channel].note_set is not None
       ```
 
-  3. Ensure all inputs are spendable in the [ledger note set](bedrock-v1.1-mantle-specification.md#ledger), `LEDGER_SET`.
+  3. Ensure all inputs are spendable in the [ledger note set](bedrock-mantle-specification.md#ledger), `LEDGER_SET`.
       ```python
       ledger.sets[LEDGER_SET].assert_spendable(deposit.inputs)
       ```
@@ -585,7 +585,7 @@ A withdrawal balances exactly and carries no fee: another Operation of its Mantl
 
 #### Proof
 
-  A Channel Withdraw proves the ownership of the notes being consumed and the created notes, with an excess value of `0`, using a [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer).
+  A Channel Withdraw proves the ownership of the notes being consumed and the created notes, with an excess value of `0`, using a [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer).
 
 ```python
 ZkTransfer
@@ -593,7 +593,7 @@ ZkTransfer
 
 #### Execution Gas
 
-  Channel Withdraw Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_WITHDRAW_GAS`. See [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) for the Execution Gas values.
+  Channel Withdraw Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_WITHDRAW_GAS`. See [Gas Determination](bedrock-mantle-specification.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -646,7 +646,7 @@ block_slot: Slot
 
   *Execute*
 
-Keep the withdrawal in the [`pending_withdrawals`](bedrock-v1.1-mantle-specification.md#ledger) of the ledger until its due slot.
+Keep the withdrawal in the [`pending_withdrawals`](bedrock-mantle-specification.md#ledger) of the ledger until its due slot.
 
 ```python
 ledger.pending_withdrawals.append((block_slot + WITHDRAW_DELAY,

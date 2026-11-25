@@ -48,7 +48,7 @@ This document ensures that the keys are used and generated in a common manner, w
 
 ## Non-ephemeral Quota Key
 
-A node generates a Non-ephemeral Quota Key (NQK) that is a `ZkSecretKey`, whose `ZkPublicKey` is derived with the `KDF` derivation of the [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-v1.1-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer). The NQK public key is stored on the ledger as the `zk_id` field in the `DeclarationInfo` of the node’s outcome of the participation in the Service Declaration Protocol (SDP — [Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
+A node generates a Non-ephemeral Quota Key (NQK) that is a `ZkSecretKey`, whose `ZkPublicKey` is derived with the `KDF` derivation of the [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-mantle-specification.md#zero-knowledge-transfer-proof-zktransfer). The NQK public key is stored on the ledger as the `zk_id` field in the `DeclarationInfo` of the node’s outcome of the participation in the Service Declaration Protocol (SDP — [Service Declaration Protocol](bedrock-service-declaration-protocol.md)).
 
 The NQK is used to prove that the node is part of the set of core nodes as indicated through the SDP.
 

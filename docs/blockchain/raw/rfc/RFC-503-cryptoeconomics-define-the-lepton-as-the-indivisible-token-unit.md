@@ -12,7 +12,7 @@
 | v4 | Block Rewards' reference code states the width of every value; a PoW claim's reward bounds the storage start | 2026-10-29 |
 ## Reviewer Orientation
 
-Read the PR's Motivation first, then the Discussion, which derives the precision of nine and the initial storage price. [Mantle](../bedrock-v1.1-mantle-specification.md) is unchanged but assumed: its amounts count LEPTA, as do the prices of [Execution Market](../execution-market.md).
+Read the PR's Motivation first, then the Discussion, which derives the precision of nine and the initial storage price. [Mantle](../bedrock-mantle-specification.md) is unchanged but assumed: its amounts count LEPTA, as do the prices of [Execution Market](../execution-market.md).
 
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
@@ -61,12 +61,12 @@ The requirements are:
 | Symbol | Definition | Value | Source |
 | --- | --- | --- | --- |
 | $`d`$ | Precision exponent | $`9`$ | Derived in [Choice of precision](#choice-of-precision). |
-| $`V_{max}`$ | Largest representable `TokenValue` | $`2^{64}-1 = 18{,}446{,}744{,}073{,}709{,}551{,}615`$ | `Note.value: uint64` in [Mantle](../bedrock-v1.1-mantle-specification.md#notes). |
+| $`V_{max}`$ | Largest representable `TokenValue` | $`2^{64}-1 = 18{,}446{,}744{,}073{,}709{,}551{,}615`$ | `Note.value: uint64` in [Mantle](../bedrock-mantle-specification.md#notes). |
 | $`S_{cap}`$ | Maximum allowable token supply | $`10^{10}`$ LOGOS $`= 10^{19}`$ LEPTA | [Block Rewards](../block-rewards.md#parametrization). |
 | $`N(9)`$ | Hard cap in LEPTA | $`10^{19}`$ | $`S_{cap} \cdot 10^9`$. |
 | $`H(9)`$ | Representable headroom | $`1.8446744073709551`$ | $`V_{max}/N(9)`$. |
 | $`S_{cap}^{\ast}`$ | Largest admissible hard cap | $`18{,}446{,}744{,}073`$ LOGOS | $`\lfloor V_{max}/10^9 \rfloor`$. Derived in [Headroom](#headroom). |
-| `EXECUTION_TRANSFER_GAS` | Execution Gas of a Transfer Operation | $`590`$ | Appendix of [Mantle](../bedrock-v1.1-mantle-specification.md). |
+| `EXECUTION_TRANSFER_GAS` | Execution Gas of a Transfer Operation | $`590`$ | Appendix of [Mantle](../bedrock-mantle-specification.md). |
 | Storage gas per byte | Permanent Storage Gas per stored byte | $`1`$ | [Overview Cryptoeconomics → Gas](../overview-cryptoeconomics.md#gas). |
 | $`\varphi`$ | Reachable price floor | $`7`$ LEPTA per gas unit | An update lowers a price $`P`$ by at most $`\lfloor P/8 \rfloor`$ in [Execution Market](../execution-market.md#base-fee-update-rule) and [Storage Markets](../storage-markets.md#implementation), which is $`0`$ for $`P \le 7`$. |
 
@@ -102,7 +102,7 @@ $`N(d)`$ and $`H(d)`$ around the bound:
 | $`10`$ | $`1.0000 \times 10^{20}`$ | no | $`0.1845`$ |
 | $`18`$ | $`1.0000 \times 10^{28}`$ | no | $`1.8447 \times 10^{-9}`$ |
 
-A wei-like precision of $`10^{18}`$ is not available under the current ledger types. It exceeds $`V_{max}`$ by a factor of $`5.4 \times 10^8`$. Adopting it would require widening `TokenValue` from 64 to at least 128 bits, which changes note encoding, transaction encoding, and every checked-arithmetic bound in [Mantle](../bedrock-v1.1-mantle-specification.md) and [Mantle Transaction Encoding](../mantle-transaction-encoding.md).
+A wei-like precision of $`10^{18}`$ is not available under the current ledger types. It exceeds $`V_{max}`$ by a factor of $`5.4 \times 10^8`$. Adopting it would require widening `TokenValue` from 64 to at least 128 bits, which changes note encoding, transaction encoding, and every checked-arithmetic bound in [Mantle](../bedrock-mantle-specification.md) and [Mantle Transaction Encoding](../mantle-transaction-encoding.md).
 
 Any change to the hard cap changes the admissible set, as recorded in [Headroom](#headroom).
 
@@ -252,7 +252,7 @@ The specified cap of $`10^{10}`$ LOGOS sits at $`54.2\%`$ of this ceiling. A cap
 
 **Supply growth.** [Block Rewards](../block-rewards.md) allocates the full supply at genesis and moves tokens between circulating supply, the rewards pool, the rewards reserve and the proof of work reward pool. No path in that mechanism raises the total above $`S_{cap}`$. The bound $`N(9) \le V_{max}`$ therefore holds at every step, with no growth argument required. If a later revision introduces issuance above $`S_{cap}`$, this section must be reopened.
 
-**Aggregation.** Two notes each holding more than $`H(9)/2 = 92.23\%`$ of the hard cap would overflow `uint64` when summed. The state is unreachable while the sum of all note values is bounded by $`S_{cap}`$. The failure mode is confined to malformed or adversarial inputs, which [Mantle](../bedrock-v1.1-mantle-specification.md) excludes by requiring checked arithmetic on every addition, and by accumulating the transaction balance in a signed 128-bit integer.
+**Aggregation.** Two notes each holding more than $`H(9)/2 = 92.23\%`$ of the hard cap would overflow `uint64` when summed. The state is unreachable while the sum of all note values is bounded by $`S_{cap}`$. The failure mode is confined to malformed or adversarial inputs, which [Mantle](../bedrock-mantle-specification.md) excludes by requiring checked arithmetic on every addition, and by accumulating the transaction balance in a signed 128-bit integer.
 
 ## Units of account
 
@@ -260,10 +260,10 @@ Every protocol quantity denominated in the native token is measured in LEPTA, or
 
 | Quantity | Symbol | Specification | Unit |
 | --- | --- | --- | --- |
-| Note value | `Note.value` | [Mantle](../bedrock-v1.1-mantle-specification.md) | LEPTA |
-| Transaction balance | `tx_balance` | [Mantle](../bedrock-v1.1-mantle-specification.md) | LEPTA |
-| Mandatory fee | `tx_mandatory_fee` | [Mantle](../bedrock-v1.1-mantle-specification.md) | LEPTA |
-| Priority tip | `tx_priority_tip` | [Mantle](../bedrock-v1.1-mantle-specification.md) | LEPTA |
+| Note value | `Note.value` | [Mantle](../bedrock-mantle-specification.md) | LEPTA |
+| Transaction balance | `tx_balance` | [Mantle](../bedrock-mantle-specification.md) | LEPTA |
+| Mandatory fee | `tx_mandatory_fee` | [Mantle](../bedrock-mantle-specification.md) | LEPTA |
+| Priority tip | `tx_priority_tip` | [Mantle](../bedrock-mantle-specification.md) | LEPTA |
 | Execution base fee | $`b_{\mathrm{exec}}[s]`$ | [Execution Market](../execution-market.md) | LEPTA per Execution Gas unit |
 | Execution Gas price | $`c_t`$ | [Execution Market](../execution-market.md) | LEPTA per Execution Gas unit |
 | Permanent Storage price | $`P_{\text{storage}}(s)`$ | [Storage Markets](../storage-markets.md) | LEPTA per Permanent Storage Gas unit |
@@ -350,7 +350,7 @@ LOGOS is both the token name and its ticker. ISO 4217 reserves codes beginning w
 
 ## Specifications that do not name the unit
 
-[Mantle](../bedrock-v1.1-mantle-specification.md) types every amount as `TokenValue`, and [Execution Market](../execution-market.md) starts its base fee at 1. Neither names the unit. Token Units and Precision covers both, and each is a candidate for a one-line link to it.
+[Mantle](../bedrock-mantle-specification.md) types every amount as `TokenValue`, and [Execution Market](../execution-market.md) starts its base fee at 1. Neither names the unit. Token Units and Precision covers both, and each is a candidate for a one-line link to it.
 
 # Details
 
