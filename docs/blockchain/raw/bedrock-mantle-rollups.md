@@ -412,7 +412,7 @@ Each `RollupTransfer` is a [ZkTransfer](bedrock-mantle-specification.md#zero-kno
 
 The step that [`ROLLUP_INSCRIBE`](#rollup_inscribe) recommends for an inscription the STF cannot apply, with no deposit, no transfer and the same state root, is valid: every transfer consumes at least one note, as `assert_spendable` requires, but a step can have no transfer.
 
-The STF proof covers the effects of the step through `effects_hash`, its fifth public input: the value and intent of every minted deposit, in the order of `deposits`, the inputs, outputs and payouts of every transfer, and the digest of the next configuration. The configuration digest is a BLAKE2b-256 hash, under the DST `ROLLUP_CONFIG_V1`, of the encoded next accredited keys, rotation parameters and optional verification key, as the `RollupProve` of the encoding encodes them, reduced modulo $`p`$ as `op_id` is.
+The STF proof covers the effects of the step through `effects_hash`, its fifth public input: the value and intent of every minted deposit, in the order of `deposits`, the inputs, outputs and payouts of every transfer, and the digest of the next configuration. The configuration digest is a BLAKE2b-256 hash, under the DST `ROLLUP_CONFIG_V1`, of the encoded next accredited keys, rotation parameters and optional verification key, as the `RollupProve` of the encoding encodes them, reduced modulo $`p`$ as `op_id` is. A rollup should keep the digest of its configuration in its state, so that its STF circuit compares the digest the ledger computes with the one its state holds and never recomputes BLAKE2b, a change of configuration entering the state as a digest the transactions of the rollup approve.
 
 ```python
 def rollup_config_digest(keys: list[Ed25519PublicKey],
@@ -613,12 +613,16 @@ block_slot: Slot
           rollup.key = Groth16StoredKey(key=key, alpha_beta=pairing(key.alpha, key.beta))
       ```
 
-  4. Set the next accredited keys and rotation parameters, and restart the round-robin, as a [`CHANNEL_CONFIG`](bedrock-mantle-channels.md#channel_config) does.
+  4. If the next accredited keys or rotation parameters differ from the current ones, set them and restart the round-robin, as a [`CHANNEL_CONFIG`](bedrock-mantle-channels.md#channel_config) does, and otherwise leave the round-robin as it stands.
       ```python
-      chan.accredited_keys = prove.keys
-      chan.tip_slot = block_slot
-      chan.tip_sequencer = 0
-      chan.tip_sequencer_starting_slot = block_slot
-      chan.posting_timeframe = prove.posting_timeframe
-      chan.posting_timeout = prove.posting_timeout
+      if (prove.keys, prove.posting_timeframe, prove.posting_timeout) != \
+         (chan.accredited_keys, chan.posting_timeframe, chan.posting_timeout):
+          chan.accredited_keys = prove.keys
+          chan.tip_slot = block_slot
+          chan.tip_sequencer = 0
+          chan.tip_sequencer_starting_slot = block_slot
+          chan.posting_timeframe = prove.posting_timeframe
+          chan.posting_timeout = prove.posting_timeout
       ```
+
+A step that keeps the configuration leaves the turn to the rotation of the sequencers, so the steps themselves never pin the turn to one sequencer.
