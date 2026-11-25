@@ -32,7 +32,7 @@ The channel Operations are specified in Mantle Channels, the SDP Operations in t
 
 ## No rule changes
 
-The split moves text and repoints links. No payload, opcode, validation rule, execution step, Execution Gas cost or encoding differs, so nodes and wallets need no change and no migration. Every changed document takes a patch version, and Mantle Channels starts at 1.0.0.
+The split moves text, repoints links and gives Mantle Channels an Overview summarizing its sections. No payload, opcode, validation rule, execution step, Execution Gas cost or encoding differs, so nodes and wallets need no change and no migration. Every changed document takes a patch version, and Mantle Channels starts at 1.0.0.
 
 # Details
 

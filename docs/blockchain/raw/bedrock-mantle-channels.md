@@ -37,7 +37,7 @@ The key that signs the first message to an unclaimed channel becomes its only ac
 
 ## Bridged Notes
 
-Each channel has its own note set, whose notes keep counting toward Proof of Stake. Only the holder of a channel note can spend it: inside the channel with a step that the sequencers publish in an inscription, or out of the channel with a withdrawal that takes effect `WITHDRAW_DELAY` slots later. A sequencer orders the moves of a channel but never makes one. See [Bridging](#bridging).
+Each channel but the null channel has its own note set, whose notes keep counting toward Proof of Stake. Only the holder of a channel note can spend it: inside the channel with a step that the sequencers publish in an inscription, or out of the channel with a withdrawal that takes effect `WITHDRAW_DELAY` slots later. A sequencer orders the moves of a channel but never makes one. See [Bridging](#bridging).
 
 ## Operations of a Channel
 
