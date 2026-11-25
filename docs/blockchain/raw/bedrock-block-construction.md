@@ -35,6 +35,7 @@
 | 1.3.0 | Compressed Block Proposal: 16-byte transaction reference prefixes and a variable-length `references` list, reducing the proposal from 34,574 bytes to at most 18,192. Added the [Canonical Encoding](#canonical-encoding) section. | 2026-08-18 |
 | 1.4.0 | The `leader_voucher` is replaced with `reward_commitment` and `reward_value`: the PoL derives the commitment of the leader reward note and reveals only its value, a value differing from the computed reward condemns the block, and the commitment is inserted in the ledger at the end of the block execution. Channel and SDP withdrawals whose due slot is reached are released before the transactions. The PoL is bound to the header by its block ID and proven once the body is fixed: `leader_key`, the proposal and block signatures and the signatures of the uncle headers are removed, reducing the proposal to at most 17,752 bytes. An invalid proof of leadership condemns only the received copy, since the block ID does not cover the proof. A synchronized block is checked against its body root before its uncle entries and its transactions | 2026-11-06 |
 | 1.4.1 | The document is published as `bedrock-block-construction.md`. Links to Mantle point to `bedrock-mantle-specification.md`, links to `CHANNEL_WITHDRAW` to `bedrock-mantle-channels.md`, links to the SDP epoch finalization to `bedrock-service-declaration-protocol.md`, links to the Cryptarchia Protocol to `cryptarchia-protocol.md` and links to Bootstrapping and Synchronization to `cryptarchia-bootstr-sync.md` | 2026-11-25 |
+| 1.5.0 | The leader reward note has `reward_public_key` as both its public key and its staking key. The ZkTransfers of a `ROLLUP_PROVE` are verified in the batch of the block, and each STF proof is verified alone under the current key of its rollup. The proof of leadership is a `Groth16Proof` | 2026-11-25 |
 
 # Introduction
 
@@ -181,7 +182,7 @@ BodyRoot          = Hash32
 UncleHeaders      = UncleCount *Header
 UncleCount        = Byte            ; MUST NOT exceed MAX_UNCLES
 
-ProofOfLeadership = Groth16 EntropyContribution RewardCommitment RewardValue
+ProofOfLeadership = Groth16Proof EntropyContribution RewardCommitment RewardValue
 EntropyContribution = FieldElement
 RewardCommitment  = FieldElement
 RewardValue       = UINT64
@@ -191,7 +192,7 @@ ReferenceCount    = UINT16          ; MUST NOT exceed MAX_BLOCK_TXS
 Reference         = 16BYTE          ; REFERENCE_PREFIX_LENGTH bytes
 ```
 
-The terminals `Byte`, `UINT16`, `UINT64`, `Hash32`, `FieldElement` and `Groth16` are those defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures). Note in particular that `FieldElement` is a little-endian BN254 field element, which fixes the byte order of `entropy_contribution` and `reward_commitment`.
+The terminals `Byte`, `UINT16`, `UINT64`, `Hash32`, `FieldElement` and `Groth16Proof` are those defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures). Note in particular that `FieldElement` is a little-endian BN254 field element, which fixes the byte order of `entropy_contribution` and `reward_commitment`.
 
 This yields the following sizes, where `n` is the number of references:
 
@@ -269,7 +270,7 @@ references: list[bytes] = [prefix(mantle_txhash(tx), REFERENCE_PREFIX_LENGTH)
 ```
 
 4. Compute the `header.body_root` over both parts of the body, as defined in step 4 of [Block Header Validation](cryptarchia-protocol.md#block-header-validation): the serialized `uncle_headers` list from step 1, combined with the root of the Merkle tree constructed over the full transaction hashes of the selected transactions used to build `references`. The `references` list is left exactly as long as the selection; it is not padded. This step therefore comes after both uncle selection and transaction selection.
-5. Compute the leader reward of the block as [Block Execution](#block-execution) does, by executing the selected transactions, and set `header.proof_of_leadership.reward_value` to it. Choose a public key `reward_public_key` and a nonce `reward_nonce` for the note, and set `header.proof_of_leadership.reward_commitment` to `derive_note_commitment(Note(reward_value, reward_nonce, reward_public_key))` ([Note Commitment and Nullifier](bedrock-mantle-specification.md#note-commitment-and-nullifier)).
+5. Compute the leader reward of the block as [Block Execution](#block-execution) does, by executing the selected transactions, and set `header.proof_of_leadership.reward_value` to it. Choose a public key `reward_public_key` and a nonce `reward_nonce` for the note, and set `header.proof_of_leadership.reward_commitment` to `derive_note_commitment(Note(reward_value, reward_nonce, reward_public_key, reward_public_key))`, `reward_public_key` being both the public key and the staking key of the note ([Note Commitment and Nullifier](bedrock-mantle-specification.md#note-commitment-and-nullifier)).
 6. Set `header.proof_of_leadership.entropy_contribution` to the entropy contribution of the selected note at the slot, as the [Proof of Leadership](cryptarchia-proof-of-leadership.md#zero-knowledge-proof-statement) derives it. Generate a valid PoL proving leadership eligibility for `(Epoch, Slot)` based on the selected note, with the public inputs `msg`, the `block_id` of the header reduced modulo $`p`$ ([Linking the Proof of Leadership to a Block](cryptarchia-proof-of-leadership.md#linking-the-proof-of-leadership-to-a-block)), and `reward_value`, and the private witnesses `reward_public_key` and `reward_nonce`, and set `header.proof_of_leadership.proof` from it.
 
 7. Assemble the block proposal.
@@ -394,7 +395,7 @@ Given a `ValidBlock` that has successfully passed proposal validation, the node 
 
 Steps 1 and 2 read the epoch, the slot and the state of the [Service Declaration Protocol](bedrock-service-declaration-protocol.md) and of the pending withdrawals, never the transactions of the block, which is what lets them run before those transactions are validated.
 
-The leader reward of step 4 is the one defined in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders), computed from the [Block Rewards](block-rewards.md) of the block and the Execution market tips of its transactions, which is why it comes after them. It is paid as a single note, `Note(reward_value, reward_nonce, reward_public_key)`, whose commitment is the `reward_commitment` of the block: the [Proof of Leadership](cryptarchia-proof-of-leadership.md#leader-reward-note) proves that the commitment opens to `reward_value` and to a key and a nonce the block does not reveal. The commitment is appended to the ledger note set, `LEDGER_SET`, of the [Mantle Ledger](bedrock-mantle-specification.md#ledger):
+The leader reward of step 4 is the one defined in [Blend Service and Consensus Leaders](overview-cryptoeconomics.md#blend-service-and-consensus-leaders), computed from the [Block Rewards](block-rewards.md) of the block and the Execution market tips of its transactions, which is why it comes after them. It is paid as a single note, `Note(reward_value, reward_nonce, reward_public_key, reward_public_key)`, whose commitment is the `reward_commitment` of the block: the [Proof of Leadership](cryptarchia-proof-of-leadership.md#leader-reward-note) proves that the commitment opens to `reward_value` and to a key and a nonce the block does not reveal. The commitment is appended to the ledger note set, `LEDGER_SET`, of the [Mantle Ledger](bedrock-mantle-specification.md#ledger):
 
 ```python
 assert block.header.proof_of_leadership.reward_value == get_leader_reward(block)
@@ -453,4 +454,8 @@ Relative to a design that carries the count in the header, this removes one of t
 
   Note that this batch verification of Groth16 proofs is the same as what is described in the Zcash paper, Appendix B.2.
 
-All the ZkTransfer proofs of a block are verified in one batch. The multi-scalar multiplication of step 3.3, the three pairings of the right-hand side and the final exponentiation are computed once per batch, while each proof adds two scalar multiplications, $`r_i \cdot \pi_A^{(i)}`$ and $`r_i \cdot \pi_C^{(i)}`$, and one pairing on the left-hand side. The cost of the batch is therefore a fixed part plus a part per proof, measured in [Gas Cost Determination](analysis-gas-cost-determination.md#groth16-proof-batch-verification): the fixed part is deducted from the Execution Gas limit of the block, and each Operation pays for its proofs.
+All the ZkTransfer proofs of a block, those a [`ROLLUP_PROVE`](bedrock-mantle-rollups.md#rollup_prove) carries included, are verified in one batch. The multi-scalar multiplication of step 3.3, the three pairings of the right-hand side and the final exponentiation are computed once per batch, while each proof adds two scalar multiplications, $`r_i \cdot \pi_A^{(i)}`$ and $`r_i \cdot \pi_C^{(i)}`$, and one pairing on the left-hand side. The cost of the batch is therefore a fixed part plus a part per proof, measured in [Gas Cost Determination](analysis-gas-cost-determination.md#groth16-proof-batch-verification): the fixed part is deducted from the Execution Gas limit of the block, and each Operation pays for its proofs.
+
+### STF Proof
+
+Each STF proof of a `ROLLUP_PROVE` is verified alone under the current key of its rollup, since the key differs from one rollup to the next and can change with each step.

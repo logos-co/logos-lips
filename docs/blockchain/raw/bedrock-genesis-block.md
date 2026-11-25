@@ -36,6 +36,7 @@
 | 1.2.2 | Renamed the token LGO to LOGOS | 2026-10-29 |
 | 1.3.0 | Support the private ledger of Mantle: the initial notes are created, with nonces derived from its `op_id`, from the distribution published in an inscription to the null channel, which replaces the Transfer Operation, and the declarations consume no note, their amounts counting in the maximum supply. Genesis initializes the block reward stocks and records the commitment roots of the note sets | 2026-11-06 |
 | 1.3.1 | Links to Mantle point to `bedrock-mantle-specification.md`, links to `SDP_DECLARE` to `bedrock-service-declaration-protocol.md`, links to Block Construction to `bedrock-block-construction.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
+| 1.4.0 | The public key of each initial note is also its staking key, and each initial declaration names the staking key `note_stake_pk` of its service note. The null channel, a native channel whose only accredited key is the null key, exists before Genesis, and the Cryptarchia inscription extends it from its `tip_hash`, `ZERO`. The null proof of leadership is 128 zero bytes | 2026-11-25 |
 
 # Introduction
 
@@ -55,7 +56,7 @@ The Genesis Block is composed of the Genesis Block Header and the Genesis Mantle
 
 ## Initial Token Distribution
 
-Initial tokens will be distributed through one note for each initial stakeholder, created from the distribution published in an inscription sent to the null channel right after the [Cryptarchia Parameters](#cryptarchia-parameters) inscription. The initial stake allocation is public: everyone can recompute the commitments of the notes and audit the initial supply. Those wishing to hide their initial stake may opt to subdivide their note into a few different notes of equal value.
+Initial tokens will be distributed through one note for each initial stakeholder, created from the distribution published in an inscription sent to the null channel right after the [Cryptarchia Parameters](#cryptarchia-parameters) inscription. The public key of each note is also its staking key. The initial stake allocation is public: everyone can recompute the commitments of the notes and audit the initial supply. Those wishing to hide their initial stake may opt to subdivide their note into a few different notes of equal value.
 
 The distribution inscription is the number of notes as one byte, followed by the value (`UINT64`) and the public key (`ZkPublicKey`) of each note, in order, encoded as in [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures).
 
@@ -91,7 +92,8 @@ distribution_op_id = derive_op_id(DISTRIBUTION_INSCRIPTION)
 STAKE_DISTRIBUTION_NOTES = [
     Note(value=value,
          nonce=derive_note_nonce(distribution_op_id, i, value, public_key),
-         public_key=public_key)
+         public_key=public_key,
+         stake_public_key=public_key)
     for i, (value, public_key) in enumerate(STAKE_DISTRIBUTION)
 ]
 ```
@@ -119,7 +121,7 @@ Blend Network MUST initialize its set of providers. This is done through a set o
 
 Blend enforces a minimal network size for the service to be active. Thus, in order to have an active Blend service at Genesis, we MUST have at least as many declarations in the Genesis block to meet Blend service’s minimal network size [Minimal Network Size](blend-protocol.md#minimal-network-size).
 
-Each declaration names in `note_pk` the key its service note is created under, as any [`SDP_DECLARE`](bedrock-service-declaration-protocol.md#sdp_declare) does.
+Each declaration names in `note_pk` and `note_stake_pk` the keys its service note is created under, as any [`SDP_DECLARE`](bedrock-service-declaration-protocol.md#sdp_declare) does.
 
 **Example**
 
@@ -131,6 +133,7 @@ BLEND_DECLARATIONS = [
         provider_id=PROVIDER_ID_0,
         zk_id=ZK_ID_0,
         note_pk=NOTE_PK_0,
+        note_stake_pk=NOTE_STAKE_PK_0,
         inputs=[],
         commitment_root=EMPTY_MMR_ROOT,
         amount=1000,
@@ -233,7 +236,7 @@ The Genesis Block header fields are set to the following values:
 - `proof_of_leadership`: Stubbed leadership proof.
   - `reward_commitment` and `reward_value`: 0 (as there is no leader block reward for the initial block).
   - `entropy_contribution`: 0 (no entropy is provided through the initial PoL).
-  - `proof`: Null Groth16Proof, all values are set to zero.
+  - `proof`: the null `Groth16Proof`, 128 zero bytes, which encode no point and are never decompressed.
 
 **Example**
 
@@ -247,7 +250,7 @@ GENESIS_HEADER = Header(
         reward_commitment=bytes(32),
         reward_value=0,
         entropy_contribution=bytes(32),
-        proof=Groth16Proof(G1_ZERO, G2_ZERO, G1_ZERO),
+        proof=bytes(128),
     )
 )
 ```
@@ -303,6 +306,7 @@ BLEND_DECLARATIONS = [
         provider_id=PROVIDER_ID_0,
         zk_id=ZK_ID_0,
         note_pk=NOTE_PK_0,
+        note_stake_pk=NOTE_STAKE_PK_0,
         inputs=[],
         commitment_root=EMPTY_MMR_ROOT,
         amount=1000,
@@ -325,7 +329,7 @@ GENESIS_HEADER = Header(
         reward_commitment=bytes(32),
         reward_value=0,
         entropy_contribution=bytes(32),
-        proof=Groth16Proof(G1.ZERO, G2.ZERO, G1.ZERO),
+        proof=bytes(128),
     )
 )
 
@@ -346,7 +350,7 @@ The Genesis Mantle Transaction holds, in this order, the `CHANNEL_INSCRIBE` Oper
 
 ## Genesis Validation Exemptions
 
-The checks below, and only these, are skipped when the Genesis Mantle Transaction is processed. Each one is skipped because the Genesis block, having no state before it and no signer the chain knows about, cannot satisfy it.
+The checks below, and only these, are skipped when the Genesis Mantle Transaction is processed. Each one is skipped because the Genesis block, coming before any note exists and signed by keys that are either fixed out of band or held by no one, cannot satisfy it.
 
 1. **Every proof and signature.** No Operation proof is verified at Genesis: neither the `Ed25519Signature` of the inscriptions, nor the `provider_sig` and the `zk_proof` of the `SDP_DECLARE` Operations. The inscriptions are signed by the null key whose secret key nobody holds, and the keys a declaration would prove are already fixed by the out of band agreement on the Genesis block, so verifying them would establish nothing a node does not already have to trust. The `op_proofs` list still holds one entry per Operation, of the type that Operation requires, and those entries are placeholders.
 
@@ -358,9 +362,9 @@ Everything else is validated as it would be in any other block, against the stat
 
 ## Mantle Ledger Initialization
 
-Before Genesis, the Ledger holds two [note sets](bedrock-mantle-specification.md#ledger), the ledger note set and the SDP note set. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-mantle-specification.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0)`. The list of pending withdrawals is empty.
+Before Genesis, the Ledger holds two [note sets](bedrock-mantle-specification.md#ledger), the ledger note set and the SDP note set. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-mantle-specification.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0)`. The list of pending withdrawals is empty. The state also holds the [null channel](bedrock-mantle-channels.md#message-ordering), a native channel with no note set whose only accredited key is the null key and whose `tip_hash` is `ZERO`, and no other channel.
 
-When the distribution inscription is executed, the commitment of each initial note, `derive_note_commitment(Note(value, derive_note_nonce(op_id, i, value, public_key), public_key))` for the value and public key published at index `i` and the `op_id` of that inscription, is appended in order to the commitment MMR of the ledger note set, as `execute_adding` does ([Creating Output Notes Execution](bedrock-mantle-specification.md#creating-output-notes-execution)). This step creates the initial notes, which no Operation could create without consuming notes.
+When the distribution inscription is executed, the commitment of each initial note, `derive_note_commitment(Note(value, derive_note_nonce(op_id, i, value, public_key), public_key, public_key))` for the value and public key published at index `i`, as both the public key and the staking key of the note, and the `op_id` of that inscription, is appended in order to the commitment MMR of the ledger note set, as `execute_adding` does ([Creating Output Notes Execution](bedrock-mantle-specification.md#creating-output-notes-execution)). This step creates the initial notes, which no Operation could create without consuming notes.
 
 The pow reward pool is initialized at the same time:
 
@@ -375,7 +379,7 @@ Once the Genesis Mantle Transaction is executed, every note set whose commitment
 
 ## Cryptarchia Initialization
 
-The Mantle Transaction contains an inscription sent to the null channel containing the parameters for initializing Cryptarchia. It is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature: the null channel does not exist yet, so the inscription must carry a `parent` of `ZERO`, and its execution creates that channel with the null key as its only accredited key.
+The Mantle Transaction contains an inscription sent to the null channel containing the parameters for initializing Cryptarchia. It is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature, whose `parent` is `ZERO`, the `tip_hash` of the null channel ([Mantle Ledger Initialization](#mantle-ledger-initialization)).
 
 Two conditions are specific to Genesis. The inscription must be addressed to the null channel and signed by the null key, an inscription anywhere else not being a set of Cryptarchia parameters. It must also decode to exactly the three parameters, encoded as [Cryptarchia Parameters](#cryptarchia-parameters) specifies and with no trailing bytes. A node that cannot decode them has no clock, no chain identifier and no lottery randomness, and must reject the Genesis block.
 

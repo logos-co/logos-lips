@@ -23,6 +23,7 @@
 | 1.1.0 | Set the reference load of the Blend difficulty to the transaction rate the Blend network carries, `F_T / F_D = 130` transactions per block | 2026-09-11 |
 | 1.2.0 | A reward claim searches a nonce for the public key to be paid, carries no signature and hashes no epoch nonce. Each block credits its fee share to the pool, and the reward per claim stays fixed for the epoch | 2026-11-06 |
 | 1.2.1 | The claim of proof of work rewards, `CLAIM_POW_REWARD`, is specified in this document. Links to Mantle point to `bedrock-mantle-specification.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
+| 1.3.0 | The note a reward claim creates has the public key of the claim as both its public key and its staking key | 2026-11-25 |
 
 # Introduction
 
@@ -192,12 +193,14 @@ assert puzzle_ticket < difficulty_reward
 assert puzzle_ticket not in pow_nullifiers
 
 # 5. Construct a single output note of value epoch_pow_reward under the public key
-#    given in the payload, and add it to the buffer of the ledger note set.
+#    given in the payload, which is also its staking key, and add it to the buffer
+#    of the ledger note set.
 claim_id = derive_op_id(claim)
 output_note = Note(
     value = epoch_pow_reward,
     nonce = derive_note_nonce(claim_id, 0, epoch_pow_reward, claim.public_key),
     public_key = claim.public_key,
+    stake_public_key = claim.public_key,
 )
 ledger.sets[LEDGER_SET].tx_commitment_buffer.append(derive_note_commitment(output_note))
 ```

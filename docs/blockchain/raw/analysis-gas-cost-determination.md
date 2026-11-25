@@ -36,6 +36,7 @@
 | 1.7.1 | [RFC] The SDP costs price the per-service identifier checks and no lock-period check | 2026-10-05 |
 | 1.8.0 | Follow the private ledger of Mantle: the notes are proven with a ZkTransfer and spent by nullifier, channel inscriptions carry the ZkTransfer of their steps, channel withdrawals and SDP withdrawals carry a ZkTransfer, the proof of work claim carries no proof, and the `CHANNEL_TRANSFER` and `LEADER_CLAIM` Operations are removed. The ZkTransfer is priced from the measured batch verification of Groth16 proofs, a fixed part per block and 619 Execution Gas per proof | 2026-10-07 |
 | 1.8.1 | Links to Mantle point to `bedrock-mantle-specification.md`, links to `CHANNEL_INSCRIBE` to `bedrock-mantle-channels.md` and links to Block Construction to `bedrock-block-construction.md` | 2026-11-25 |
+| 1.8.2 | The execution of a channel inscription applies its steps to the note set of an existing channel and updates its tip | 2026-11-25 |
 
 # Introduction
 
@@ -123,7 +124,7 @@ Execution: negligible.
 
 ## Channel Inscription
 
-The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, checking the chaining sequence of the channel, and verifying the ZkTransfer of each step. The execution encompasses creating channel records (if not previously used), applying the steps to the channel note set and updating the tip of the channel.
+The validation process includes verifying an Eddsa25519 signature, confirming that the signer is authorized for the specified channel, checking the chaining sequence of the channel, and verifying the ZkTransfer of each step. The execution encompasses applying the steps to the channel note set and updating the tip of the channel.
 
 Execution: ~59k CPU cycles + ~619k CPU cycles * steps.
 
