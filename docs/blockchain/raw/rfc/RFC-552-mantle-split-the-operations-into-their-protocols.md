@@ -15,7 +15,7 @@ Every Operation keeps its rules, payload, opcode, Execution Gas and encoding. Th
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
 | 1 | Medium | **Start here**: [Mantle](#affected-specifications), [what Mantle keeps](#what-mantle-keeps) | the Opcodes table links every Operation; the transaction, ledger, Gas Determination and Test Vectors cover all of them |
-| 2 | Medium | **Start here**: [Mantle Channels](#affected-specifications), [channel Operations](#mantle-channels) | the 647 moved lines match their source; links into Mantle resolve |
+| 2 | Medium | **Start here**: [Mantle Channels](#affected-specifications), [channel Operations](#mantle-channels) | the 646 moved lines match their source; links into Mantle resolve |
 | 3 | Medium | [Service Declaration Protocol](#affected-specifications), [SDP Operations](#service-declaration-protocol) | the moved block sits under `# Construction`; links to its own sections are local |
 | 4 | Medium | [Proof of Work](#affected-specifications), [claim Operation](#proof-of-work) | the claim Operation sits under `# Protocol`; the Introduction names it |
 | 5 | Low | the remaining documents in [Chores](#chores) | skim: link targets only |

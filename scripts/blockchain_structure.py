@@ -61,7 +61,7 @@ FILE_ASSIGNMENTS = {
 
     # Consensus
     "blockchain/raw/cryptarchia-protocol.md": ("Consensus", "Cryptarchia Protocol"),
-    "blockchain/raw/cryptarchia-bootstr-sync.md":("Consensus", "Cryptarchia Bootstrapping & Synchronization"),
+    "blockchain/raw/cryptarchia-bootstr-sync.md": ("Consensus", "Cryptarchia Bootstrapping & Synchronization"),
     "blockchain/raw/fork-choice.md": ("Consensus", "Cryptarchia Fork Choice Rule"),
     "blockchain/raw/cryptarchia-total-stake-inference.md": ("Consensus", "Total Stake Inference"),
     "blockchain/raw/cryptarchia-proof-of-leadership.md": ("Consensus", "Proof of Leadership"),
@@ -83,7 +83,7 @@ FILE_ASSIGNMENTS = {
     "blockchain/deprecated/v1.2.0-mantle.md": ("Mantle", "[1.2.0] Mantle"),
     "blockchain/deprecated/v1.1.0-mantle.md": ("Mantle", "[1.1.0] Mantle"),
     "blockchain/deprecated/v1.0.0-mantle.md": ("Mantle", "[1.0.0] Mantle"),
-    "blockchain/raw/bedrock-block-construction.md":("Mantle", "Block Construction, Validation and Execution"),
+    "blockchain/raw/bedrock-block-construction.md": ("Mantle", "Block Construction, Validation and Execution"),
     "blockchain/deprecated/v1.1.0-bedrock-block-construction.md": ("Mantle", "[1.1.0] Block Construction, Validation and Execution"),
     "blockchain/deprecated/v1.1.0-bedrock-block-construction-alt.md": ("Mantle", "[1.1.0] Block Construction, Validation and Execution_2"),
     "blockchain/deprecated/v1.0.0-bedrock-block-construction.md": ("Mantle", "[1.0.0] Block Construction, Validation and Execution"),
