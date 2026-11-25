@@ -73,7 +73,7 @@ Logos Blockchain features are exposed through [Mantle Operations](#opcodes), whi
 
 ## Private Ledger
 
-The [Mantle Ledger](#mantle-ledger) enables [asset transfers](#transfer) using a private note-based ledger. The ledger tracks three kinds of [notes](#notes), each in [note sets](#ledger) of its own: regular notes, [service notes](#service-notes) (collateral for [service declarations](bedrock-service-declaration-protocol.md#declare)) and [channel notes](bedrock-mantle-channels.md#bridging) (the funds of native and rollup channels). Every note participates in [Proof of Stake](cryptarchia-proof-of-leadership.md#eligible-sets) through its [staking key](#keys), unless that key is `0`. Each note set has a [commitment Merkle Mountain Range (MMR)](#commitment-merkle-mountain-range) and a [nullifier Indexed Merkle Tree (IMT)](#nullifier-indexed-merkle-tree).
+The [Mantle Ledger](#mantle-ledger) enables [asset transfers](#transfer) using a private note-based ledger. The ledger tracks three kinds of [notes](#notes), each in [note sets](#ledger) of its own: regular notes, [service notes](#service-notes) (collateral for [service declarations](bedrock-service-declaration-protocol.md#declare)) and [channel notes](bedrock-mantle-channels.md#bridging) (the funds of [native](bedrock-mantle-channels.md) and [rollup channels](bedrock-mantle-rollups.md)). Every note participates in [Proof of Stake](cryptarchia-proof-of-leadership.md#eligible-sets) through its [staking key](#keys), unless that key is `0`. Each note set has a [commitment Merkle Mountain Range (MMR)](#commitment-merkle-mountain-range) and a [nullifier Indexed Merkle Tree (IMT)](#nullifier-indexed-merkle-tree).
 
 ## Transaction Fees
 
