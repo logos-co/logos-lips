@@ -92,7 +92,7 @@ class Groth16VerificationKey:
 
 An STF proof always has five public inputs: the state root of the rollup, its next state root, the `op_id` of the inscription it proves, the slot of the block that included that inscription, and `effects_hash`, the hash of the effects of the step ([`ROLLUP_PROVE`](#rollup_prove)). Since the size of a Groth16 verification key depends only on its number of public inputs, every rollup key has the same size, and the ledger stores and verifies the key of every rollup the same way.
 
-A rollup that applies the data of its inscriptions should have its STF circuit recompute the `op_id` it takes as its third public input from the encoded [`RollupInscribe`](#rollup_inscribe) it applies, so that its proof covers exactly the data, parent and signer its sequencer inscribed. The circuit then hashes the inscription with BLAKE2b, over up to [`MAX_OPERATION_DATA_SIZE`](mantle-transaction-encoding.md#channel-operations) bytes of data.
+A rollup that applies the data of its inscriptions should have its STF circuit recompute the `op_id` it takes as its third public input from the encoded [`RollupInscribe`](#rollup_inscribe) it applies, so that its proof covers exactly the data, parent and signer its sequencer inscribed. The circuit then hashes the inscription with BLAKE2b, over up to [`MAX_OPERATION_DATA_SIZE`](bedrock-mantle-encoding.md#channel-operations) bytes of data.
 
 `Groth16_verify(key, public_inputs, proof)` verifies a proof against a verification key, with its `alpha_beta`, and its public inputs, as [Groth16](common-cryptographic-components.md#groth16-zk-snark) specifies.
 
@@ -229,7 +229,7 @@ block_slot: Slot
 
   *Validate*
 
-  1. Ensure the inscription does not exceed [`MAX_OPERATION_DATA_SIZE`](mantle-transaction-encoding.md#channel-operations).
+  1. Ensure the inscription does not exceed [`MAX_OPERATION_DATA_SIZE`](bedrock-mantle-encoding.md#channel-operations).
       ```python
       assert len(msg.inscription) <= MAX_OPERATION_DATA_SIZE
       ```
@@ -341,7 +341,7 @@ ledger: Ledger
 
   *Validate*
 
-  1. Ensure the inscription does not exceed [`MAX_OPERATION_DATA_SIZE`](mantle-transaction-encoding.md#channel-operations).
+  1. Ensure the inscription does not exceed [`MAX_OPERATION_DATA_SIZE`](bedrock-mantle-encoding.md#channel-operations).
       ```python
       assert len(deposit.inscription) <= MAX_OPERATION_DATA_SIZE
       ```
