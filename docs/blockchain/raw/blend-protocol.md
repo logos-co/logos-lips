@@ -40,7 +40,7 @@
 | 1.7.0 | Derived the observation window $`W`$ from cover traffic in place of the maximal release delay. | 2026-10-29 |
 | 1.8.0 | Refused a neighbor closed as not live for $`W`$ rounds, restarting its liveness count, in place of shutting it out for the rest of the epoch. | 2026-10-30 |
 | 1.8.1 | Updated the encapsulation-overhead calculation to the `Max_Payload_Length` of 17755 bytes, following the removal of the leader key and of the signatures from block proposals, and the addition of the reward value to their headers. The leader reward is referenced in [Block Execution](bedrock-block-construction.md#block-execution). The base reward is rounded down, and none is calculated without an activity proof | 2026-10-14 |
-| 1.8.2 | Links to Block Construction point to `bedrock-block-construction.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
+| 1.8.2 | Links to Block Construction point to `bedrock-block-construction.md`, links to the Cryptarchia Protocol to `cryptarchia-protocol.md` and links to Mantle Transaction Encoding to `bedrock-mantle-encoding.md` | 2026-11-25 |
 
 # Introduction
 
@@ -1064,7 +1064,7 @@ The clamped regime is not a target: at $`{\mathcal A}_{\epsilon} = 0`$ rewards a
 
 ### Active Message
 
-A node $`l`$ for every epoch must construct an active message, which must follow the [Active Message](bedrock-service-declaration-protocol.md#active-message) and is carried on the wire by the `SDP_ACTIVE` operation ([Mantle Transaction Encoding](mantle-transaction-encoding.md)). The envelope fields (`declaration_id`, `nonce`) and their encoding are defined by those documents and are not restated here. This section defines only the service-specific `metadata` payload for the Blend service, which carries the [Activity Proof](#activity-proof) $`\pi_{A}^{l,t,e}`$ for a blending token $`t`$ and an epoch $`e`$.
+A node $`l`$ for every epoch must construct an active message, which must follow the [Active Message](bedrock-service-declaration-protocol.md#active-message) and is carried on the wire by the `SDP_ACTIVE` operation ([Mantle Transaction Encoding](bedrock-mantle-encoding.md)). The envelope fields (`declaration_id`, `nonce`) and their encoding are defined by those documents and are not restated here. This section defines only the service-specific `metadata` payload for the Blend service, which carries the [Activity Proof](#activity-proof) $`\pi_{A}^{l,t,e}`$ for a blending token $`t`$ and an epoch $`e`$.
 
 The `metadata` field is the concatenation of the following fields, in order:
 
@@ -1078,7 +1078,7 @@ The `metadata` field is the concatenation of the following fields, in order:
 
 The total size of the `metadata` field is therefore $`229`$ bytes: the one-byte type discriminant followed directly by the 228-byte Activity Proof.
 
-The `metadata_type` byte selects the activity-metadata variant according to [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations); it is a discriminant, not a length prefix. The remaining fields follow the selected variant's encoding and validation rules.
+The `metadata_type` byte selects the activity-metadata variant according to [Mantle Transaction Encoding](bedrock-mantle-encoding.md#sdp-operations); it is a discriminant, not a length prefix. The remaining fields follow the selected variant's encoding and validation rules.
 
 For Blend activity metadata, `metadata_type` MUST be `0x01`. Unknown activity-metadata discriminants MUST be rejected.
 

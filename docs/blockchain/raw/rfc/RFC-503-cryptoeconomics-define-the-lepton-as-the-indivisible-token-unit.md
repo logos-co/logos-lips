@@ -102,7 +102,7 @@ $`N(d)`$ and $`H(d)`$ around the bound:
 | $`10`$ | $`1.0000 \times 10^{20}`$ | no | $`0.1845`$ |
 | $`18`$ | $`1.0000 \times 10^{28}`$ | no | $`1.8447 \times 10^{-9}`$ |
 
-A wei-like precision of $`10^{18}`$ is not available under the current ledger types. It exceeds $`V_{max}`$ by a factor of $`5.4 \times 10^8`$. Adopting it would require widening `TokenValue` from 64 to at least 128 bits, which changes note encoding, transaction encoding, and every checked-arithmetic bound in [Mantle](../bedrock-mantle.md) and [Mantle Transaction Encoding](../mantle-transaction-encoding.md).
+A wei-like precision of $`10^{18}`$ is not available under the current ledger types. It exceeds $`V_{max}`$ by a factor of $`5.4 \times 10^8`$. Adopting it would require widening `TokenValue` from 64 to at least 128 bits, which changes note encoding, transaction encoding, and every checked-arithmetic bound in [Mantle](../bedrock-mantle.md) and [Mantle Transaction Encoding](../bedrock-mantle-encoding.md).
 
 Any change to the hard cap changes the admissible set, as recorded in [Headroom](#headroom).
 

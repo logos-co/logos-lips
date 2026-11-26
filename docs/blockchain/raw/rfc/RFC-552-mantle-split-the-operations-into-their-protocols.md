@@ -7,6 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-25 |
+| v2 | Mantle Transaction Encoding is published as `bedrock-mantle-encoding.md` | 2026-11-26 |
 
 ## Reviewer Orientation
 
@@ -61,12 +62,12 @@ Version 1.2.1. Proof of Work specifies `## Proof of Work Operations` under `# Pr
 
 ## Chores
 
-- Links into the moved sections point to their new documents in [Gas Cost Determination](../analysis-gas-cost-determination.md), [Bedrock Genesis Block](../bedrock-genesis-block.md), [Service Reward Distribution Protocol](../bedrock-service-reward-distribution.md), [Block Construction, Validation and Execution](../bedrock-block-construction.md) and [Mantle Transaction Encoding](../mantle-transaction-encoding.md).
+- Links into the moved sections point to their new documents in [Gas Cost Determination](../analysis-gas-cost-determination.md), [Bedrock Genesis Block](../bedrock-genesis-block.md), [Service Reward Distribution Protocol](../bedrock-service-reward-distribution.md), [Block Construction, Validation and Execution](../bedrock-block-construction.md) and [Mantle Transaction Encoding](../bedrock-mantle-encoding.md).
 - Links from the moved text back into Mantle name the Mantle document. Links from the SDP and Proof of Work documents to their own sections are local anchors.
 - The Service Declaration Protocol drops its `## Mantle and ZK Proofs` section, a pointer to Mantle that the SDP Operations section replaces.
 - TRANSFER takes the section shape of the other Operations, `### TRANSFER` with `####` subsections, and the label `*Execute*`. `CLAIM_POW_REWARD` takes the heading `#### Execution Gas` and the label `*Execute*`.
 - Two Mantle sentences refer to the Operations without the word "below", one of them through the Opcodes table.
-- The blockchain documents carry no version in their file names, since each document keeps its version in its revision history: `bedrock-v1.1-mantle-specification.md` becomes `bedrock-mantle.md`, `bedrock-v1.1-block-construction.md` becomes `bedrock-block-construction.md`, `cryptarchia-v1-protocol.md` becomes `cryptarchia-protocol.md`, and `cryptarchia-v1-bootstr-sync.md` becomes `cryptarchia-bootstr-sync.md` with its image folder `cryptarchia-bootstr-sync/`. Mantle Channels is published as `bedrock-mantle-channels.md`. Every link to them follows, in the documents listed in [Affected Specifications](#affected-specifications) and in the RFC documents of [PR #480](RFC-480-mantle-private-utxo-ledger.md) and [PR #503](RFC-503-cryptoeconomics-define-the-lepton-as-the-indivisible-token-unit.md). Historical documents, merged RFC documents and the revision rows published on master keep their links, and the PR lists the links left dead.
+- The blockchain documents carry no version in their file names, since each document keeps its version in its revision history: `bedrock-v1.1-mantle-specification.md` becomes `bedrock-mantle.md`, `bedrock-v1.1-block-construction.md` becomes `bedrock-block-construction.md`, `cryptarchia-v1-protocol.md` becomes `cryptarchia-protocol.md`, `cryptarchia-v1-bootstr-sync.md` becomes `cryptarchia-bootstr-sync.md` with its image folder `cryptarchia-bootstr-sync/`, and `mantle-transaction-encoding.md` becomes `bedrock-mantle-encoding.md`, beside the other Mantle documents, its RFC appendices staying under `mantle-transaction-encoding/appendices/`. Mantle Channels is published as `bedrock-mantle-channels.md`. Every link to them follows, in the documents listed in [Affected Specifications](#affected-specifications) and in the RFC documents of [PR #480](RFC-480-mantle-private-utxo-ledger.md) and [PR #503](RFC-503-cryptoeconomics-define-the-lepton-as-the-indivisible-token-unit.md). Historical documents, merged RFC documents and the revision rows published on master keep their links, and the PR lists the links left dead.
 - `scripts/blockchain_structure.py` maps the files under their names and places Mantle Channels under Mantle in the generated summary, beside Mantle and Proof of Work.
 
 # Implementation
@@ -87,7 +88,7 @@ Version 1.2.1. Proof of Work specifies `## Proof of Work Operations` under `# Pr
 | [Gas Cost Determination](../analysis-gas-cost-determination.md) | Modified | 1.8.1, link targets only |
 | [Bedrock Genesis Block](../bedrock-genesis-block.md) | Modified | 1.3.1, link targets only |
 | [Service Reward Distribution Protocol](../bedrock-service-reward-distribution.md) | Modified | 1.4.1, link targets only |
-| [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | 2.0.1, link targets only |
+| [Mantle Transaction Encoding](../bedrock-mantle-encoding.md) | Modified | 2.0.1, published as `bedrock-mantle-encoding.md`; link targets only |
 | [Common Cryptographic Components](../common-cryptographic-components.md) | Modified | 1.3.1, link target only |
 | [Proof of Leadership](../cryptarchia-proof-of-leadership.md) | Modified | 1.2.1, link targets only |
 | [Key Types and Generation](../key-types-and-generation.md) | Modified | 1.1.2, link target only |

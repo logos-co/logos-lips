@@ -96,7 +96,7 @@ FILE_ASSIGNMENTS = {
     "blockchain/deprecated/v1.0.0-bedrock-service-reward-distribution.md": ("Mantle", "[1.0.0] Service Reward Distribution Protocol"),
     "blockchain/raw/wallet-technical-standard.md": ("Mantle", "Wallet Technical Standard"),
     "blockchain/deprecated/bedrock-anonymous-leaders-reward.md": ("Mantle", "Anonymous Leaders Reward Protocol"),
-    "blockchain/raw/mantle-transaction-encoding.md": ("Mantle", "Mantle Transaction Encoding"),
+    "blockchain/raw/bedrock-mantle-encoding.md": ("Mantle", "Mantle Transaction Encoding"),
     "blockchain/deprecated/v1.3.0-mantle-transaction-encoding.md": ("Mantle", "[1.3.0] Mantle Transaction Encoding"),
     "blockchain/deprecated/v1.2.0-mantle-transaction-encoding.md": ("Mantle", "[1.2.0] Mantle Transaction Encoding"),
     "blockchain/deprecated/v1.1.0-mantle-transaction-encoding.md": ("Mantle", "[1.1.0] Mantle Transaction Encoding"),

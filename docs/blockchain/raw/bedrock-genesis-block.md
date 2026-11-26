@@ -35,7 +35,7 @@
 | 1.2.1 | Align the initial service declarations with the Service Declaration Protocol: the `BN` service type, the full `DeclarationMessage` shape, and multiaddr locators | 2026-10-01 |
 | 1.2.2 | Renamed the token LGO to LOGOS | 2026-10-29 |
 | 1.3.0 | Support the private ledger of Mantle: the initial notes are created, with nonces derived from its `op_id`, from the distribution published in an inscription to the null channel, which replaces the Transfer Operation, and the declarations consume no note, their amounts counting in the maximum supply. Genesis initializes the block reward stocks and records the commitment roots of the note sets | 2026-11-06 |
-| 1.3.1 | Links to Mantle point to `bedrock-mantle.md`, links to `SDP_DECLARE` to `bedrock-service-declaration-protocol.md`, links to Block Construction to `bedrock-block-construction.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
+| 1.3.1 | Links to Mantle point to `bedrock-mantle.md`, links to `SDP_DECLARE` to `bedrock-service-declaration-protocol.md`, links to Block Construction to `bedrock-block-construction.md`, links to the Cryptarchia Protocol to `cryptarchia-protocol.md` and links to Mantle Transaction Encoding to `bedrock-mantle-encoding.md` | 2026-11-25 |
 
 # Introduction
 
@@ -57,7 +57,7 @@ The Genesis Block is composed of the Genesis Block Header and the Genesis Mantle
 
 Initial tokens will be distributed through one note for each initial stakeholder, created from the distribution published in an inscription sent to the null channel right after the [Cryptarchia Parameters](#cryptarchia-parameters) inscription. The initial stake allocation is public: everyone can recompute the commitments of the notes and audit the initial supply. Those wishing to hide their initial stake may opt to subdivide their note into a few different notes of equal value.
 
-The distribution inscription is the number of notes as one byte, followed by the value (`UINT64`) and the public key (`ZkPublicKey`) of each note, in order, encoded as in [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures).
+The distribution inscription is the number of notes as one byte, followed by the value (`UINT64`) and the public key (`ZkPublicKey`) of each note, in order, encoded as in [Mantle Transaction Encoding](bedrock-mantle-encoding.md#common-structures).
 
 The note at index `i` takes the nonce `derive_note_nonce(op_id, i, value, public_key)`, as every note the ledger creates ([Note Commitment and Nullifier](bedrock-mantle.md#note-commitment-and-nullifier)), `op_id` being the `op_id` of the distribution inscription. That inscription names the Cryptarchia inscription as its parent, so no other Operation shares its `op_id`, and no two initial notes share a nonce.
 

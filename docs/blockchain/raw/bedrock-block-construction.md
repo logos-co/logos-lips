@@ -34,7 +34,7 @@
 | 1.2.1 | Precise the state each transaction of a block is validated against: the transactions are validated and executed one after the other in the order they appear, each against the state the preceding ones left, which makes block validity order-dependent. Precise that a block whose validation fails at any point is not executed at all. | 2026-08-24 |
 | 1.3.0 | Compressed Block Proposal: 16-byte transaction reference prefixes and a variable-length `references` list, reducing the proposal from 34,574 bytes to at most 18,192. Added the [Canonical Encoding](#canonical-encoding) section. | 2026-08-18 |
 | 1.4.0 | The `leader_voucher` is replaced with `reward_commitment` and `reward_value`: the PoL derives the commitment of the leader reward note and reveals only its value, a value differing from the computed reward condemns the block, and the commitment is inserted in the ledger at the end of the block execution. Channel and SDP withdrawals whose due slot is reached are released before the transactions. The PoL is bound to the header by its block ID and proven once the body is fixed: `leader_key`, the proposal and block signatures and the signatures of the uncle headers are removed, reducing the proposal to at most 17,752 bytes. An invalid proof of leadership condemns only the received copy, since the block ID does not cover the proof. A synchronized block is checked against its body root before its uncle entries and its transactions | 2026-11-06 |
-| 1.4.1 | The document is published as `bedrock-block-construction.md`. Links to Mantle point to `bedrock-mantle.md`, links to `CHANNEL_WITHDRAW` to `bedrock-mantle-channels.md`, links to the SDP epoch finalization to `bedrock-service-declaration-protocol.md`, links to the Cryptarchia Protocol to `cryptarchia-protocol.md` and links to Bootstrapping and Synchronization to `cryptarchia-bootstr-sync.md` | 2026-11-25 |
+| 1.4.1 | The document is published as `bedrock-block-construction.md`. Links to Mantle point to `bedrock-mantle.md`, links to `CHANNEL_WITHDRAW` to `bedrock-mantle-channels.md`, links to the SDP epoch finalization to `bedrock-service-declaration-protocol.md`, links to the Cryptarchia Protocol to `cryptarchia-protocol.md`, links to Bootstrapping and Synchronization to `cryptarchia-bootstr-sync.md` and links to Mantle Transaction Encoding to `bedrock-mantle-encoding.md` | 2026-11-25 |
 
 # Introduction
 
@@ -160,13 +160,13 @@ Where:
 
 ## Canonical Encoding
 
-This section defines the byte-level wire format of the block proposal. It follows the same conventions as the [Mantle Transaction Encoding](mantle-transaction-encoding.md), in particular *"All multi-byte integers use little-endian encoding"* and *"Any lists are length-prefixed with fixed width uints"*, and reuses its primitive terminals rather than redefining them.
+This section defines the byte-level wire format of the block proposal. It follows the same conventions as the [Mantle Transaction Encoding](bedrock-mantle-encoding.md), in particular *"All multi-byte integers use little-endian encoding"* and *"Any lists are length-prefixed with fixed width uints"*, and reuses its primitive terminals rather than redefining them.
 
 The encoding is canonical: every valid proposal has exactly one byte representation, and every byte string decodes to at most one proposal. The following rules are normative.
 
 1. All multi-byte integers are little-endian.
 2. The fields of a structure are concatenated in the order in which they are declared, with no separators, no alignment padding, and no per-field framing.
-3. A list is encoded as a fixed-width little-endian element count followed by that many elements, each encoded individually. The width is given per list below — a `UINT16` for `References`, a single byte for `UncleHeaders`, whose `MAX_UNCLES` bound one byte covers — following the [Mantle Transaction Encoding](mantle-transaction-encoding.md) convention that lists are *"length-prefixed with fixed width uints"*. The count must not exceed the list's declared bound.
+3. A list is encoded as a fixed-width little-endian element count followed by that many elements, each encoded individually. The width is given per list below — a `UINT16` for `References`, a single byte for `UncleHeaders`, whose `MAX_UNCLES` bound one byte covers — following the [Mantle Transaction Encoding](bedrock-mantle-encoding.md) convention that lists are *"length-prefixed with fixed width uints"*. The count must not exceed the list's declared bound.
 4. Decoding must consume the input exactly. A decoder must reject input that ends before the structure is complete, and must equally reject input with bytes remaining after it. Accepting trailing bytes would allow two distinct wire messages to decode to the same proposal, which is a parser differential and therefore a consensus-split risk.
 
 ```schema
@@ -191,7 +191,7 @@ ReferenceCount    = UINT16          ; MUST NOT exceed MAX_BLOCK_TXS
 Reference         = 16BYTE          ; REFERENCE_PREFIX_LENGTH bytes
 ```
 
-The terminals `Byte`, `UINT16`, `UINT64`, `Hash32`, `FieldElement` and `Groth16` are those defined in [Mantle Transaction Encoding](mantle-transaction-encoding.md#common-structures). Note in particular that `FieldElement` is a little-endian BN254 field element, which fixes the byte order of `entropy_contribution` and `reward_commitment`.
+The terminals `Byte`, `UINT16`, `UINT64`, `Hash32`, `FieldElement` and `Groth16` are those defined in [Mantle Transaction Encoding](bedrock-mantle-encoding.md#common-structures). Note in particular that `FieldElement` is a little-endian BN254 field element, which fixes the byte order of `entropy_contribution` and `reward_commitment`.
 
 This yields the following sizes, where `n` is the number of references:
 

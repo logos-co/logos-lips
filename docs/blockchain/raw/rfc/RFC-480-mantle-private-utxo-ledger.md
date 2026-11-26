@@ -299,7 +299,7 @@ A wallet should draw the nonce of each reward note at random, and keeps the note
 | [Block Construction](../bedrock-block-construction.md) | Modified | Revision 1.4.0 |
 | [Block Rewards](../block-rewards.md) | Modified | Revision 1.4.0 |
 | [Cryptoeconomics Overview](../overview-cryptoeconomics.md) | Modified | Revision 1.5.0 |
-| [Mantle Transaction Encoding](../mantle-transaction-encoding.md) | Modified | Revision 2.0.0 |
+| [Mantle Transaction Encoding](../bedrock-mantle-encoding.md) | Modified | Revision 2.0.0 |
 | [Cryptarchia Protocol](../cryptarchia-protocol.md) | Modified | Revision 1.3.0 |
 | [Proof of Quota](../proof-of-quota.md) | Modified | Revision 1.3.0 |
 | [Message Encapsulation](../message-encapsulation.md) | Modified | Revision 1.2.1 |

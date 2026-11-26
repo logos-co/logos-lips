@@ -37,7 +37,7 @@
 | 1.7.0 | [RFC] The `declaration_id` is the hash of the service and the `zk_id`; a declaration covers one service, a note backs one declaration per service, and a `nonce` carries the `created` epoch of its declaration | 2026-10-01 |
 | 1.8.0 | The minimum stake is one `MinStake` of `threshold` and the block number `timestamp`, matching the implementation | 2026-10-27 |
 | 1.9.0 | Support the private ledger of Mantle: a declaration consumes notes and creates its own service note under the `note_pk` it names in the SDP note set, the withdrawal consumes it with a ZkTransfer, releases its outputs when the declaration is removed and carries no `nonce`, and the active and withdraw messages are signed by the `provider_id` | 2026-11-06 |
-| 1.9.1 | The SDP Operations `SDP_DECLARE`, `SDP_WITHDRAW` and `SDP_ACTIVE`, their common structures and the SDP epoch finalization are specified in this document. Links to Mantle point to `bedrock-mantle.md` and links to the Cryptarchia Protocol to `cryptarchia-protocol.md` | 2026-11-25 |
+| 1.9.1 | The SDP Operations `SDP_DECLARE`, `SDP_WITHDRAW` and `SDP_ACTIVE`, their common structures and the SDP epoch finalization are specified in this document. Links to Mantle point to `bedrock-mantle.md`, links to the Cryptarchia Protocol to `cryptarchia-protocol.md` and links to Mantle Transaction Encoding to `bedrock-mantle-encoding.md` | 2026-11-25 |
 
 # Introduction
 
@@ -93,7 +93,7 @@ class ServiceType(Enum):
 
 A declaration can be generated for any of the services above. Any declaration that is not one of the above must be rejected. The number of services might grow in the future.
 
-Each service type is assigned a one-byte discriminant, given by the enum value above. This byte is the canonical encoding of a `ServiceType` and is used wherever a `ServiceType` is serialized or hashed: the transaction wire form ([Mantle Transaction Encoding](mantle-transaction-encoding.md)), the `declaration_id` preimage ([Declaration Storage](#declaration-storage)), and the reward `op_id` preimage ([Service Reward Distribution](bedrock-service-reward-distribution.md)).
+Each service type is assigned a one-byte discriminant, given by the enum value above. This byte is the canonical encoding of a `ServiceType` and is used wherever a `ServiceType` is serialized or hashed: the transaction wire form ([Mantle Transaction Encoding](bedrock-mantle-encoding.md)), the `declaration_id` preimage ([Declaration Storage](#declaration-storage)), and the reward `op_id` preimage ([Service Reward Distribution](bedrock-service-reward-distribution.md)).
 
 ### Minimum Stake
 
@@ -182,7 +182,7 @@ A `Locator` is the address of a validator which is used to establish secure comm
 
 The `provider_id` must be used as the node identity. Therefore, the `Locator` must be completed by adding the `provider_id` at the end of it, which makes the `Locator` usable in the context of libp2p.
 
-The canonical form of a `Locator` is the multiaddr **binary (byte) form**. Wherever a `Locator` is serialized — the transaction wire form ([Mantle Transaction Encoding](mantle-transaction-encoding.md)) — its binary form is used. The human-readable string form (e.g. `/ip4/203.0.113.10/tcp/4001`) is presentational only and must never appear in an encoding.
+The canonical form of a `Locator` is the multiaddr **binary (byte) form**. Wherever a `Locator` is serialized — the transaction wire form ([Mantle Transaction Encoding](bedrock-mantle-encoding.md)) — its binary form is used. The human-readable string form (e.g. `/ip4/203.0.113.10/tcp/4001`) is presentational only and must never appear in an encoding.
 
 The length of the binary form of a `Locator` is restricted to 329 bytes.
 
@@ -268,7 +268,7 @@ declaration_id = Hash(service||zk_id)
 where:
 
 - `service` is the `ServiceType` production, one byte ([Service Types](#service-types));
-- `zk_id` is the `ZkId` production, 32 bytes ([Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations));
+- `zk_id` is the `ZkId` production, 32 bytes ([Mantle Transaction Encoding](bedrock-mantle-encoding.md#sdp-operations));
 - `||` is byte concatenation, so the preimage is 33 bytes;
 - `Hash` is BLAKE2b with a digest length of 32 bytes, unkeyed, without salt or personalization.
 
@@ -344,7 +344,7 @@ A [ZkTransfer](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) by th
 
 ### Serialization
 
-Each message is the payload of one Mantle Operation ([SDP Operations](#service-declaration-protocol-sdp-operations)), serialized as the production of the [Mantle Transaction Encoding](mantle-transaction-encoding.md#sdp-operations) named below, its fields in the order the message lists them:
+Each message is the payload of one Mantle Operation ([SDP Operations](#service-declaration-protocol-sdp-operations)), serialized as the production of the [Mantle Transaction Encoding](bedrock-mantle-encoding.md#sdp-operations) named below, its fields in the order the message lists them:
 
 | Message | Operation | Production |
 | --- | --- | --- |
@@ -816,7 +816,7 @@ declarations: dict[ServiceType, dict[DeclarationId, DeclarationInfo]]
 
   *Validate*
 
-`active.metadata` MUST satisfy the encoding and validation rules of its selected [activity-metadata variant](mantle-transaction-encoding.md#sdp-operations). The current Blend variant follows [Blend Protocol — Active Message](blend-protocol.md#active-message).
+`active.metadata` MUST satisfy the encoding and validation rules of its selected [activity-metadata variant](bedrock-mantle-encoding.md#sdp-operations). The current Blend variant follows [Blend Protocol — Active Message](blend-protocol.md#active-message).
 
 ```python
 found = find_declaration(declarations, active.declaration)

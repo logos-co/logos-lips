@@ -192,7 +192,7 @@ class Inscribe:
                                        # empty. A mini-block holds at least one step
 ```
 
-The steps of an inscription are user steps, and the [encoding](mantle-transaction-encoding.md#channel-operations) tags each step with its kind.
+The steps of an inscription are user steps, and the [encoding](bedrock-mantle-encoding.md#channel-operations) tags each step with its kind.
 
 A `NoteNullifier` is the nullifier of a note and a `NoteCommitment` its commitment, as [Note Commitment and Nullifier](bedrock-mantle.md#note-commitment-and-nullifier) defines them, and a `MerkleRoot` the root of a Merkle tree.
 
