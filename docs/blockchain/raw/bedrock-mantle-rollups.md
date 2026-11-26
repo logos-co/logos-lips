@@ -61,7 +61,7 @@ Validators keep the state of a rollup channel, of kind `ROLLUP`, in the `rollup`
 
 ```python
 class RollupState:
-    key: Groth16Key                       # the verification key of the STF proofs
+    key: Groth16VerificationKey           # the verification key of the STF proofs
     state_root: zkhash                    # the state root after the last proven inscription
     deposits: dict[Hash, PendingDeposit]  # the deposits waiting to be minted,
                                           # by the op_id of their ROLLUP_DEPOSIT
@@ -78,7 +78,7 @@ A pending deposit waits in `deposits` until a step mints it. A step proves only 
 ## STF Verification Key
 
 ```python
-class Groth16Key:
+class Groth16VerificationKey:
     alpha: G1
     beta: G2
     gamma: G2
@@ -110,7 +110,7 @@ class RollupCreate:
     keys: list[Ed25519PublicKey]              # the accredited keys, limited to 65 535 keys
     posting_timeframe: u32                    # number of slots (0 = infinity)
     posting_timeout: u32                      # number of slots (0 = no timeout)
-    verification_key: Groth16Key              # the key of the STF proofs
+    verification_key: Groth16VerificationKey  # the key of the STF proofs
     state_root: zkhash                        # the initial state root of the rollup
 ```
 
@@ -408,7 +408,7 @@ class RollupConfig:
     keys: list[Ed25519PublicKey]                     # the next accredited keys, limited to 65 535 keys
     posting_timeframe: u32                           # number of slots (0 = infinity)
     posting_timeout: u32                             # number of slots (0 = no timeout)
-    verification_key: Groth16Key | None              # the next key of the STF proofs, None to keep the current one
+    verification_key: Groth16VerificationKey | None  # the next key of the STF proofs, None to keep the current one
 
 class RollupProve:
     channel: ChannelId                  # 32 bytes, the rollup channel

@@ -7,6 +7,7 @@
 | **Revision** | **Description** | **Date** |
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-25 |
+| v2 | A channel state holds its kind, its note set and, for a rollup channel, its rollup state, and the null channel has a note set. The next configuration of a step is optional, the effects of a step are hashed with BLAKE2b, the rollup state and its `Groth16VerificationKey` have a section of their own in Mantle Rollups, and each element is described by what it is | 2026-11-26 |
 
 ## Reviewer Orientation
 
@@ -99,7 +100,7 @@ A fixed number of public inputs fixes the size of every verification key at 6 `I
 
 `slot_k` lets a rollup depend on time. It is the slot of the block that included the inscription, recorded with its `op_id` in the FIFO, and so known to every prover as soon as the inscription lands. The slot of the block that includes the step is known to no prover in advance, which would rule out parallel proving.
 
-The proofs of a step are bound to `op_id_k`, the third public input of the STF proof and the `msg` of every ZkTransfer, not to the `mantle_txhash`. So anyone posts the step, and a copy of it in another Mantle Transaction applies the same step, once.
+The proofs of a step are bound to `op_id_k`, the third public input of the STF proof and the `msg` of every ZkTransfer, not to the `mantle_txhash`. So anyone posts the step.
 
 ## Deposits wait until the sequencers mint them
 
@@ -120,7 +121,7 @@ A refund by the ledger after a delay would race the step that mints the deposit.
 
 ## Sequencers can only delay
 
-No signature reconfigures a rollup channel. A step carries the next accredited keys and rotation parameters of the rollup when its STF changes them, and its STF proof covers them through `effects_hash`, so only the rules of the STF change who sequences the rollup. A native channel reconfigures with a threshold of signatures of its accredited keys. For a rollup, that threshold could replace the other sequencers and censor without limit.
+A step carries the next accredited keys and rotation parameters of the rollup when its STF changes them, and its STF proof covers them through `effects_hash`, so the rules of the STF decide who sequences the rollup. A native channel reconfigures with a threshold of signatures of its accredited keys. For a rollup, that threshold could replace the other sequencers and censor without limit, so the configuration of a rollup changes only through its steps.
 
 The round-robin hands the turn to the next accredited key when the timeframe or the timeout of a sequencer elapses. A sequencer that refuses an inscription therefore only delays it until a sequencer that accepts it takes its turn, provided the configuration sets a `posting_timeframe`. A `posting_timeout` alone replaces only a sequencer that inscribes nothing, so a sequencer that inscribes other data holds its turn. A rollup that wants censorship to cost only a delay sets a timeframe.
 
@@ -169,11 +170,11 @@ A node that follows this PR and one that follows its base disagree on every note
 
 Version 1.0.0, a new document, published as `bedrock-mantle-rollups.md`. It specifies the rollup channels and their four Operations, each with the sections Payload, Proof, Execution Gas, Validation and Execution. Its Overview, between the Introduction and the Operations as in Mantle and Mantle Channels, describes rollup channels and states what the ledger checks, why the sequencers can only delay, what it recommends to a rollup that wants any prover to prove it, and what it does not guarantee. The state of a rollup and the verification key of its STF have a section of their own, before the Operations.
 
-The state of a rollup is the `rollup` field of its `ChannelState`, whose `kind` is `ROLLUP`, and its key a `Groth16Key`, the points of a Groth16 verification key:
+The state of a rollup is the `rollup` field of its `ChannelState`, whose `kind` is `ROLLUP`, and its key a `Groth16VerificationKey`, the points of a Groth16 verification key:
 
 ```python
 class RollupState:
-    key: Groth16Key                       # the verification key of the STF proofs
+    key: Groth16VerificationKey           # the verification key of the STF proofs
     state_root: zkhash                    # the state root after the last proven inscription
     deposits: dict[Hash, PendingDeposit]  # the deposits waiting to be minted, by their op_id
     unproven: list[(Hash, Slot)]          # the op_id and block slot of each unproven inscription
@@ -221,7 +222,7 @@ Version 1.1.0.
 Version 2.1.0.
 
 - `RollupCreate`, `RollupInscribe`, `RollupDeposit` and `RollupProve` under `### Rollup Operations`, and `RollupProveOpProof` among the proofs. A `RollupProve` ends with its `OptionalConfig`, `%x00` to keep the current configuration, or `%x01` and a `RollupConfig`, whose `OptionalKey` is `%x00` to keep the current key, or `%x01` and a key.
-- `Groth16Key = Alpha Beta Gamma Delta IC`, with `IC` exactly 6 points.
+- `Groth16VerificationKey = Alpha Beta Gamma Delta IC`, with `IC` exactly 6 points.
 - `Groth16Proof` replaces the `Groth16` terminal and is made of compressed `G1Point` (32 bytes) and `G2Point` (64 bytes). A decoder rejects the infinity flag and any coordinate not less than $`q`$, so each point has a single encoding. A proof is decompressed only when verified.
 - `Step = Inputs Outputs CommitmentRoot Inscription`, with no kind byte.
 - `SDPDeclare` carries `NoteStakePk` after `NotePk`.

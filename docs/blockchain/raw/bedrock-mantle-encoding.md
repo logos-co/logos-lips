@@ -38,7 +38,7 @@
 | 1.11.0 | [RFC] `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-10-27 |
 | 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CommitmentRoot` and `Value`, steps, tagged by their kind and with their own `Inscription`, in the `MiniBlocks` of `ChannelInscribe`, holder withdrawals, the `Inscription` of `ChannelDeposit`, the SDP payloads over notes with `NotePk` in `SDPDeclare` and no `Nonce` in `SDPWithdraw`, `PowNonce` and no `EpochNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-11-06 |
 | 2.0.1 | The document is published as `bedrock-mantle-encoding.md`. Links to Mantle point to `bedrock-mantle.md` and links to `CHANNEL_INSCRIBE` to `bedrock-mantle-channels.md` | 2026-11-25 |
-| 2.1.0 | The rollup Operations `RollupCreate`, `RollupInscribe`, `RollupDeposit` and `RollupProve`, with the `RollupProveOpProof`, the `Groth16Key` of an STF proof and the `OptionalConfig` of a step, a `RollupConfig` or `%x00`. A `Groth16Proof` is made of compressed `G1Point` and `G2Point`, each with a single encoding. `SDPDeclare` carries the `NoteStakePk` of its service note. A `Step` carries no kind byte | 2026-11-25 |
+| 2.1.0 | The rollup Operations `RollupCreate`, `RollupInscribe`, `RollupDeposit` and `RollupProve`, with the `RollupProveOpProof`, the `Groth16VerificationKey` of an STF proof and the `OptionalConfig` of a step, a `RollupConfig` or `%x00`. A `Groth16Proof` is made of compressed `G1Point` and `G2Point`, each with a single encoding. `SDPDeclare` carries the `NoteStakePk` of its service note. A `Step` carries no kind byte | 2026-11-25 |
 
 # Introduction
 
@@ -123,7 +123,7 @@ A `Step` moves channel notes with the inscription of its holder, and a `MiniBloc
 ### Rollup Operations
 
 ```schema
-RollupCreate    = ChannelId KeyCount *Signer PostingTimeframe PostingTimeout Groth16Key StateRoot
+RollupCreate    = ChannelId KeyCount *Signer PostingTimeframe PostingTimeout Groth16VerificationKey StateRoot
 
 RollupInscribe  = ChannelId Inscription Parent Signer
 
@@ -138,7 +138,7 @@ RollupTransfer  = Inputs Outputs Payouts
 Payouts         = Outputs        ; the notes the transfer creates in the ledger note set
 OptionalConfig  = %x00 / (%x01 RollupConfig) ; %x00 keeps the current configuration
 RollupConfig    = KeyCount *Signer PostingTimeframe PostingTimeout OptionalKey
-OptionalKey     = %x00 / (%x01 Groth16Key) ; %x00 keeps the current key
+OptionalKey     = %x00 / (%x01 Groth16VerificationKey) ; %x00 keeps the current key
 
 StateRoot       = FieldElement
 ```
@@ -247,12 +247,12 @@ FieldElement     = 32BYTE      ; BN254 field element (little-endian), less than 
 Hash32           = 32BYTE
 
 ; Groth16 verification key of an STF proof
-Groth16Key = Alpha Beta Gamma Delta IC
-Alpha      = G1Point
-Beta       = G2Point
-Gamma      = G2Point
-Delta      = G2Point
-IC         = 6G1Point ; one point per public input of an STF proof, plus one
+Groth16VerificationKey = Alpha Beta Gamma Delta IC
+Alpha                  = G1Point
+Beta                   = G2Point
+Gamma                  = G2Point
+Delta                  = G2Point
+IC                     = 6G1Point ; one point per public input of an STF proof, plus one
 
 ; Primitive types
 UINT64 = 8BYTE ; 64-bit unsigned integer, little-endian
@@ -268,6 +268,6 @@ A `G1Point` holds the coordinate `x` of the point as 32 little-endian bytes. A `
 
 A decoder MUST also reject a coordinate not less than the modulus $`q`$ of the base field of BN254, so that a point has a single encoding.
 
-`IC` has exactly 6 points, since every STF proof has five public inputs ([STF Verification Key](bedrock-mantle-rollups.md#stf-verification-key)), so every `Groth16Key` has the same length and no other length can be encoded.
+`IC` has exactly 6 points, since every STF proof has five public inputs ([STF Verification Key](bedrock-mantle-rollups.md#stf-verification-key)), so every `Groth16VerificationKey` has the same length and no other length can be encoded.
 
 A `Groth16Proof` is decompressed only when it is verified. The null proof of the [Genesis Block](bedrock-genesis-block.md#block-header-fields), never verified, is 128 zero bytes, which encode no point.
