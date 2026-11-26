@@ -83,16 +83,18 @@ class Groth16VerificationKey:
     beta: G2
     gamma: G2
     delta: G2
-    ic: list[G1]  # (len = 6) one point per public input of an STF proof, plus one
+    ic: list[G1]    # (len = 6) one point per public input of an STF proof, plus one
+    alpha_beta: GT  # the pairing e(alpha, beta), computed by the ledger when it stores the key,
+                    # not carried by the payload
 ```
 
-`G1` and `G2` are points of the groups of BN254 of these names, and `alpha`, `beta`, `gamma`, `delta` and `ic` are the points of a [Groth16](common-cryptographic-components.md#groth16-zk-snark) verification key.
+`G1` and `G2` are points of the groups of BN254 of these names, `GT` is an element of its target group, and `alpha`, `beta`, `gamma`, `delta` and `ic` are the points of a [Groth16](common-cryptographic-components.md#groth16-zk-snark) verification key. The pairing $`e(\alpha, \beta)`$ depends on the key alone and is the costliest part of a verification, so it is computed once, when the key is stored.
 
 An STF proof always has five public inputs: the state root of the rollup, its next state root, the `op_id` of the inscription it proves, the slot of the block that included that inscription, and `effects_hash`, the hash of the effects of the step ([`ROLLUP_PROVE`](#rollup_prove)). Since the size of a Groth16 verification key depends only on its number of public inputs, every rollup key has the same size, and the ledger stores and verifies the key of every rollup the same way.
 
 A rollup that applies the data of its inscriptions should have its STF circuit recompute the `op_id` it takes as its third public input from the encoded [`RollupInscribe`](#rollup_inscribe) it applies, so that its proof covers exactly the data, parent and signer its sequencer inscribed. The circuit then hashes the inscription with BLAKE2b, over up to [`MAX_OPERATION_DATA_SIZE`](mantle-transaction-encoding.md#channel-operations) bytes of data.
 
-`Groth16_verify(key, public_inputs, proof)` verifies a proof against a verification key and its public inputs, as [Groth16](common-cryptographic-components.md#groth16-zk-snark) specifies.
+`Groth16_verify(key, public_inputs, proof)` verifies a proof against a verification key, with its `alpha_beta`, and its public inputs, as [Groth16](common-cryptographic-components.md#groth16-zk-snark) specifies.
 
 # Operations
 
@@ -167,15 +169,17 @@ block_slot: Slot
 
   *Execute*
 
-Create the rollup under the parameters of the payload.
+Create the rollup under the parameters of the payload, storing its key with its `alpha_beta`.
 
 ```python
+key = create.verification_key
+key.alpha_beta = pairing(key.alpha, key.beta)
 ledger.sets.append(empty_note_set())
 chan = default_channel(block_slot,
                        create.keys,
                        ROLLUP,
                        len(ledger.sets) - 1,
-                       RollupState(key = create.verification_key,
+                       RollupState(key = key,
                                    state_root = create.state_root,
                                    deposits = {},
                                    unproven = []))
@@ -230,9 +234,9 @@ block_slot: Slot
       assert len(msg.inscription) <= MAX_OPERATION_DATA_SIZE
       ```
 
-  2. Ensure the channel exists and is a rollup channel.
+  2. Ensure the channel exists, is not the null channel and is a rollup channel.
       ```python
-      assert msg.channel in channels
+      assert msg.channel in channels and msg.channel != NULL_CHANNEL
       chan = channels[msg.channel]
       assert chan.kind == ROLLUP
       ```
@@ -342,9 +346,9 @@ ledger: Ledger
       assert len(deposit.inscription) <= MAX_OPERATION_DATA_SIZE
       ```
 
-  2. Ensure the channel exists and is a rollup channel.
+  2. Ensure the channel exists, is not the null channel and is a rollup channel.
       ```python
-      assert deposit.channel in channels
+      assert deposit.channel in channels and deposit.channel != NULL_CHANNEL
       chan = channels[deposit.channel]
       assert chan.kind == ROLLUP
       ```
@@ -468,9 +472,9 @@ ledger: Ledger
 
   *Validate*
 
-  1. Ensure the channel exists, is a rollup channel and has an unproven inscription. The step proves the oldest one, `k`, whose `op_id` binds its proofs.
+  1. Ensure the channel exists, is not the null channel, is a rollup channel and has an unproven inscription. The step proves the oldest one, `k`, whose `op_id` binds its proofs.
       ```python
-      assert prove.channel in channels
+      assert prove.channel in channels and prove.channel != NULL_CHANNEL
       chan = channels[prove.channel]
       assert chan.kind == ROLLUP
       rollup = chan.rollup
@@ -602,7 +606,7 @@ block_slot: Slot
       rollup.state_root = prove.state_root
       ```
 
-  4. If the step carries a next configuration, set its accredited keys, its rotation parameters and, if it carries one, its verification key, and restart the round-robin.
+  4. If the step carries a next configuration, set its accredited keys, its rotation parameters and, if it carries one, its verification key, stored with its `alpha_beta`, and restart the round-robin.
       ```python
       config = prove.next_config
       if config is not None:
@@ -613,7 +617,9 @@ block_slot: Slot
           chan.posting_timeframe = config.posting_timeframe
           chan.posting_timeout = config.posting_timeout
           if config.verification_key is not None:
-              rollup.key = config.verification_key
+              key = config.verification_key
+              key.alpha_beta = pairing(key.alpha, key.beta)
+              rollup.key = key
       ```
 
 A step with no next configuration leaves the turn to the rotation of the sequencers, so the steps themselves never pin the turn to one sequencer. A change of configuration applies from the block of its step, not from the block of its inscription: the inscriptions after `k` that come before that step are signed under the current keys, and a sequencer a step removes stays accredited until that step is proven.

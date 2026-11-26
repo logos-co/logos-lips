@@ -20,7 +20,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision: the channel Operations moved from [Mantle](bedrock-mantle.md). | 2026-11-25 |
-| 1.1.0 | A channel has a kind, fixed at its creation: a native channel is created by its first configuration, a `CHANNEL_CONFIG` whose `parent` is `ZERO`, and the channel Operations of this document act on existing native channels, rollup channels being specified in [Mantle Rollups](bedrock-mantle-rollups.md). The null channel is a native channel that exists before Genesis, with the note set of index `2`. A `Step` is bound to its `step_id`, hashed under the DST `STEP_V1`. Leading with a channel note takes its nullifier key and its staking secret key, and moving or withdrawing it takes its spending secret key | 2026-11-25 |
+| 1.1.0 | A channel has a kind, fixed at its creation: a native channel is created by its first configuration, a `CHANNEL_CONFIG` whose `parent` is `ZERO`, and the channel Operations of this document act on existing native channels, rollup channels being specified in [Mantle Rollups](bedrock-mantle-rollups.md). The null channel, `NULL_CHANNEL`, is a native channel that exists before Genesis, with the note set of index `2`, and every channel Operation rejects it. A `Step` is bound to its `step_id`, hashed under the DST `STEP_V1`. Leading with a channel note takes its nullifier key and its staking secret key, and moving or withdrawing it takes its spending secret key | 2026-11-25 |
 
 # Introduction
 
@@ -121,7 +121,7 @@ def create_channel(channel_id: ChannelId, block_slot: Slot, keys: list[Ed25519Pu
 
 A native channel, of kind `NATIVE`, carries the messages its sequencers inscribe and holds the notes of its users in its note set, which the steps of its inscriptions and the withdrawals of their holders spend. Each Operation of this document checks that the channel it acts on is a native channel.
 
-The null channel, whose `ChannelId` is 32 zero bytes, is a native channel that exists before Genesis. Its only accredited key is the null key, the Ed25519 public key made of 32 zero bytes, its note set is the note set of index `2` ([Ledger](bedrock-mantle.md#ledger)), and its other fields are those `default_channel` gives at the Genesis slot `0`, its `tip_hash` and `config_tip_hash` being `ZERO`. It exists from the start so that the Cryptarchia inscription of the [Genesis block](bedrock-genesis-block.md) extends it as any inscription extends its channel, with a `parent` of `ZERO`. It carries the inscriptions of the Genesis block and no inscription or step after them, since its inscriptions are signed by a key no one holds.
+The null channel, whose `ChannelId` `NULL_CHANNEL` is 32 zero bytes, is a native channel that exists before Genesis. Its only accredited key is the null key, the Ed25519 public key made of 32 zero bytes, its note set is the note set of index `2` ([Ledger](bedrock-mantle.md#ledger)), and its other fields are those `default_channel` gives at the Genesis slot `0`, its `tip_hash` and `config_tip_hash` being `ZERO`. It exists from the start so that the Cryptarchia inscription of the [Genesis block](bedrock-genesis-block.md) extends it as any inscription extends its channel, with a `parent` of `ZERO`. Every channel Operation, native or rollup, rejects the null channel, since its inscriptions are those of the Genesis block.
 
 Note that the user chooses the ChannelId mapping to the ChannelState (but it’s restricted to 32 bytes). We don't currently impose restrictions on it, but we may do so in the future to prevent undesirable behaviors.
 
@@ -264,8 +264,8 @@ block_slot: Slot
 steps = [step for mini_block in msg.mini_blocks for step in mini_block]
 assert len(msg.inscription) + sum(len(step.inscription) for step in steps) <= MAX_OPERATION_DATA_SIZE
 
-# Ensure the channel exists and is a native channel
-assert msg.channel in channels
+# Ensure the channel exists, is not the null channel and is a native channel
+assert msg.channel in channels and msg.channel != NULL_CHANNEL
 chan = channels[msg.channel]
 assert chan.kind == NATIVE
 
@@ -399,6 +399,9 @@ assert len(config.keys) < 2**16
 # otherwise the channel would be locked out of any future reconfiguration
 assert config.configuration_threshold <= len(config.keys)
 
+# Ensure the channel is not the null channel
+assert config.channel != NULL_CHANNEL
+
 if config.channel in channels:
     chan = channels[config.channel]
 
@@ -530,9 +533,9 @@ ledger: Ledger
       assert len(deposit.inscription) <= MAX_OPERATION_DATA_SIZE
       ```
 
-  2. Verify that the channel exists and is a native channel.
+  2. Verify that the channel exists, is not the null channel and is a native channel.
       ```python
-      assert deposit.channel in channels
+      assert deposit.channel in channels and deposit.channel != NULL_CHANNEL
       chan = channels[deposit.channel]
       assert chan.kind == NATIVE
       ```
@@ -627,9 +630,9 @@ ledger: Ledger
 
   *Validate*
 
-  1. Check that the channel exists and is a native channel.
+  1. Check that the channel exists, is not the null channel and is a native channel.
       ```python
-      assert withdrawal.channel in channels
+      assert withdrawal.channel in channels and withdrawal.channel != NULL_CHANNEL
       chan = channels[withdrawal.channel]
       assert chan.kind == NATIVE
       ```

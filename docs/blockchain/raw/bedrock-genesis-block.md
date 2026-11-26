@@ -36,7 +36,7 @@
 | 1.2.2 | Renamed the token LGO to LOGOS | 2026-10-29 |
 | 1.3.0 | Support the private ledger of Mantle: the initial notes are created, with nonces derived from its `op_id`, from the distribution published in an inscription to the null channel, which replaces the Transfer Operation, and the declarations consume no note, their amounts counting in the maximum supply. Genesis initializes the block reward stocks and records the commitment roots of the note sets | 2026-11-06 |
 | 1.3.1 | Links to Mantle point to `bedrock-mantle.md`, links to `SDP_DECLARE` to `bedrock-service-declaration-protocol.md`, links to Block Construction to `bedrock-block-construction.md`, links to the Cryptarchia Protocol to `cryptarchia-protocol.md` and links to Mantle Transaction Encoding to `bedrock-mantle-encoding.md` | 2026-11-25 |
-| 1.4.0 | The public key of each initial note is also its staking key, and each initial declaration names the staking key `note_stake_pk` of its service note. The null channel, a native channel whose only accredited key is the null key, exists before Genesis with the note set of index `2`, a third empty note set of the Ledger, and the Cryptarchia inscription extends it from its `tip_hash`, `ZERO`. The null proof of leadership is 128 zero bytes | 2026-11-25 |
+| 1.4.0 | The public key of each initial note is also its staking key, and each initial declaration names the staking key `note_stake_pk` of its service note. The null channel, a native channel whose only accredited key is the null key, exists before Genesis with the note set of index `2`, a third empty note set of the Ledger, and the Cryptarchia inscription extends it from its `tip_hash`, `ZERO`. The Genesis inscriptions are exempt from the rejection of the null channel by every channel Operation. The null proof of leadership is 128 zero bytes | 2026-11-25 |
 
 # Introduction
 
@@ -358,6 +358,8 @@ The checks below, and only these, are skipped when the Genesis Mantle Transactio
 
 3. **The inputs of the `SDP_DECLARE` Operations.** The Genesis `SDP_DECLARE` Operations must have no inputs, so the requirement that inputs be non-empty ([Input Notes Spendability Validation](bedrock-mantle.md#input-notes-spendability-validation)) does not apply and there is no spendability to check. They are the only Operations of the chain allowed to consume nothing. No proof being verified at Genesis, a nullifier given there could not be tied to a note: only the holder of a note can compute its nullifier, so a declaration naming an arbitrary one would create a service note on top of a distributed note that stays spendable, and a nullifier of `0` would be the one of the sentinel leaf of the [Nullifier Indexed Merkle Tree](bedrock-mantle.md#nullifier-indexed-merkle-tree).
 
+4. **The rejection of the null channel.** The two `CHANNEL_INSCRIBE` Operations of Genesis are addressed to the null channel, which every channel Operation rejects ([Mantle Channels](bedrock-mantle-channels.md#message-ordering)). The null channel exists for these inscriptions only, so the check that the channel of an inscription is not the null channel does not apply to them.
+
 Everything else is validated as it would be in any other block, against the state the Operations preceding it left, the transaction level check that there is one `op_proofs` entry per Operation included.
 
 ## Mantle Ledger Initialization
@@ -379,11 +381,11 @@ Once the Genesis Mantle Transaction is executed, every note set whose commitment
 
 ## Cryptarchia Initialization
 
-The Mantle Transaction contains an inscription sent to the null channel containing the parameters for initializing Cryptarchia. It is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature, whose `parent` is `ZERO`, the `tip_hash` of the null channel ([Mantle Ledger Initialization](#mantle-ledger-initialization)).
+The Mantle Transaction contains an inscription sent to the null channel containing the parameters for initializing Cryptarchia. Its `parent` is `ZERO`, the `tip_hash` of the null channel ([Mantle Ledger Initialization](#mantle-ledger-initialization)), and it is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature and the rejection of the null channel.
 
 Two conditions are specific to Genesis. The inscription must be addressed to the null channel and signed by the null key, an inscription anywhere else not being a set of Cryptarchia parameters. It must also decode to exactly the three parameters, encoded as [Cryptarchia Parameters](#cryptarchia-parameters) specifies and with no trailing bytes. A node that cannot decode them has no clock, no chain identifier and no lottery randomness, and must reject the Genesis block.
 
-The distribution inscription that follows is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature, its `parent` being the Cryptarchia inscription. It must decode, as [Initial Token Distribution](#initial-token-distribution) specifies and with no trailing bytes, to one value and public key per initial note, and a node that cannot decode it must reject the Genesis block.
+The distribution inscription that follows is validated as an ordinary `CHANNEL_INSCRIBE` Operation minus its signature and the rejection of the null channel, its `parent` being the Cryptarchia inscription. It must decode, as [Initial Token Distribution](#initial-token-distribution) specifies and with no trailing bytes, to one value and public key per initial note, and a node that cannot decode it must reject the Genesis block.
 
 The Cryptarchia slot clock is initialized to `genesis_time`, `LIB` is set to the Genesis block and the epoch state is then initialized:
 
