@@ -2215,6 +2215,12 @@ that holds keys. A and B stand for other modules and are local to one item.
   across restarts (RUNTIME l.3386); whether the retained selection of an existing instance follows the
   replacement, and whether a later handoff that carries the replaced signer matches that selection, is not
   said.
+- RUNTIME l.3147 and TRANSPORT l.1043: retained material must distinguish, among remote enforcement
+  outcomes, "a missing, invalid, expired, revoked, replayed, or incorrectly bound route ticket" (RUNTIME
+  l.3147), while "The Runtime MUST delete consumed, expired, and revoked ticket records" (TRANSPORT
+  l.1043); once a record is deleted, a replayed or a revoked ticket cannot be told from one that was never
+  issued, so whether l.3147 names one kind of failure, as a like list does in TRANSPORT l.940, or six
+  causes to be told apart, and whether the cause of a deleted record may be kept for that, is not said.
 - RUNTIME l.1423-1424 and CA l.249: a `single` request "does not require a separate `discover` decision"
   (RUNTIME l.1423), yet "Runtime MUST NOT select for a `single` request a provider that active visibility
   policy hides from the consumer" (RUNTIME l.1424); under an externalized policy the one decision that
