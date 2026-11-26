@@ -62,17 +62,17 @@ Mantle manages assets using a private note-based ledger that follows an UTXO mod
 
 # Overview
 
-## Mantle Transaction
+## Transactions
 
-The features of the Logos Blockchain are exposed through [Mantle Transactions](#mantle-transaction-1). Each transaction can contain one or more **[Operations](#operations)**. Mantle Transactions enable users to execute multiple Operations atomically: the Operations are applied one after the other in the order they appear, and either all of them take effect or none does.
+The features of the Logos Blockchain are exposed through [Mantle Transactions](#mantle-transaction). Each transaction can contain one or more **[Operations](#operations)**. Mantle Transactions enable users to execute multiple Operations atomically: the Operations are applied one after the other in the order they appear, and either all of them take effect or none does.
 
 ## Mantle Operations
 
-Logos Blockchain features are exposed through [Mantle Operations](#opcodes), which can be combined in a single [Mantle Transaction](#mantle-transaction-1) and validated atomically. These Operations enable [transfers](#transfer) and functions such as [on-chain data posting](bedrock-mantle-channels.md#channel_inscribe), [Cross-Zone interactions](bedrock-architecture-overview.md#mantle-channels) and [SDP interaction](bedrock-service-declaration-protocol.md#service-declaration-protocol-sdp-operations).
+Logos Blockchain features are exposed through [Mantle Operations](#opcodes), which can be combined in a single [Mantle Transaction](#mantle-transaction) and validated atomically. These Operations enable [transfers](#transfer) and functions such as [on-chain data posting](bedrock-mantle-channels.md#channel_inscribe), [Cross-Zone interactions](bedrock-architecture-overview.md#mantle-channels) and [SDP interaction](bedrock-service-declaration-protocol.md#service-declaration-protocol-sdp-operations).
 
-## Mantle Ledger
+## Private Ledger
 
-The [Mantle Ledger](#mantle-ledger-1) enables [asset transfers](#transfer) using a private note-based ledger. The ledger tracks three kinds of [notes](#notes), each in [note sets](#ledger) of its own: regular notes, [service notes](#service-notes) (collateral for [service declarations](bedrock-service-declaration-protocol.md#declare)) and [channel notes](bedrock-mantle-channels.md#bridging) (channel bridge funds). All of them participate in [Proof of Stake](cryptarchia-proof-of-leadership.md#eligible-sets). Each note set has a [commitment Merkle Mountain Range (MMR)](#commitment-merkle-mountain-range) and a [nullifier Indexed Merkle Tree (IMT)](#nullifier-indexed-merkle-tree).
+The [Mantle Ledger](#mantle-ledger) enables [asset transfers](#transfer) using a private note-based ledger. The ledger tracks three kinds of [notes](#notes), each in [note sets](#ledger) of its own: regular notes, [service notes](#service-notes) (collateral for [service declarations](bedrock-service-declaration-protocol.md#declare)) and [channel notes](bedrock-mantle-channels.md#bridging) (channel bridge funds). All of them participate in [Proof of Stake](cryptarchia-proof-of-leadership.md#eligible-sets). Each note set has a [commitment Merkle Mountain Range (MMR)](#commitment-merkle-mountain-range) and a [nullifier Indexed Merkle Tree (IMT)](#nullifier-indexed-merkle-tree).
 
 ## Transaction Fees
 
@@ -802,7 +802,7 @@ To see what the payloads represent, refer to [Mantle Transaction Encoding](mantl
 | `SDP_ACTIVE`              | 0x1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1e1f00000000000000010a0000008a88e3dd7409f195fd52db2d3cba5d72ca6709bf1d94121bf3748801b40f6f5c020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020202020303030303030303030303030303030303030303030303030303030303030303 | 0xc4a2a639034016f52728f34041cf95fc2c7adb8f54cf94b4361b2d0cb72ebb70 |
 | `CLAIM_POW_REWARD`        | 0x313131313131313131313131313131313131313131313131313131313131313132000000000000000000000000000000000000000000000000000000000000003300000000000000000000000000000000000000000000000000000000000000 | 0x271876ff684b7087005dba3153c44e8dcefd09257aa7e0d491399e2a483c975a |
 
-### Mantle Transaction Hash
+### Transaction Hash
 
 | Transaction | Payload | Transaction Hash                                                   |
 | - | - | - |

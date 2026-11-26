@@ -54,11 +54,11 @@ The requirements for the protocol are defined as follows:
 
 The SDP enables nodes to declare their eligibility to provide a specific [service](#service-types) in the system, and withdraw their declarations.
 
-## Protocol
+## Actions and Lifecycle
 
 The protocol defines the following actions:
 
-- **[Declare](#declare):** A node sends a [declaration](#declaration-message-1) that confirms its willingness to provide a specific service, which is confirmed by locking a stake above a certain [threshold](#minimum-stake) in a [service note](bedrock-mantle.md#service-notes).
+- **[Declare](#declare):** A node sends a [declaration](#declaration-message) that confirms its willingness to provide a specific service, which is confirmed by locking a stake above a certain [threshold](#minimum-stake) in a [service note](bedrock-mantle.md#service-notes).
 - **[Active](#active):** A node marks that its participation in the protocol is active according to the [service-specific activity logic](#service-parameters). This action enables the protocol to monitor the node’s activity. We utilize this as a non-intrusive differentiator of node activity. It is crucial to exclude inactive nodes from the [active set](#active-set), as it enhances the stability of services.
 - **[Withdraw](#withdraw):** A node withdraws its declaration and stops providing a service.
 
@@ -66,9 +66,9 @@ The logic of the protocol is straightforward.
 
 1. A node sends a declaration message for a specific service and proves it has a minimum stake.
 2. The declaration is [registered on the Ledger](#declaration-storage), and the node can commence its service according to the service-specific service logic.
-3. After a service-specific service-providing time, the node [confirms its activity](#active-message-1).
+3. After a service-specific service-providing time, the node [confirms its activity](#active-message).
 4. The node must confirm its activity with a service-specific minimum frequency; otherwise, its declaration is inactive.
-5. The node sends a [withdrawal message](#withdraw-message-1). It provides the service for one more [epoch](cryptarchia-protocol.md#epoch). Its declaration is [removed](#sdp-epoch-finalization) and the notes of its withdrawal released once that epoch has been [rewarded](bedrock-service-reward-distribution.md).
+5. The node sends a [withdrawal message](#withdraw-message). It provides the service for one more [epoch](cryptarchia-protocol.md#epoch). Its declaration is [removed](#sdp-epoch-finalization) and the notes of its withdrawal released once that epoch has been [rewarded](bedrock-service-reward-distribution.md).
 
 > The protocol messages are subject to a [finality](cryptarchia-protocol.md#latest-immutable-block) that means messages become part of the immutable ledger after a delay. The delay at which it happens is defined by the consensus. Therefore, the protocol’s progress must be tracked from the perspective of the latest finalized block, not the tip of the chain. Otherwise, the protocol and services using it would need to handle chain reorganizations, which we must avoid due to their potential to break services. Hence, the services must use a [snapshot](#snapshots) from a fully finalized epoch: `finalized_epoch = current_epoch - 2`. For more details about finalization, refer to [Cryptarchia Protocol](cryptarchia-protocol.md).
 
@@ -139,7 +139,7 @@ Epochs 0 and 1 read the snapshot at the genesis block, because the chain has not
 
 The tables below trace each SDP message from the epoch `e` of the block that contained it. Reward timing follows the [Service Reward Distribution Protocol](bedrock-service-reward-distribution.md).
 
-#### Declaration message
+#### Declaration timing
 
 | Epoch | What happens |
 | --- | --- |
@@ -149,7 +149,7 @@ The tables below trace each SDP message from the epoch `e` of the block that con
 | `e+3` | The node's first report is included; `active = e+3`. |
 | `e+4` | The epoch-`e+2` reward is distributed in the first block. |
 
-#### Active message
+#### Activity timing
 
 | Epoch | What happens |
 | --- | --- |
@@ -160,7 +160,7 @@ The tables below trace each SDP message from the epoch `e` of the block that con
 
 At any epoch `n`, the most recent report a snapshot can contain was included in epoch `n-2` and attests to epoch `n-3`.
 
-#### Withdraw message
+#### Withdrawal timing
 
 | Epoch | What happens |
 | --- | --- |
