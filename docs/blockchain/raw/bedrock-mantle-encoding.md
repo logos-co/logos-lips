@@ -39,6 +39,7 @@
 | 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CommitmentRoot` and `Value`, steps, tagged by their kind and with their own `Inscription`, in the `MiniBlocks` of `ChannelInscribe`, holder withdrawals, the `Inscription` of `ChannelDeposit`, the SDP payloads over notes with `NotePk` in `SDPDeclare` and no `Nonce` in `SDPWithdraw`, `PowNonce` and no `EpochNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-11-06 |
 | 2.0.1 | The document is published as `bedrock-mantle-encoding.md`. Links to Mantle point to `bedrock-mantle.md` and links to `CHANNEL_INSCRIBE` to `bedrock-mantle-channels.md` | 2026-11-25 |
 | 2.1.0 | The rollup Operations `RollupCreate`, `RollupInscribe`, `RollupDeposit` and `RollupProve`, with the `RollupProveOpProof`, the `Groth16VerificationKey` of an STF proof, encoded by its points without its derived `alpha_beta`, and the `OptionalConfig` of a step, a `RollupConfig` or `%x00`. A `Groth16Proof` is made of compressed `G1Point` and `G2Point`, each with a single encoding. `SDPDeclare` carries the `NoteStakePk` of its service note. A `Step` carries no kind byte | 2026-11-25 |
+| 2.2.0 | [RFC] Follow the `INSCRIBE` Operation of Mantle 2.2.0: the `Inscribe` payload, an `Inscription` of 1 to `MAX_OPERATION_DATA_SIZE` bytes, with an empty proof | 2026-11-17 |
 
 # Introduction
 
@@ -86,7 +87,8 @@ OpPayload = Transfer /
             RollupCreate /
             RollupInscribe /
             RollupDeposit /
-            RollupProve
+            RollupProve /
+            Inscribe
 ```
 
 ### Channel Operations
@@ -186,6 +188,12 @@ Inputs      = InputCount *NoteNullifier
 InputCount  = Byte
 Outputs     = OutputCount *NoteCommitment
 OutputCount = Byte
+```
+
+### Inscribe Operation
+
+```schema
+Inscribe = UINT32 1*BYTE ; Min 1 byte, max MAX_OPERATION_DATA_SIZE bytes
 ```
 
 ## Ledger

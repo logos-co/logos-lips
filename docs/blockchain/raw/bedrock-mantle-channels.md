@@ -21,6 +21,7 @@
 | --- | --- | --- |
 | 1.0.0 | Initial revision: the channel Operations moved from [Mantle](bedrock-mantle.md). | 2026-11-25 |
 | 1.1.0 | The `channels` map holds channels and rollups, each with a kind fixed at its creation: a channel is created by its first configuration, a `CHANNEL_CONFIG` whose `parent` is `ZERO`, and the Operations of this document act on existing channels, rollups being specified in [Mantle Rollups](bedrock-mantle-rollups.md). The null channel, `NULL_CHANNEL`, is a channel that exists before Genesis, with the note set of index `2`, and every channel and rollup Operation rejects it. A `Step` is bound to its `step_id`, hashed under the DST `STEP_V1`. Leading with a channel note takes its nullifier key and its staking secret key, and moving or withdrawing it takes its spending secret key | 2026-11-25 |
+| 1.1.1 | [RFC] The payload of `CHANNEL_INSCRIBE` is named `ChannelInscribe`, `Inscribe` being the payload of the `INSCRIBE` Operation of [Mantle](bedrock-mantle.md#inscribe) | 2026-11-17 |
 
 # Introduction
 
@@ -198,7 +199,7 @@ class Step:
     commitment_root: MerkleRoot    # the MMR root of the channel note set at the end of one of the last ROOT_WINDOW blocks
     inscription: bytes             # the zone message of this step, signed by its holder
 
-class Inscribe:
+class ChannelInscribe:
     channel: ChannelId       # 32 bytes Channel being written to
     inscription : bytes      # Message to be written on the blockchain
     parent: hash             # Previous message in the channel
@@ -211,7 +212,7 @@ A `NoteNullifier` is the nullifier of a note and a `NoteCommitment` its commitme
 
 A step is signed by the holder of the notes it consumes, off-chain and before the Mantle Transaction carrying it exists. Its ZkTransfer is therefore bound to the step itself, not to the `mantle_txhash`, and it balances exactly, with an `excess_value` of `0`.
 
-The `inscription` of the `Inscribe` is the message of the sequencer, and the `inscription` of a step the zone message of the holder of the step. The ZkTransfer of the step binds its inscription together with its inputs and outputs, so a sequencer publishes the message a holder signed with the move it signed, or drops the step whole. The inscription of the `Inscribe` and the inscriptions of its steps count together against `MAX_OPERATION_DATA_SIZE`.
+The `inscription` of the `ChannelInscribe` is the message of the sequencer, and the `inscription` of a step the zone message of the holder of the step. The ZkTransfer of the step binds its inscription together with its inputs and outputs, so a sequencer publishes the message a holder signed with the move it signed, or drops the step whole. The inscription of the `ChannelInscribe` and the inscriptions of its steps count together against `MAX_OPERATION_DATA_SIZE`.
 
 The steps of an inscription are grouped in mini-blocks. The proof of a step is verified, by the [`verify_transfer`](bedrock-mantle.md#input-notes-spendability-validation) method of the note set, against its referenced root extended with the buffer of the channel note set as it stands when the mini-block of the step starts: the commitments the earlier Operations of the Mantle Transaction and the earlier mini-blocks of the inscription added. A step can therefore consume the notes of earlier blocks and the outputs of the earlier mini-blocks, but not the outputs of its own mini-block. Its proof depends on what precedes its mini-block and not on its position inside it, and the holders prove their steps independently of one another:
 
@@ -249,7 +250,7 @@ class ChannelInscribeOpProof:
 
 ```python
 txhash: hash
-msg: Inscribe
+msg: ChannelInscribe
 proof: ChannelInscribeOpProof
 
 channels: dict[ChannelId, ChannelState]
@@ -313,7 +314,7 @@ for mini_block in msg.mini_blocks:
   *Given*
 
 ```python
-msg: Inscribe
+msg: ChannelInscribe
 
 channels: dict[ChannelId, ChannelState]
 ledger: Ledger
