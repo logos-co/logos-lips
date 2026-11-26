@@ -23,13 +23,13 @@
 
 # Introduction
 
-Rollup channels let a Zone compute its state off chain and settle it on chain with validity proofs of its state transitions. This document specifies the rollup Operations; the Mantle Transaction that carries them and the ledger they act on are specified in [Mantle](bedrock-mantle.md), and the sequencing they share with native channels in [Mantle Channels](bedrock-mantle-channels.md).
+Rollups let a Zone compute its state off chain and settle it on chain with validity proofs of its state transitions. This document specifies the rollup Operations; the Mantle Transaction that carries them and the ledger they act on are specified in [Mantle](bedrock-mantle.md), and the sequencing they share with channels in [Mantle Channels](bedrock-mantle-channels.md).
 
 # Overview
 
-## Rollup Channels
+## Rollups
 
-A [rollup channel](#rollup-operations) is a [channel](bedrock-mantle-channels.md#channel-operations) whose [state](#rollup-state) follows a [state transition function (STF)](#stf-verification-key), a [Groth16](common-cryptographic-components.md#groth16-zk-snark) circuit its [creator](#rollup_create) chooses. Its [sequencers](bedrock-mantle-channels.md#decentralized-sequencing) take turns, following the [round-robin](bedrock-mantle-channels.md#decentralized-sequencing) of every channel, to post the data of its state transitions with [`ROLLUP_INSCRIBE`](#rollup_inscribe). Anyone then proves these inscriptions with [`ROLLUP_PROVE`](#rollup_prove), one at a time and in the order they were inscribed. Each proof is a step of the rollup, the application of one inscription by `ROLLUP_PROVE`: a proof of its STF takes the rollup from its state root to the next one, and the step mints pending [deposits](#rollup_deposit), moves the [notes](bedrock-mantle.md#notes) of the rollup and pays some of them out to the [ledger](bedrock-mantle.md#ledger). The steps of the proven prefix of the inscriptions give the state of the rollup, and the inscriptions after it wait for their steps. A step reads the [slot](cryptarchia-protocol.md#slot) of the block that included its inscription, so a rollup can depend on time while every prover knows the inputs of a step as soon as its inscription is in a block.
+A [rollup](#rollup-operations) is an entry of the [`channels` map](bedrock-mantle-channels.md#channel-operations), of kind `ROLLUP`, whose [state](#rollup-state) follows a [state transition function (STF)](#stf-verification-key), a [Groth16](common-cryptographic-components.md#groth16-zk-snark) circuit its [creator](#rollup_create) chooses. Its [sequencers](bedrock-mantle-channels.md#decentralized-sequencing) take turns, following the same [round-robin](bedrock-mantle-channels.md#decentralized-sequencing) as channels, to post the data of its state transitions with [`ROLLUP_INSCRIBE`](#rollup_inscribe). Anyone then proves these inscriptions with [`ROLLUP_PROVE`](#rollup_prove), one at a time and in the order they were inscribed. Each proof is a step of the rollup, the application of one inscription by `ROLLUP_PROVE`: a proof of its STF takes the rollup from its state root to the next one, and the step mints pending [deposits](#rollup_deposit), moves the [notes](bedrock-mantle.md#notes) of the rollup and pays some of them out to the [ledger](bedrock-mantle.md#ledger). The steps of the proven prefix of the inscriptions give the state of the rollup, and the inscriptions after it wait for their steps. A step reads the [slot](cryptarchia-protocol.md#slot) of the block that included its inscription, so a rollup can depend on time while every prover knows the inputs of a step as soon as its inscription is in a block.
 
 ## What the Ledger Checks
 
@@ -37,7 +37,7 @@ The [notes](bedrock-mantle.md#notes) of a rollup live in a note set of their own
 
 ## Sequencers Can Only Delay
 
-A [step](#rollup_prove) sets the next [accredited keys](bedrock-mantle-channels.md#message-ordering) and [rotation parameters](bedrock-mantle-channels.md#decentralized-sequencing) of its [rollup channel](#rollup-operations) when it carries them, and its STF proof covers them, so the rules of the STF decide who sequences the rollup. The [round-robin](bedrock-mantle-channels.md#decentralized-sequencing) hands the turn to the next accredited key when the timeframe or the timeout of a [sequencer](bedrock-mantle-channels.md#decentralized-sequencing) elapses, so a sequencer that refuses to [inscribe](#rollup_inscribe) a transition only delays it until a sequencer that accepts it takes its turn, provided the configuration of the rollup sets a timeframe; a timeout alone replaces only a sequencer that inscribes nothing. Anyone posts the steps, so no party can hold back the proof of an inscription, and a step applies exactly the data its sequencer inscribed when the STF circuit recomputes the [`op_id`](bedrock-mantle.md#note-commitment-and-nullifier) of that inscription, as [STF Verification Key](#stf-verification-key) recommends.
+A [step](#rollup_prove) sets the next [accredited keys](bedrock-mantle-channels.md#message-ordering) and [rotation parameters](bedrock-mantle-channels.md#decentralized-sequencing) of its [rollup](#rollup-operations) when it carries them, and its STF proof covers them, so the rules of the STF decide who sequences the rollup. The [round-robin](bedrock-mantle-channels.md#decentralized-sequencing) hands the turn to the next accredited key when the timeframe or the timeout of a [sequencer](bedrock-mantle-channels.md#decentralized-sequencing) elapses, so a sequencer that refuses to [inscribe](#rollup_inscribe) a transition only delays it until a sequencer that accepts it takes its turn, provided the configuration of the rollup sets a timeframe; a timeout alone replaces only a sequencer that inscribes nothing. Anyone posts the steps, so no party can hold back the proof of an inscription, and a step applies exactly the data its sequencer inscribed when the STF circuit recomputes the [`op_id`](bedrock-mantle.md#note-commitment-and-nullifier) of that inscription, as [STF Verification Key](#stf-verification-key) recommends.
 
 ## Recommendations
 
@@ -53,11 +53,11 @@ The [ledger](bedrock-mantle.md#ledger) leaves the following choices to the rollu
 
 Funds leave a rollup only through its [steps](#rollup_prove): a user exits when a step pays it out. If no [sequencer](bedrock-mantle-channels.md#decentralized-sequencing) [inscribes](#rollup_inscribe), no step can be proven and the funds of the rollup stay frozen. Users trust the [STF](#stf-verification-key) circuit of the rollup, the rule by which its steps change its verification key, and the [setup](common-cryptographic-components.md#groth16-zk-snark) of each key: a faulty circuit, or a key whose setup lets someone forge proofs, can pay the funds of the rollup to anyone.
 
-# Rollup Channel State
+# State
 
 ## Rollup State
 
-Validators keep the state of a rollup channel, of kind `ROLLUP`, in the `rollup` field of its [`ChannelState`](bedrock-mantle-channels.md#channel-operations), next to the sequencing fields and the note set every channel has:
+Validators keep the state of a rollup, of kind `ROLLUP`, in the `rollup` field of its [`ChannelState`](bedrock-mantle-channels.md#channel-operations), next to the sequencing fields and the note set that channels and rollups share:
 
 ```python
 class RollupState:
@@ -102,7 +102,7 @@ A rollup that applies the data of its inscriptions should have its STF circuit r
 
 ### ROLLUP_CREATE
 
-Create a rollup channel with its accredited keys, its rotation parameters, the verification key of its STF proofs and its initial state root. Anyone can create a rollup channel, under a `ChannelId` no channel holds.
+Create a rollup with its accredited keys, its rotation parameters, the verification key of its STF proofs and its initial state root. Anyone can create a rollup, under a `ChannelId` no channel or rollup holds.
 
 #### Payload
 
@@ -190,7 +190,7 @@ channels[create.channel] = chan
 
 ### ROLLUP_INSCRIBE
 
-Write the data of a state transition to a rollup channel, extending the tip of the channel, and the inscription joins the unproven inscriptions of the rollup, which its steps prove in that order.
+Write the data of a state transition to a rollup, extending the tip of the rollup, and the inscription joins the unproven inscriptions of the rollup, which its steps prove in that order.
 
 The STF reads the data of the inscription through its `op_id` ([STF Verification Key](#stf-verification-key)). A rollup should let its STF prove, for an inscription it cannot apply, a step that mints no deposit, makes no transfer and keeps its state root, so that the inscription does not block the ones after it.
 
@@ -234,7 +234,7 @@ block_slot: Slot
       assert len(msg.inscription) <= MAX_OPERATION_DATA_SIZE
       ```
 
-  2. Ensure the channel exists, is not the null channel and is a rollup channel.
+  2. Ensure the `channel` exists, is not the null channel and is of kind `ROLLUP`.
       ```python
       assert msg.channel in channels and msg.channel != NULL_CHANNEL
       chan = channels[msg.channel]
@@ -296,7 +296,7 @@ The slot of the block is recorded with the [`op_id`](bedrock-mantle.md#note-comm
 
 ### ROLLUP_DEPOSIT
 
-Deposit value into a rollup channel. The deposit consumes notes of the ledger note set and creates no note: it records a [pending deposit](#rollup-state) of its value and its intent in the `deposits` of the rollup, under its [`op_id`](bedrock-mantle.md#note-commitment-and-nullifier), until a [`ROLLUP_PROVE`](#rollup_prove) mints it into the note set of the rollup.
+Deposit value into a rollup. The deposit consumes notes of the ledger note set and creates no note: it records a [pending deposit](#rollup-state) of its value and its intent in the `deposits` of the rollup, under its [`op_id`](bedrock-mantle.md#note-commitment-and-nullifier), until a [`ROLLUP_PROVE`](#rollup_prove) mints it into the note set of the rollup.
 
 A deposit waits until a step chosen by the sequencers of the rollup mints it, and the ledger never refunds it, so the STF decides when the rollup takes it in. The ledger keeps only the value and intent of a deposit: its inscription publishes data for the zone, which its `intent` can commit to.
 
@@ -346,7 +346,7 @@ ledger: Ledger
       assert len(deposit.inscription) <= MAX_OPERATION_DATA_SIZE
       ```
 
-  2. Ensure the channel exists, is not the null channel and is a rollup channel.
+  2. Ensure the `channel` exists, is not the null channel and is of kind `ROLLUP`.
       ```python
       assert deposit.channel in channels and deposit.channel != NULL_CHANNEL
       chan = channels[deposit.channel]
@@ -396,7 +396,7 @@ ledger: Ledger
 
 ### ROLLUP_PROVE
 
-Apply the oldest unproven inscription of a rollup channel with a step of the rollup. Anyone posts it: the step mints the pending deposits it lists into one note of the rollup note set, applies its transfers to the notes of the rollup and pays their payouts to the ledger note set, and sets the next state root of the rollup and, when the step carries one, its next configuration, all of which its STF proof covers.
+Apply the oldest unproven inscription of a rollup with a step of the rollup. Anyone posts it: the step mints the pending deposits it lists into one note of the rollup note set, applies its transfers to the notes of the rollup and pays their payouts to the ledger note set, and sets the next state root of the rollup and, when the step carries one, its next configuration, all of which its STF proof covers.
 
 A step proves only the oldest entry of `unproven`, so a node never holds a proof it has not applied. Provers compute the steps of consecutive inscriptions in parallel, each from the state the step before it leaves, and the mempool orders the steps by their inscriptions. The transfers of a step are verified against the live commitment MMR root of the rollup note set, which a prover knows in advance since only this Operation appends to that set, so consecutive steps of a rollup can share a block, and even a Mantle Transaction.
 
@@ -415,7 +415,7 @@ class RollupConfig:
     verification_key: Groth16VerificationKey | None  # the next key of the STF proofs, None to keep the current one
 
 class RollupProve:
-    channel: ChannelId                  # 32 bytes, the rollup channel
+    channel: ChannelId                  # 32 bytes, the rollup
     deposits: list[Hash]                # the op_id of each pending deposit the step mints
     transfers: list[RollupTransfer]     # the transfers of the step, in the order they apply
     state_root: zkhash                  # the next state root of the rollup
@@ -472,7 +472,7 @@ ledger: Ledger
 
   *Validate*
 
-  1. Ensure the channel exists, is not the null channel, is a rollup channel and has an unproven inscription. The step proves the oldest one, `k`, whose `op_id` binds its proofs.
+  1. Ensure the `channel` exists, is not the null channel, is of kind `ROLLUP` and has an unproven inscription. The step proves the oldest one, `k`, whose `op_id` binds its proofs.
       ```python
       assert prove.channel in channels and prove.channel != NULL_CHANNEL
       chan = channels[prove.channel]

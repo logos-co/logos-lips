@@ -51,7 +51,7 @@
 | 1.19.0 | `MinStake` holds `threshold` and the block number `timestamp`, following the Service Declaration Protocol | 2026-10-27 |
 | 2.0.0 | Changed the UTXO ledger to private notes with transaction unlinkability, kept in a ledger, an SDP and one note set per channel but the null channel. Channel notes are moved by the steps their holders sign, each with its own inscription, grouped in the mini-blocks of an inscription, each proven against a recent root and the transaction buffer before its mini-block, and are withdrawn by their holders. Removed `LEADER_CLAIM`, `CHANNEL_TRANSFER` and the Example sections of the Operations, signed `SDP_ACTIVE` with the `provider_id`, made the `CLAIM_POW_REWARD` ticket publicly verifiable and independent of the epoch nonce, and moved `CLAIM_POW_REWARD` to the opcode `0x30`. A declaration names in `note_pk` the key of its service note, and `SDP_WITHDRAW` carries no nonce, consumes the service note, and releases its outputs with the channel withdrawals when its declaration is removed. A channel deposit carries an `inscription`. The commitment MMR and the nullifier IMT of a note set have depth `NOTE_SET_DEPTH` = 40, and a commitment root stays recent for `ROOT_WINDOW` = 1024 blocks | 2026-11-06 |
 | 2.0.1 | The channel Operations are specified in Mantle Channels, the SDP Operations in the Service Declaration Protocol and the claim of proof of work rewards in Proof of Work; the Opcodes table links every Operation; the document is published as `bedrock-mantle.md`, links to Block Construction point to `bedrock-block-construction.md` and links to Mantle Transaction Encoding to `bedrock-mantle-encoding.md` | 2026-11-25 |
-| 2.1.0 | A note carries a staking key, `stake_public_key`, hashed in its commitment, and a note whose staking key is `0` cannot lead. The Keys section derives the nullifier key `nf_sk` from the spending secret key and the public key from `nf_sk`, the nullifier hashes `nf_sk`, and the ZkTransfer proves the spending secret key; `PK0` and `NF_SK0` are the keys of the spending secret key `0`. The Opcodes table lists `ROLLUP_CREATE`, `ROLLUP_INSCRIBE`, `ROLLUP_DEPOSIT` and `ROLLUP_PROVE` at `0x40` to `0x43`: the excess value of `ROLLUP_DEPOSIT` pays fees, the proofs of `ROLLUP_PROVE` are bound to the `op_id` of the inscription they prove and verified against the live MMR of the rollup note set, and the Ledger table gives every channel, native or rollup, the null channel included, a note set from index `2` on, in creation order. The test vectors cover the rollup Operations and follow the encoding of `ChannelInscribe` and `SDPDeclare` | 2026-11-25 |
+| 2.1.0 | A note carries a staking key, `stake_public_key`, hashed in its commitment, and a note whose staking key is `0` cannot lead. The Keys section derives the nullifier key `nf_sk` from the spending secret key and the public key from `nf_sk`, the nullifier hashes `nf_sk`, and the ZkTransfer proves the spending secret key; `PK0` and `NF_SK0` are the keys of the spending secret key `0`. The Opcodes table lists `ROLLUP_CREATE`, `ROLLUP_INSCRIBE`, `ROLLUP_DEPOSIT` and `ROLLUP_PROVE` at `0x40` to `0x43`: the excess value of `ROLLUP_DEPOSIT` pays fees, the proofs of `ROLLUP_PROVE` are bound to the `op_id` of the inscription they prove and verified against the live MMR of the rollup note set, and the Ledger table gives every channel and every rollup, the null channel included, a note set from index `2` on, in creation order. The test vectors cover the rollup Operations and follow the encoding of `ChannelInscribe` and `SDPDeclare` | 2026-11-25 |
 
 # Introduction
 
@@ -73,7 +73,7 @@ Logos Blockchain features are exposed through [Mantle Operations](#opcodes), whi
 
 ## Private Ledger
 
-The [Mantle Ledger](#mantle-ledger) enables [asset transfers](#transfer) using a private note-based ledger. The ledger tracks three kinds of [notes](#notes), each in [note sets](#ledger) of its own: regular notes, [service notes](#service-notes) (collateral for [service declarations](bedrock-service-declaration-protocol.md#declare)) and [channel notes](bedrock-mantle-channels.md#bridging) (the funds of [native](bedrock-mantle-channels.md) and [rollup channels](bedrock-mantle-rollups.md)). Every note participates in [Proof of Stake](cryptarchia-proof-of-leadership.md#eligible-sets) through its [staking key](#keys), unless that key is `0`. Each note set has a [commitment Merkle Mountain Range (MMR)](#commitment-merkle-mountain-range) and a [nullifier Indexed Merkle Tree (IMT)](#nullifier-indexed-merkle-tree).
+The [Mantle Ledger](#mantle-ledger) enables [asset transfers](#transfer) using a private note-based ledger. The ledger tracks three kinds of [notes](#notes), each in [note sets](#ledger) of its own: regular notes, [service notes](#service-notes) (collateral for [service declarations](bedrock-service-declaration-protocol.md#declare)) and the notes of [channels](bedrock-mantle-channels.md#bridging) and [rollups](bedrock-mantle-rollups.md). Every note participates in [Proof of Stake](cryptarchia-proof-of-leadership.md#eligible-sets) through its [staking key](#keys), unless that key is `0`. Each note set has a [commitment Merkle Mountain Range (MMR)](#commitment-merkle-mountain-range) and a [nullifier Indexed Merkle Tree (IMT)](#nullifier-indexed-merkle-tree).
 
 ## Transaction Fees
 
@@ -263,10 +263,10 @@ Each Operation is specified in the document of its protocol, and this table, the
 | *RESERVED* | *0x23 - 0x2F* |  |
 | [CLAIM_POW_REWARD](proof-of-work.md#claim_pow_reward) | 0x30 | Claim a reward from the pow reward pool. |
 | *RESERVED* | *0x31 - 0x3F* |  |
-| [ROLLUP_CREATE](bedrock-mantle-rollups.md#rollup_create) | 0x40 | Create a rollup channel with the verification key of its state transition function. |
-| [ROLLUP_INSCRIBE](bedrock-mantle-rollups.md#rollup_inscribe) | 0x41 | Write the data of a state transition onto a rollup channel. |
-| [ROLLUP_DEPOSIT](bedrock-mantle-rollups.md#rollup_deposit) | 0x42 | Deposit notes into a rollup channel, pending until a step mints them. |
-| [ROLLUP_PROVE](bedrock-mantle-rollups.md#rollup_prove) | 0x43 | Apply the oldest unproven inscription of a rollup channel with a proven step. |
+| [ROLLUP_CREATE](bedrock-mantle-rollups.md#rollup_create) | 0x40 | Create a rollup with the verification key of its state transition function. |
+| [ROLLUP_INSCRIBE](bedrock-mantle-rollups.md#rollup_inscribe) | 0x41 | Write the data of a state transition onto a rollup. |
+| [ROLLUP_DEPOSIT](bedrock-mantle-rollups.md#rollup_deposit) | 0x42 | Deposit notes into a rollup, pending until a step mints them. |
+| [ROLLUP_PROVE](bedrock-mantle-rollups.md#rollup_prove) | 0x43 | Apply the oldest unproven inscription of a rollup with a proven step. |
 | *RESERVED* | *0x44 - 0x4F* |  |
 | *RESERVED* | *0x50 - 0xFF* |  |
 
@@ -453,7 +453,7 @@ The notes live in note sets, each with its own commitment MMR and nullifier IMT.
 | --- | --- | --- | --- |
 | Ledger | `LEDGER_SET = 0` | the notes of transfers, rewards and withdrawals | Transfers, deposits and declarations |
 | SDP | `SDP_SET = 1` | service notes | the Withdraw Operation of their declaration |
-| Channel | `2` onward, in the order the channels were created, starting with the null channel | channel notes | the steps of the inscriptions of a [native channel](bedrock-mantle-channels.md#message-ordering) and the withdrawals of its notes, or the [`ROLLUP_PROVE`](bedrock-mantle-rollups.md#rollup_prove) Operations of a [rollup channel](bedrock-mantle-rollups.md#rollup-operations) |
+| Channel or rollup | `2` onward, in the order the channels and rollups were created, starting with the null channel | channel notes and rollup notes | the steps of the inscriptions of a [channel](bedrock-mantle-channels.md#message-ordering) and the withdrawals of its notes, or the [`ROLLUP_PROVE`](bedrock-mantle-rollups.md#rollup_prove) Operations of a [rollup](bedrock-mantle-rollups.md#rollup-operations) |
 
 Two parameters fix the trees of a note set and how long their roots can be proven against:
 
