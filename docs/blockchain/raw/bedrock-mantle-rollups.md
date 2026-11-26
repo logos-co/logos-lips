@@ -59,11 +59,10 @@ Funds leave a rollup only through its [steps](#rollup_prove): a user exits when 
 
 ### Rollup State
 
-Validators keep the state of a rollup channel in the `kind` of its [`ChannelState`](bedrock-mantle-channels.md#channel-operations), next to the sequencing fields every channel has:
+Validators keep the state of a rollup channel, of kind `ROLLUP`, in the `rollup` field of its [`ChannelState`](bedrock-mantle-channels.md#channel-operations), next to the sequencing fields and the note set every channel has:
 
 ```python
-class RollupChannel:
-    note_set: int                         # index of the note set of the rollup in ledger.sets
+class RollupState:
     key: Groth16StoredKey                 # the verification key of the STF proofs, with e(alpha, beta)
     state_root: zkhash                    # the state root after the last proven inscription
     deposits: dict[Hash, PendingDeposit]  # the deposits waiting to be minted,
@@ -177,11 +176,12 @@ ledger.sets.append(empty_note_set())
 key = create.verification_key
 chan = default_channel(block_slot,
                        create.keys,
-                       RollupChannel(note_set = len(ledger.sets) - 1,
-                                     key = Groth16StoredKey(key=key, alpha_beta=pairing(key.alpha, key.beta)),
-                                     state_root = create.state_root,
-                                     deposits = {},
-                                     unproven = []))
+                       ROLLUP,
+                       len(ledger.sets) - 1,
+                       RollupState(key = Groth16StoredKey(key=key, alpha_beta=pairing(key.alpha, key.beta)),
+                                   state_root = create.state_root,
+                                   deposits = {},
+                                   unproven = []))
 chan.posting_timeframe = create.posting_timeframe
 chan.posting_timeout = create.posting_timeout
 channels[create.channel] = chan
@@ -239,7 +239,7 @@ block_slot: Slot
       ```python
       assert msg.channel in channels
       chan = channels[msg.channel]
-      assert isinstance(chan.kind, RollupChannel)
+      assert chan.kind == ROLLUP
       ```
 
   3. Ensure the signer is the sequencer the [round-robin](bedrock-mantle-channels.md#decentralized-sequencing) designates.
@@ -290,7 +290,7 @@ block_slot: Slot
   3. Queue the inscription for its step, with the slot of its block.
       ```python
       chan = channels[msg.channel]
-      chan.kind.unproven.append((derive_op_id(msg), block_slot))
+      chan.rollup.unproven.append((derive_op_id(msg), block_slot))
       ```
 
 The slot of the block is recorded with the [`op_id`](bedrock-mantle.md#note-commitment-and-nullifier) of the inscription because the STF proof of its step takes it as a public input: it is fixed once the inscription is in a block, and the prover reads it from the ledger.
@@ -351,7 +351,7 @@ ledger: Ledger
       ```python
       assert deposit.channel in channels
       chan = channels[deposit.channel]
-      assert isinstance(chan.kind, RollupChannel)
+      assert chan.kind == ROLLUP
       ```
 
   3. Ensure all inputs are spendable in the [ledger note set](bedrock-mantle.md#ledger), `LEDGER_SET`.
@@ -391,8 +391,8 @@ ledger: Ledger
   2. Record the deposit as pending under its `op_id`.
       ```python
       chan = channels[deposit.channel]
-      chan.kind.deposits[derive_op_id(deposit)] = PendingDeposit(value=deposit.value,
-                                                                 intent=deposit.intent)
+      chan.rollup.deposits[derive_op_id(deposit)] = PendingDeposit(value=deposit.value,
+                                                                   intent=deposit.intent)
       ```
 
 ### ROLLUP_PROVE
@@ -492,8 +492,8 @@ ledger: Ledger
       ```python
       assert prove.channel in channels
       chan = channels[prove.channel]
-      assert isinstance(chan.kind, RollupChannel)
-      rollup = chan.kind
+      assert chan.kind == ROLLUP
+      rollup = chan.rollup
       assert len(rollup.unproven) > 0
       (k, slot_k) = rollup.unproven[0]
       msg = FiniteField(k, byte_order="little", modulus= p)
@@ -522,7 +522,7 @@ ledger: Ledger
 
   4. Start from the commitment MMR of the rollup note set as it stands, extended with the deposit note.
       ```python
-      note_set = ledger.sets[rollup.note_set]
+      note_set = ledger.sets[chan.note_set]
       peaks = list(note_set.commitments)
       for note_commitment in deposit_outputs:
           mmr_append(peaks, note_commitment)
@@ -597,8 +597,8 @@ block_slot: Slot
   1. Mint the deposits: remove them from the pending deposits, and add the deposit note to the rollup note set.
       ```python
       chan = channels[prove.channel]
-      rollup = chan.kind
-      note_set = ledger.sets[rollup.note_set]
+      rollup = chan.rollup
+      note_set = ledger.sets[chan.note_set]
       (k, _) = rollup.unproven[0]
       total = sum(rollup.deposits[deposit_id].value for deposit_id in prove.deposits)
       for deposit_id in prove.deposits:

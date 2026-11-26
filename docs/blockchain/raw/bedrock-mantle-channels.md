@@ -20,7 +20,7 @@
 | **Version** | **Changes** | **Date** |
 | --- | --- | --- |
 | 1.0.0 | Initial revision: the channel Operations moved from [Mantle](bedrock-mantle.md). | 2026-11-25 |
-| 1.1.0 | A channel has a kind, fixed at its creation: a native channel is created by its first configuration, a `CHANNEL_CONFIG` whose `parent` is `ZERO`, and the channel Operations of this document act on existing native channels, rollup channels being specified in [Mantle Rollups](bedrock-mantle-rollups.md). The null channel is a native channel that exists before Genesis. A `Step` is bound to its `step_id`, hashed under the DST `STEP_V1`. Leading with a channel note takes its nullifier key and its staking secret key, and moving or withdrawing it takes its spending secret key | 2026-11-25 |
+| 1.1.0 | A channel has a kind, fixed at its creation: a native channel is created by its first configuration, a `CHANNEL_CONFIG` whose `parent` is `ZERO`, and the channel Operations of this document act on existing native channels, rollup channels being specified in [Mantle Rollups](bedrock-mantle-rollups.md). The null channel is a native channel that exists before Genesis, with the note set of index `2`. A `Step` is bound to its `step_id`, hashed under the DST `STEP_V1`. Leading with a channel note takes its nullifier key and its staking secret key, and moving or withdrawing it takes its spending secret key | 2026-11-25 |
 
 # Introduction
 
@@ -40,7 +40,7 @@ A [native channel](#message-ordering) is created by its first configuration, a [
 
 ## Bridged Notes
 
-Each [native channel](#message-ordering) but the [null channel](#message-ordering) has its own [note set](bedrock-mantle.md#ledger), whose notes keep counting toward [Proof of Stake](cryptarchia-proof-of-leadership.md#eligible-sets). Only the holder of a channel note can spend it: inside the channel with a step that the [sequencers](#decentralized-sequencing) publish in an [inscription](#channel_inscribe), or out of the channel with a [withdrawal](#channel_withdraw) that takes effect `WITHDRAW_DELAY` [slots](cryptarchia-protocol.md#slot) later. A sequencer orders the moves of a channel but never makes one. See [Bridging](#bridging).
+Each [native channel](#message-ordering) has its own [note set](bedrock-mantle.md#ledger), whose notes keep counting toward [Proof of Stake](cryptarchia-proof-of-leadership.md#eligible-sets). Only the holder of a channel note can spend it: inside the channel with a step that the [sequencers](#decentralized-sequencing) publish in an [inscription](#channel_inscribe), or out of the channel with a [withdrawal](#channel_withdraw) that takes effect `WITHDRAW_DELAY` [slots](cryptarchia-protocol.md#slot) later. A sequencer orders the moves of a channel but never makes one. See [Bridging](#bridging).
 
 ## Operations of a Channel
 
@@ -58,7 +58,7 @@ Channels form virtual chains by having each message reference its parent message
 
 Configurations form a second hash chain within the channel: each configuration names the configuration it supersedes, so a pending reconfiguration stays valid while the sequencer keeps posting inscriptions.
 
-A native channel is created by its first configuration, a [`CHANNEL_CONFIG`](#channel_config) whose `parent` is `ZERO`: the keys it lists become the accredited keys of the channel (Note that a key may correspond to a threshold signature key), and the channel stays a native channel for good. No inscription creates a channel, so every channel starts with the committee and the sequencing parameters its creator chose, and an inscription always lands on a channel whose kind is known. Accredited keys of a channel forms a committee that can configure the channel and take turns to write messages to that channel following a round-robin algorithm. Configuring a channel includes modifying the list of accredited keys, the round-robin parameters and the required number of signatures to establish a new configuration.
+A native channel is created by its first configuration, a [`CHANNEL_CONFIG`](#channel_config) whose `parent` is `ZERO`: the keys it lists become the accredited keys of the channel (Note that a key may correspond to a threshold signature key), and the channel stays a native channel for good. Accredited keys of a channel forms a committee that can configure the channel and take turns to write messages to that channel following a round-robin algorithm. Configuring a channel includes modifying the list of accredited keys, the round-robin parameters and the required number of signatures to establish a new configuration.
 
 Validators must maintain the following state to process channel Operations:
 
@@ -83,16 +83,22 @@ class ChannelState:
     posting_timeframe: u32  # number of slots (0 = infinity)
     posting_timeout: u32    # number of slots (0 = no timeout)
 
-    # Kind, fixed when the channel is created
-    kind: NativeChannel | RollupChannel  # RollupChannel is specified in Mantle Rollups,
-                                         # bedrock-mantle-rollups.md
+    # Kind and Bridging
+    kind: ChannelKind            # NATIVE or ROLLUP, fixed at creation
+    note_set: int                # the index of the note set of the channel in ledger.sets
+    rollup: RollupState | None   # the state of a rollup channel, None for a native channel.
+                                 # RollupState is specified in Mantle Rollups,
+                                 # bedrock-mantle-rollups.md
 
-class NativeChannel:
-    # Bridging
-    note_set: int | None    # index of the note set of the channel in ledger.sets,
-                            # None for the null channel
+class ChannelKind(Enum):
+    NATIVE=0
+    ROLLUP=1
 
-def default_channel(block_slot: Slot, keys: list[Ed25519PublicKey], kind: NativeChannel | RollupChannel) -> ChannelState:
+def default_channel(block_slot: Slot,
+                    keys: list[Ed25519PublicKey],
+                    kind: ChannelKind,
+                    note_set: int,
+                    rollup: RollupState | None) -> ChannelState:
     return ChannelState(
         tip_hash = ZERO,
         config_tip_hash = ZERO,
@@ -103,17 +109,19 @@ def default_channel(block_slot: Slot, keys: list[Ed25519PublicKey], kind: Native
         posting_timeframe = 0,
         posting_timeout = 0,
         configuration_threshold = 1,
-        kind = kind)
+        kind = kind,
+        note_set = note_set,
+        rollup = rollup)
 
 def create_channel(channel_id: ChannelId, block_slot: Slot, keys: list[Ed25519PublicKey]):
     # a new channel appends a new note set, so note sets of channels are ordered by creation
     ledger.sets.append(empty_note_set())
-    channels[channel_id] = default_channel(block_slot, keys, NativeChannel(len(ledger.sets) - 1))
+    channels[channel_id] = default_channel(block_slot, keys, NATIVE, len(ledger.sets) - 1, None)
 ```
 
-Each channel Operation checks the kind of channel it acts on, and the Operations of this document act on native channels only; rollup channels and their Operations are specified in [Mantle Rollups](bedrock-mantle-rollups.md). Since the kind is fixed at creation, a channel follows the rules of its kind for its whole life, and the round-robin and the parent and signer checks of an inscription are the same for every kind.
+A native channel, of kind `NATIVE`, carries the messages its sequencers inscribe and holds the notes of its users in its note set, which the steps of its inscriptions and the withdrawals of their holders spend. Each Operation of this document checks that the channel it acts on is a native channel.
 
-The null channel, whose `ChannelId` is 32 zero bytes, is a native channel that exists before Genesis. Its only accredited key is the null key, the Ed25519 public key made of 32 zero bytes, and its other fields are those `default_channel` gives at the Genesis slot `0`, its `tip_hash` and `config_tip_hash` being `ZERO`. It exists from the start so that the Cryptarchia inscription of the [Genesis block](bedrock-genesis-block.md) extends it as any inscription extends its channel, with a `parent` of `ZERO`. It carries the inscriptions of the Genesis block and nothing after them, since it is signed by a key no one holds. It has no note set: no Operation can deposit to it, withdraw from it or publish a step in it.
+The null channel, whose `ChannelId` is 32 zero bytes, is a native channel that exists before Genesis. Its only accredited key is the null key, the Ed25519 public key made of 32 zero bytes, its note set is the note set of index `2` ([Ledger](bedrock-mantle.md#ledger)), and its other fields are those `default_channel` gives at the Genesis slot `0`, its `tip_hash` and `config_tip_hash` being `ZERO`. It exists from the start so that the Cryptarchia inscription of the [Genesis block](bedrock-genesis-block.md) extends it as any inscription extends its channel, with a `parent` of `ZERO`. It carries the inscriptions of the Genesis block and no inscription or step after them, since its inscriptions are signed by a key no one holds.
 
 Note that the user chooses the ChannelId mapping to the ChannelState (but it’s restricted to 32 bytes). We don't currently impose restrictions on it, but we may do so in the future to prevent undesirable behaviors.
 
@@ -261,7 +269,7 @@ assert len(msg.inscription) + sum(len(step.inscription) for step in steps) <= MA
 # Ensure the channel exists and is a native channel
 assert msg.channel in channels
 chan = channels[msg.channel]
-assert isinstance(chan.kind, NativeChannel)
+assert chan.kind == NATIVE
 
 current_sequencer_index = round_robin(block_slot, chan)[0]
 
@@ -274,9 +282,7 @@ assert msg.parent == chan.tip_hash
 # Ensure the msg signer signature
 assert Ed25519_verify(txhash, msg.signer, proof.signature)
 
-# Ensure the null channel, which has no note set, receives no step
-assert chan.kind.note_set is not None or len(msg.mini_blocks) == 0
-note_set = ledger.sets[chan.kind.note_set] if chan.kind.note_set is not None else None
+note_set = ledger.sets[chan.note_set]
 
 # Ensure every step is spendable in the channel note set and signed by its holder.
 # A step can consume a note created by an earlier Operation or mini-block, never one consumed by
@@ -321,7 +327,7 @@ block_slot: Slot
   1. Apply the steps, in their order.
       ```python
       for step in [step for mini_block in msg.mini_blocks for step in mini_block]:
-          note_set = ledger.sets[channels[msg.channel].kind.note_set]
+          note_set = ledger.sets[channels[msg.channel].note_set]
           note_set.execute_spending(step.inputs)
           note_set.execute_adding(step.outputs)
       ```
@@ -398,8 +404,8 @@ assert config.configuration_threshold <= len(config.keys)
 if config.channel in channels:
     chan = channels[config.channel]
 
-    # Ensure the channel is a native channel, the only kind a configuration reconfigures
-    assert isinstance(chan.kind, NativeChannel)
+    # Ensure the channel is a native channel
+    assert chan.kind == NATIVE
 
     # Ensure the configuration is extending the last configuration
     # of the channel
@@ -412,7 +418,7 @@ if config.channel in channels:
                         chan.accredited_keys,
                         chan.configuration_threshold)
 else:
-    # The configuration creates the channel, a native channel, upon execution
+    # The configuration creates the native channel, upon execution
     # Ensure that this configuration is the first configuration of the channel
     assert config.parent == ZERO
 
@@ -526,12 +532,11 @@ ledger: Ledger
       assert len(deposit.inscription) <= MAX_OPERATION_DATA_SIZE
       ```
 
-  2. Verify that the channel exists and is a native channel with a note set, which the null channel has not.
+  2. Verify that the channel exists and is a native channel.
       ```python
       assert deposit.channel in channels
       chan = channels[deposit.channel]
-      assert isinstance(chan.kind, NativeChannel)
-      assert chan.kind.note_set is not None
+      assert chan.kind == NATIVE
       ```
 
   3. Ensure all inputs are spendable in the [ledger note set](bedrock-mantle.md#ledger), `LEDGER_SET`.
@@ -551,7 +556,7 @@ ledger: Ledger
 
   5. Add the outputs to the buffer of the channel note set.
       ```python
-      ledger.sets[chan.kind.note_set].tx_commitment_buffer.extend(deposit.outputs)
+      ledger.sets[chan.note_set].tx_commitment_buffer.extend(deposit.outputs)
       ```
 
 #### Execution
@@ -572,7 +577,7 @@ Consume the inputs in the ledger note set and create the outputs in the channel 
 
 ```python
 ledger.sets[LEDGER_SET].execute_spending(deposit.inputs)
-ledger.sets[channels[deposit.channel].kind.note_set].execute_adding(deposit.outputs)
+ledger.sets[channels[deposit.channel].note_set].execute_adding(deposit.outputs)
 ```
 
 ### CHANNEL_WITHDRAW
@@ -624,27 +629,26 @@ ledger: Ledger
 
   *Validate*
 
-  1. Check that the channel exists and is a native channel with a note set, which the null channel has not.
+  1. Check that the channel exists and is a native channel.
       ```python
       assert withdrawal.channel in channels
       chan = channels[withdrawal.channel]
-      assert isinstance(chan.kind, NativeChannel)
-      assert chan.kind.note_set is not None
+      assert chan.kind == NATIVE
       ```
 
   2. Ensure all inputs are spendable in the channel note set.
       ```python
-      ledger.sets[chan.kind.note_set].assert_spendable(withdrawal.inputs)
+      ledger.sets[chan.note_set].assert_spendable(withdrawal.inputs)
       ```
 
   3. Validate ownership over the withdrawn notes and balance.
       ```python
-      assert ledger.sets[chan.kind.note_set].verify_transfer(withdrawal.inputs,
-                                                             withdrawal.outputs,
-                                                             0,  # a withdrawal balances exactly
-                                                             withdrawal.commitment_root,
-                                                             mantle_txhash_fr,
-                                                             proof)
+      assert ledger.sets[chan.note_set].verify_transfer(withdrawal.inputs,
+                                                        withdrawal.outputs,
+                                                        0,  # a withdrawal balances exactly
+                                                        withdrawal.commitment_root,
+                                                        mantle_txhash_fr,
+                                                        proof)
       ```
 
 #### Execution
@@ -665,7 +669,7 @@ Keep the withdrawal in the [`pending_withdrawals`](bedrock-mantle.md#ledger) of 
 
 ```python
 ledger.pending_withdrawals.append((block_slot + WITHDRAW_DELAY,
-                                   channels[withdrawal.channel].kind.note_set,
+                                   channels[withdrawal.channel].note_set,
                                    withdrawal.inputs,
                                    withdrawal.outputs))
 ```

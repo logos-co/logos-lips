@@ -36,7 +36,7 @@
 | 1.2.2 | Renamed the token LGO to LOGOS | 2026-10-29 |
 | 1.3.0 | Support the private ledger of Mantle: the initial notes are created, with nonces derived from its `op_id`, from the distribution published in an inscription to the null channel, which replaces the Transfer Operation, and the declarations consume no note, their amounts counting in the maximum supply. Genesis initializes the block reward stocks and records the commitment roots of the note sets | 2026-11-06 |
 | 1.3.1 | Links to Mantle point to `bedrock-mantle.md`, links to `SDP_DECLARE` to `bedrock-service-declaration-protocol.md`, links to Block Construction to `bedrock-block-construction.md`, links to the Cryptarchia Protocol to `cryptarchia-protocol.md` and links to Mantle Transaction Encoding to `bedrock-mantle-encoding.md` | 2026-11-25 |
-| 1.4.0 | The public key of each initial note is also its staking key, and each initial declaration names the staking key `note_stake_pk` of its service note. The null channel, a native channel whose only accredited key is the null key, exists before Genesis, and the Cryptarchia inscription extends it from its `tip_hash`, `ZERO`. The null proof of leadership is 128 zero bytes | 2026-11-25 |
+| 1.4.0 | The public key of each initial note is also its staking key, and each initial declaration names the staking key `note_stake_pk` of its service note. The null channel, a native channel whose only accredited key is the null key, exists before Genesis with the note set of index `2`, a third empty note set of the Ledger, and the Cryptarchia inscription extends it from its `tip_hash`, `ZERO`. The null proof of leadership is 128 zero bytes | 2026-11-25 |
 
 # Introduction
 
@@ -158,7 +158,7 @@ Cryptarchia is initialized with the following parameters:
 - `genesis_epoch_nonce`: a `FieldElement`, 32 bytes little-endian and less than $`p`$, hex encoded.
   The initial source of randomness for the Cryptarchia lottery. The process for selecting this value is described in detail at [Epoch Nonce Ceremony](#epoch-nonce-ceremony).
 
-These parameters are encoded in the Genesis block as an inscription sent to the null channel, signed by the null key. The null channel is the channel whose `ChannelId` is 32 zero bytes and the null key is the Ed25519 public key made of 32 zero bytes, written `Ed25519PublicKey_ZERO` in the examples below. No one holds the secret key behind it, so the null channel receives the Genesis inscriptions and nothing else ever after.
+These parameters are encoded in the Genesis block as an inscription sent to the null channel, signed by the null key. The null channel is the channel whose `ChannelId` is 32 zero bytes and the null key is the Ed25519 public key made of 32 zero bytes, written `Ed25519PublicKey_ZERO` in the examples below. No one holds the secret key behind it, so the null channel receives the Genesis inscriptions and no other inscription ever after.
 
 **Example**
 
@@ -362,7 +362,7 @@ Everything else is validated as it would be in any other block, against the stat
 
 ## Mantle Ledger Initialization
 
-Before Genesis, the Ledger holds two [note sets](bedrock-mantle.md#ledger), the ledger note set and the SDP note set. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-mantle.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0)`. The list of pending withdrawals is empty. The state also holds the [null channel](bedrock-mantle-channels.md#message-ordering), a native channel with no note set whose only accredited key is the null key and whose `tip_hash` is `ZERO`, and no other channel.
+Before Genesis, the Ledger holds three [note sets](bedrock-mantle.md#ledger), the ledger note set, the SDP note set and the note set of the null channel, of index `2`. Each is empty: its commitment MMR is empty and its root is the only commitment root of a recent block, and its [Nullifier Indexed Merkle Tree](bedrock-mantle.md#nullifier-indexed-merkle-tree) has a single leaf, the sentinel `NullifierLeaf(0, 0)`. The list of pending withdrawals is empty. The state also holds the [null channel](bedrock-mantle-channels.md#message-ordering), a native channel whose only accredited key is the null key, whose `tip_hash` is `ZERO` and whose note set is the note set of index `2`, and no other channel.
 
 When the distribution inscription is executed, the commitment of each initial note, `derive_note_commitment(Note(value, derive_note_nonce(op_id, i, value, public_key), public_key, public_key))` for the value and public key published at index `i`, as both the public key and the staking key of the note, and the `op_id` of that inscription, is appended in order to the commitment MMR of the ledger note set, as `execute_adding` does ([Creating Output Notes Execution](bedrock-mantle.md#creating-output-notes-execution)). This step creates the initial notes, which no Operation could create without consuming notes.
 

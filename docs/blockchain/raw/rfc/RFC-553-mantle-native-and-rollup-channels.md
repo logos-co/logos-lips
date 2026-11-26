@@ -28,12 +28,13 @@ Read [Mantle Rollups](../bedrock-mantle-rollups.md) first, from `# Overview` to 
 
 ## Two kinds of channel in one map
 
-A channel is a native channel or a rollup channel. Both live in one `channels` map and one id space, and `ChannelState` holds the sequencing fields every channel shares next to a `kind`, `NativeChannel` or `RollupChannel`, fixed at creation. The round-robin and the parent and signer checks of an inscription are the same for both kinds.
+A channel is a native channel or a rollup channel. Both live in one `channels` map and one id space, and `ChannelState` holds the sequencing fields every channel shares next to its `kind`, `NATIVE` or `ROLLUP`, fixed at creation, the index of its `note_set`, and `rollup`, a `RollupState` for a rollup channel and `None` for a native channel. The round-robin and the parent and signer checks of an inscription are the same for both kinds, and every channel has a note set, so the Operations of both kinds read it the same way.
 
-Two alternatives lost:
+Three alternatives lost:
 
 - **A separate rollup structure, with its own map and Operations.** It gives fully independent documents, but duplicates the sequencing rules and opens two id spaces to keep apart.
-- **Optional rollup fields on every channel.** It needs no new type, but every channel carries fields it never uses, and a channel could change kind during its life.
+- **The rollup fields directly on every channel.** It needs no new type, but every native channel carries fields it never uses.
+- **One type per kind, each holding the fields of its kind.** Each kind holds only its own fields, but the note set, which every channel has, sits in both types, and every check tests a type where an enum comparison reads plainly.
 
 Each kind has its own Operations: `CHANNEL_CONFIG`, `CHANNEL_INSCRIBE`, `CHANNEL_DEPOSIT` and `CHANNEL_WITHDRAW` for native channels, and `ROLLUP_CREATE`, `ROLLUP_INSCRIBE`, `ROLLUP_DEPOSIT` and `ROLLUP_PROVE`, at opcodes `0x40` to `0x43`, for rollup channels. Each Operation asserts the kind it expects. Shared Operations that branch on the kind would give one payload two meanings, and some of them would be invalid for one kind, such as a withdrawal from a rollup. One Operation per kind keeps each payload and each validation for one kind. The range `0x44` to `0x4F` is reserved for later rollup Operations.
 
@@ -47,7 +48,7 @@ The names are Native and Rollup. "Rollup" names the mechanism precisely, and rea
 
 A native channel is created only by its first `CHANNEL_CONFIG`, whose `parent` is `ZERO`, and a rollup channel only by `ROLLUP_CREATE`. No inscription creates a channel. An inscription that created its channel could not say which kind it creates, and the channel would start with its first signer as its only accredited key. With creation by configuration, every channel starts with the kind, committee and parameters its creator chose, and every inscription lands on a channel whose kind is known.
 
-The null channel is a native channel that exists before Genesis, with the null key as its only accredited key and `ZERO` as its `tip_hash`. The Cryptarchia inscription of the Genesis block extends it as any inscription extends its channel. So `CHANNEL_INSCRIBE` needs no branch that creates a channel, and the Genesis block needs no configuration to create the null channel.
+The null channel is a native channel that exists before Genesis, with the null key as its only accredited key, `ZERO` as its `tip_hash` and the note set of index `2`, empty before Genesis. The Cryptarchia inscription of the Genesis block extends it as any inscription extends its channel. So `CHANNEL_INSCRIBE` needs no branch that creates a channel, and the Genesis block needs no configuration to create the null channel. With a note set like every channel, the null channel needs no case of its own in any Operation: it receives no step, since no one holds the null key that signs its inscriptions.
 
 ## Notes with a staking key and a nullifier key, without program or data
 
@@ -168,11 +169,10 @@ A node that follows this PR and one that follows its base disagree on every note
 
 Version 1.0.0, a new document, published as `bedrock-mantle-rollups.md`. It specifies the rollup channels and their four Operations, each with the sections Payload, Proof, Execution Gas, Validation and Execution. Its Overview, between the Introduction and the Operations as in Mantle and Mantle Channels, describes rollup channels and states what the ledger checks, why the sequencers can only delay, what it recommends to a rollup that wants any prover to prove it, and what it does not guarantee.
 
-The state of a rollup is the `kind` of its `ChannelState`:
+The state of a rollup is the `rollup` field of its `ChannelState`, whose `kind` is `ROLLUP`:
 
 ```python
-class RollupChannel:
-    note_set: int                         # index of the note set of the rollup in ledger.sets
+class RollupState:
     key: Groth16StoredKey                 # the verification key of the STF proofs, with e(alpha, beta)
     state_root: zkhash                    # the state root after the last proven inscription
     deposits: dict[Hash, PendingDeposit]  # the deposits waiting to be minted, by their op_id
@@ -184,7 +184,7 @@ class RollupChannel:
 - **`ROLLUP_DEPOSIT`** (`0x42`) consumes ledger notes with a ZkTransfer with no outputs, whose excess is `value + excess_value`, and records a `PendingDeposit(value, intent)` under its `op_id`. Its `excess_value` pays fees. Its `inscription` publishes data for the zone, which the ledger does not keep.
 - **`ROLLUP_PROVE`** (`0x43`) applies the oldest unproven inscription `k`. It mints the deposits it lists into one deposit note, `Note(total, derive_note_nonce(op_id_k, 0, total, PK0), PK0, 0)`, applies its transfers to the rollup note set and creates their payouts in the ledger note set, and sets the next state root, accredited keys, rotation parameters and, optionally, verification key. Its proof is a `RollupProveOpProof`: one ZkTransfer per transfer, then the STF proof. The round-robin restarts only when the configuration changes.
 
-`ROLLUP_CREATE` asserts that the channel does not exist, the other three that it is a `RollupChannel`, and only `ROLLUP_PROVE` spends from or adds to a rollup note set. The Execution Gas of `ROLLUP_CREATE` is `EXECUTION_ROLLUP_KEY_GAS`; that of `ROLLUP_PROVE` is `EXECUTION_TRANSFER_GAS * len(transfers) + EXECUTION_ROLLUP_PROOF_GAS`, plus `EXECUTION_ROLLUP_KEY_GAS` with a next key. `ROLLUP_INSCRIBE` and `ROLLUP_DEPOSIT` cost what `CHANNEL_INSCRIBE` and `CHANNEL_DEPOSIT` cost.
+`ROLLUP_CREATE` asserts that the channel does not exist, the other three that its kind is `ROLLUP`, and only `ROLLUP_PROVE` spends from or adds to a rollup note set. The Execution Gas of `ROLLUP_CREATE` is `EXECUTION_ROLLUP_KEY_GAS`; that of `ROLLUP_PROVE` is `EXECUTION_TRANSFER_GAS * len(transfers) + EXECUTION_ROLLUP_PROOF_GAS`, plus `EXECUTION_ROLLUP_KEY_GAS` with a next key. `ROLLUP_INSCRIBE` and `ROLLUP_DEPOSIT` cost what `CHANNEL_INSCRIBE` and `CHANNEL_DEPOSIT` cost.
 
 ## Mantle
 
@@ -203,16 +203,16 @@ Version 2.1.0.
 - **Keys.** A new `### Keys` section derives `nf_sk = zkhash(NF_KDF_V1, spending_sk)` and `public_key = zkhash(KDF, nf_sk)`, defines `PK0` and `NF_SK0`, and states that spending takes `spending_sk` alone and leading takes `nf_sk` and `staking_sk`. `derive_note_nullifier` hashes `nf_sk`.
 - **ZkTransfer.** The witness holds the spending secret key and the staking key of each input and output. The circuit derives `nf_sk` and the public key from the spending secret key, and every commitment over four fields. It does not prove the staking key of an input.
 - **Opcodes.** `ROLLUP_CREATE` to `ROLLUP_PROVE` at `0x40` to `0x43`, linked to Mantle Rollups, with `0x44` to `0x4F` reserved.
-- **Transaction and ledger.** The `excess_value` of `ROLLUP_DEPOSIT` pays fees. The proofs of `ROLLUP_PROVE` are bound to the `op_id` of the inscription they prove and verified against the live MMR of the rollup note set. The Ledger table gives native and rollup channels the note set indices from `2` on, in creation order. The deposit note of a step derives its nonce from the `op_id` of the inscription the step proves.
+- **Transaction and ledger.** The `excess_value` of `ROLLUP_DEPOSIT` pays fees. The proofs of `ROLLUP_PROVE` are bound to the `op_id` of the inscription they prove and verified against the live MMR of the rollup note set. The Ledger table gives every channel, native or rollup, the null channel first, a note set from index `2` on, in creation order. The deposit note of a step derives its nonce from the `op_id` of the inscription the step proves.
 - **Test vectors.** They cover the rollup Operations and follow the encoding of `ChannelInscribe` and `SDPDeclare`. The verification key of `ROLLUP_CREATE` holds real points.
 
 ## Mantle Channels
 
 Version 1.1.0.
 
-- `ChannelState` gains `kind: NativeChannel | RollupChannel`, and `NativeChannel` holds the note set index. `default_channel` takes the kind.
-- A native channel is created only by its first `CHANNEL_CONFIG`, whose `parent` is `ZERO`. `CHANNEL_INSCRIBE` creates no channel. `CHANNEL_CONFIG`, `CHANNEL_INSCRIBE`, `CHANNEL_DEPOSIT` and `CHANNEL_WITHDRAW` assert a `NativeChannel`.
-- The null channel is a native channel that exists before Genesis, with the null key and the fields `default_channel` gives at slot `0`.
+- `ChannelState` gains `kind: ChannelKind`, `NATIVE` or `ROLLUP`, and `rollup: RollupState | None` next to its `note_set`. `default_channel` takes the kind, the note set and the rollup state.
+- A native channel is created only by its first `CHANNEL_CONFIG`, whose `parent` is `ZERO`. `CHANNEL_INSCRIBE` creates no channel. `CHANNEL_CONFIG`, `CHANNEL_INSCRIBE`, `CHANNEL_DEPOSIT` and `CHANNEL_WITHDRAW` assert `chan.kind == NATIVE`.
+- The null channel is a native channel that exists before Genesis, with the null key, the note set of index `2` and the fields `default_channel` gives at slot `0`. No Operation has a case of its own for it.
 - `UserStep` becomes `Step`, bound to `step_id`, a BLAKE2b-256 hash under the DST `STEP_V1`.
 - The party table splits the roles: the spending secret key moves and withdraws a note, and the nullifier key with the staking secret key leads with it.
 
@@ -249,7 +249,7 @@ Version 1.5.0. The leader reward note has `reward_public_key` as both its keys. 
 
 ## Bedrock Genesis Block
 
-Version 1.4.0. The public key of each initial note is also its staking key, and each initial declaration names `note_stake_pk`. The null channel exists before Genesis, and the Cryptarchia inscription extends it from its `tip_hash`, `ZERO`. The null proof of leadership is 128 zero bytes, which encode no point.
+Version 1.4.0. The public key of each initial note is also its staking key, and each initial declaration names `note_stake_pk`. The null channel exists before Genesis with the note set of index `2`, a third empty note set, and the Cryptarchia inscription extends it from its `tip_hash`, `ZERO`. The null proof of leadership is 128 zero bytes, which encode no point.
 
 ## Service Declaration Protocol
 
@@ -265,7 +265,7 @@ Version 1.3.0. The note a reward claim creates has the public key of the claim a
 
 ## Wallet Technical Standard
 
-Version 1.3.0. $`k_{\text{logos}}`$ is the spending secret key, which derives `nf_sk` and then the public key. A tracked note carries its staking key, and its nullifier hashes `nf_sk`. A new Staking Keys section recommends `staking_sk = nf_sk` by default, which gives cold staking, and cold keys for a service declaration.
+Version 1.3.0. $`k_{\text{logos}}`$ is the spending secret key, which derives `nf_sk` and then the public key. A tracked note carries its staking key, and its nullifier hashes `nf_sk`. A new Staking Keys section recommends `staking_sk = nf_sk` by default, which gives cold staking, and cold keys for a service declaration. Every channel has a note set.
 
 ## Cryptarchia Protocol
 
@@ -292,7 +292,7 @@ Version 1.3.0, from [#526](#chores). The Proof of Quota public values hold the f
 - [ ] Re-run the ZkTransfer, Proof of Leadership and Proof of Quota proving benchmarks on the new circuits, and update their results.
 - [ ] Measure `EXECUTION_ROLLUP_KEY_GAS` and `EXECUTION_ROLLUP_PROOF_GAS`, the key checks with the pairing and the verification of an STF proof with five public inputs, and add their values to the Gas Determination table of Mantle in a later PR.
 - [ ] Node, notes and keys: `stake_public_key` in notes, `nf_sk` and `NF_KDF_V1`, nullifiers over `nf_sk`, `PK0` and `NF_SK0`, `note_stake_pk` in SDP declarations and reward notes, and wallet key derivation.
-- [ ] Node, native channels: the channel kind, creation by `CHANNEL_CONFIG` only, the null channel before Genesis, the kind checks, and `Step` under `STEP_V1` with no kind byte.
+- [ ] Node, native channels: the channel kind, creation by `CHANNEL_CONFIG` only, the null channel before Genesis with the note set of index `2`, the kind checks, and `Step` under `STEP_V1` with no kind byte.
 - [ ] Node, rollup channels: `ROLLUP_CREATE`, `ROLLUP_INSCRIBE`, `ROLLUP_DEPOSIT` and `ROLLUP_PROVE`, the rollup state, the live root, and the STF verification with the stored $`e(\alpha, \beta)`$.
 - [ ] Node, encoding and blocks: compressed `G1Point` and `G2Point` with a single encoding, the rollup payloads, the ZkTransfers of `ROLLUP_PROVE` in the batch of the block, and each STF proof verified alone.
 - [ ] Reproduce the test vectors of Mantle and of the Cryptarchia Protocol, and add a focused test for each rollup Operation.
