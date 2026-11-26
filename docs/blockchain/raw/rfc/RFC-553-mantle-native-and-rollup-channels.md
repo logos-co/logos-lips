@@ -8,6 +8,7 @@
 | --- | --- | --- |
 | v1 | Initial RFC | 2026-11-25 |
 | v2 | A channel state holds its kind, its note set and, for a rollup channel, its rollup state, and the null channel has a note set and is rejected by every channel Operation outside Genesis. The next configuration of a step is optional, the effects of a step are hashed with BLAKE2b, the rollup state and its `Groth16VerificationKey`, which stores the pairing `alpha_beta`, have a section of their own in Mantle Rollups, and each element is described by what it is | 2026-11-26 |
+| v3 | The Discussion gives the reason for the note set index `2` of the null channel and defines `PK0` and `NF_SK0` before their first use, and leaves the names of the two kinds out | 2026-11-26 |
 
 ## Reviewer Orientation
 
@@ -39,26 +40,20 @@ Three alternatives lost:
 
 Each kind has its own Operations: `CHANNEL_CONFIG`, `CHANNEL_INSCRIBE`, `CHANNEL_DEPOSIT` and `CHANNEL_WITHDRAW` for native channels, and `ROLLUP_CREATE`, `ROLLUP_INSCRIBE`, `ROLLUP_DEPOSIT` and `ROLLUP_PROVE`, at opcodes `0x40` to `0x43`, for rollup channels. Each Operation asserts the kind it expects. Shared Operations that branch on the kind would give one payload two meanings, and some of them would be invalid for one kind, such as a withdrawal from a rollup. One Operation per kind keeps each payload and each validation for one kind. The range `0x44` to `0x4F` is reserved for later rollup Operations.
 
-The names are Native and Rollup. "Rollup" names the mechanism precisely, and readers recognize both words at once. The pairs weighed against them:
-
-- **Hosted / Validity.** Neutral, and it describes the mechanism, but it is unfamiliar and needs a definition at first use.
-- **Committee / ZK.** Short, but both kinds have a committee, the accredited keys that sequence.
-- **Sovereign / Rollup.** Familiar, but a sovereign rollup is one the base chain does not verify, close to the opposite of a native channel, whose every move the ledger verifies.
-
 ## Creation by configuration, and the null channel before Genesis
 
 A native channel is created only by its first `CHANNEL_CONFIG`, whose `parent` is `ZERO`, and a rollup channel only by `ROLLUP_CREATE`. No inscription creates a channel. An inscription that created its channel could not say which kind it creates, and the channel would start with its first signer as its only accredited key. With creation by configuration, every channel starts with the kind, committee and parameters its creator chose, and every inscription lands on a channel whose kind is known.
 
-The null channel is a native channel that exists before Genesis, with the null key as its only accredited key, `ZERO` as its `tip_hash` and the note set of index `2`, empty before Genesis. The Cryptarchia inscription of the Genesis block extends it as any inscription extends its channel. So `CHANNEL_INSCRIBE` needs no branch that creates a channel, and the Genesis block needs no configuration to create the null channel. The null channel has a note set like every channel. Every channel Operation, native or rollup, rejects it, since its inscriptions are those of the Genesis block, and the Genesis block exempts its two inscriptions from that check.
+The null channel is a native channel that exists before Genesis, with the null key as its only accredited key, `ZERO` as its `tip_hash` and the note set of index `2`, empty before Genesis. Index `2` is the first one after the ledger note set `LEDGER_SET = 0` and the SDP note set `SDP_SET = 1` ([Note sets](../bedrock-mantle.md#ledger)), and the null channel is the first channel. The Cryptarchia inscription of the Genesis block extends it as any inscription extends its channel. So `CHANNEL_INSCRIBE` needs no branch that creates a channel, and the Genesis block needs no configuration to create the null channel. The null channel has a note set like every channel. Every channel Operation, native or rollup, rejects it, since its inscriptions are those of the Genesis block, and the Genesis block exempts its two inscriptions from that check.
 
 ## Notes with a staking key and a nullifier key, without program or data
 
-A note has four fields: `value`, `nonce`, `public_key` and `stake_public_key`. The holder keeps three secrets: `spending_sk` derives `nf_sk` under `NF_KDF_V1`, `nf_sk` derives `public_key`, and `staking_sk` derives `stake_public_key`. The nullifier hashes `nf_sk`. A note has no program and no data field ([Programs governing notes](#programs-governing-notes)).
+A note has four fields: `value`, `nonce`, `public_key` and `stake_public_key`. The holder keeps three secrets: `spending_sk` derives `nf_sk` under `NF_KDF_V1`, `nf_sk` derives `public_key`, and `staking_sk` derives `stake_public_key`. The nullifier hashes `nf_sk`. A note has no program and no data field ([Programs governing notes](#programs-governing-notes)). `PK0` and `NF_SK0` are the public key and the nullifier key of the spending secret key `0`, which everyone knows.
 
 - The staking key separates who leads with a note from who spends it. A wallet stakes with a hot key and keeps its spending key cold, and a rollup can hold its notes by `PK0` while giving them the staking keys of their users.
 - The nullifier key lets the Proof of Leadership prove the nullifier of the note unspent without the spending secret key. A node given `nf_sk` and `staking_sk` leads with a note it cannot spend.
 
-No secret key is known whose public key is `0`, so a note whose staking key is `0` never leads. `PK0` and `NF_SK0`, the keys of the spending secret key `0`, are public, so `PK0` is never a staking key.
+No secret key is known whose public key is `0`, so a note whose staking key is `0` never leads. Since anyone can derive the keys of `PK0`, `PK0` is never a staking key.
 
 ## FIFO proving, open to anyone
 
