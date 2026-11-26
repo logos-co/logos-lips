@@ -165,17 +165,17 @@ def round_robin(block_slot: Slot, channel: ChannelState) -> (u16, u64):
 
 ### Bridging
 
-Channels let their bridged notes keep participating in Proof of Stake. When a user deposits notes into a channel, they are not turned into inert collateral. They are consumed and re-created as notes of the channel's note set, which continue to count toward Proof of Stake and can still be used to create PoLs (see [Ledger](bedrock-mantle.md#ledger)). Two goals motivate this design:
+Channels let their bridged notes keep participating in Proof of Stake. When a user deposits notes into a channel, they are consumed and re-created as notes of the channel's note set, which continue to count toward Proof of Stake and can be used to create PoLs (see [Ledger](bedrock-mantle.md#ledger)). Two goals motivate this design:
 
-- **More PoS participation, stronger security.** Funds deposited into a channel would otherwise leave the staking set. Keeping them as channel notes means the capital backing the application layer also backs consensus security, so bridging does not shrink the stake that secures the chain.
-- **No split between security and application.** A user no longer has to choose between staking funds or using them in a channel. The same funds do both at once. They stay usable inside the channel while still earning Proof of Leadership rewards, so capital is never fragmented between the two.
+- **More PoS participation, stronger security.** Keeping deposited funds as channel notes means the capital backing the application layer also backs consensus security, so bridging does not shrink the stake that secures the chain.
+- **No split between security and application.** The same funds stake and serve in a channel at once. They stay usable inside the channel while earning Proof of Leadership rewards, so capital is never fragmented between the two.
 
 **Holders keep their notes.** A channel note is a note of the channel's note set, owned by the holder of its `ZkPublicKey`. Only that holder can spend it, in one of two ways:
 
 - *Inside the channel*, the holder signs a step off-chain: a ZkTransfer that consumes its channel notes and creates channel notes of the same total value, together with the inscription of the step, its zone message. The sequencers of the channel collect the steps of their users and publish them in a [`CHANNEL_INSCRIBE`](#channel_inscribe), grouping them in mini-blocks and ordering each mini-block as they choose, since a step holds at any position in its mini-block. The ledger verifies every step, so a sequencer orders the moves of a channel but never makes one.
 - *Out of the channel*, the holder posts a [`CHANNEL_WITHDRAW`](#channel_withdraw) alone, its fee paid by a ledger note in the same Mantle Transaction. It takes effect `WITHDRAW_DELAY` slots later, unless an inscription of the channel consumes its notes with a valid step in the meantime. The withdrawal is the forced exit of a holder whose steps the sequencers do not publish. It also settles a holder who signs both a step and a withdrawal of the same notes optimistically: the step wins if an inscription publishes it before the withdrawal is due, and the holder has then paid the fees of the withdrawal for nothing.
 
-**Ageing.** Because a channel deposit and a step consume notes and create new ones, a channel note restarts the ageing process and must age again before it can create a PoL. Bridged funds still count toward Proof of Stake, so the goals above hold, but the participation is not continuous across these moves.
+**Ageing.** Because a channel deposit and a step consume notes and create new ones, a channel note restarts the ageing process and must age again before it can create a PoL. Bridged funds count toward Proof of Stake, so the goals above hold, but the participation is not continuous across these moves.
 
 **What each party can do.**
 
@@ -209,7 +209,7 @@ class Inscribe:
 
 A `NoteNullifier` is the nullifier of a note and a `NoteCommitment` its commitment, as [Note Commitment and Nullifier](bedrock-mantle.md#note-commitment-and-nullifier) defines them, and a `MerkleRoot` the root of a Merkle tree.
 
-A step is signed by the holder of the notes it consumes, off-chain and before the Mantle Transaction carrying it exists. Its ZkTransfer is therefore bound to the step itself rather than to the `mantle_txhash`, and it balances exactly, with an `excess_value` of `0`.
+A step is signed by the holder of the notes it consumes, off-chain and before the Mantle Transaction carrying it exists. Its ZkTransfer is therefore bound to the step itself, not to the `mantle_txhash`, and it balances exactly, with an `excess_value` of `0`.
 
 The `inscription` of the `Inscribe` is the message of the sequencer, and the `inscription` of a step the zone message of the holder of the step. The ZkTransfer of the step binds its inscription together with its inputs and outputs, so a sequencer publishes the message a holder signed with the move it signed, or drops the step whole. The inscription of the `Inscribe` and the inscriptions of its steps count together against `MAX_OPERATION_DATA_SIZE`.
 
@@ -217,8 +217,6 @@ The steps of an inscription are grouped in mini-blocks. The proof of a step is v
 
 - The steps of the first mini-block, when no earlier Operation of the Mantle Transaction added to the channel note set, are proven against their recent root alone, so a sequencer collects the steps of many users and publishes them in the order it chooses. A sequencer should place an Operation adding to that note set after the inscription: if it comes first, every step of the first mini-block covers what it adds.
 - If the first mini-block adds 400 commitments to the buffer, every step of the second mini-block covers these 400: it can consume the outputs of the first mini-block, and the steps of the second mini-block are again ordered freely among themselves. The same holds for the next mini-blocks.
-
-Extending every proof with the whole buffer would instead tie each proof to its position: each holder would have to wait for the sequencer to fix every step before its own, and the steps would be proven one after another.
 
 The mini-block of a step is public, so a step of a later mini-block reveals that its inputs are among the notes under its root and the commitments it covers. Covering the whole of the previous mini-blocks keeps a step from pointing at the notes it consumes.
 
@@ -674,7 +672,7 @@ ledger.pending_withdrawals.append((block_slot + WITHDRAW_DELAY,
                                    withdrawal.outputs))
 ```
 
-At the start of every block, before its transactions, every pending withdrawal whose due slot is reached is applied if its inputs are still unspent, and dropped otherwise, in the order the withdrawals were posted (see [Block Execution](bedrock-block-construction.md#block-execution)). That order is not the order of the due slots, since an SDP withdrawal can fall due after a channel withdrawal posted later, and it sets the order in which the outputs are appended to the ledger note set:
+At the start of every block, before its transactions, every pending withdrawal whose due slot is reached is applied if its inputs are unspent, and dropped otherwise, in the order the withdrawals were posted (see [Block Execution](bedrock-block-construction.md#block-execution)). That order is not the order of the due slots, since an SDP withdrawal can fall due after a channel withdrawal posted later, and it sets the order in which the outputs are appended to the ledger note set:
 
 ```python
 def release_withdrawals(block_slot: Slot):
