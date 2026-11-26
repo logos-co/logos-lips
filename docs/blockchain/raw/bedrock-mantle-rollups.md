@@ -46,7 +46,7 @@ The [ledger](bedrock-mantle.md#ledger) leaves the following choices to the rollu
 - Hold the [notes](bedrock-mantle.md#notes) of the rollup by `PK0` ([Keys](bedrock-mantle.md#keys)), the public key whose secret key everyone knows, so that no [step](#rollup_prove) depends on a key one party holds.
 - Make a step depend only on its [inscription](#rollup_inscribe), which the STF circuit reads through its [`op_id`](bedrock-mantle.md#note-commitment-and-nullifier) ([STF Verification Key](#stf-verification-key)), and on the [state](#rollup-state) before it, so that every prover computes the same step from public data.
 - Credit every minted [deposit](#rollup_deposit) in the state of the rollup as its intent asks, since the ledger merges the deposits a step mints into one note and leaves their accounting to the STF.
-- Pay the provers inside the rollup, since the ledger pays nothing for a step and its prover pays the [fees](bedrock-mantle.md#mantle-transaction-fee) of its [Mantle Transaction](bedrock-mantle.md#mantle-transaction-1).
+- Pay the provers inside the rollup, since the ledger pays nothing for a step and its prover pays the [fees](bedrock-mantle.md#mantle-transaction-fee) of its [Mantle Transaction](bedrock-mantle.md#mantle-transaction).
 - Publish what lets a prover recompute the notes of the rollup, such as their openings or the data they derive from, since a [ZkTransfer](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) consuming a note takes its opening.
 
 ## What the Ledger Does Not Guarantee
