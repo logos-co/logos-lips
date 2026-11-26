@@ -23,7 +23,7 @@
 
 # Introduction
 
-Rollup channels let a Zone compute its state off chain and settle it on chain with proofs of its state transitions. This document specifies the rollup Operations; the Mantle Transaction that carries them and the ledger they act on are specified in [Mantle](bedrock-mantle.md), and the sequencing they share with native channels in [Mantle Channels](bedrock-mantle-channels.md).
+Rollup channels let a Zone compute its state off chain and settle it on chain with validity proofs of its state transitions. This document specifies the rollup Operations; the Mantle Transaction that carries them and the ledger they act on are specified in [Mantle](bedrock-mantle.md), and the sequencing they share with native channels in [Mantle Channels](bedrock-mantle-channels.md).
 
 # Overview
 
@@ -51,19 +51,17 @@ The [ledger](bedrock-mantle.md#ledger) leaves the following choices to the rollu
 
 ## What the Ledger Does Not Guarantee
 
-Funds leave a rollup only through its [steps](#rollup_prove): a user exits when a step pays it out, and no [withdrawal](bedrock-mantle-channels.md#channel_withdraw) bypasses the [STF](#stf-verification-key). If no [sequencer](bedrock-mantle-channels.md#decentralized-sequencing) [inscribes](#rollup_inscribe), no step can be proven and the funds of the rollup stay frozen. Users trust the STF circuit of the rollup, the rule by which its steps change its verification key, and the [setup](common-cryptographic-components.md#groth16-zk-snark) of each key: a faulty circuit, or a key whose setup lets someone forge proofs, can pay the funds of the rollup to anyone.
+Funds leave a rollup only through its [steps](#rollup_prove): a user exits when a step pays it out. If no [sequencer](bedrock-mantle-channels.md#decentralized-sequencing) [inscribes](#rollup_inscribe), no step can be proven and the funds of the rollup stay frozen. Users trust the [STF](#stf-verification-key) circuit of the rollup, the rule by which its steps change its verification key, and the [setup](common-cryptographic-components.md#groth16-zk-snark) of each key: a faulty circuit, or a key whose setup lets someone forge proofs, can pay the funds of the rollup to anyone.
 
-# Operations
+# Rollup Channel State
 
-## Rollup Operations
-
-### Rollup State
+## Rollup State
 
 Validators keep the state of a rollup channel, of kind `ROLLUP`, in the `rollup` field of its [`ChannelState`](bedrock-mantle-channels.md#channel-operations), next to the sequencing fields and the note set every channel has:
 
 ```python
 class RollupState:
-    key: Groth16StoredKey                 # the verification key of the STF proofs, with e(alpha, beta)
+    key: Groth16Key                       # the verification key of the STF proofs
     state_root: zkhash                    # the state root after the last proven inscription
     deposits: dict[Hash, PendingDeposit]  # the deposits waiting to be minted,
                                           # by the op_id of their ROLLUP_DEPOSIT
@@ -77,19 +75,15 @@ class PendingDeposit:
 
 A pending deposit waits in `deposits` until a step mints it. A step proves only the oldest entry of `unproven`, so every step starts from the state root the previous step left, and the proven state of the rollup is always a prefix of its inscriptions.
 
-### STF Verification Key
+## STF Verification Key
 
 ```python
-class Groth16VerificationKey:
+class Groth16Key:
     alpha: G1
     beta: G2
     gamma: G2
     delta: G2
     ic: list[G1]  # (len = 6) one point per public input of an STF proof, plus one
-
-class Groth16StoredKey:
-    key: Groth16VerificationKey
-    alpha_beta: GT  # the pairing e(alpha, beta), computed when the key is stored
 ```
 
 `G1` and `G2` are points of the groups of BN254 of these names, and `alpha`, `beta`, `gamma`, `delta` and `ic` are the points of a [Groth16](common-cryptographic-components.md#groth16-zk-snark) verification key.
@@ -98,11 +92,15 @@ An STF proof always has five public inputs: the state root of the rollup, its ne
 
 A rollup that applies the data of its inscriptions should have its STF circuit recompute the `op_id` it takes as its third public input from the encoded [`RollupInscribe`](#rollup_inscribe) it applies, so that its proof covers exactly the data, parent and signer its sequencer inscribed. The circuit then hashes the inscription with BLAKE2b, over up to [`MAX_OPERATION_DATA_SIZE`](mantle-transaction-encoding.md#channel-operations) bytes of data.
 
-`Groth16_verify(key, public_inputs, proof)` verifies a [Groth16](common-cryptographic-components.md#groth16-zk-snark) proof against a verification key, given with the pairing $`e(\alpha, \beta)`$ stored with it, and its public inputs. `pairing(P, Q)` is the optimal ate pairing of BN254, from $`\mathbb{G}_1 \times \mathbb{G}_2`$ to $`\mathbb{G}_T`$, the subgroup of order $`p`$ of $`\mathbb{F}_{q^{12}}^*`$, $`q`$ being the modulus of the base field of BN254, whose elements take 384 bytes.
+`Groth16_verify(key, public_inputs, proof)` verifies a proof against a verification key and its public inputs, as [Groth16](common-cryptographic-components.md#groth16-zk-snark) specifies.
+
+# Operations
+
+## Rollup Operations
 
 ### ROLLUP_CREATE
 
-Create a rollup channel with its accredited keys, its rotation parameters, the verification key of its STF proofs and its initial state root. Anyone can create a rollup channel, under a `ChannelId` no channel holds. No Operation reconfigures the channel with signatures afterwards: only the steps of the rollup change its accredited keys, its rotation parameters, its verification key and its state root.
+Create a rollup channel with its accredited keys, its rotation parameters, the verification key of its STF proofs and its initial state root. Anyone can create a rollup channel, under a `ChannelId` no channel holds.
 
 #### Payload
 
@@ -112,7 +110,7 @@ class RollupCreate:
     keys: list[Ed25519PublicKey]              # the accredited keys, limited to 65 535 keys
     posting_timeframe: u32                    # number of slots (0 = infinity)
     posting_timeout: u32                      # number of slots (0 = no timeout)
-    verification_key: Groth16VerificationKey  # the key of the STF proofs
+    verification_key: Groth16Key              # the key of the STF proofs
     state_root: zkhash                        # the initial state root of the rollup
 ```
 
@@ -122,7 +120,7 @@ class RollupCreate:
 
 #### Execution Gas
 
-  Rollup Create Operations have a fixed Execution Gas cost of `EXECUTION_ROLLUP_KEY_GAS`, the cost of the checks of the key and of the pairing $`e(\alpha, \beta)`$. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
+  Rollup Create Operations have a fixed Execution Gas cost of `EXECUTION_ROLLUP_KEY_GAS`. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -136,7 +134,7 @@ channels: dict[ChannelId, ChannelState]
 
   *Validate*
 
-  1. Ensure the channel does not exist, since the kind of a channel is fixed when it is created.
+  1. Ensure the channel does not exist.
       ```python
       assert create.channel not in channels
       ```
@@ -169,16 +167,15 @@ block_slot: Slot
 
   *Execute*
 
-Append a note set for the rollup, as every new channel does ([Ledger](bedrock-mantle.md#ledger)), and store the channel with the sequencing fields of [`default_channel`](bedrock-mantle-channels.md#channel-operations), the rotation parameters of the payload, and the key with the pairing $`e(\alpha, \beta)`$ of its points.
+Create the rollup under the parameters of the payload.
 
 ```python
 ledger.sets.append(empty_note_set())
-key = create.verification_key
 chan = default_channel(block_slot,
                        create.keys,
                        ROLLUP,
                        len(ledger.sets) - 1,
-                       RollupState(key = Groth16StoredKey(key=key, alpha_beta=pairing(key.alpha, key.beta)),
+                       RollupState(key = create.verification_key,
                                    state_root = create.state_root,
                                    deposits = {},
                                    unproven = []))
@@ -187,13 +184,11 @@ chan.posting_timeout = create.posting_timeout
 channels[create.channel] = chan
 ```
 
-The pairing $`e(\alpha, \beta)`$, an element of $`\mathbb{G}_T`$ of 384 bytes, is the costliest part of what a verification derives from the key alone; it is computed once and paid by the Operation that stores the key. The line coefficients of the pairings with $`-\gamma`$ and $`-\delta`$ are not stored, since they would take tens of kilobytes of ledger state per rollup: each STF proof computes them, and pays for it.
-
 ### ROLLUP_INSCRIBE
 
-Write the data of a state transition to a rollup channel, the data being permanently stored on the Logos Blockchain. The current sequencer of the rollup posts it, extending the tip of the channel as an inscription of a native channel does, and the inscription joins the unproven inscriptions of the rollup, which its steps prove in that order.
+Write the data of a state transition to a rollup channel, extending the tip of the channel, and the inscription joins the unproven inscriptions of the rollup, which its steps prove in that order.
 
-The ledger does not read the data of the inscription: the STF does, through its `op_id` ([STF Verification Key](#stf-verification-key)). A rollup should let its STF prove, for an inscription it cannot apply, a step that mints no deposit, makes no transfer and keeps its state root, so that the inscription does not block the ones after it.
+The STF reads the data of the inscription through its `op_id` ([STF Verification Key](#stf-verification-key)). A rollup should let its STF prove, for an inscription it cannot apply, a step that mints no deposit, makes no transfer and keeps its state root, so that the inscription does not block the ones after it.
 
 #### Payload
 
@@ -213,7 +208,7 @@ Ed25519Signature  # by the signer, over the mantle_txhash
 
 #### Execution Gas
 
-  Rollup Inscribe Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS`, the cost of an inscription. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
+  Rollup Inscribe Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_INSCRIBE_GAS`. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -299,7 +294,7 @@ The slot of the block is recorded with the [`op_id`](bedrock-mantle.md#note-comm
 
 Deposit value into a rollup channel. The deposit consumes notes of the ledger note set and creates no note: it records a [pending deposit](#rollup-state) of its value and its intent in the `deposits` of the rollup, under its [`op_id`](bedrock-mantle.md#note-commitment-and-nullifier), until a [`ROLLUP_PROVE`](#rollup_prove) mints it into the note set of the rollup.
 
-A deposit waits until a step chosen by the sequencers of the rollup mints it, and the ledger never refunds it, so the STF decides when the rollup takes it in. Its ZkTransfer has no outputs, so the change of the depositor comes from a [Transfer](bedrock-mantle.md#transfer) earlier in the same Mantle Transaction, which splits off the value to deposit into notes the deposit then consumes. The ledger keeps only the value and intent of a deposit: its inscription publishes data for the zone, which its `intent` can commit to.
+A deposit waits until a step chosen by the sequencers of the rollup mints it, and the ledger never refunds it, so the STF decides when the rollup takes it in. The ledger keeps only the value and intent of a deposit: its inscription publishes data for the zone, which its `intent` can commit to.
 
 #### Payload
 
@@ -316,7 +311,7 @@ class RollupDeposit:
 
 #### Proof
 
-  A Rollup Deposit proves the ownership of the notes being consumed, and that their value is the deposited value plus the excess value, using a [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) with no outputs.
+  A Rollup Deposit proves the inputs, the deposited value and the excess value with a [Zero Knowledge Transfer Proof (ZkTransfer)](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer).
 
 ```python
 ZkTransfer
@@ -324,7 +319,7 @@ ZkTransfer
 
 #### Execution Gas
 
-  Rollup Deposit Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_DEPOSIT_GAS`, the cost of a deposit. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
+  Rollup Deposit Operations have a fixed Execution Gas cost of `EXECUTION_CHANNEL_DEPOSIT_GAS`. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -413,7 +408,7 @@ class RollupConfig:
     keys: list[Ed25519PublicKey]                     # the next accredited keys, limited to 65 535 keys
     posting_timeframe: u32                           # number of slots (0 = infinity)
     posting_timeout: u32                             # number of slots (0 = no timeout)
-    verification_key: Groth16VerificationKey | None  # the next key of the STF proofs, None to keep the current one
+    verification_key: Groth16Key | None              # the next key of the STF proofs, None to keep the current one
 
 class RollupProve:
     channel: ChannelId                  # 32 bytes, the rollup channel
@@ -426,8 +421,6 @@ class RollupProve:
 The deposits a step mints become one note of the rollup note set, the deposit note, which holds their total value. It is held by `PK0`, so that any prover can spend it in a transfer of the step or of a later step, and its staking key is `0`, so that no one leads with it ([Keys](bedrock-mantle.md#keys)). Its nonce derives from the `op_id` of the inscription the step proves, and a step proves an inscription once, so no two deposit notes share a commitment.
 
 Each `RollupTransfer` is a [ZkTransfer](bedrock-mantle.md#zero-knowledge-transfer-proof-zktransfer) whose outputs are its `outputs` followed by its `payouts`, and it balances exactly, with an `excess_value` of `0`. A step therefore pays no fee: its prover pays the fees of its Mantle Transaction with another Operation of it, such as a Transfer.
-
-The step that [`ROLLUP_INSCRIBE`](#rollup_inscribe) recommends for an inscription the STF cannot apply, with no deposit, no transfer and the same state root, is valid: every transfer consumes at least one note, as `assert_spendable` requires, but a step can have no transfer.
 
 The STF proof covers the effects of the step through `effects_hash`, its fifth public input: the value and intent of every minted deposit, in the order of `deposits`, the inputs, outputs and payouts of every transfer, and the next configuration. `effects_hash` is a BLAKE2b-256 hash, under the DST `ROLLUP_EFFECTS_V1`, of the encoding of these effects, reduced modulo $`p`$ as `op_id` is, since it is a public input of a Groth16 proof. It is a classic hash because most STF circuits are wrapped zkVMs, for which BLAKE2b is the natural hash.
 
@@ -454,11 +447,11 @@ class RollupProveOpProof:
     stf_proof: Groth16Proof            # the proof of the STF, under the current key of the rollup
 ```
 
-The ZkTransfers and the STF proof of a step are bound to the `op_id` of the inscription it proves, which is the `msg` of every ZkTransfer and the third public input of the STF proof, and not to the `mantle_txhash`, so anyone can post the step. A copy of the step in another Mantle Transaction applies the same step, and only once, since the step removes its inscription from `unproven`.
+The ZkTransfers and the STF proof of a step are bound to the `op_id` of the inscription it proves, which is the `msg` of every ZkTransfer and the third public input of the STF proof, and not to the `mantle_txhash`, so anyone can post the step.
 
 #### Execution Gas
 
-  Rollup Prove Operations have an Execution Gas cost of `EXECUTION_TRANSFER_GAS * len(transfers) + EXECUTION_ROLLUP_PROOF_GAS`, the cost of the transfers and of the STF proof, plus `EXECUTION_ROLLUP_KEY_GAS` when its next configuration carries a verification key. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
+  Rollup Prove Operations have an Execution Gas cost of `EXECUTION_TRANSFER_GAS * len(transfers) + EXECUTION_ROLLUP_PROOF_GAS`, plus `EXECUTION_ROLLUP_KEY_GAS` when its next configuration carries a verification key. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -515,7 +508,7 @@ ledger: Ledger
           mmr_append(peaks, note_commitment)
       ```
 
-  5. Ensure every transfer is spendable in the rollup note set and balances exactly, in the order of the transfers. A transfer can consume the deposit note and the outputs of the earlier transfers of the step, never a note an earlier transfer of the step consumes.
+  5. Ensure every transfer is spendable in the rollup note set and balances exactly, in the order of the transfers.
       ```python
       assert len(proof.transfer_proofs) == len(prove.transfers)
       step_nullifiers = set()  # the nullifiers of the earlier transfers of the step
@@ -620,8 +613,7 @@ block_slot: Slot
           chan.posting_timeframe = config.posting_timeframe
           chan.posting_timeout = config.posting_timeout
           if config.verification_key is not None:
-              key = config.verification_key
-              rollup.key = Groth16StoredKey(key=key, alpha_beta=pairing(key.alpha, key.beta))
+              rollup.key = config.verification_key
       ```
 
 A step with no next configuration leaves the turn to the rotation of the sequencers, so the steps themselves never pin the turn to one sequencer. A change of configuration applies from the block of its step, not from the block of its inscription: the inscriptions after `k` that come before that step are signed under the current keys, and a sequencer a step removes stays accredited until that step is proven.

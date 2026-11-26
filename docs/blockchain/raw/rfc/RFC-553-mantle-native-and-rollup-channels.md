@@ -167,19 +167,19 @@ A node that follows this PR and one that follows its base disagree on every note
 
 ## Mantle Rollups
 
-Version 1.0.0, a new document, published as `bedrock-mantle-rollups.md`. It specifies the rollup channels and their four Operations, each with the sections Payload, Proof, Execution Gas, Validation and Execution. Its Overview, between the Introduction and the Operations as in Mantle and Mantle Channels, describes rollup channels and states what the ledger checks, why the sequencers can only delay, what it recommends to a rollup that wants any prover to prove it, and what it does not guarantee.
+Version 1.0.0, a new document, published as `bedrock-mantle-rollups.md`. It specifies the rollup channels and their four Operations, each with the sections Payload, Proof, Execution Gas, Validation and Execution. Its Overview, between the Introduction and the Operations as in Mantle and Mantle Channels, describes rollup channels and states what the ledger checks, why the sequencers can only delay, what it recommends to a rollup that wants any prover to prove it, and what it does not guarantee. The state of a rollup and the verification key of its STF have a section of their own, before the Operations.
 
-The state of a rollup is the `rollup` field of its `ChannelState`, whose `kind` is `ROLLUP`:
+The state of a rollup is the `rollup` field of its `ChannelState`, whose `kind` is `ROLLUP`, and its key a `Groth16Key`, the points of a Groth16 verification key:
 
 ```python
 class RollupState:
-    key: Groth16StoredKey                 # the verification key of the STF proofs, with e(alpha, beta)
+    key: Groth16Key                       # the verification key of the STF proofs
     state_root: zkhash                    # the state root after the last proven inscription
     deposits: dict[Hash, PendingDeposit]  # the deposits waiting to be minted, by their op_id
     unproven: list[(Hash, Slot)]          # the op_id and block slot of each unproven inscription
 ```
 
-- **`ROLLUP_CREATE`** (`0x40`) creates a rollup channel under a `ChannelId` no channel holds, with its accredited keys, rotation parameters, Groth16 verification key and initial state root. Every point of the key is checked on its curve, in its prime-order subgroup and not at infinity, and the ledger stores the key with the pairing $`e(\alpha, \beta)`$. Its proof is empty.
+- **`ROLLUP_CREATE`** (`0x40`) creates a rollup channel under a `ChannelId` no channel holds, with its accredited keys, rotation parameters, Groth16 verification key and initial state root. Every point of the key is checked on its curve, in its prime-order subgroup and not at infinity. Its proof is empty.
 - **`ROLLUP_INSCRIBE`** (`0x41`) writes the data of a state transition. The sequencer the round-robin designates signs it, it extends the tip of the channel, and its `op_id` and block slot join `unproven`.
 - **`ROLLUP_DEPOSIT`** (`0x42`) consumes ledger notes with a ZkTransfer with no outputs, whose excess is `value + excess_value`, and records a `PendingDeposit(value, intent)` under its `op_id`. Its `excess_value` pays fees. Its `inscription` publishes data for the zone, which the ledger does not keep.
 - **`ROLLUP_PROVE`** (`0x43`) applies the oldest unproven inscription `k`. It mints the deposits it lists into one deposit note, `Note(total, derive_note_nonce(op_id_k, 0, total, PK0), PK0, 0)`, applies its transfers to the rollup note set and creates their payouts in the ledger note set, and sets the next state root and, when the step carries a `next_config`, the next accredited keys, rotation parameters and, optionally, verification key. Its proof is a `RollupProveOpProof`: one ZkTransfer per transfer, then the STF proof. The round-robin restarts only when the step carries a configuration.
@@ -290,10 +290,10 @@ Version 1.3.0, from [#526](#chores). The Proof of Quota public values hold the f
 - [ ] Proof of Quota circuit, leader branch: take `pol_nullifier_key` and `pol_staking_secret_key`, hash the four note fields, and derive the selection randomness from the staking secret key.
 - [ ] Run the trusted setups of the three circuits and publish their keys.
 - [ ] Re-run the ZkTransfer, Proof of Leadership and Proof of Quota proving benchmarks on the new circuits, and update their results.
-- [ ] Measure `EXECUTION_ROLLUP_KEY_GAS` and `EXECUTION_ROLLUP_PROOF_GAS`, the key checks with the pairing and the verification of an STF proof with five public inputs, and add their values to the Gas Determination table of Mantle in a later PR.
+- [ ] Measure `EXECUTION_ROLLUP_KEY_GAS` and `EXECUTION_ROLLUP_PROOF_GAS`, the key checks and the verification of an STF proof with five public inputs, and add their values to the Gas Determination table of Mantle in a later PR.
 - [ ] Node, notes and keys: `stake_public_key` in notes, `nf_sk` and `NF_KDF_V1`, nullifiers over `nf_sk`, `PK0` and `NF_SK0`, `note_stake_pk` in SDP declarations and reward notes, and wallet key derivation.
 - [ ] Node, native channels: the channel kind, creation by `CHANNEL_CONFIG` only, the null channel before Genesis with the note set of index `2`, the kind checks, and `Step` under `STEP_V1` with no kind byte.
-- [ ] Node, rollup channels: `ROLLUP_CREATE`, `ROLLUP_INSCRIBE`, `ROLLUP_DEPOSIT` and `ROLLUP_PROVE`, the rollup state, the live root, and the STF verification with the stored $`e(\alpha, \beta)`$.
+- [ ] Node, rollup channels: `ROLLUP_CREATE`, `ROLLUP_INSCRIBE`, `ROLLUP_DEPOSIT` and `ROLLUP_PROVE`, the rollup state, the live root, and the STF verification.
 - [ ] Node, encoding and blocks: compressed `G1Point` and `G2Point` with a single encoding, the rollup payloads, the ZkTransfers of `ROLLUP_PROVE` in the batch of the block, and each STF proof verified alone.
 - [ ] Reproduce the test vectors of Mantle and of the Cryptarchia Protocol, and add a focused test for each rollup Operation.
 - [ ] Verify the implementation matches this specification.
