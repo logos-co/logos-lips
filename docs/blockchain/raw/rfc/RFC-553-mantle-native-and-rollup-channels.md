@@ -95,7 +95,7 @@ Each step carries one Groth16 proof of the STF of the rollup, under its current 
  effects_hash]     # the hash of the effects of the step
 ```
 
-A fixed number of public inputs fixes the size of every verification key at 6 `IC` points, so the ledger stores and verifies the key of every rollup the same way. `effects_hash` packs the effects of a step, of any size, into one field element: the value and intent of each minted deposit, the inputs, outputs and payouts of each transfer, and the digest of the next configuration.
+A fixed number of public inputs fixes the size of every verification key at 6 `IC` points, so the ledger stores and verifies the key of every rollup the same way. `effects_hash` packs the effects of a step, of any size, into one field element: the value and intent of each minted deposit, the inputs, outputs and payouts of each transfer, and the next configuration.
 
 `slot_k` lets a rollup depend on time. It is the slot of the block that included the inscription, recorded with its `op_id` in the FIFO, and so known to every prover as soon as the inscription lands. The slot of the block that includes the step is known to no prover in advance, which would rule out parallel proving.
 
@@ -120,21 +120,21 @@ A refund by the ledger after a delay would race the step that mints the deposit.
 
 ## Sequencers can only delay
 
-No signature reconfigures a rollup channel. Each step carries the next accredited keys and rotation parameters of the rollup, and its STF proof covers them through `effects_hash`, so only the rules of the STF change who sequences the rollup. A native channel reconfigures with a threshold of signatures of its accredited keys. For a rollup, that threshold could replace the other sequencers and censor without limit.
+No signature reconfigures a rollup channel. A step carries the next accredited keys and rotation parameters of the rollup when its STF changes them, and its STF proof covers them through `effects_hash`, so only the rules of the STF change who sequences the rollup. A native channel reconfigures with a threshold of signatures of its accredited keys. For a rollup, that threshold could replace the other sequencers and censor without limit.
 
 The round-robin hands the turn to the next accredited key when the timeframe or the timeout of a sequencer elapses. A sequencer that refuses an inscription therefore only delays it until a sequencer that accepts it takes its turn, provided the configuration sets a `posting_timeframe`. A `posting_timeout` alone replaces only a sequencer that inscribes nothing, so a sequencer that inscribes other data holds its turn. A rollup that wants censorship to cost only a delay sets a timeframe.
 
 A change of configuration applies from the block of its step, not of its inscription. The inscriptions after `k` that land before that step are signed under the current keys, and a sequencer the step removes stays accredited until the step is proven.
 
-## The round-robin restarts only on a change of configuration
+## An optional configuration in each step
 
-A step restarts the round-robin, as `CHANNEL_CONFIG` does, only when its next keys, timeframe or timeout differ from the current ones. A restart sets the turn to `keys[0]`. Restarting on every step would hand the turn back to `keys[0]` at each step, and with steps landing within a timeframe, `keys[0]` would hold the turn for good. A step that keeps the configuration leaves the rotation as it stands.
+A step carries `next_config`, a `RollupConfig` holding the next accredited keys, rotation parameters and optional verification key, or `None`, which keeps the configuration. Most steps keep it, so their payload carries one byte for it. A step that carries a configuration applies it and restarts the round-robin, as `CHANNEL_CONFIG` does, which sets the turn to `keys[0]`. A step with no configuration leaves the rotation as it stands: restarting on every step would hand the turn back to `keys[0]` at each step, and with steps landing within a timeframe, `keys[0]` would hold the turn for good.
 
-## The configuration digest in the state of the rollup
+## A BLAKE2b effects hash
 
-The ledger hashes the next configuration with BLAKE2b-256 under `ROLLUP_CONFIG_V1`, over its encoding, as it hashes `op_id`, and `effects_hash` takes that digest. A rollup should keep the digest of its configuration in its state. Its STF circuit then compares the digest the ledger computes with the one its next state holds, and hashes no configuration, while the transactions of the rollup approve any change of the digest.
+`effects_hash` is a BLAKE2b-256 hash, under `ROLLUP_EFFECTS_V1`, of the encoding of the minted deposits, the transfers and `next_config`, reduced modulo $`p`$ as `op_id` is, since it is a public input of the STF proof. Most STF circuits are wrapped zkVMs, for which BLAKE2b is the natural hash.
 
-The alternative is a `zkhash` of the configuration, which a circuit recomputes cheaply. The configuration holds Ed25519 keys and BN254 points of 32 and 64 bytes, which a `zkhash` encoding would have to split into field elements in a packing of its own. With the digest in the state, no circuit hashes the configuration with either function.
+The alternative is a `zkhash` of the effects, which a hand-written circuit recomputes cheaply. The configuration holds Ed25519 keys and BN254 points of 32 and 64 bytes, which a `zkhash` would have to split into field elements in a packing of its own.
 
 ## The STF reads its inscription through its op_id
 
@@ -182,7 +182,7 @@ class RollupState:
 - **`ROLLUP_CREATE`** (`0x40`) creates a rollup channel under a `ChannelId` no channel holds, with its accredited keys, rotation parameters, Groth16 verification key and initial state root. Every point of the key is checked on its curve, in its prime-order subgroup and not at infinity, and the ledger stores the key with the pairing $`e(\alpha, \beta)`$. Its proof is empty.
 - **`ROLLUP_INSCRIBE`** (`0x41`) writes the data of a state transition. The sequencer the round-robin designates signs it, it extends the tip of the channel, and its `op_id` and block slot join `unproven`.
 - **`ROLLUP_DEPOSIT`** (`0x42`) consumes ledger notes with a ZkTransfer with no outputs, whose excess is `value + excess_value`, and records a `PendingDeposit(value, intent)` under its `op_id`. Its `excess_value` pays fees. Its `inscription` publishes data for the zone, which the ledger does not keep.
-- **`ROLLUP_PROVE`** (`0x43`) applies the oldest unproven inscription `k`. It mints the deposits it lists into one deposit note, `Note(total, derive_note_nonce(op_id_k, 0, total, PK0), PK0, 0)`, applies its transfers to the rollup note set and creates their payouts in the ledger note set, and sets the next state root, accredited keys, rotation parameters and, optionally, verification key. Its proof is a `RollupProveOpProof`: one ZkTransfer per transfer, then the STF proof. The round-robin restarts only when the configuration changes.
+- **`ROLLUP_PROVE`** (`0x43`) applies the oldest unproven inscription `k`. It mints the deposits it lists into one deposit note, `Note(total, derive_note_nonce(op_id_k, 0, total, PK0), PK0, 0)`, applies its transfers to the rollup note set and creates their payouts in the ledger note set, and sets the next state root and, when the step carries a `next_config`, the next accredited keys, rotation parameters and, optionally, verification key. Its proof is a `RollupProveOpProof`: one ZkTransfer per transfer, then the STF proof. The round-robin restarts only when the step carries a configuration.
 
 `ROLLUP_CREATE` asserts that the channel does not exist, the other three that its kind is `ROLLUP`, and only `ROLLUP_PROVE` spends from or adds to a rollup note set. The Execution Gas of `ROLLUP_CREATE` is `EXECUTION_ROLLUP_KEY_GAS`; that of `ROLLUP_PROVE` is `EXECUTION_TRANSFER_GAS * len(transfers) + EXECUTION_ROLLUP_PROOF_GAS`, plus `EXECUTION_ROLLUP_KEY_GAS` with a next key. `ROLLUP_INSCRIBE` and `ROLLUP_DEPOSIT` cost what `CHANNEL_INSCRIBE` and `CHANNEL_DEPOSIT` cost.
 

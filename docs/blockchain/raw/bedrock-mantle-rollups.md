@@ -37,7 +37,7 @@ The [notes](bedrock-mantle.md#notes) of a rollup live in a note set of their own
 
 ## Sequencers Can Only Delay
 
-No signature [reconfigures](bedrock-mantle-channels.md#channel_config) a [rollup channel](#rollup-operations): each [step](#rollup_prove) carries the next [accredited keys](bedrock-mantle-channels.md#message-ordering) and [rotation parameters](bedrock-mantle-channels.md#decentralized-sequencing) of the rollup, which its STF proof covers, so only the rules of the STF change who sequences the rollup. The [round-robin](bedrock-mantle-channels.md#decentralized-sequencing) hands the turn to the next accredited key when the timeframe or the timeout of a [sequencer](bedrock-mantle-channels.md#decentralized-sequencing) elapses, so a sequencer that refuses to [inscribe](#rollup_inscribe) a transition only delays it until a sequencer that accepts it takes its turn, provided the configuration of the rollup sets a timeframe; a timeout alone replaces only a sequencer that inscribes nothing. Anyone posts the steps, so no party can hold back the proof of an inscription, and a step applies exactly the data its sequencer inscribed when the STF circuit recomputes the [`op_id`](bedrock-mantle.md#note-commitment-and-nullifier) of that inscription, as [STF Verification Key](#stf-verification-key) recommends.
+A [step](#rollup_prove) sets the next [accredited keys](bedrock-mantle-channels.md#message-ordering) and [rotation parameters](bedrock-mantle-channels.md#decentralized-sequencing) of its [rollup channel](#rollup-operations) when it carries them, and its STF proof covers them, so the rules of the STF decide who sequences the rollup. The [round-robin](bedrock-mantle-channels.md#decentralized-sequencing) hands the turn to the next accredited key when the timeframe or the timeout of a [sequencer](bedrock-mantle-channels.md#decentralized-sequencing) elapses, so a sequencer that refuses to [inscribe](#rollup_inscribe) a transition only delays it until a sequencer that accepts it takes its turn, provided the configuration of the rollup sets a timeframe; a timeout alone replaces only a sequencer that inscribes nothing. Anyone posts the steps, so no party can hold back the proof of an inscription, and a step applies exactly the data its sequencer inscribed when the STF circuit recomputes the [`op_id`](bedrock-mantle.md#note-commitment-and-nullifier) of that inscription, as [STF Verification Key](#stf-verification-key) recommends.
 
 ## Recommendations
 
@@ -397,7 +397,7 @@ ledger: Ledger
 
 ### ROLLUP_PROVE
 
-Apply the oldest unproven inscription of a rollup channel with a step of the rollup. Anyone posts it: the step mints the pending deposits it lists into one note of the rollup note set, applies its transfers to the notes of the rollup and pays their payouts to the ledger note set, and sets the next state root, accredited keys and rotation parameters of the rollup, and optionally its next verification key, all of which its STF proof covers.
+Apply the oldest unproven inscription of a rollup channel with a step of the rollup. Anyone posts it: the step mints the pending deposits it lists into one note of the rollup note set, applies its transfers to the notes of the rollup and pays their payouts to the ledger note set, and sets the next state root of the rollup and, when the step carries one, its next configuration, all of which its STF proof covers.
 
 A step proves only the oldest entry of `unproven`, so a node never holds a proof it has not applied. Provers compute the steps of consecutive inscriptions in parallel, each from the state the step before it leaves, and the mempool orders the steps by their inscriptions. The transfers of a step are verified against the live commitment MMR root of the rollup note set, which a prover knows in advance since only this Operation appends to that set, so consecutive steps of a rollup can share a block, and even a Mantle Transaction.
 
@@ -409,15 +409,18 @@ class RollupTransfer:
     outputs: list[NoteCommitment]  # commitments of the created notes of the rollup note set
     payouts: list[NoteCommitment]  # commitments of the notes created in the ledger note set
 
-class RollupProve:
-    channel: ChannelId                               # 32 bytes, the rollup channel
-    deposits: list[Hash]                             # the op_id of each pending deposit the step mints
-    transfers: list[RollupTransfer]                  # the transfers of the step, in the order they apply
-    state_root: zkhash                               # the next state root of the rollup
+class RollupConfig:
     keys: list[Ed25519PublicKey]                     # the next accredited keys, limited to 65 535 keys
     posting_timeframe: u32                           # number of slots (0 = infinity)
     posting_timeout: u32                             # number of slots (0 = no timeout)
     verification_key: Groth16VerificationKey | None  # the next key of the STF proofs, None to keep the current one
+
+class RollupProve:
+    channel: ChannelId                  # 32 bytes, the rollup channel
+    deposits: list[Hash]                # the op_id of each pending deposit the step mints
+    transfers: list[RollupTransfer]     # the transfers of the step, in the order they apply
+    state_root: zkhash                  # the next state root of the rollup
+    next_config: RollupConfig | None    # the next configuration of the rollup, None to keep the current one
 ```
 
 The deposits a step mints become one note of the rollup note set, the deposit note, which holds their total value. It is held by `PK0`, so that any prover can spend it in a transfer of the step or of a later step, and its staking key is `0`, so that no one leads with it ([Keys](bedrock-mantle.md#keys)). Its nonce derives from the `op_id` of the inscription the step proves, and a step proves an inscription once, so no two deposit notes share a commitment.
@@ -426,37 +429,21 @@ Each `RollupTransfer` is a [ZkTransfer](bedrock-mantle.md#zero-knowledge-transfe
 
 The step that [`ROLLUP_INSCRIBE`](#rollup_inscribe) recommends for an inscription the STF cannot apply, with no deposit, no transfer and the same state root, is valid: every transfer consumes at least one note, as `assert_spendable` requires, but a step can have no transfer.
 
-The STF proof covers the effects of the step through `effects_hash`, its fifth public input: the value and intent of every minted deposit, in the order of `deposits`, the inputs, outputs and payouts of every transfer, and the digest of the next configuration. The configuration digest is a BLAKE2b-256 hash, under the DST `ROLLUP_CONFIG_V1`, of the encoded next accredited keys, rotation parameters and optional verification key, as the [`RollupProve`](mantle-transaction-encoding.md#rollup-operations) of the encoding encodes them, reduced modulo $`p`$ as `op_id` is. A rollup should keep the digest of its configuration in its state, so that its STF circuit compares the digest the ledger computes with the one its next state holds and never recomputes the configuration digest, its transactions approving any change of the digest.
+The STF proof covers the effects of the step through `effects_hash`, its fifth public input: the value and intent of every minted deposit, in the order of `deposits`, the inputs, outputs and payouts of every transfer, and the next configuration. `effects_hash` is a BLAKE2b-256 hash, under the DST `ROLLUP_EFFECTS_V1`, of the encoding of these effects, reduced modulo $`p`$ as `op_id` is, since it is a public input of a Groth16 proof. It is a classic hash because most STF circuits are wrapped zkVMs, for which BLAKE2b is the natural hash.
 
 ```python
-def rollup_config_digest(keys: list[Ed25519PublicKey],
-                         posting_timeframe: u32,
-                         posting_timeout: u32,
-                         verification_key: Groth16VerificationKey | None) -> zkhash:
-    h = Hasher() # /!\ This is a classic hash not a zkhash /!\
-    h.update(b"ROLLUP_CONFIG_V1")
-    h.update(encode(keys))               # KeyCount *Signer of the encoding
-    h.update(encode(posting_timeframe))  # PostingTimeframe
-    h.update(encode(posting_timeout))    # PostingTimeout
-    h.update(encode(verification_key))   # OptionalKey
-    return FiniteField(h.digest(), byte_order="little", modulus= p)
-
 def rollup_effects_hash(minted: list[PendingDeposit],
                         transfers: list[RollupTransfer],
-                        config_digest: zkhash) -> zkhash:
-    effects = [FiniteField(len(minted), byte_order="little", modulus= p)]
+                        next_config: RollupConfig | None) -> zkhash:
+    h = Hasher() # /!\ This is a classic hash not a zkhash /!\
+    h.update(b"ROLLUP_EFFECTS_V1")
+    h.update(encode(len(minted)))         # UINT16
     for deposit in minted:
-        effects.append(FiniteField(deposit.value, byte_order="little", modulus= p))
-        effects.append(deposit.intent)
-    effects.append(FiniteField(len(transfers), byte_order="little", modulus= p))
-    for transfer in transfers:
-        for notes in (transfer.inputs, transfer.outputs, transfer.payouts):
-            effects.append(FiniteField(len(notes), byte_order="little", modulus= p))
-            effects.extend(notes)
-    return zkhash(
-        FiniteField(b"ROLLUP_EFFECTS_V1", byte_order="little", modulus= p),
-        *effects,
-        config_digest)
+        h.update(encode(deposit.value))   # Value
+        h.update(encode(deposit.intent))  # Intent
+    h.update(encode(transfers))           # RollupTransfers of the encoding
+    h.update(encode(next_config))         # OptionalConfig
+    return FiniteField(h.digest(), byte_order="little", modulus= p)
 ```
 
 #### Proof
@@ -471,7 +458,7 @@ The ZkTransfers and the STF proof of a step are bound to the `op_id` of the insc
 
 #### Execution Gas
 
-  Rollup Prove Operations have an Execution Gas cost of `EXECUTION_TRANSFER_GAS * len(transfers) + EXECUTION_ROLLUP_PROOF_GAS`, the cost of the transfers and of the STF proof, plus `EXECUTION_ROLLUP_KEY_GAS` when the payload carries a next verification key. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
+  Rollup Prove Operations have an Execution Gas cost of `EXECUTION_TRANSFER_GAS * len(transfers) + EXECUTION_ROLLUP_PROOF_GAS`, the cost of the transfers and of the STF proof, plus `EXECUTION_ROLLUP_KEY_GAS` when its next configuration carries a verification key. See [Gas Determination](bedrock-mantle.md#gas-determination) for the Execution Gas values.
 
 #### Validation
 
@@ -548,29 +535,27 @@ ledger: Ledger
               mmr_append(peaks, note_commitment)
       ```
 
-  6. Ensure the next configuration is one [`ROLLUP_CREATE`](#rollup_create) accepts: accredited keys with indexes the round-robin can hold in a `u16`, and, if the step carries a next verification key, every point of it on its curve, in its prime-order subgroup and not the point at infinity.
+  6. Ensure the next configuration is one [`ROLLUP_CREATE`](#rollup_create) accepts.
       ```python
-      assert 0 < len(prove.keys) < 2**16
-      key = prove.verification_key
-      if key is not None:
-          for point in [key.alpha] + key.ic:
-              assert is_valid_g1(point)
-          for point in [key.beta, key.gamma, key.delta]:
-              assert is_valid_g2(point)
+      config = prove.next_config
+      if config is not None:
+          assert 0 < len(config.keys) < 2**16
+          key = config.verification_key
+          if key is not None:
+              for point in [key.alpha] + key.ic:
+                  assert is_valid_g1(point)
+              for point in [key.beta, key.gamma, key.delta]:
+                  assert is_valid_g2(point)
       ```
 
   7. Verify the STF proof under the current key of the rollup, from its state root to the next one, for the inscription `k`, the slot of its block and the effects of the step.
       ```python
-      config_digest = rollup_config_digest(prove.keys,
-                                           prove.posting_timeframe,
-                                           prove.posting_timeout,
-                                           prove.verification_key)
       assert Groth16_verify(rollup.key,
                             [rollup.state_root,
                              prove.state_root,
                              msg,
                              FiniteField(slot_k, byte_order="little", modulus= p),
-                             rollup_effects_hash(minted, prove.transfers, config_digest)],
+                             rollup_effects_hash(minted, prove.transfers, prove.next_config)],
                             proof.stf_proof)
       ```
 
@@ -618,25 +603,25 @@ block_slot: Slot
           ledger.sets[LEDGER_SET].execute_adding(transfer.payouts)
       ```
 
-  3. Remove the proven inscription, and set the next state root and, if the step carries one, the next verification key with the pairing $`e(\alpha, \beta)`$ of its points.
+  3. Remove the proven inscription, and set the next state root.
       ```python
       rollup.unproven.pop(0)
       rollup.state_root = prove.state_root
-      if prove.verification_key is not None:
-          key = prove.verification_key
-          rollup.key = Groth16StoredKey(key=key, alpha_beta=pairing(key.alpha, key.beta))
       ```
 
-  4. If the next accredited keys or rotation parameters differ from the current ones, set them and restart the round-robin, as a [`CHANNEL_CONFIG`](bedrock-mantle-channels.md#channel_config) does, and otherwise leave the round-robin as it stands.
+  4. If the step carries a next configuration, set its accredited keys, its rotation parameters and, if it carries one, its verification key, and restart the round-robin.
       ```python
-      if (prove.keys, prove.posting_timeframe, prove.posting_timeout) != \
-         (chan.accredited_keys, chan.posting_timeframe, chan.posting_timeout):
-          chan.accredited_keys = prove.keys
+      config = prove.next_config
+      if config is not None:
+          chan.accredited_keys = config.keys
           chan.tip_slot = block_slot
           chan.tip_sequencer = 0
           chan.tip_sequencer_starting_slot = block_slot
-          chan.posting_timeframe = prove.posting_timeframe
-          chan.posting_timeout = prove.posting_timeout
+          chan.posting_timeframe = config.posting_timeframe
+          chan.posting_timeout = config.posting_timeout
+          if config.verification_key is not None:
+              key = config.verification_key
+              rollup.key = Groth16StoredKey(key=key, alpha_beta=pairing(key.alpha, key.beta))
       ```
 
-A step that keeps the configuration leaves the turn to the rotation of the sequencers, so the steps themselves never pin the turn to one sequencer. A change of configuration applies from the block of its step, not from the block of its inscription: the inscriptions after `k` that come before that step are signed under the current keys, and a sequencer a step removes stays accredited until that step is proven.
+A step with no next configuration leaves the turn to the rotation of the sequencers, so the steps themselves never pin the turn to one sequencer. A change of configuration applies from the block of its step, not from the block of its inscription: the inscriptions after `k` that come before that step are signed under the current keys, and a sequencer a step removes stays accredited until that step is proven.
