@@ -220,8 +220,8 @@ Version 1.1.0.
 
 Version 2.1.0.
 
-- `RollupCreate`, `RollupInscribe`, `RollupDeposit` and `RollupProve` under `### Rollup Operations`, and `RollupProveOpProof` among the proofs. `OptionalKey` is `%x00` to keep the current key, or `%x01` and a key.
-- `Groth16VerificationKey = Alpha Beta Gamma Delta IC`, with `IC` exactly 6 points.
+- `RollupCreate`, `RollupInscribe`, `RollupDeposit` and `RollupProve` under `### Rollup Operations`, and `RollupProveOpProof` among the proofs. A `RollupProve` ends with its `OptionalConfig`, `%x00` to keep the current configuration, or `%x01` and a `RollupConfig`, whose `OptionalKey` is `%x00` to keep the current key, or `%x01` and a key.
+- `Groth16Key = Alpha Beta Gamma Delta IC`, with `IC` exactly 6 points.
 - `Groth16Proof` replaces the `Groth16` terminal and is made of compressed `G1Point` (32 bytes) and `G2Point` (64 bytes). A decoder rejects the infinity flag and any coordinate not less than $`q`$, so each point has a single encoding. A proof is decompressed only when verified.
 - `Step = Inputs Outputs CommitmentRoot Inscription`, with no kind byte.
 - `SDPDeclare` carries `NoteStakePk` after `NotePk`.
