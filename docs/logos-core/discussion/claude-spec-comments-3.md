@@ -809,8 +809,10 @@ other rules depend on is not stated.
   keeps starting it. Policy that names a signer applies to host-configured modules on one Runtime and not
   on another.
 - **Reading an implementation needs today:** package-backed means taken from an authenticated handoff. Ask
-  for a new handoff before each realization, and fail the start if it is refused or if its commitment,
-  signer or artifact hash differ from the retained ones.
+  for a new handoff before each realization, and fail the start if it is refused or if its commitment or
+  artifact hash differ from the retained ones. A signer that differs while the commitment is equal does
+  not fail the start: a re-install under a currently accepted signer replaces the retained signer and
+  changes nothing else (PM l.1686, l.1689).
 - **Overlap:** TF-07 (key rotation and installed packages), TF-08, TS-05, TP-07.
 - **Suggested resolution:** define the term in RUNTIME §8. Say when Runtime obtains the handoff again and
   what a refusal or a changed handoff does to an existing instance.
