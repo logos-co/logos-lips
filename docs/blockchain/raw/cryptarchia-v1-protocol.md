@@ -37,7 +37,7 @@
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
 | 1.3.0 | Counted finality in slots: [Commit](#commit) makes a block immutable once it lies the finality window `K` behind the tip and the finality floor `φ` of occupied slots follows it. `K` replaces `s` and `⌊k/f⌋`. | 2026-11-17 |
 | 1.4.0 | Shortened the finality window `K` to 36,000 slots, sized for one disturbance at a time, and recomputed the finality floor `φ`. The [Epoch Schedule](#epoch-schedule) reads `⌊k/f⌋`, so its length does not change. | 2026-11-17 |
-| 1.5.0 | The [Epoch Schedule](#epoch-schedule) has two phases of `3K` slots, the snapshot and the lottery constants finalization, without the Buffer phase: an epoch of 216,000 slots. The snapshot phase must hold a block of an honest leader. | 2026-11-19 |
+| 1.5.0 | The [Epoch Schedule](#epoch-schedule) has two phases, the snapshot of `4K` slots and the lottery constants finalization of `2K` slots, without the Buffer phase: an epoch of 216,000 slots. The snapshot phase must hold a block of an honest leader. | 2026-11-27 |
 
 # Introduction
 
@@ -151,12 +151,12 @@ An epoch is divided into 2 phases, as outlined below.
 
 | Epoch Phase | Phase Length | Description |
 | --- | --- | --- |
-| Stake Distribution Snapshot | $`3K`$ slots | A snapshot of note commitments are taken at the beginning of the epoch. We wait for this value to finalize before entering the next phase. |
-| Lottery Constants Finalization | $`3K`$ slots | On the $`3K^{th}`$ slot into the epoch, the epoch nonce $`\eta`$ and the inferred total stake $`D`$ can be computed. We wait another $`3K`$ slots for these values to finalize. |
+| Stake Distribution Snapshot | $`4K`$ slots | A snapshot of note commitments are taken at the beginning of the epoch. We wait for this value to finalize before entering the next phase. |
+| Lottery Constants Finalization | $`2K`$ slots | On the $`4K^{th}`$ slot into the epoch, the epoch nonce $`\eta`$ and the inferred total stake $`D`$ can be computed. We wait another $`2K`$ slots for these values to finalize. |
 
 The Stake Distribution Snapshot phase must hold a block of an honest leader on the chain, except with the chance $`\varepsilon`$ of [Finality Floor](#finality-floor), or a coalition that predicts the epoch nonce can grind its notes.
 
-The **epoch length** is the sum of the individual phases: $`3K + 3K = 6K`$ slots. With $`K = 36000`$, an epoch lasts $`216000`$ slots.
+The **epoch length** is the sum of the individual phases: $`4K + 2K = 6K`$ slots. With $`K = 36000`$, an epoch lasts $`216000`$ slots.
 
 ### Epoch State
 
@@ -226,15 +226,15 @@ $`\text{define } \textbf{compute\_epoch\_state}(ep, tip \in T)\to(\mathbb{C}_\te
 
 > The epoch nonce for epoch $`ep`$ is the value of $`\eta`$ at the beginning of the lottery constants finalization phase in the epoch schedule
 
-&nbsp;&nbsp;&nbsp;&nbsp;$`\eta^{ep} \coloneqq \textbf{epoch\_nonce\_at\_slot}(sl_{ep-1} + 3K, tip)`$
+&nbsp;&nbsp;&nbsp;&nbsp;$`\eta^{ep} \coloneqq \textbf{epoch\_nonce\_at\_slot}(sl_{ep-1} + 4K, tip)`$
 
 > Total active stake is inferred from the number of blocks produced in the previous epoch during its Stake Distribution Snapshot phase. It is also derived from the previous estimate of total stake, thus we recurse here to retrieve the previous epochs estimate $`D^{ep-1}`$
 
 &nbsp;&nbsp;&nbsp;&nbsp;$`(\_,\_,D^{ep-1}) \coloneqq \textbf{compute\_epoch\_state}(ep-1,tip)`$
 
-> The number of distinct occupied slots during the first $`3K`$ slots of the previous epoch: a slot counts if it holds a block of the chain of $`tip`$ and/or one or more [uncles](#uncle-references) referenced by the blocks of that chain **that themselves lie in the window**, and each slot is counted at most once. Referenced uncles are genuine lottery wins that were lost to forks; counting them gives a more accurate estimate of consensus participation. No filtering is needed here: an uncle carried by a block of the chain was validated as a condition of that block's acceptance (see [Uncle References](#uncle-references)), so every node holding the chain counts exactly the same uncles.
+> The number of distinct occupied slots during the first $`4K`$ slots of the previous epoch: a slot counts if it holds a block of the chain of $`tip`$ and/or one or more [uncles](#uncle-references) referenced by the blocks of that chain **that themselves lie in the window**, and each slot is counted at most once. Referenced uncles are genuine lottery wins that were lost to forks; counting them gives a more accurate estimate of consensus participation. No filtering is needed here: an uncle carried by a block of the chain was validated as a condition of that block's acceptance (see [Uncle References](#uncle-references)), so every node holding the chain counts exactly the same uncles.
 
-&nbsp;&nbsp;&nbsp;&nbsp;$`\textbf{in\_window}(sl) \coloneqq sl_{ep - 1} \le sl \lt sl_{ep-1}+3K`$
+&nbsp;&nbsp;&nbsp;&nbsp;$`\textbf{in\_window}(sl) \coloneqq sl_{ep - 1} \le sl \lt sl_{ep-1}+4K`$
 
 &nbsp;&nbsp;&nbsp;&nbsp;$`\textbf{chain} \coloneqq \textbf{ancestors}(tip)`$
 

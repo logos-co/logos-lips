@@ -28,7 +28,7 @@
 | 1.1.0 | Changed `density_over_slots` to count **distinct occupied slots** instead of blocks, including the slots of the [uncles](cryptarchia-v1-protocol.md#uncle-references) referenced by the honest chain's in-period blocks, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md). | 2026-08-06 |
 | 1.2.0 | `PERIOD` reads the finality window `K`. `density_over_slots` and the inference take the chain they count, so that [Commit](cryptarchia-v1-protocol.md#commit) can read the count. | 2026-11-13 |
 | 1.2.1 | `PERIOD` reads `⌊k/f⌋` in place of the finality window `K`, so the observation period keeps its length when `K` changes. | 2026-11-13 |
-| 1.3.0 | `PERIOD` reads the finality window `K`, as the [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) does: 108,000 slots. The learning rate `beta` is 3/4, a ratio of integers. | 2026-11-19 |
+| 1.3.0 | `PERIOD` reads the finality window `K`, as the [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) does: 144,000 slots. The learning rate `beta` is 1/2, a ratio of integers. | 2026-11-27 |
 
 # Introduction
 
@@ -52,8 +52,8 @@ This algorithm has been analyzed and shown to have good accuracy, precision and 
 
 | Symbol | Value | Name | Description |
 | --- | --- | --- | --- |
-| `beta` | 3/4 | learning rate | Scales each correction of the estimate. Its numerator `beta.num` and denominator `beta.den` are integers. It is derived together with `PERIOD`, and a change of `PERIOD` requires it to be derived again (see [The stake inference](https://github.com/logos-co/logos-lips/blob/master/docs/blockchain/raw/rfc/RFC-TBD-cryptarchia-shorten-the-epoch-to-60-hours.md#the-stake-inference) for the derivation). |
-| `PERIOD` | $`3K`$ | observation period | The length of the observation period in slots. |
+| `beta` | 1/2 | learning rate | Scales each correction of the estimate. Its numerator `beta.num` and denominator `beta.den` are integers. An observation period without an occupied slot lowers the estimate to 1 − `beta` times its value. [`K`](cryptarchia-v1-protocol.md#constants) meets its targets with every block up to its delay $`\Delta`$ late only while the total active stake is at most 2.097 times the estimate. `beta` must therefore not exceed 1 − 1/2.097, or one such period, as in a halt of block production, takes the estimate below what `K` holds. A change of `K` or of its targets requires `beta` to be derived again (see [The stake inference](https://github.com/logos-co/logos-lips/blob/master/docs/blockchain/raw/rfc/RFC-TBD-cryptarchia-shorten-the-epoch-to-60-hours.md#the-stake-inference) for the derivation). |
+| `PERIOD` | $`4K`$ | observation period | The length of the observation period in slots. |
 | `f` | *inherited from* [Constants](cryptarchia-v1-protocol.md#constants) | slot activation coefficient | The target rate of occupied slots. Not all slots contain blocks, many are empty. |
 | `K` | *inherited from* [Constants](cryptarchia-v1-protocol.md#constants) | finality window | The parameter from which `PERIOD` is derived. |
 
