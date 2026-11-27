@@ -40,6 +40,7 @@
 | 1.7.0 | Derived the observation window $`W`$ from cover traffic in place of the maximal release delay. | 2026-10-29 |
 | 1.8.0 | Refused a neighbor closed as not live for $`W`$ rounds, restarting its liveness count, in place of shutting it out for the rest of the epoch. | 2026-10-30 |
 | 1.8.1 | Derived $`M_W`$ from the messages a neighbor is expected to deliver in an observation window and from the peering degree, in place of a fixed value. | 2026-10-30 |
+| 1.9.0 | Priced the edge share with a HashWX proof of work, at a price each core node sets from the demand presented to it. | 2026-11-10 |
 
 # Introduction
 
@@ -112,7 +113,7 @@ To have a **truly privacy-preserving system, we need to apply both techniques si
 ## Time
 
 - *Epoch* is a period that is defined by the consensus. It lasts for $`648,000`$ slots, each slot lasting 1 second. A new block is proposed for each slot with a probability of $`1/30`$, which translates to $`21,600`$ blocks, as on average, every $`30`$ slots a single block is proposed.
-- *Round* is the primitive measure of time in the protocol. It defines a period during which a node can emit a new message. The definition of a round is also important for defining the message releasing logic, which handles the randomized emission delay for processed messages. In this version of the protocol, the length of the round is 1 second (an equivalent of a single slot).
+- *Round* is the primitive measure of time in the protocol. It defines a period during which a node can emit a new message. The definition of a round is also important for defining the message releasing logic, which handles the randomized emission delay for processed messages. In this version of the protocol, the length of the round is 1 second (an equivalent of a single slot), and a round is numbered by its slot.
 
 # Overview
 
@@ -124,7 +125,7 @@ The protocol works as follows:
 
 1. Core nodes form a network by establishing encrypted connections with other core nodes at random.
 2. A block proposer node selects several core nodes and creates a data message (containing a block proposal) that can be processed only by the set of selected core nodes (according to the order given by the block proposer node).
-3. The block proposer node sends the data message to its neighbors (core nodes). If the block proposer is an edge node, it connects to randomly selected core nodes to send the data message.
+3. The block proposer node sends the data message to its neighbors (core nodes). If the block proposer is an edge node, it connects to randomly selected core nodes and pays each one's price to send the data message.
 4. Core nodes disseminate (relay) the message to the rest of the network.
 5. Core nodes generate new cover messages every round, which are *blended* with other messages.
 6. When the data message reaches a blend node (designated core node), then it is processed by the node, that is:
@@ -167,6 +168,8 @@ If the minimal network size is not reached, nodes must not use the Blend protoco
 ### Maintenance
 
 A core node reads at most a share of messages from each connection per round, sized to what the slowest node the protocol targets can process, sends at most the same share on each, and keeps a connection only while its neighbor delivers. It maintains its peering degree and blacklists a neighbor only for a fault the neighbor is answerable for ([Connectivity Maintenance](#connectivity-maintenance)).
+
+An edge node pays for the service it asks of a core node: it presents a proof of work, at a price that core node sets from the demand it meets ([Edge Admission](#edge-admission)).
 
 ## Messages
 
@@ -336,8 +339,12 @@ The bootstrapping logic of an edge node:
         1. A core node learns that the neighbor is an edge node.
         2. An edge node confirms that the neighbor is a core node.
         4. An edge node must drop the connection if the neighbor is not the intended core node. Please note that technically it is done during TLS handshake, where the handshake will fail if the core node is using a different key than provided in the SDP declaration.
-5. When the connection is established, it sends the message and closes the connection.
+5. When the connection is established, it pays the node's price ([Edge Admission](#edge-admission)), sends the message and closes the connection.
 6. Concurrently to the above, it repeats steps 4 and 5 until it is sends the message to a number of nodes equal to the communication redundancy number defined by the edge node. It stops connecting to each node after a certain number of tries, which is defined by the edge node.
+
+**Admission**
+
+A core node serves a limited number of edge connections in a round, and connecting costs an edge node nothing. A core node therefore serves an edge node only against a **nonce** that takes the edge node a number of hashes set by that core node, its **price**. The core node raises the price while more than twice the nonces it can serve are presented, and lowers it while fewer than it can serve are presented. [Edge Admission](#edge-admission) and [Edge Difficulty](#edge-difficulty) specify this.
 
 ## Message Lifecycle
 
@@ -456,7 +463,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`F_1`$ denote the number of messages a core connection carries per round;
 - $`V`$ denote the number of messages per second the slowest node the protocol targets processes;
 - $`r_1`$ denote the number of messages a node reads from a core connection in a round;
-- $`r_E`$ denote the number of connections with edge nodes a node accepts in a round;
+- $`r_E`$ denote the number of connections with edge nodes a node serves in a round;
 - $`F_C`$ denote a frequency at which cover messages are generated per round;
 - $`F_D`$ denote a frequency at which block proposals are generated per round;
 - $`F_T`$ denote a frequency at which messages carrying a transaction are generated per round;
@@ -468,6 +475,9 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`\text {CSPRNG}()`$ is a cryptographically secure pseudo-random number generator, implemented as a [ChaCha20-Based PRNG Construction](common-cryptographic-components.md#chacha20-based-prng-construction);
 - $`\eta`$ denotes the network absorption, the maximum time a message spends crossing the network on one hop;
 - $`T_M`$ denotes the message traversal time, the time a message takes to cross the network;
+- $`\text{price}_n`$ denotes what the core node $`n`$ charges for serving an edge connection, in expected hashes, as defined in [Edge Difficulty](#edge-difficulty);
+- $`P_n`$ denotes the distinct pairs of a challenge and a nonce presented to the core node $`n`$, as defined in [Edge Difficulty](#edge-difficulty);
+- $`R_F`$ denotes the hashes per second of one core of the fastest solver measured;
 
 ## Global Parameters
 
@@ -487,7 +497,12 @@ Every active core node receives a reward. The activity of a node is verified in 
 - $`R_C=0`$ and $`R_D=1`$: a cover message is not replicated, and a block proposal is replicated once. A transaction is not replicated.
 - $`\Phi_{CC}=4`$, the peering degree ([Connectivity Maintenance](#connectivity-maintenance)). $`3 \le \Phi_{CC} \le 5`$. Below $`3`$ a node opens no connection of its own; above $`5`$ nodes must open more connections than nodes can accept, and dials are refused.
 - $`V = 156`$ messages per second the slowest node the protocol targets processes, one below the $`157`$ measured on one core of a Raspberry Pi 5 ([benchmark](https://github.com/logos-blockchain/research/tree/blend-header-verification-benchmark/tools/benchmarks/blend-header-verification)).
-- $`r_1 = 20`$ messages a node reads from a core connection per round, and $`r_E = 24`$ connections with edge nodes it accepts per round: $`r_1 = \lfloor (2V/3) / (\Phi_{CC} + 1) \rfloor`$ and $`r_E = 2V/3 - \Phi_{CC} \cdot r_1`$, so a node at its peering degree reads two thirds of $`V`$, and at one above it $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124 \le V`$ ([Expected Traffic](#expected-traffic)).
+- $`r_1 = 20`$ messages a node reads from a core connection per round, and $`r_E = 24`$ connections with edge nodes it serves per round: $`r_1 = \lfloor (2V/3) / (\Phi_{CC} + 1) \rfloor`$ and $`r_E = 2V/3 - \Phi_{CC} \cdot r_1`$, so a node at its peering degree reads two thirds of $`V`$, and at one above it $`(\Phi_{CC} + 1) \cdot r_1 + r_E = 124 \le V`$ ([Expected Traffic](#expected-traffic)).
+- $`T_R = 600`$ rounds, the challenge rotation period ([Edge Admission](#edge-admission)). $`T_R`$ must divide $`E`$, so that a window lies in exactly one epoch. A window that straddled two epochs would have no single epoch nonce. $`T_R`$ must be at least $`G`$, or a nonce can expire while it is being solved.
+- $`R_F`$ = 430,000 hashes per second: the rate of all 24 cores of an Intel Core Ultra 9 285HX, divided by 24, at $`463`$ nonces per seed, rounded down from the 431,000 measured on that hardware ([benchmark](https://github.com/logos-blockchain/research/blob/hashwx-benchmark/reports/EmPoWering/HashWX/findings.md)).
+- $`\text{price}^{Min} = \lfloor 20 \cdot R_F / r_E \rfloor`$, the lowest price: filling the edge share of one node takes twenty cores of the fastest solver measured. It must be at least $`2`$, since the target of a price of $`1`$ does not fit 64 bits. It must be below $`\text{price}^{Max}`$, or the price cannot rise.
+- $`\text{price}^{Max} = \lfloor T_M \cdot \text{HASHWX\_MACHINE\_RATE} / 6 \rfloor`$, the highest price, with `HASHWX_MACHINE_RATE` from [HashWX](common-cryptographic-components.md#hashwx): three solves, the reference value of $`\Phi_{EC}`$, take $`T_M / 2`$ on average on all four cores of the target machine. Their mean must stay below $`T_M`$. Above it, an edge node that must solve at its slot takes longer on average to release its proposal than a message takes to cross the network. It must also be below $`2^{31}`$, so that doubling a price fits 32 bits.
+- $`G = 4 \cdot T_M = 60`$ rounds, the price grace window ([Edge Admission](#edge-admission)). $`G`$ must be at least the 95th percentile of the solving time at $`\text{price}^{Max}`$ on one core of the target machine, $`3 \cdot 4 \cdot \text{price}^{Max} / \text{HASHWX\_MACHINE\_RATE} = 2 \cdot T_M = 30`$ rounds. Below that, a solver that began against a quoted price can be refused on completion.
 - $`T_E=1`$ round, the time an edge node is given to send its message, as derived in [Connectivity Maintenance](#connectivity-maintenance).
 - $`T_H=2`$ rounds, the time a core node handshake is given to complete, which covers the round trips of the transport handshake and of the [Neighbor Distinction Process](#neighbor-distinction-process).
 
@@ -496,7 +511,7 @@ Every active core node receives a reward. The activity of a node is verified in 
 A core node maintains the following set of parameters:
 
 - $`\Omega_C`$ denotes the maximum number of retries a core node will do to connect with another core node.
-- $`\Phi_{CE}^{Max}`$ denotes the maximum number of connections a core node holds with edge nodes at once. $`\Phi_{CE}^{Max} \ge 2 \cdot r_E`$: a connection holds its slot for $`T_E`$, one round, so the connections accepted in two rounds can be open at once, and a smaller value refuses edge connections before the share is spent.
+- $`\Phi_{CE}^{Max}`$ denotes the maximum number of connections a core node holds with edge nodes at once. $`\Phi_{CE}^{Max} \ge 2 \cdot r_E`$: a connection holds its slot for $`T_E`$, one round, so the connections served in two rounds can be open at once, and a smaller value refuses edge connections before the share is spent.
 
 Implementations should choose a default based on the deployment they operate in, and users can override these defaults before joining.
 
@@ -513,7 +528,7 @@ Implementations should choose a default based on the deployment they operate in,
 
 ### Connection Details
 
-The connections are established using libp2p with TLS version 1.3 (not older). The cryptographic scheme is Ed25519 with ephemeral keys**.** The libp2p protocol name is `/logos-blockchain/blend/1.0.0` for mainnet and `/logos-blockchain-testnet/blend/1.0.0` for testnet.
+The connections are established using libp2p with TLS version 1.3 (not older). The cryptographic scheme is Ed25519 with ephemeral keys**.** The libp2p protocol name is `/logos-blockchain/blend/2.0.0` for mainnet and `/logos-blockchain-testnet/blend/2.0.0` for testnet.
 
 ### Neighbor Distinction Process
 
@@ -569,8 +584,8 @@ A failure of the authenticated stream is a violation of the framing of the strea
 
 **Edge Nodes**
 
-1. A core node holds at most $`\Phi_{CE}^{Max}`$ connections with edge nodes at once, and accepts at most $`r_E`$ of them in a round. A connection offered above either is closed.
-2. A connection with an edge node is closed once the edge node has sent its message, or once $`T_E`$ has elapsed from accepting it. $`T_E`$ covers one encapsulated message of $`19318`$ bytes ([Message Formatting](message-formatting.md)), which takes $`0.15`$ s over a $`1`$ Mbit/s link; a further $`20\%`$ for framing and $`0.5`$ s of latency keep the total under one round.
+1. A core node holds at most $`\Phi_{CE}^{Max}`$ connections with edge nodes at once, and serves at most $`r_E`$ of them in a round ([Edge Admission](#edge-admission)). A connection offered above $`\Phi_{CE}^{Max}`$ is closed.
+2. A connection with an edge node is closed once the edge node has sent its message, or once $`T_E`$ has elapsed from accepting it. $`T_E`$ covers the edge quote, the nonce and one encapsulated message of $`19318`$ bytes ([Message Formatting](message-formatting.md)), which takes $`0.15`$ s over a $`1`$ Mbit/s link; a further $`20\%`$ for framing and $`0.5`$ s of latency keep the total under one round. The quote and the nonce add $`20`$ bytes ([Edge Admission](#edge-admission)).
 3. An edge node whose message fails header verification has its connection closed. It is not blacklisted.
 
 **Logging**
@@ -582,6 +597,52 @@ A node logs:
 - every period during which it holds fewer than $`\Phi_{CC} - 1`$ live connections with core nodes, or fewer than $`\Phi_{CC} - 2`$ that it opened.
 
 Each entry carries the identity of the neighbor and the reason.
+
+### Edge Admission
+
+A core node serves an edge connection only against a [HashWX](common-cryptographic-components.md#hashwx) nonce that satisfies its price. A price $`x`$ gives the target $`\lfloor 2^{64} / x \rfloor`$.
+
+The challenge of the node $`n`$ for the window $`w = \lfloor t / T_R \rfloor`$, where $`t`$ is the number of the current round ([Time](#time)):
+
+$$
+\text{challenge}_n^w = H(\text{"BLEND\_EDGE\_V1"} \| provider\_id_n \| epoch\_nonce_e \| w)
+$$
+
+where:
+
+- $`H`$ is Hash ([BLAKE2b](common-cryptographic-components.md#blake2bgeneral-purpose-hashing), 32-byte output) with the leading domain separation tag;
+- $`provider\_id_n`$ is the node's `provider_id` as its 32 bytes;
+- $`epoch\_nonce_e`$ is the [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce) of the epoch $`e`$ the window lies in, as its canonical integer representative in 32 bytes little-endian;
+- $`w`$ is encoded as 8 bytes little-endian.
+
+The edge node opens one stream on the connection. On that stream:
+
+1. On identifying the neighbor as an edge node ([Neighbor Distinction Process](#neighbor-distinction-process)), the core node sends its **edge quote**: $`\text{price}_n`$ as 4 bytes little-endian, then $`w`$ as 8 bytes little-endian.
+2. The edge node sends its nonce as 8 bytes little-endian, followed by its message. It need not wait for the quote. It solves for the $`w`$ of a quote if it holds one, and otherwise for the window of its own clock.
+
+An edge node closes the connection if a quoted price is outside $`[\text{price}^{Min}, \text{price}^{Max}]`$, or if it holds no nonce that satisfies the quoted price. It connects again once it holds one. For [Detection](#detection), an edge node releases a message in the round in which it first sends the message with a nonce.
+
+A core node keeps a **spent-nonce cache** of pairs of a challenge and a nonce. The cache holds the pairs of the current and the previous window and discards entries of older windows. Its size is bounded by $`2 \cdot r_E \cdot T_R`$ entries.
+
+The core node serves the connection when all of the following hold, checked in this order:
+
+1. The ticket of the nonce for $`\text{challenge}_n^w`$, or otherwise for $`\text{challenge}_n^{w-1}`$ when $`w \gt 0`$, is below the target of the lowest value $`\text{price}_n`$ took during the past $`G`$ rounds.
+2. The pair of that challenge and the nonce is not in the spent-nonce cache.
+3. Fewer than $`r_E`$ edge connections have been served in the current round.
+
+On serving, the node inserts the pair into the spent-nonce cache and receives the message. The cache check, the insertion and the count are one indivisible step, so one nonce takes at most one of a round's services. On any failure the node closes the connection. A refusal at check 3 attributes nothing to the peer, and the peer may connect again from the next round.
+
+A node that restarts holds no pairs, and $`\text{price}_n`$ returns to $`\text{price}^{Min}`$.
+
+### Edge Difficulty
+
+Each core node sets $`\text{price}_n`$, an unsigned 32-bit integer, for itself. Over a set of rounds, $`P_n`$ is the number of **distinct** pairs of a challenge and a nonce presented that passed checks 1 and 2 of [Edge Admission](#edge-admission), whether or not check 3 served them. A pair counts once, however often it is presented. A node holds at most $`2 \cdot r_E \cdot W + 1`$ pairs for this count, since no rule reads a larger one.
+
+Starting at $`\text{price}^{Min}`$, the price is retargeted every $`W`$ rounds against $`P_n`$ over those rounds:
+
+1. If $`P_n \gt 2 \cdot r_E \cdot W`$, then $`\text{price}_n \leftarrow \min(2 \cdot \text{price}_n,\ \text{price}^{Max})`$.
+2. If $`P_n \lt r_E \cdot W`$, then $`\text{price}_n \leftarrow \max(\lfloor 3 \cdot \text{price}_n / 4 \rfloor,\ \text{price}^{Min})`$.
+3. Otherwise it is unchanged.
 
 ### Transition Period
 

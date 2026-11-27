@@ -26,6 +26,7 @@
 | 1.0.2 | Clarification of the Poseidon2 function Add test values | 2026-05-07 |
 | 1.1.0 | [RFC] Replace the BLAKE2b-Based PRNG with ChaCha20 (ChaCha20Rng) | 2026-08-28 |
 | 1.2.0 | Strict EdDSA verification: reject small-order public keys and small-order `R` | 2026-09-22 |
+| 1.3.0 | Add HashWX, the client puzzle | 2026-11-10 |
 
 # Introduction
 
@@ -43,6 +44,7 @@ The primitives span multiple domains:
 - The stream cipher (ChaCha20) provides deterministic pseudorandom byte generation and keystream encryption.
 - Signature schemes (EdDSA, ZkSignature) authenticate messages and participants, with ZkSignature designed specifically for ownership verification within zero-knowledge circuits.
 - Proof systems (Groth16) enable succinct and verifiable computation. Groth16 is used in hand-written circuits.
+- The client puzzle (HashWX) prices an action in computation: it is expensive to solve and cheap to verify.
 
 Each primitive is chosen for its suitability in a particular context, balancing efficiency, cryptographic strength, and developer usability.
 
@@ -56,6 +58,7 @@ The table below summarizes the recommended component for each context:
 | General Signatures | [EdDSA](#eddsa) |
 | ZK Signatures | [ZkSignature](#zksignature-zero-knowledge-signature) (see [Mantle - Zero Knowledge Signature Scheme (ZkSignature)](bedrock-v1.1-mantle-specification.md)) |
 | Proof System (SNARK) | [Groth16](#groth16-zk-snark) |
+| Client Puzzle | [HashWX](#hashwx) |
 
 # 1. Hash Functions
 
@@ -193,7 +196,7 @@ Technical Details:
 - Public Key Size: 32 bytes.
 - Security Level: Approximately 128 bits.
 - Operations: Efficient scalar multiplications with Montgomery ladder for constant-time execution.
-- Verification: a signature $`(R, S)`$ on a message $`M`$ under the public key $`A`$ is valid only if $`S < \ell`$, neither $`A`$ nor $`R`$ is a point of small order (order 1, 2, 4 or 8), and $`[S]B = R + [k]A`$ with $`k = \text{SHA-512}(R \| A \| M)`$. This is the cofactorless equation of [RFC 8032 §5.1.7](https://datatracker.ietf.org/doc/html/rfc8032#section-5.1.7) with the small-order checks added (`verify_strict` in `ed25519-dalek`).
+- Verification: a signature $`(R, S)`$ on a message $`M`$ under the public key $`A`$ is valid only if $`S \lt \ell`$, neither $`A`$ nor $`R`$ is a point of small order (order 1, 2, 4 or 8), and $`[S]B = R + [k]A`$ with $`k = \text{SHA-512}(R \| A \| M)`$. This is the cofactorless equation of [RFC 8032 §5.1.7](https://datatracker.ietf.org/doc/html/rfc8032#section-5.1.7) with the small-order checks added (`verify_strict` in `ed25519-dalek`).
 
 Use in the Logos Blockchain:
 
@@ -295,7 +298,56 @@ Security Considerations:
 
 - Groth16: [https://eprint.iacr.org/2016/260.pdf](https://eprint.iacr.org/2016/260.pdf)
 
+# 4. Client Puzzles
+
+## [HashWX](https://github.com/tevador/hashwx)
+
+Description:
+
+HashWX generates a one-way function from a seed and evaluates it on a 64-bit nonce.
+
+Technical Details:
+
+- `hashwx_make` and `hashwx_exec` are the instance generation and the hash calculation of the [HashWX specification](https://github.com/tevador/hashwx/blob/74b567a31276a4c5d7cb232a5b7639467f49f961/doc/specification.md), tag `v1.0.0`. `hashwx_exec` returns an unsigned 64-bit integer.
+- A **ticket** is the output of a nonce for a challenge:
+
+    ```python
+    HASHWX_NONCES_PER_SEED: uint64 = 463
+
+    def hashwx_ticket(challenge: bytes, nonce: uint64) -> uint64:
+        group = nonce // HASHWX_NONCES_PER_SEED
+        seed = Hash(challenge + group.to_bytes(8, "little"))  # 32-byte output
+        return hashwx_exec(hashwx_make(seed), nonce)
+    ```
+
+- A nonce satisfies a target $`T`$ for a challenge when its ticket is below $`T`$. Finding such a nonce takes $`2^{64} / T`$ hashes in expectation. Checking one takes one `hashwx_make` and one `hashwx_exec` at every target.
+- `HASHWX_NONCES_PER_SEED` must stay $`463`$. A larger value gives a GPU more nonces over which to recover the cost of compiling a function.
+- `HASHWX_MACHINE_RATE` is 970,000 hashes per second. It is the rate of all four cores of a Raspberry Pi 5, the target machine, at $`463`$ nonces per seed, rounded down from the 977,000 measured on that hardware ([benchmark](https://github.com/logos-blockchain/research/blob/hashwx-benchmark/reports/EmPoWering/HashWX/findings.md)).
+
+Use in the Logos Blockchain:
+
+HashWX prices admission at the edge of the Blend network ([Edge Admission](blend-protocol.md#edge-admission)).
+
+Security Considerations:
+
+- A ticket has 64 bits and no collision resistance. It must not be used as an identifier.
+- The puzzle keeps no state, so nothing in it prevents a nonce from being used twice. A protocol that consumes the puzzle must enforce single use.
+
+## References
+
+- HashWX: [https://github.com/tevador/hashwx](https://github.com/tevador/hashwx)
+
 # Annex
+
+## HashWX Test Values
+
+`hashwx_ticket` for the challenge `0x000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f`. Appendix F of the [HashWX specification](https://github.com/tevador/hashwx/blob/74b567a31276a4c5d7cb232a5b7639467f49f961/doc/specification.md) gives test values for `hashwx_make` and `hashwx_exec`.
+
+| Nonce | Seed | Ticket |
+| --- | --- | --- |
+| 0 | 0x7b3ae1c3390f6fc59dc82ec6c925c97d5096d2b41bdac0673c2fcebb2a591829 | 0xba5eb9517ba1c8ec |
+| 462 | 0x7b3ae1c3390f6fc59dc82ec6c925c97d5096d2b41bdac0673c2fcebb2a591829 | 0x3c462cd796e5d76d |
+| 463 | 0xad07060c3d2e3a0ddda555630d74da67e0589e955d2b2f654fd05666c3025990 | 0xf59cd2f54c4f3c42 |
 
 ## Poseidon2 Test Values
 
