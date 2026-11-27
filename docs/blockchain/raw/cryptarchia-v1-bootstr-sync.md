@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-02-17 |
 | 1.0.1 | Noted that a streamed `Block` carries the signed headers of the uncles it references, which is what lets a synchronizing node validate those blocks and reproduce the [Total Stake Inference](cryptarchia-v1-protocol.md#total-stake-inference) without ever seeing their proposals, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.0.2 | Spread block download requests across connected and discovered peers instead of downloading only from the configured IBD peers, which now only provide the chain tips to catch up with. Added [Selecting Peers for Downloading](#selecting-peers-for-downloading) and the `GetTipRequest` message. | 2026-10-20 |
-| 1.1.0 | Added [Downloading Uncles](#downloading-uncles), served blocks of forks, and bounded how recent a checkpoint may be, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-11-24 |
+| 1.1.0 | Added [Downloading Uncles](#downloading-uncles), served blocks of forks, and bounded how recent a checkpoint may be, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-11-27 |
 
 # Introduction
 
@@ -109,7 +109,7 @@ The node can **propose blocks** after switching to the Online fork choice rule.
 | $`T_\text{offline}`$ | Offline Grace Period | A period during which a node can be restarted without switching to the Bootstrap rule. | 20 minutes |
 | $`T_\text{boot}`$ | Prolonged Bootstrap Period | A period during which Bootstrap fork choice rule must be continuously used after Initial Block Download is completed. This gives nodes additional time to compare their synced chain with a broader set of peers. | 24 hours |
 | $`s_\text{gen}`$ | Density Check Slot Window | A number of slots used by density check of Bootstrap rule. This constant is defined in [Definitions](fork-choice.md#definitions). | $`\lfloor\frac{k}{4f}\rfloor`$ (=4h30m) |
-| $`T_\text{round}`$ | IBD Round Delay | A delay between rounds of [Initial Block Download](#initial-block-download). Implementers can choose a different value. | 1 second (recommended) |
+| $`T_\text{round}`$ | IBD Round Delay | A delay between rounds of [Initial Block Download](#initial-block-download), and the shortest wait before a failed download of an uncle is repeated ([Downloading Uncles](#downloading-uncles)). Implementers can choose a different value. | 1 second (recommended) |
 | $`N_\text{conn}`$ | Connected Peers per Download | The maximum number of connected peers a download request is sent to, as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). Implementers can choose a different value. | 16 (recommended) |
 | $`N_\text{disc}`$ | Discovered Peers per Download | The maximum number of discovered but not connected peers a download request is sent to, as defined in [Selecting Peers for Downloading](#selecting-peers-for-downloading). Implementers can choose a different value. | 16 (recommended) |
 
@@ -326,6 +326,8 @@ def download_blocks(local_tree: Tree, target_block: BlockId, known: List[BlockId
             return
 ```
 
+`best_tip()` is the block that the fork choice rule would select if every chain that contains $`B_\text{imm}`$ were [adoptable](cryptarchia-v1-protocol.md#adoptable-chains).
+
 If the node is continuing from a previous `DownloadBlocksRequest`, it is important to include the latest downloaded block to the `KnownBlocks.additional_blocks` to avoid downloading duplicate blocks. This also lets the next request be answered correctly by a different peer from the one that answered the previous request.
 
 ![Diagram](cryptarchia-v1-bootstr-sync/assets/1fd261aa-09df-81c8-b0ff-c858bf97c965.png)
@@ -369,7 +371,12 @@ Sending one request to many peers costs some duplicate traffic, because peers th
 
 ### Downloading Uncles
 
-The fork choice rule may prefer a chain that contains $`B_\text{imm}`$ to $`c_{loc}`$, while the chain is not [adoptable](cryptarchia-v1-protocol.md#adoptable-chains) because uncles are missing from the local block tree. The node downloads the missing uncles of every such chain, as defined in [Downloading Blocks](#downloading-blocks). It should repeat a failed download with newly selected peers. The retry policy can be configured by implementers. They can also limit the concurrent downloads for blocks with the same slot and `entropy_contribution`. Such blocks stem from one lottery win.
+A node downloads the missing uncles of every chain that contains $`B_\text{imm}`$, is not [adoptable](cryptarchia-v1-protocol.md#adoptable-chains), and that the fork choice rule would prefer to $`c_{loc}`$ if it were adoptable. It downloads them as defined in [Downloading Blocks](#downloading-blocks), with these limits for an entry $`u`$ of a block $`A`$:
+
+- It skips $`u`$ if the slot of $`u`$ is not before the slot of $`A`$, or lies $`W\cdot f^{-1}`$ ([Constants](cryptarchia-v1-protocol.md#constants)) or more slots before it.
+- Before it adds a downloaded block that is not in its block tree, it stops the download if the common ancestor of that block and $`A`$ lies more than $`W\cdot f^{-1}`$ slots before $`A`$. It also stops if the slot of that block is the slot of $`u`$ or later and the block is not the one $`u`$ names.
+- Of the blocks of one lottery win, which share their slot and `entropy_contribution`, it downloads the missing uncles of one block at a time, first of the one on the chain of `best_tip()`.
+- It repeats a failed download with newly selected peers, no sooner than $`T_\text{round}`$ after the failure.
 
 ```python
 def download_missing_uncles(local_tree: Tree):
@@ -378,7 +385,7 @@ def download_missing_uncles(local_tree: Tree):
         download_blocks(local_tree, target_block=uncle.block_id, known=[block.parent_block])
 ```
 
-`missing_uncles()` returns the entries of these chains that keep them from being adoptable and whose uncles are missing, each with the block that holds it. `best_tip()` is the block that the fork choice rule would select if every chain that contains $`B_\text{imm}`$ were adoptable.
+`missing_uncles()` returns the entries of these chains that keep them from being adoptable and whose uncles are missing, each with the block that holds it. It leaves out the entries that the limits above exclude.
 
 ## Proposing New Blocks
 
