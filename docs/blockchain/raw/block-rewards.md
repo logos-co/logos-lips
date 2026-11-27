@@ -26,6 +26,7 @@
 | 1.2.0 | Count the proof of work reward pool as a fourth controlled stock, bound net circulating growth by the two stocks that drain, and state that the pooled fee is net of the share diverted to that pool | 2026-08-31 |
 | 1.3.0 | Count every amount in LEPTA, which scales three constants of the integer rule by $`10^{9}`$ and widens its intermediates to 128 bits | 2026-10-29 |
 | 1.4.0 | Keep the reserve, the pool, the pending Blend share and the window of pooled fees as integer consensus state in LEPTA, the Blend rewards an epoch does not distribute returning to the pool, the release capped at the reserve balance, with the integer reference averaging the pooled fees over the 120-block window as the reward equation does. Redraw the system design and project the circulating supply over 10 years with a per-block simulation | 2026-10-07 |
+| 1.4.1 | [RFC] State that the projected growth leaves out the claims paid from the proof of work reward pool | 2026-11-06 |
 
 > Disclaimer:
 > This material, including any linked pages or documents, is provided for informational purposes only. It does not constitute investment advice, a solicitation, or an offer to buy or sell any securities, tokens, or other financial instruments, nor should it be construed as legal, financial, or tax advice.
@@ -93,7 +94,7 @@ This KPI-based approach delivers several advantages:
 - Self-regulating mechanism that automatically adjusts to network conditions.
 - Built-in safeguards against manipulation through moving averages and bounded functions.
 - Bounded supply growth: the reserve release never exceeds $`I_{max}`$ of the maximum supply per year, and net circulating growth is bounded by the reserve and the proof of work reward pool allocated at genesis.
-- Long-term sustainability with a projected net circulating-supply growth of about $`3\%`$ of the maximum supply after $`10`$ years, in a scenario where the stake and the pooling rate of $`0.5\%`$ per year settle within $`2`$ years (see [Supply Projection](#supply-projection)).
+- Long-term sustainability with a projected net circulating-supply growth of about $`3\%`$ of the maximum supply after $`10`$ years, before the claims paid from the proof of work reward pool, in a scenario where the stake and the pooling rate of $`0.5\%`$ per year settle within $`2`$ years (see [Supply Projection](#supply-projection)).
 - Predictable economic model that balances security incentives with controlled supply.
 
 # Construction
