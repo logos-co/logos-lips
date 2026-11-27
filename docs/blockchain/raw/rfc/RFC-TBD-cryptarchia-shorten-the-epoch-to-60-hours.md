@@ -78,14 +78,16 @@ The window, the observation period of the Total Stake Inference, is the first `4
 
 The rule moves `D` by the share `beta` of the error it measures: `D' = D · ((1 − beta) + beta · N / (PERIOD · f))`, for `N` occupied slots in the window. The new estimate keeps at least the share `gamma` of the old one: `D' ≥ gamma · D`. A window can lose a share `y` of its blocks to a halt, to stake that goes offline, or to a coalition that withholds its blocks. If `D` was right before, the total active stake is then `1 / max(1 − beta · y, gamma)` times `D` in the next epoch.
 
-`K` holds a coalition of 30 % only while the total active stake is at most 2.097 times `D` with every block 10 s late. With every block 15 s late, the limit is 1.094 times `D`. With `gamma` = 3/4, one window without blocks takes the total active stake to 4/3 of `D`, and two windows in a row to 16/9, 1.78. So any halt shorter than 160 hours, which can touch at most two windows, keeps the limit at 10 s, if `D` was at most 15 % below the total active stake before. The noise of `D` does not come near that. A coalition that withholds its blocks before such a halt keeps `D` on the honest stake, and a window without blocks then takes the total active stake to 1.90 times `D`, still within the limit. The specification bounds `gamma` by this target: `(1/gamma)²` must not exceed 2.097, so `gamma` must be at least 0.6906. 3/4 meets it.
+`K` holds a coalition of 30 % only while the total active stake is at most 2.097 times `D` with every block 10 s late. With every block 15 s late, the limit is 1.094 times `D`. With `gamma` = 3/4, one window without blocks takes the total active stake to 4/3 of `D`, and two windows in a row to 16/9, 1.78. This keeps the limit at 10 s if `D` was at most 15 % below the total active stake before, and the noise of `D` does not come near that. A halt longer than 80 hours can touch three windows, with the first and the last partly empty. Every halt of up to 119 hours keeps the limit, whenever it starts. From about 120 hours some starts pass it, up to 2.37 times `D`. The specification bounds the share that a window without blocks keeps, `max(1 − beta, gamma)`, by the two-window target: its square must be at least 1/2.097. With `beta` = 1/2, `gamma` must therefore be at least 0.6906, and 3/4 meets it.
+
+A coalition that withholds its blocks before a halt keeps `D` on the honest stake. One window without blocks then takes the total active stake to 1.90 times `D`, within the limit, and two windows to 2.54, past it. That combines two disturbances, and the `K` row covers one at a time.
 
 `beta` sets how fast `D` follows a change: by half of the measured error each window. With `gamma` in place, `beta` no longer bounds a halt. Its choice trades two speeds:
 
-- A coalition of 30 % that withholds every block deflates `D` more slowly with a lower `beta`. At 1/2 the total active stake reaches 1.16, 1.27, 1.34 and 1.37 times `D` after one to four windows, under the specification's rule. At 1 it reaches 1.33 after one window and the honest stake after two.
+- A coalition of 30 % that withholds every block deflates `D` more slowly with a lower `beta`. At 1/2 the total active stake reaches 1.16, 1.27, 1.34 and 1.38 times `D` after one to four windows, under the specification's rule. At 1 it reaches 1.32 after one window and the honest stake after two.
 - A higher `beta` follows new stake faster. `K` holds a daily growth of the active stake of 2.03 % at 15 s with `beta` = 1/2, and 4.01 % with `beta` = 1.
 
-This RFC takes 1/2: it keeps deliberate deflation slow and costly, and pays with about half of the growth that `beta` = 1 would hold.
+This RFC takes 1/2: it keeps deliberate deflation slow, and pays with about half of the growth that `beta` = 1 would hold.
 
 What one window of lost blocks does:
 
@@ -100,9 +102,8 @@ What one window of lost blocks does:
 
 - The halt rows take `D` right before the halt.
 - Today `beta` is 1, and the long window is what keeps a halt of up to 56 hours within the limit at 10 s. With `beta` = 1 and no retained share, a window without blocks takes `D` to one unit, the least the rule returns.
-- After a halt of 48 hours the total active stake reaches at most 1.45 times `D`, against 2.00 with `beta` = 1/2 alone. A coalition of 30 % is then expected to displace about 0.001 blocks in the aftermath at 15 s, against about 10 with `beta` = 1/2 alone.
+- After a halt of 48 hours the total active stake reaches at most 1.45 times `D`, against 2.00 with `beta` = 1/2 alone. Over the epochs after such a halt, a coalition of 30 % is expected to displace at most about 0.007 blocks at 15 s, against about 76 with `beta` = 1/2 alone.
 - The halt rows take the coalition to halt too. A coalition that keeps building through a halt of the honest stake gains a private lead, which `K` is not sized for, under any split and any `beta`.
-- Three windows in a row without blocks need a halt of at least 160 hours. They take the total active stake to 2.37 times `D`.
 
 The noise of a 40-hour window does not limit `beta`. With `beta` = 1/2, `D` has a standard deviation of 0.83 %, against 0.87 % today. The chance per epoch that the noise alone takes the total active stake past 1.094 times `D` is about `2·10^-33`. Averaged over the noise, the chance per block that a coalition of 30 % displaces a block after 10 hours at 15 s is `2.21·10^-10` under the specification's rule. It is the same today. Under a rule that computes with `f` exactly it is `2.53·10^-10`, against `2.50·10^-10` with `D` exact.
 
@@ -123,7 +124,7 @@ What a learning rate of 1/2 and a retained share of 3/4 cost, under the specific
 | Noise of `D`, one standard deviation | 0.87 % | 0.83 % |
 | Chance that a chain misses the floor of 689 occupied slots in `K` | `1.4·10^-8` | `1.3·10^-8` |
 
-- After the stake halves, `D` is too high, so slots are occupied more slowly than `f`. At mean rates with blocks 10 s late, finality then takes about 13.3 hours until the first correction under any `beta`. It takes 10.5 hours for the next 60 hours with `beta` = 1/2. A chain that misses the floor delays finality past `K`. It never makes a block immutable early.
+- After the stake halves, `D` is too high, so slots are occupied more slowly than `f`. At mean rates with blocks 10 s late, finality then takes about 13.4 hours until the first correction under any `beta`. It takes 10.6 hours for the next 60 hours with `beta` = 1/2. A chain that misses the floor delays finality past `K`. It never makes a block immutable early.
 - At launch, if only 30 % of the genesis `D` builds, the stake that builds is 0.40, 0.53, 0.69 and 0.81 times `D` after one to four windows. Without the retained share it would be 0.46, 0.63, 0.76 and 0.86. With `beta` = 1 and no retained share it is 0.98 after one window.
 - The retained share binds only when a window counts less than half of the blocks it expects. A halving of the stake is therefore followed as with `beta` = 1/2 alone. A fall to 30 % is followed more slowly: without the retained share `D` would be 117 % off at 80 h and 59 % at 140 h.
 - The floor is sized while the stake that builds equals `D`. The noise and the rule's 1 % offset already put the chance of missing it above `1e-9` today. With a rule that computes with `f` exactly, the chance is `2.5·10^-9`.
@@ -165,8 +166,8 @@ Every other specification that reads the epoch keeps its rules per epoch:
 | `3K`, `3K`, `4K`, `beta` = 1 | 100 h | keeps the Buffer phase and the inference's rule, with a 60-hour window; the last phase is final in time down to 19.02 % | 40 hours longer; a halt of 31.4 h within one window takes the total active stake past 2.097 times `D` |
 | No Buffer phase, `3K` + `3K`, `beta` = 3/4 | 60 h | the last phase is final in time down to 26.05 %; the nonce is known 30 hours before the epoch, 10 hours earlier, for work done in advance | a halt of 20.9 h within one window takes the total active stake past 2.097 times `D`; keeping `D` on the honest stake costs a coalition 28.7 % of its income, against 52.5 % |
 | No Buffer phase, `4K` + `2K`, `beta` = 1 | 60 h | keeps the inference's rule; corrects a change in one step, 80 h after it; holds a daily growth of 4.01 % at 15 s | a window without blocks takes `D` to one unit; a halt of 20.9 h within one window takes the total active stake past 2.097 times `D` |
-| `4K` + `2K`, `beta` = 1/2, no retained share | 60 h | one rule fewer; at launch the stake that builds reaches 0.86 of `D` after four windows, against 0.81; after a fall to 30 %, `D` is 59 % off at 140 h, against 88 % | a window without blocks takes the total active stake to 2 times `D`, and two windows to 4; after a 48-hour halt a coalition of 30 % is expected to displace about 10 blocks at 15 s, against 0.001 |
-| `4K` + `2K`, `beta` = 1, `gamma` = 3/4 | 60 h | corrects a rise in one step; holds a daily growth of 4.01 % at 15 s; after a halving `D` is 12 % off at 140 h, against 25 % | a coalition that withholds its blocks takes the total active stake to 1.33 times `D` in one window, and to the honest stake in two |
+| `4K` + `2K`, `beta` = 1/2, no retained share | 60 h | one rule fewer; at launch the stake that builds reaches 0.86 of `D` after four windows, against 0.81; after a fall to 30 %, `D` is 59 % off at 140 h, against 88 % | a window without blocks takes the total active stake to 2 times `D`, and two windows to 4; after a 48-hour halt a coalition of 30 % is expected to displace at most about 76 blocks at 15 s, against 0.007 |
+| `4K` + `2K`, `beta` = 1, `gamma` = 3/4 | 60 h | corrects a rise in one step; holds a daily growth of 4.01 % at 15 s; after a halving `D` is 12 % off at 140 h, against 25 % | a coalition that withholds its blocks takes the total active stake to 1.32 times `D` in one window, and to the honest stake in two |
 | No Buffer phase, `2K` + `2K` | 40 h | 20 hours shorter: new stake waits 40 to 80 h | the snapshot phase is final in time only down to 41.35 %, and has only about 7,000 slots more than dropping the Buffer phase needs; 25 % of targets meet two nonces, a grinding gain of 1.48 %; an epoch holds 4,800 blocks |
 | No Buffer phase, `1.5K` + `2K` | 35 h | 25 hours shorter | the snapshot phase, 54,000 slots, is shorter than dropping the Buffer phase needs, about 65,000 |
 | No Buffer phase, `1.5K` + `1.5K` | 30 h | 30 hours shorter | the snapshot phase is too short, as for `1.5K` + `2K` |
@@ -182,7 +183,7 @@ This is a consensus change. Nodes with a different epoch compute different epoch
 
 ## Reproducing the figures
 
-The figures come from [`slot-finality/epoch`](https://github.com/logos-blockchain/research/tree/7523a9d4f8677d6b6548a63cae9cdebb9a425a46/tools/simulators/finality/slot-finality/epoch) of the research repository at commit `7523a9d`. The README of `slot-finality` lists the scripts with their stored outputs.
+The figures come from [`slot-finality/epoch`](https://github.com/logos-blockchain/research/tree/ef553ccf2e7925c0f7245608802ab42a31cf3aea/tools/simulators/finality/slot-finality/epoch) of the research repository at commit `ef553cc`. The README of `slot-finality` lists the scripts with their stored outputs.
 
 - `split/SPLIT.md` gives the split of 60 hours, the bound on the retained share, the choice of the learning rate, what a window of lost blocks does, the noise of `D`, the costs of `beta` = 1/2, the lengths that count a coalition's private lead, and the condition for dropping the Buffer phase. It lists where each figure of this RFC comes from, and corrects sections 3 and 4 of `schedule/SCHEDULE.md`.
 - `REVIEW.md` proves the shares at which a phase is final in time, the honest block a span needs, and the bounds behind the condition on the Lottery Constants Finalization phase. `proofs/survival/SURVIVAL.md` proves the survival law, and `proofs/genesis/GENESIS.md` the argument for the Bootstrap rule that asks for that condition. `proofs/genesis-step2/` gives the closer reading, not yet reviewed, that needs only `K − 1` slots.
@@ -210,7 +211,7 @@ In the [Epoch Schedule](../cryptarchia-v1-protocol.md#epoch-schedule), the Buffe
 - In [Epoch State Pseudocode](../cryptarchia-v1-protocol.md#epoch-state-pseudocode), the slot at which the epoch nonce is read and the end of the inference's window read `4K`.
 - The sentence "Each phase that waits for a value to finalize must last at least the finality window `K` …" is removed from the Epoch Schedule.
 - The Epoch Schedule adds two conditions on the Stake Distribution Snapshot phase. Each must hold except with the chance `ε` of [Finality Floor](../cryptarchia-v1-protocol.md#finality-floor), under the coalition and the disturbances of the `K` row:
-  - the chain from which the epoch nonce is read holds a block of an honest leader in the phase, or a coalition that predicts the epoch nonce can grind its notes;
+  - the chain on which the phase becomes final holds a block of an honest leader in the phase, or a coalition that predicts the epoch nonce can grind its notes;
   - the snapshot is final at every honest node, by Commit, before the slot of the last such block, or a coalition can keep two branches with different snapshots and choose between their epoch nonces.
 - The Epoch Schedule adds: the Lottery Constants Finalization phase must last at least `2K − 1` slots, or the argument that the Bootstrap rule keeps a joining node on the honest chain no longer holds.
 - The `K` row of [Constants](../cryptarchia-v1-protocol.md#constants) says that `K` also sets the Epoch Schedule. It no longer says that `K` must not exceed a phase of the Epoch Schedule that waits for a value to finalize.
@@ -220,10 +221,10 @@ In the [Epoch Schedule](../cryptarchia-v1-protocol.md#epoch-schedule), the Buffe
 In [Parameters and variables](../cryptarchia-total-stake-inference.md#parameters-and-variables) of the Total Stake Inference:
 
 - `PERIOD` is `4K` in place of `6⌊k/f⌋`. The document inherits `K` in place of `k`.
-- `beta` is 1/2 in place of 1.0. Its numerator and denominator are integers.
-- `gamma`, the retained share, is new: 3/4, a ratio of integers. Its row states three things:
+- `beta` is 1/2 in place of 1.0. Its numerator and denominator are integers. Its row states that `beta` must be above 0 and below 2, or the estimate does not settle on the stake that builds.
+- `gamma`, the retained share, is new: 3/4, a ratio of integers. The next estimate keeps at least `gamma` of the current one, rounded down to a whole unit. Its row states three things:
   - `gamma` must be below 1, or the estimate cannot fall;
-  - `gamma` must be at least `1/√2.097`, because `K` meets its targets at its delay `Δ` only while the total active stake is at most 2.097 times the estimate, and with a smaller `gamma` two observation periods in a row without an occupied slot let it exceed that;
+  - the share that an observation period without an occupied slot keeps, `max(1 − beta, gamma)`, must be at least `1/√2.097`, because `K` meets its targets at its delay `Δ` only while the total active stake is at most 2.097 times the estimate, and with a smaller share two observation periods in a row without an occupied slot let it exceed that;
   - a change of `K` or of its targets requires `gamma` to be derived again.
 
 In the [Algorithm](../cryptarchia-total-stake-inference.md#algorithm):
@@ -240,7 +241,7 @@ In the [Algorithm](../cryptarchia-total-stake-inference.md#algorithm):
 -        let new_total_stake_estimate = (tse_p - correction_p) / PRECISION;
 +        let correction_p: i128 = (beta.num as i128 * slot_activation_error_p) / (beta.den as i128);
 +        let retained_p: i128 = (gamma.num as i128 * tse_p as i128) / (gamma.den as i128);
-+        let new_total_stake_estimate = max(tse_p - correction_p, retained_p) / PRECISION;
++        let new_total_stake_estimate = max(tse_p as i128 - correction_p, retained_p) / PRECISION;
 ```
 
 ## 3. Proof of work keeps its reward per claim
