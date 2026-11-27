@@ -2228,6 +2228,17 @@ that holds keys. A and B stand for other modules and are local to one item.
   l.3144 names one kind of failure or two to be told apart is not said. Nor is it said whether the list
   covers only the Runtime that is called, or also a calling Runtime's failure to authenticate its target
   ("The caller MUST authenticate the target Runtime identity", TRANSPORT l.1226).
+- RUNTIME l.1687-1688 and CA l.207-212: for an operation "forwarded by an enrolled source Runtime"
+  (RUNTIME l.1685) the target MUST verify "that active policy permits that Runtime to forward operations
+  for consumers it owns" (l.1687-1688), which reads as a permission beyond enrollment. The specs define
+  none: enrollment is what "makes a remote runtime eligible for remote runtime-control access" (RUNTIME
+  l.1678), the enrollment record has no field for it (RUNTIME l.2611-2627), and Capability Authority
+  defines no scope under which Runtime could ask for it. The scope that authorizes an enrollment change
+  does carry `uses`, "runtime-control" or "provider-access" (CA l.207-212), and where the uses of an
+  accepted enrollment are kept or enforced is not said. Nor does RUNTIME l.1700 name a failed forwarding
+  check among the causes that "MUST produce Transport ProtocolError `NOT_AUTHORISED`". So whether the
+  forwarding permission is the enrollment itself or a separate policy fact, and what its failure answers,
+  is not said.
 - RUNTIME l.1423-1424 and CA l.249: a `single` request "does not require a separate `discover` decision"
   (RUNTIME l.1423), yet "Runtime MUST NOT select for a `single` request a provider that active visibility
   policy hides from the consumer" (RUNTIME l.1424); under an externalized policy the one decision that
