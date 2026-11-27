@@ -2245,6 +2245,23 @@ that holds keys. A and B stand for other modules and are local to one item.
   expresses visibility is `discover` ("A `discover` allow decision permits Runtime to disclose providers
   matching the exact `contract`", CA l.249), so which decision tells Runtime that a provider is hidden,
   when none is required, is not said.
+- RUNTIME l.2765-2767 against l.3183-3185, l.3214 and l.3266-3267: "remote provider discovery includes
+  only providers with an enabled export through an enabled listener whose disclosure is allowed for the
+  identified consumer and exact contract" (l.2765), and "Runtime MUST NOT disclose unexported or
+  disclosure-denied local providers through remote discovery" (l.2767). Which operations are remote
+  discovery is not said. Two are covered by other sentences: `describe_provider`, where "For a remote
+  request, the provider MUST have an enabled export through an enabled listener of the addressed
+  Runtime" (l.427), and the `discover` decision, required "before satisfying an `all-runtime-visible`
+  request or disclosing a provider's complete call surface" (CA l.251). `list_modules` names no
+  contract. Its response "is Runtime introspection state, not an ordinary-module discovery mechanism"
+  (l.3214), and a Runtime queries another's `list_modules` or `get_readiness` "subject to authority
+  accepted by the remote Runtime for that consumer" (l.3185), where "Local and remote Runtime Control
+  use the same scope shape" (CA l.307). Yet "A record exposing a provider is keyed by that provider
+  address", and "a record whose actual key cannot be disclosed MUST be omitted" (l.3266-3267). So when a
+  consumer of another Runtime lists modules and its Runtime Control authority admits a record, whether
+  the record is still omitted because its provider has no enabled export, or because `discover` is
+  denied to that consumer, and for which contract that decision would then be asked, is not said. The
+  same question stands for `get_readiness` and for module events observed from another Runtime.
 - RUNTIME l.3317 and l.3351: where a listener or a provider export is disabled, and where a route is
   closed, "In-flight call behavior follows the in-flight call policy of this section"; neither Section
   9.3.15 nor Section 9.3.16 states such a policy, and the one sentence on the subject, in Section 9.3.14,
