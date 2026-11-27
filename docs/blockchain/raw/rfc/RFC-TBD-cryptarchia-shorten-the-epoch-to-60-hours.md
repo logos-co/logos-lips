@@ -36,7 +36,7 @@ A phase keeps its value **final in time** when [Commit](../cryptarchia-v1-protoc
 - The lowest share of `D` that builds in a state of the `K` row is 63 %, with every block 10 s late. In that state a coalition of 30 % of the total active stake does not build, and a tenth of the honest stake is offline before `D` corrects for it.
 - A coalition can also build a private chain before a phase starts and release it during the phase. The honest blocks that the released chain overtakes then do not count. Counting such a lead, a phase of about 47,600 slots, 13.2 hours, keeps its value final in time in every state of the `K` row. 20 hours is 1.5 times that.
 - A phase of exactly `K` makes its value final only if two given slots hold blocks, a chance of at most `f²`, about 0.11 %.
-- The argument that the Bootstrap rule keeps a joining node on the honest chain asks the Lottery Constants Finalization phase for at least `2K − 1` slots. A phase of `2K` meets it. A closer reading of the argument, not yet reviewed, needs only `K − 1` slots.
+- The argument that the Bootstrap rule keeps a joining node on the honest chain asks the Lottery Constants Finalization phase for at least `2K − 1` slots. The Epoch Schedule states that minimum, and a phase of `2K` meets it. A closer reading of the argument, not yet reviewed, needs only `K − 1` slots.
 - The bound of Theorem 2 of Ouroboros Genesis on the epoch, `6·s_gen` = 27 hours, is met. The theorem itself does not cover delays above two slots.
 - At launch `D` starts from its genesis value. If only 30 % of it builds, the first epoch's nonce and inferred total stake become final about 26 hours after the cut-off, at 15 s. That is 6 hours after their first use. A fork from before that cut-off, made by a coalition of 30 % of the stake that builds, is then still alive at the first use with chance `3·10^-15`.
 
@@ -198,6 +198,7 @@ In the [Epoch Schedule](../cryptarchia-v1-protocol.md#epoch-schedule), the Buffe
 - In [Epoch State Pseudocode](../cryptarchia-v1-protocol.md#epoch-state-pseudocode), the slot at which the epoch nonce is read and the end of the inference's window read `4K`.
 - The sentence "Each phase that waits for a value to finalize must last at least the finality window `K` …" is removed from the Epoch Schedule.
 - The Epoch Schedule adds: the Stake Distribution Snapshot phase must hold a block of an honest leader on the chain, except with the chance `ε` of [Finality Floor](../cryptarchia-v1-protocol.md#finality-floor), or a coalition that predicts the epoch nonce can grind its notes.
+- The Epoch Schedule adds: the Lottery Constants Finalization phase must last at least `2K − 1` slots, or the argument that the Bootstrap rule keeps a joining node on the honest chain no longer holds.
 - The `K` row of [Constants](../cryptarchia-v1-protocol.md#constants) says that `K` also sets the Epoch Schedule. It no longer says that `K` must not exceed a phase of the Epoch Schedule that waits for a value to finalize.
 
 ## 2. The stake inference reads 4K and learns at 1/2
