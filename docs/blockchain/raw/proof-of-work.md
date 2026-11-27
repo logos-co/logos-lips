@@ -24,7 +24,7 @@
 | 1.2.0 | A reward claim searches a nonce for the public key to be paid and carries no signature. Each block credits its fee share to the pool, and the reward per claim stays fixed for the epoch | 2026-10-06 |
 | 1.3.0 | [RFC] A claim pays `POW_VESTED_SHARE / SHARE_DEN` of its reward as a note vesting for `VESTING_EPOCHS` epochs, and the rest as a liquid note | 2026-11-06 |
 | 1.4.0 | [RFC] A reward claim solves HashWX in place of `zkhash`, against a 64-bit target | 2026-11-06 |
-| 1.5.0 | [RFC] A claim's reward pays for the gas it carries and takes at least `WORK_PER_LEPTA` hashes per LEPTON. The pool pays every claim while it can, and the threshold falls once claims exceed `TARGET_CLAIMS_PER_BLOCK`, raised to 12 | 2026-11-27 |
+| 1.5.0 | [RFC] A claim's reward pays for the gas it carries and takes at least `WORK_PER_LEPTA` hashes per LEPTON. The pool pays every claim while it can, and the threshold falls once claims exceed `TARGET_CLAIMS_PER_BLOCK`, raised to 12. `VESTING_EPOCHS` follows the epoch length | 2026-11-27 |
 
 # Introduction
 
@@ -144,7 +144,6 @@ A node keeps a spent solution only while its referenced block is inside the wind
 | $`F`$, $`P`$ | smoothing factor and precision | `EMA_SMOOTHING_FACTOR` and `EMA_SMOOTHING_PRECISION`; the reward update weighs the previous estimate $`F`$ out of $`P`$. |
 | $`\alpha = a / b`$ | damping exponent | `BLEND_DAMPING_NUM / BLEND_DAMPING_DEN`, the Blend update's response to the load ratio. |
 | $`f`$ | slot activation coefficient | The probability that a slot has a leader, $`1/30`$, from [Constants](cryptarchia-v1-protocol.md#constants). |
-| $`k`$ | security parameter | $`2160`$, from [Constants](cryptarchia-v1-protocol.md#constants). |
 
 ## Parameters
 
@@ -154,7 +153,8 @@ WORK_PER_LEPTA: uint64 = 37                     # least expected HashWX hashes p
 POW_CLAIM_TX_SIZE: uint64 = 341                 # the bytes of a claim transaction
 POW_REFERENCE_TX_SIZE: uint64 = 608             # the bytes of the further transaction a reward's liquid part pays for
 POW_VESTED_SHARE: uint64 = 90                   # the share of a reward paid as a vested note, out of SHARE_DEN
-VESTING_EPOCHS: uint64 = 49                     # the length of the vesting, in epochs
+EPOCH_LENGTH: uint64                            # the slots of an epoch of Epoch Schedule
+VESTING_EPOCHS: uint64 = (31_536_000 + EPOCH_LENGTH - 1) // EPOCH_LENGTH  # the epochs that first reach a year of one-second slots
 TARGET_CLAIMS_PER_BLOCK: uint64 = 12            # T
 MAX_CLAIMS_FACTOR: uint64 = 10                  # a block's claim limit, in multiples of T
 EXPECTED_BLOCKS_PER_WINDOW: uint64 = 10         # W_b
@@ -176,7 +176,7 @@ BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend ma
 
 `POW_VESTED_SHARE` must be below `SHARE_DEN`, or a claim has no liquid part to pay its fee and `compute_epoch_pow_reward` divides by zero. The liquid part must be at least the whole fee of a claim transaction, its Execution Gas included, or a claim cannot pay its own fee.
 
-An epoch of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) is $`10\lfloor k/f \rfloor`$ = 648,000 slots, 7.5 days of one-second slots. `VESTING_EPOCHS` is the number of such epochs that first reaches a year, $`\lceil 365 / 7.5 \rceil = 49`$, so a vested note vests 360 to 367.5 days after the block its claim references.
+`EPOCH_LENGTH` is the length of an epoch of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule), 648,000 slots. `VESTING_EPOCHS` is the number of epochs that first reaches a year of one-second slots, $`\lceil 31{,}536{,}000 / 648{,}000 \rceil = 49`$, so a vested note vests 360 to 367.5 days after the block its claim references.
 
 `TARGET_CLAIMS_PER_BLOCK` must be at least 1, or no claim is valid. `MAX_CLAIMS_FACTOR` must be at least 2. At 1, no block holds more than `TARGET_CLAIMS_PER_BLOCK` claims, so the retarget never lowers `difficulty_reward`. `MAX_CLAIMS_FACTOR * TARGET_CLAIMS_PER_BLOCK` claim transactions of `POW_CLAIM_TX_SIZE` bytes must take less than the `MAX_BLOCK_SIZE` of [Constants](cryptarchia-v1-protocol.md#constants), or the claim limit cannot bind and claims can fill whole blocks. `TARGET_CLAIMS_PER_BLOCK` and `EMA_SMOOTHING_PRECISION` must each be below $`2^{32}`$, or the retarget's product can exceed 128 bits.
 
