@@ -23,7 +23,7 @@ The key words **MUST**, **MUST NOT**, **SHOULD**, **SHOULD NOT**, and **MAY** ex
 
 MixTransport provides session establishment, stream admission, in-order delivery, duplicate suppression, acknowledgements, bounded per-stream flow control, SURB replenishment, and remote teardown notifications. Content-provider selection, application message formats, and the choice of whether to use anonymous transport are application responsibilities outside the scope of this specification.
 
-MixTransport requires a LIBP2P-MIX endpoint that can submit and receive opaque service payloads, create a serializable SURB with a separate private reply credential, submit a reply through a supplied SURB, and recover reply bytes using the matching credential. The endpoint must expose local submission success or failure and the lifetime bounds needed to use its SURBs and credentials. The proposed endpoint interface is specified in LIBP2P-MIX §5.6. [Logos LIPs #556](https://github.com/logos-co/logos-lips/pull/556) Sections 3.1 and 9.3 describe how MixTransport uses these operations. Mix supplies Sphinx routing and packet processing, including its intentional delays.
+MixTransport requires a LIBP2P-MIX endpoint that can submit and receive opaque service payloads, create a serializable SURB with a separate private reply credential, submit a reply through a supplied SURB, and recover reply bytes using the matching credential. The endpoint must report local submission success or failure. MixTransport version 3 requires Mix key rotation to be disabled. The proposed LIBP2P-MIX endpoint interface also specifies lifetime bounds for SURBs and credentials when Mix key rotation is enabled. Section 12 links the interface proposal and the separate proposal for MixTransport version 4. Sections 3.1 and 9.3 describe how version 3 uses Mix. Mix supplies Sphinx routing and packet processing, including its intentional delays.
 
 An implementation conforms by producing the specified encodings and preserving the externally observable state and delivery rules below. It need not reproduce any particular programming language, API, concurrency model, or internal data structure. The local policy defaults in Section 10 are not negotiated protocol constants. In contrast, frame limits, identifier allocation, bitmap interpretation, and the rules governing credit are part of the interoperability contract.
 
@@ -160,7 +160,7 @@ Unsupported versions, unknown frame-kind values, malformed Protobuf, oversized f
 
 Protobuf `fixed32` uses little-endian encoding. Optional-field presence is significant: absence is not interchangeable with an explicitly encoded zero. Both bitmaps number bits least-significant-bit first within each byte: offset `i` uses byte `i div 8` and mask `1 << (i mod 8)`.
 
-The Protobuf wire types are `0` for `uint32` and `enum`, `5` for `fixed32`, and `2` for bytes and strings. Every `bytes` field is length-delimited: its field tag is followed by a varint specifying the byte length of the value, followed by the raw bytes. This length excludes the field tag and the length prefix itself. Strings and embedded messages use the same length-delimited framing. Each SURB is encoded as a separate occurrence of the repeated `bytes` field `surbs` (field 14). Each occurrence contains the Protobuf field tag, followed by a varint specifying the number of SURB bytes, followed by those bytes. Multiple SURBs are encoded by repeating this structure, not by concatenating their bytes into a single field value. String limits count encoded bytes, not characters. The session identifier is the binary libp2p `PeerId` representation, not its printable base58 representation.
+The Protobuf wire types are `0` for `uint32` and `enum`, `5` for `fixed32`, and `2` for bytes and strings. Every `bytes` field is length-delimited: its field tag is followed by a varint specifying the byte length of the value, followed by the raw bytes. This length excludes the field tag and the length prefix itself. Strings and embedded messages use the same length-delimited framing. Each SURB is encoded as a separate occurrence of the repeated `bytes` field `surbs` (field 14). Each occurrence contains the Protobuf field tag, followed by a varint specifying the number of SURB bytes, followed by those bytes. Multiple SURBs are encoded by repeating this structure, not by concatenating their bytes into a single field value. String limits count encoded bytes, not characters. The `sessionId` bytes MUST decode as a binary libp2p `PeerId` and satisfy the length bound in Section 4.1. A receiver MUST discard a frame whose session identifier fails binary peer ID validation.
 
 Senders MUST emit at most one occurrence of each singular field and MUST NOT use unknown fields to change version-3 semantics. Receivers apply the standard Protobuf decoding rules before validating the resulting frame. For example, if a singular `sequence` field appears twice, the last value is used. Each occurrence of the repeated `surbs` field contributes one entry in wire order. Well-formed unknown fields are skipped according to their wire type. The decoded frame still has to satisfy all required-field and operation-specific checks.
 
@@ -486,7 +486,7 @@ The acceptor verifies session state and remote stream-ID parity, records the ope
 
 Before sending StreamAck, the acceptor MUST register and establish the stream and make its Data, ACK, and teardown processing operational. Receiving the first ACK copy can cause the opener to send Data before the acceptor finishes submitting other copies. Application-handler scheduling MUST NOT create a period in which that early Data is discarded because the stream is not ready.
 
-The opener exposes the stream as established only after accepting StreamAck. If a valid `CloseStream` arrives while the open is Pending, the opener MUST retain the final sequence and continue waiting under the existing opening deadline. If it accepts `StreamAck` in time, the open succeeds and the stream follows Section 9.1 using the retained boundary. In particular, `StreamAck` and `CloseStream(0)` arriving in either order before the deadline yield a successful open whose first read reports end-of-stream. A matching StreamReject fails the opening without establishing the stream. OpenStream is not retransmitted; a local timeout or cancellation abandons the Pending stream. A late response does not reopen it. At the acceptor, failure of all local StreamAck submissions, or cancellation of acceptance, removes the new stream. At least one successful submission is enough to retain it; delivery is still not guaranteed.
+The opener exposes the stream as established only after accepting StreamAck. If a valid `CloseStream` arrives while the open is Pending, the opener MUST retain the final sequence and continue waiting under the existing opening deadline. If it accepts `StreamAck` in time, the open succeeds and the stream follows Section 9.1 using the retained boundary. In particular, `StreamAck` and `CloseStream(0)` arriving in either order before the deadline yield a successful open whose first read reports end-of-stream. A matching `StreamReject` or `ResetStream` received while the open is Pending fails the opening. Only an accepted `StreamAck` confirms admission. OpenStream is not retransmitted; a local timeout or cancellation abandons the Pending stream. A late response does not reopen it. At the acceptor, failure of all local StreamAck submissions, or cancellation of acceptance, removes the new stream. At least one successful submission is enough to retain it; delivery is still not guaranteed.
 
 A forward OpenStream's first two SURBs are reserved for StreamAck or StreamReject and never enter the ordinary queue. They must both decode successfully. Any numbered suffix is admitted using Section 8.2, before the protocol-admission decision; usable supply is not conditional on stream admission. Reverse OpenStream has no dedicated return SURBs because the initiator can send its response forward.
 
@@ -651,13 +651,13 @@ There is no probe identifier. Any accepted reverse snapshot is sufficient eviden
 
 ### 9.1 Stream closure
 
-`CloseStream` announces the inclusive final sequence defined in Section 4.5. The receiver rejects a boundary smaller than `receiveBase − 1`, because data beyond it has already entered the ordered buffer. It also rejects a boundary differing from an earlier accepted close. Otherwise it records the boundary. An identical close is harmless, and the receiver discards Data above the boundary. A Pending opener applies Section 6.2 before completing the close.
+`CloseStream` announces the inclusive final sequence defined in Section 4.5. The receiver rejects a boundary smaller than `receiveBase − 1`, because data beyond it has already entered the ordered buffer. It also rejects a boundary differing from an earlier accepted close. Otherwise it records the boundary. An identical close is harmless. Data arriving above an accepted boundary is not admitted. A Pending opener applies Section 6.2 before completing the close.
 
-On an Established stream, the receiver MUST admit every chunk through the boundary into the ordered buffer before completing a graceful close. The application can read all those bytes in order, followed by end-of-stream. If any chunk through the boundary is missing, the receiver MUST limit how long it waits for that gap. The timeout duration is local policy. If the wait expires with the gap still present, the receiver MUST terminate the stream and report an incomplete-stream error to the application. A duplicate close does not extend the wait. When all remaining chunks are present, application backpressure alone is no reason to report a missing chunk.
+On an Established stream, the receiver MUST admit every chunk through the boundary into the ordered buffer before completing a graceful close. The application can read all those bytes in order, followed by end-of-stream. If any chunk through the boundary is missing, the receiver MUST limit how long it waits for that gap. The timeout duration is local policy. If the wait expires with the gap still present, the receiver MUST abort the stream and report an incomplete-stream error to the application. It may report that error before the application drains unread buffered bytes. A duplicate close does not extend the wait. When all remaining chunks are present, application backpressure alone is no reason to report a missing chunk.
 
 ResetStream aborts the stream immediately without waiting for missing Data. Applications must be able to distinguish reset from graceful end-of-stream; the representation of that distinction is API-specific. Stream termination releases transport state and stops further retries. After graceful closure, bytes already admitted to the ordered buffer remain available to the application until read. Its identifier remains covered by the opening-history rules and cannot be reused.
 
-Once the sender has successfully submitted every assigned chunk to Mix at least once, it may close without waiting for Data acknowledgements. Local close stops retransmission and makes a best-effort notification. If the close arrives with a gap, the receiver follows the bounded wait above. If the close itself is lost, the receiver may never learn the boundary. Close closes the stream, rather than negotiating independent shutdown of one direction. It is not a reliable flush or half-close protocol in this version.
+If the application closes while a chunk’s first local submission is unresolved, the sender MUST wait for successful submission of that chunk or abort the stream and attempt to send `ResetStream`. Once the sender has successfully submitted every assigned chunk to Mix at least once, it may close without waiting for Data acknowledgements. Local close stops retransmission and makes a best-effort notification. If the close arrives with a gap, the receiver follows the bounded wait above. If the close itself is lost, the receiver may never learn the boundary. Close closes the stream, rather than negotiating independent shutdown of one direction. It is not a reliable flush or half-close protocol in this version.
 
 ![A close boundary can arrive ahead of the final bytes](images/mix-transport/a-close-overtakes-data.png)
 
@@ -671,6 +671,7 @@ Once the sender has successfully submitted every assigned chunk to Mix at least 
 | Data(5) | 4 | Unset | Open. Retain 5 while 4 is missing. |
 | CloseStream with finalSequence 5 | 4 | 5 | Wait for 4 and keep 5. |
 | Data(4), with room for both chunks | 6 | 5 | Graceful close after the ordered base passes 5. |
+| Alternatively, 4 is still missing when the timeout expires | 4 | 5 | Abort with an incomplete-stream error. |
 
 </details>
 
@@ -693,6 +694,7 @@ These defaults are local policy, not fields negotiated in the handshake. Supply 
 | Policy | Default |
 | --- | --- |
 | Connect / stream-open timeout | 30 seconds each |
+| Wait for a missing Data chunk after an accepted close on an Established stream | 2 minutes |
 | Data retry interval | 30 seconds; enabled |
 | Supply retry interval | 30 seconds |
 | Reverse inactivity before probing | 2 minutes |
@@ -704,7 +706,7 @@ These defaults are local policy, not fields negotiated in the handshake. Supply 
 | Active credentials / retained retired identifiers | 100,000 each |
 | Retained unacknowledged Data per sending direction | 64 chunks |
 
-Timer values need not match between endpoints, but they affect availability: a timeout shorter than the Mix delivery delay can fail an otherwise valid exchange. There is no wire-level promise that a response arrives within any of these defaults. Disabling Data retry locally reduces loss recovery without changing the receiver's acknowledgement obligations.
+Timer values need not match between endpoints, but they affect availability: a timeout shorter than the Mix delivery delay can fail an otherwise valid exchange. The close-gap timeout should allow for the expected difference between the arrival of a close and the arrival of earlier Data over Mix. There is no wire-level promise that a response arrives within any of these defaults. Disabling Data retry locally reduces loss recovery without changing the receiver's acknowledgement obligations.
 
 Per-stream Data state, receipt windows, recipient supply, and credential storage are bounded. The implementation has no global runtime session-count limit. Applications and deployments must account for aggregate resource use and admission limits when exposing protocols to anonymous peers.
 
@@ -721,6 +723,8 @@ Reply credentials MUST remain at the initiator. SURBs MUST NOT be used for multi
 ## 12. References
 
 - [LIBP2P-MIX](https://lip.logos.co/anoncomms/raw/mix.html) defines the packet service, SURB construction, reply processing and security model.
+- The proposed LIBP2P-MIX §5.6 defines the endpoint service used by MixTransport. [Logos LIPs #556](https://github.com/logos-co/logos-lips/pull/556)
+- A separate proposal defines MixTransport version 4 for rotating Mix keys. [MixTransport #9](https://github.com/logos-storage/libp2p-mix-transport/pull/9)
 - [libp2p Peer IDs and Keys](https://github.com/libp2p/specs/blob/master/peer-ids/peer-ids.md#peer-ids) defines the binary peer ID and its derivation from a public key. Sections 4.1 and 5.1 apply the transport size and pseudonym requirements.
 - [Protocol Buffers encoding](https://protobuf.dev/programming-guides/encoding/) defines field tags, wire types, scalar encodings and how a decoder handles multiple occurrences of a field.
 
@@ -745,6 +749,7 @@ The two acknowledgement bitmaps are both 32 bytes, but acknowledge different obj
 Interoperability does not imply eventual progress under every loss pattern. Implementations and applications must account for these properties of this version:
 
 - Connect and OpenStream have no reliable retry/duplicate-response exchange.
+- Data can overtake stream admission. Suppose the opener receives `Data(1)`, then `CloseStream(1)`, then `StreamAck` before the opening deadline. While Pending, it discards the Data and retains the close boundary. The opening succeeds on `StreamAck`. If no copy of chunk 1 subsequently arrives, the close-gap timeout expires and the application receives an incomplete-stream error.
 - Data retry can repair missing chunks while retained chunks and a usable delivery path remain. It cannot repair a lost final receive-window update after all chunks have been acknowledged and released.
 - Supply retry requires active reply credentials. Expiry of a missing entry has no sequence-abandonment mechanism to advance the receipt window past that gap.
 - Status probes repair uncertainty about reverse capacity and detect silence; they do not carry Data-window state.
