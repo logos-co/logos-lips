@@ -17,7 +17,7 @@
 | v9 | The reward per claim during the period becomes 100 LOGOS, and its cap moves so that a board's income stays about the same. A new section compares other values | 2026-11-06 |
 | v10 | Corrections from a review against the calculator: claim fees take 1% to 6% of a board's income, the storage price peaks at up to 32 times, the reward-10 row follows the paced renter rule, and smaller figures and wording | 2026-11-09 |
 | v11 | The reward puzzle is HashWX. The two caps follow its measured rate, and a claim transaction falls to 341 bytes and the reference transaction to 608 | 2026-11-10 |
-| v12 | Rebuilt from first principles: no bootstrapping period. A reward pays for the gas it carries, vests 90% for a year and takes at least `WORK_PER_LEPTA` hashes per LEPTON. The threshold keeps steering toward `TARGET_CLAIMS_PER_BLOCK`, with no payout limit | 2026-11-27 |
+| v12 | Rebuilt from first principles: no bootstrapping period. A reward pays for the gas it carries, vests 90% for a year and takes at least `WORK_PER_LEPTA` hashes per LEPTON. The threshold keeps steering toward `TARGET_CLAIMS_PER_BLOCK`, raised to 12, with no payout limit | 2026-11-27 |
 
 ## Reviewer Orientation
 
@@ -27,7 +27,7 @@ Read the PR's Motivation first.
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here** — [Proof of Work](#affected-specifications), [the work floor](#2-the-work-floor) | `WORK_PER_LEPTA` and its derivation; the cap scales with the reward, so every token costs the same work |
 | 2 | Critical | [Proof of Work](#affected-specifications), [the reward](#1-the-reward) | the liquid part pays the storage fee of a claim and of one reference transaction; `POW_VESTED_SHARE` rises from 50 to 90 |
-| 3 | High | [Proof of Work](#affected-specifications), [the claim limit](#3-the-claim-limit) | the threshold steers toward `TARGET_CLAIMS_PER_BLOCK` under the new cap; a block holds at most `MAX_CLAIMS_FACTOR` times the target |
+| 3 | High | [Proof of Work](#affected-specifications), [the claim limit](#3-the-claim-limit) | the threshold steers toward `TARGET_CLAIMS_PER_BLOCK`, raised from 10 to 12, under the new cap; a block holds at most `MAX_CLAIMS_FACTOR` times the target |
 | 4 | High | [Mantle](#affected-specifications), [the claim limit](#4-the-claim-limit-in-mantle) | `claims_before < MAX_CLAIMS_FACTOR * TARGET_CLAIMS_PER_BLOCK`; the check that the reward is positive goes |
 | 5 | Medium | [Genesis Block](#affected-specifications), [the pool seed](#5-the-pool-seed) | 200M LOGOS; `epoch_pow_reward` at the initial storage price |
 
@@ -48,9 +48,9 @@ The design has three rules. A reward pays for the gas it carries. A claim takes 
 
 ## The work price
 
-`WORK_PER_LEPTA` sets the least work per token. At 31 hashes per LEPTON, one core of the target machine earns at most 20.28 LOGOS in 30 days. At $0.05 that is $1.01, below the $1.02 a month that the cheapest rented server costs for the same work.
+`WORK_PER_LEPTA` sets the least work per token. At 37 hashes per LEPTON, one core of the target machine earns at most 16.99 LOGOS in 30 days. At $0.05 that is $0.85, below the $0.86 a month that the cheapest rented server costs for the same work.
 
-The server comes from an October 2026 survey of plans: a Contabo Cloud VPS 4, 4 shared vCPUs for $6.12 a month. Its terms forbid mining. No server has run HashWX, and a vCPU is counted as 1.5 Pi 5 cores. If a vCPU equals 2 Pi 5 cores, the same derivation gives 42 hashes per LEPTON.
+The server comes from an October 2026 survey of plans: a Contabo Cloud VPS 4, 4 shared vCPUs for $6.12 a month. Its terms forbid mining. No server has run HashWX, so a vCPU is counted as one core of the Intel Core Ultra 9 285HX with all 24 cores busy: 430,833 hashes a second, 1.78 Pi 5 cores. At the 285HX's one-worker rate of 558,000 hashes a second, the same derivation gives 48 hashes per LEPTON.
 
 What a core's worth of hash rate costs a month, at 30 cents a kWh:
 
@@ -58,10 +58,10 @@ What a core's worth of hash rate costs a month, at 30 cents a kWh:
 | --- | --- |
 | A spare core of a machine that already runs a node, at home or in a data centre | close to nothing |
 | An Apple M4 Pro someone owns, all cores mining at 65 W | about $0.60 |
-| The cheapest rented server | $1.02 |
+| The cheapest rented server | $0.86 |
 | An RTX 5060 Ti someone owns, at 180 W, on its author's figure | about $1.69 |
 | A Raspberry Pi 5 mining on one core, paying the whole board's power | about $0.66 |
-| The cheapest host that allows mining, a Contabo Cloud VDS S | $5.33 |
+| The cheapest host that allows mining, a Contabo Cloud VDS S | $4.50 |
 
 The cheapest server sets the line rather than the cheapest host that allows mining. With the higher line, renters who break their host's terms would join at five times their rent, until the claims target binds and their competition brings every core's income back to their cost. The line would then only decide who takes the pool. Neither line favours home or professional nodes: both earn the same per unit of hash rate.
 
@@ -79,7 +79,7 @@ The rates are HashWX v1.0.0 in compiled mode:
 
 The Pi 5 held 2,400 MHz for 10 minutes at 54 to 69 °C with an active cooler, and never throttled. Interpreted, one core does 51,088 hashes a second, 4.77 times fewer. On its own power rails the Pi draws about 1.8 W idle, 3.0 W with one core mining and 5.3 W with four.
 
-The author of HashWX reports 5.6M hashes a second on an RTX 5060 Ti at 180 W, about 23 Pi 5 cores. Nobody has reproduced it. Such a card earns about $23 a month at the work price at $0.05. Bought to mine, it does not pay: its power costs $13 to $39 a month at 10 to 30 cents a kWh, and a $400 card costs about $17 a month over two years. A card someone owns covers its power only below about 18 cents a kWh.
+The author of HashWX reports 5.6M hashes a second on an RTX 5060 Ti at 180 W, about 23 Pi 5 cores. Nobody has reproduced it. Such a card earns about $20 a month at the work price at $0.05. Bought to mine, it does not pay: its power costs $13 to $39 a month at 10 to 30 cents a kWh, and a $400 card costs about $17 a month over two years. A card someone owns covers its power only below about 15 cents a kWh.
 
 ## The reward and the vested share
 
@@ -89,28 +89,30 @@ The liquid part of a reward pays the storage fee of 949 bytes: a claim transacti
 
 | Vested share | Reward per claim at the initial price | One core finds a claim |
 | --- | --- | --- |
-| 90% | 7.6 LOGOS | about every 11 days |
-| 95% | 15.2 LOGOS | about every 22 days |
-| 98% | 38.0 LOGOS | about every 56 days |
-| 99% | 75.9 LOGOS | about every 112 days |
+| 90% | 7.6 LOGOS | about every 13 days |
+| 95% | 15.2 LOGOS | about every 27 days |
+| 98% | 38.0 LOGOS | about every 67 days |
+| 99% | 75.9 LOGOS | about every 134 days |
 
 The total paid per core is the same in every row. The liquid part is gas, so a share above 90% does little more for the price, and claims for one core become rare.
 
-A claim leaves one vested note, which cannot merge before it vests, and one liquid change note. The `TRANSFER` that pays its fee spends its first liquid note at once. A claim therefore adds up to three nullifiers in its life. One core makes about 32 vested notes a year. At the claims target, claims add at most 1.0 GB of nullifiers a year: 10 claims a block, 1,051,200 blocks and three nullifiers of 32 bytes each.
+A claim leaves one vested note, which cannot merge before it vests, and one liquid change note. The `TRANSFER` that pays its fee spends its first liquid note at once. A claim therefore adds up to three nullifiers in its life. One core makes about 27 vested notes a year. At the claims target, claims add at most 1.2 GB of nullifiers a year: 12 claims a block, 1,051,200 blocks and three nullifiers of 32 bytes each.
 
 The vesting lasts a year: `VESTING_EPOCHS` is 49 epochs of 7.5 days, and would be 146 of 60 hours. A vested note leads and can be staked like a liquid one, so vesting delays sales on the open market rather than every sale. A miner can mine to a buyer's key, or stake its vested notes under a buyer's keys in one transaction with a `TRANSFER` paying the seller.
 
 ## The claims target
 
-The threshold steers toward `TARGET_CLAIMS_PER_BLOCK` claims per block, 10 as on master. Below the target every core earns the work price. Above it the puzzle gets harder, and every core earns less. It binds once about 320,000 cores' worth of hash rate mines at the work price.
+The threshold steers toward `TARGET_CLAIMS_PER_BLOCK` claims per block, raised from master's 10 to 12. Below the target every core earns the work price. Above it the puzzle gets harder, and every core earns less. It binds once about 460,000 cores' worth of hash rate mines at the work price.
 
-The target is the only brake on how fast the pool pays out. At a reward of 7.592 LOGOS, 10 claims a block pay at most 79.8M LOGOS a year, so without fees the 200M last at least two and a half years. The brake is a number of claims, not a share of what the pool holds, so a long busy stretch can empty the pool. Claiming then resumes only as the fee share refills it.
+The target is the only brake on how fast the pool pays out. At a reward of 7.592 LOGOS, 12 claims a block pay at most 95.8M LOGOS a year, so without fees the 200M last at least 2.1 years. 12 is the largest target at which they last at least two years: at 13 they would last 1.9. The brake is a number of claims, not a share of what the pool holds, so a long busy stretch can empty the pool. Claiming then resumes only as the fee share refills it.
 
-The two hundredths of the supply set aside at genesis are a ceiling, not a schedule. Each thousand participants mining on one core take about 0.25M LOGOS a year. Fees beyond what claims take stay in the pool.
+The two hundredths of the supply set aside at genesis are a ceiling, not a schedule. Each thousand participants mining on one core take about 0.21M LOGOS a year. Fees beyond what claims take stay in the pool.
+
+Claim transactions count in the load that sets `difficulty_blend`. 12 claims a block are 9% of the reference 130 transactions a block, so with other traffic at the reference load a full target makes a Blend solution take about 4.5% more work.
 
 ## The claim limit
 
-A block holds at most `MAX_CLAIMS_FACTOR` = 10 times the target: 100 claims, 34,100 bytes of a 2 MiB block.
+A block holds at most `MAX_CLAIMS_FACTOR` = 10 times the target: 120 claims, 40,920 bytes of a 2 MiB block.
 
 ## What goes
 
@@ -121,7 +123,7 @@ A block holds at most `MAX_CLAIMS_FACTOR` = 10 times the target: 100 claims, 34,
 
 ## Era parameters
 
-Eras holds every proof of work value as an era parameter. This change adds `WORK_PER_LEPTA`, `MAX_CLAIMS_FACTOR`, `POW_CLAIM_TX_SIZE` and `POW_REFERENCE_TX_SIZE` to the record. `WORK_PER_LEPTA` replaces `minimum_difficulty`, the field of `REWARD_TARGET_CAP`. `rate_num` and `rate_den`, the distribution rate, leave the record. `target_claims_per_block` stays. `ema_smoothing_factor` and `ema_smoothing_precision` take 999 and 1000, and `REWARD_TARGET_FLOOR` follows from them. `POW_VESTED_SHARE` takes 90. `POW_REWARD_POOL_GENESIS` is set at genesis only.
+Eras holds every proof of work value as an era parameter. This change adds `WORK_PER_LEPTA`, `MAX_CLAIMS_FACTOR`, `POW_CLAIM_TX_SIZE` and `POW_REFERENCE_TX_SIZE` to the record. `WORK_PER_LEPTA` replaces `minimum_difficulty`, the field of `REWARD_TARGET_CAP`. `rate_num` and `rate_den`, the distribution rate, leave the record. `target_claims_per_block` stays and takes 12. `ema_smoothing_factor` and `ema_smoothing_precision` take 999 and 1000, and `REWARD_TARGET_FLOOR` follows from them. `POW_VESTED_SHARE` takes 90. `POW_REWARD_POOL_GENESIS` is set at genesis only.
 
 ## Compatibility
 
@@ -129,7 +131,6 @@ Bedrock has no genesis yet, so the change needs no migration.
 
 ## Open questions
 
-- **The server's rate.** No rented server has run HashWX. At 2 Pi 5 cores per vCPU, `WORK_PER_LEPTA` would be 42.
 - **Execution Gas.** The reward covers storage fees only. A claim's Execution Gas fee must stay below the storage fee of the reference transaction, or the liquid part cannot pay the claim's whole fee.
 - **The implementation.** The known implementations of HashWX are LGPL, and the node's licence policy allows no LGPL. A permissive reimplementation is planned. The values assume the compiled mode.
 - **The author's caution.** The author of HashWX advises against it for proof-of-work consensus. Here it prices rewards, not consensus.
@@ -137,7 +138,6 @@ Bedrock has no genesis yet, so the change needs no migration.
 - **Graphics cards.** The figure for the RTX 5060 Ti is the author's, not reproduced.
 - **The reference transaction.** 608 bytes is this RFC's choice of an ordinary transaction, to revise once real sizes are known.
 - **Epochs of 60 hours.** With them, `VESTING_EPOCHS` becomes 146.
-- **The first claims target.** `TARGET_CLAIMS_PER_BLOCK` keeps master's 10, and each era can change it. At 56 the target would bind only past about 1.8M cores' worth of hash rate, the pool could pay up to 447M LOGOS a year, and a block could hold 560 claims, 186 KiB. Claim transactions count in the load that sets `difficulty_blend`: 10 claims a block are 8% of the reference 130 transactions a block, and 56 are 43%. With other traffic at the reference load, a Blend solution then takes about 4% or 20% more work.
 
 # Details
 
@@ -174,7 +174,7 @@ The fixed cap goes. The cap now scales with the reward, so a claim takes at leas
 
 ```diff
 -REWARD_TARGET_CAP: uint64 = 2**64 // (HASHWX_MACHINE_RATE * 1_620)
-+WORK_PER_LEPTA: uint64 = 31                     # least expected HashWX hashes per LEPTON of a reward
++WORK_PER_LEPTA: uint64 = 37                     # least expected HashWX hashes per LEPTON of a reward
 -EMA_SMOOTHING_FACTOR: uint64 = 9
 -EMA_SMOOTHING_PRECISION: uint64 = 10
 -REWARD_TARGET_FLOOR: uint64 = 9
@@ -186,13 +186,15 @@ The fixed cap goes. The cap now scales with the reward, so a claim takes at leas
 +    return 2**64 // (epoch_pow_reward * WORK_PER_LEPTA)
 ```
 
-`WORK_PER_LEPTA` is the work of one core of the target machine in 30 days, a quarter of `HASHWX_MACHINE_RATE` times 2,592,000 seconds, divided by the LEPTA that the cheapest server's monthly cost for the same work buys at $0.05: 6.29·10¹¹ / 2.04·10¹⁰ = 30.8, rounded up to 31. At genesis `difficulty_reward` is the cap of the reward of epoch 0, and at each epoch boundary it is lowered to the cap of the new reward if it lies above it. `REWARD_TARGET_FLOOR` follows from the smoothing constants, 999 at 999/1000. A reward is at least 9,490 LEPTA, since the storage price is at least one LEPTON per byte, so the cap stays below $`2^{46}`$ and the retarget's product within 128 bits. The cap stays above `REWARD_TARGET_FLOOR` for every reward below about 595,000 LOGOS.
+`WORK_PER_LEPTA` is the work of one core of the target machine in 30 days, a quarter of `HASHWX_MACHINE_RATE` times 2,592,000 seconds, divided by the LEPTA that the cheapest server's monthly cost for the same work buys at $0.05: 6.29·10¹¹ / 1.722·10¹⁰ = 36.5, rounded up to 37. At genesis `difficulty_reward` is the cap of the reward of epoch 0, and at each epoch boundary it is lowered to the cap of the new reward if it lies above it. `REWARD_TARGET_FLOOR` follows from the smoothing constants, 999 at 999/1000. A reward is at least 9,490 LEPTA, since the storage price is at least one LEPTON per byte, so the cap stays below $`2^{46}`$ and the retarget's product within 128 bits. The cap stays above `REWARD_TARGET_FLOOR` for every reward below about 499,000 LOGOS.
 
 ## 3. The claim limit
 
-The retarget keeps steering toward `TARGET_CLAIMS_PER_BLOCK` under the cap of the work floor, and a block holds at most `MAX_CLAIMS_FACTOR` times the target.
+`TARGET_CLAIMS_PER_BLOCK` rises from 10 to 12. The retarget keeps steering toward it under the cap of the work floor, and a block holds at most `MAX_CLAIMS_FACTOR` times the target.
 
 ```diff
+-TARGET_CLAIMS_PER_BLOCK: uint64 = 10            # T
++TARGET_CLAIMS_PER_BLOCK: uint64 = 12            # T
 +MAX_CLAIMS_FACTOR: uint64 = 10                  # a block's claim limit, in multiples of T
 
  def compute_new_reward_difficulty(claims_in_block: uint64,
@@ -205,7 +207,7 @@ The retarget keeps steering toward `TARGET_CLAIMS_PER_BLOCK` under the cap of th
 +    return min(max(new_target, REWARD_TARGET_FLOOR), reward_target_cap(epoch_pow_reward))
 ```
 
-`P` and `F` stand for the two smoothing constants. Claims take at most `MAX_CLAIMS_FACTOR` · `TARGET_CLAIMS_PER_BLOCK` · `POW_CLAIM_TX_SIZE` = 34,100 bytes of a block. `MAX_CLAIMS_FACTOR` must be at least 2, or the retarget never lowers the target.
+`P` and `F` stand for the two smoothing constants. Claims take at most `MAX_CLAIMS_FACTOR` · `TARGET_CLAIMS_PER_BLOCK` · `POW_CLAIM_TX_SIZE` = 40,920 bytes of a block. `MAX_CLAIMS_FACTOR` must be at least 2, or the retarget never lowers the target.
 
 ## 4. The claim limit in Mantle
 
@@ -236,8 +238,9 @@ A claim fails in a block that already holds `MAX_CLAIMS_FACTOR * TARGET_CLAIMS_P
 - [ ] Set the smoothing constants to 999 and 1000, and derive `REWARD_TARGET_FLOOR` from them.
 - [ ] Refuse a claim in a block that already holds `MAX_CLAIMS_FACTOR * TARGET_CLAIMS_PER_BLOCK` claims, and drop the check that the reward is positive.
 - [ ] Set `POW_VESTED_SHARE` to 90.
+- [ ] Set `TARGET_CLAIMS_PER_BLOCK` to 12.
 - [ ] Seed the pow reward pool with two hundredths of the supply cap.
-- [ ] Measure HashWX on a rented server, and revise `WORK_PER_LEPTA` if a vCPU is not 1.5 Pi 5 cores.
+- [ ] Measure HashWX on a rented server, and revise `WORK_PER_LEPTA` if a vCPU is not about 1.78 Pi 5 cores.
 - [ ] Add the new constants to the era parameter record, and remove `minimum_difficulty`, `rate_num` and `rate_den`, once Eras and this change are on one branch.
 - [ ] Add tests: the reward at the initial and at a high storage price, the cap at both and at an epoch boundary, a claim refused by the claim limit, a claim against a pool below the reward, the retarget at the cap and above the target, and a block without claims at the floor.
 - [ ] Verify the implementation matches this specification.
