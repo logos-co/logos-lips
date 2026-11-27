@@ -532,7 +532,7 @@ ledger: Ledger
               mmr_append(peaks, note_commitment)
       ```
 
-  6. Ensure the next configuration is one [`ROLLUP_CREATE`](#rollup_create) accepts.
+  6. Ensure the next configuration is valid.
       ```python
       config = prove.next_config
       if config is not None:
