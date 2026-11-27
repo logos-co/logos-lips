@@ -33,7 +33,7 @@
 | 1.2.0 | Added the `uncle_headers` field — the signed headers of the referenced uncles — to the [Proposal](#block-proposal) and to the newly defined [Block](#block), and replaced `block_root` with `body_root` in the [Header](#header), which commits to them, signatures included, as well as to the transactions. Due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-08-06 |
 | 1.2.1 | Precise the state each transaction of a block is validated against: the transactions are validated and executed one after the other in the order they appear, each against the state the preceding ones left, which makes block validity order-dependent. Precise that a block whose validation fails at any point is not executed at all. | 2026-08-24 |
 | 1.3.0 | Compressed Block Proposal: 16-byte transaction reference prefixes and a variable-length `references` list, reducing the proposal from 34,574 bytes to at most 18,192. Added the [Canonical Encoding](#canonical-encoding) section. | 2026-08-18 |
-| 1.4.0 | Replaced `uncle_headers` with `uncles`, the block IDs and slots of the referenced uncles, and removed Uncle Validation from [Block Proposal Validation](#block-proposal-validation). Due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-11-24 |
+| 1.4.0 | Replaced `uncle_headers` with `uncles`, the block IDs and slots of the referenced uncles, and removed Uncle Validation from [Block Proposal Validation](#block-proposal-validation). Due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md) (uncle references). | 2026-11-27 |
 
 # Introduction
 
@@ -391,7 +391,7 @@ Steps 1 and 2 read the epoch and the state of the [Service Declaration Protocol]
 
 The three steps stand or fall together, on a block that has validated in full: a block that fails validation at any point is not executed at all. The voucher of step 1 is appended to the set the following epoch starts with, so it lands at the epoch boundary rather than with the other two.
 
-A referenced uncle is not part of the chain; therefore, its transactions have no effect on the ledger state.
+The transactions of a referenced uncle have no effect on the ledger state.
 
 # Annex
 

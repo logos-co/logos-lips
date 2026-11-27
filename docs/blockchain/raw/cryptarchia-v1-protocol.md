@@ -35,7 +35,7 @@
 | 1.2.3 | Update the test vectors to reflect the parent added in the `CHANNEL_CONFIG` payload | 2026-08-27 |
 | 1.2.4 | Reordered the `ProofOfLeadership` fields to the wire order defined by the [Canonical Encoding](bedrock-v1.1-block-construction.md#canonical-encoding), and noted that the [Block ID](#block-id) preimage absorbs the same fields in a different order by design. The `Header` layout and the `block_id` preimage are otherwise unchanged. | 2026-08-28 |
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
-| 1.3.0 | Allowed a block to reference any fork block as an [uncle](#uncle-references), by its block ID and slot, raised $`W`$ to 240, and made the fork choice consider only chains whose recent blocks reference valid uncles. | 2026-11-25 |
+| 1.3.0 | Allowed a block to reference any fork block as an [uncle](#uncle-references), by its block ID and slot, raised $`W`$ to 240, and made the fork choice consider only chains whose recent blocks reference valid uncles. | 2026-11-27 |
 
 # Introduction
 
@@ -103,7 +103,7 @@ Our design starts from the solid foundation provided by Ouroboros Crypsinous: Pr
 | *none* | slot length | The duration of a single slot. | 1 second |
 | MAX_BLOCK_SIZE | max block size | The maximum size of the block body (not including the header) | 2 MiB (2,097,152 bytes) |
 | MAX_BLOCK_TXS | max block transactions | The maximum number of transactions in a block | 1024 |
-| $`W`$ | uncle reference window | The width of the [uncle](#uncle-references) reference window, in expected block intervals of $`f^{-1}`$ slots each. $`W\cdot f^{-1}`$ must be at most $`4\lfloor\frac{k}{f}\rfloor`$, the length of the Lottery Constants Finalization phase ([Epoch Schedule](#epoch-schedule)). Otherwise an uncle can be won under an epoch state other than the one of the chain that references it. | 240 |
+| $`W`$ | uncle reference window | The width of the [uncle](#uncle-references) reference window, in expected block intervals of $`f^{-1}`$ slots each. $`W\cdot f^{-1}`$ must be at most $`4\lfloor\frac{k}{f}\rfloor`$, the length of the Lottery Constants Finalization phase ([Epoch Schedule](#epoch-schedule)). Then every uncle is won under the epoch state of the chain that references it. $`W\cdot f^{-1}`$ must exceed `T_M` of [Uncle Selection](#uncle-selection), or that selection finds no candidate. | 240 |
 | MAX_UNCLES | max uncle references | The maximum number of [uncles](#uncle-references) a block may reference. | 4 |
 
 ## Notation
@@ -314,7 +314,7 @@ The field order above is the wire order defined in [Canonical Encoding](bedrock-
 
 A lottery win whose block is lost to a fork leaves no trace on the chain, so the [Total Stake Inference](#total-stake-inference) cannot count its slot. A block references such blocks as uncles, and the chain then holds their slots.
 
-An **uncle** of a block $`A`$ is a block that is not on the chain of $`A`$. $`A`$ references at most `MAX_UNCLES` uncles. Each entry of its `uncles` field holds the block ID and the slot of one uncle ([Block](bedrock-v1.1-block-construction.md#block)). Entries need not be unique.
+Each entry of the `uncles` field of a block $`A`$ names an **uncle** of $`A`$ by its block ID and slot ([Block](bedrock-v1.1-block-construction.md#block)). Entries need not be unique.
 
 Let $`X`$ be the block that an entry $`u`$ of $`A`$ names, and let its **fork point** be $`G = \textbf{common\_ancestor}(X, A)`$. The entry is **valid**, written $`\textbf{valid\_uncle}(u, A)`$, if and only if all of the following hold:
 
@@ -330,9 +330,7 @@ A referenced uncle earns no reward.
 The chain of a block $`b`$ is **adoptable**, written $`\textbf{adoptable}(b)`$, if and only if both of the following hold:
 
 - The chain contains $`B_\text{imm}`$.
-- Every entry is valid in each block of the chain that comes after $`\textbf{common\_ancestor}(b, c_{loc})`$ and has no descendant in $`T`$ that is $`k`$ or more blocks higher.
-
-The [Fork Choice Rule](#fork-choice-rule) considers adoptable chains only.
+- Every entry is valid in each block of the chain after $`\textbf{common\_ancestor}(b, c_{loc})`$, except a block that has a descendant in $`T`$ $`k`$ or more blocks higher.
 
 A node downloads missing uncles as [Downloading Uncles](cryptarchia-v1-bootstr-sync.md#downloading-uncles) defines.
 
@@ -349,14 +347,11 @@ def uncle_candidates(B) -> Set[Block]:
     return {X for X in T if
               valid_uncle(UncleReference(block_id(X), X.slot), B)
               and X.slot not in occupied
-              # The other nodes hold X by then, so the choice does not reveal when the proposer
-              # received it.
               and X.slot + T_M <= B.slot
-              # The nodes that validate B hold the branch.
               and all(broadcast(Y) or block_id(Y) in referenced for Y in branch(X, B))}
 ```
 
-`branch(X, B)` is the blocks after the fork point of $`X`$ up to $`X`$, and `fork_point(X, B)` is its fork point. `T_M` is the message traversal time ([Global Parameters](blend-protocol.md#global-parameters)) in slots. `broadcast(Y)` holds if the node received $`Y`$ on the broadcasting channel ([Broadcasting](blend-protocol.md#broadcasting-2)) or sent $`Y`$ there.
+`branch(X, B)` is the blocks after the fork point of $`X`$ up to $`X`$, and `fork_point(X, B)` is its fork point. `T_M` is the message traversal time ([Global Parameters](blend-protocol.md#global-parameters)) in slots. `broadcast(Y)` holds if the node received the [proposal](bedrock-v1.1-block-construction.md#block-proposal) of $`Y`$ on the broadcasting channel ([Broadcasting](blend-protocol.md#broadcasting-2)) or sent it there.
 
 The proposer then takes at most `MAX_UNCLES` of these candidates, oldest fork point first, and sets `uncles` to the result:
 
@@ -419,7 +414,7 @@ We say $`\textbf{valid\_header}(B)`$ returns True if all of the following constr
   Ensure we have already accepted the block’s parent into the block tree.
 
 8. $`\textbf{is\_ancestor}(B_\text{imm}, B) \lor sl_{\textbf{common\_ancestor}(B, B_\text{imm})} + W\cdot f^{-1} \gt sl_{B_\text{imm}}`$
-  Ensure the block descends from the latest immutable block, or can be an uncle of a block that does.
+  Ensure the block descends from the latest immutable block, or that its fork point with that block lies less than $`W\cdot f^{-1}`$ slots before it.
 
 9. Verify the leader’s right to propose and ensure it is the one proposing this block:
   Given leadership proof $`\pi_\text{LEAD} = (\pi_\text{PoL},P_\text{LEAD},\sigma)`$, where
@@ -514,7 +509,7 @@ $`\text{define } \textbf{prune\_blocks}(B_\text{new}, B_\text{old}, T)\to T':`$
 
   $`\textbf{return } T'`$
 
-A node keeps $`T`$ across a restart. It keeps the ledger state after each block that a block admitted by step 8 of [Block Header Validation](#block-header-validation) can extend.
+A node keeps $`T`$ across a restart, and for each of its blocks whether `broadcast` holds ([Uncle Selection](#uncle-selection)). It keeps the ledger state after each block that a block admitted by step 8 of [Block Header Validation](#block-header-validation) can extend.
 
 ### Versioning and Protocol Upgrades
 
