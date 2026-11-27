@@ -2221,6 +2221,13 @@ that holds keys. A and B stand for other modules and are local to one item.
   l.1043); once a record is deleted, a replayed or a revoked ticket cannot be told from one that was never
   issued, so whether l.3147 names one kind of failure, as a like list does in TRANSPORT l.940, or six
   causes to be told apart, and whether the cause of a deleted record may be kept for that, is not said.
+- RUNTIME l.3144 and TRANSPORT l.1237-1238: among remote enforcement outcomes Runtime must distinguish
+  "transport authentication or Runtime enrollment failure" (RUNTIME l.3144), and RUNTIME l.2454 writes
+  "authentication, enrollment, ticket validation, or other failures" as separate words, while an
+  enrollment mismatch "MUST fail authentication and close the connection" (TRANSPORT l.1238); so whether
+  l.3144 names one kind of failure or two to be told apart is not said. Nor is it said whether the list
+  covers only the Runtime that is called, or also a calling Runtime's failure to authenticate its target
+  ("The caller MUST authenticate the target Runtime identity", TRANSPORT l.1226).
 - RUNTIME l.1423-1424 and CA l.249: a `single` request "does not require a separate `discover` decision"
   (RUNTIME l.1423), yet "Runtime MUST NOT select for a `single` request a provider that active visibility
   policy hides from the consumer" (RUNTIME l.1424); under an externalized policy the one decision that
