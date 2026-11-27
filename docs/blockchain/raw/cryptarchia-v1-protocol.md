@@ -159,7 +159,7 @@ The Stake Distribution Snapshot phase must meet two conditions. Each must hold e
 - The chain on which the phase becomes final holds a block of an honest leader in the phase. Otherwise a coalition that predicts the epoch nonce can grind its notes.
 - The snapshot is final at every honest node, by [Commit](#commit), before the slot of the last such block. Otherwise a coalition can keep two branches with different snapshots and choose between their epoch nonces.
 
-The Lottery Constants Finalization phase must last at least $`2K - 1`$ slots, or the argument that the [Bootstrap](fork-choice.md) rule keeps a joining node on the honest chain no longer holds (see [What 60 hours hold](https://github.com/logos-co/logos-lips/blob/master/docs/blockchain/raw/rfc/RFC-TBD-cryptarchia-shorten-the-epoch-to-60-hours.md#what-60-hours-hold) for the source of the argument).
+The Lottery Constants Finalization phase must last at least $`2K - 1`$ slots, or the argument that the [Bootstrap](fork-choice.md) rule keeps a joining node on the honest chain no longer holds (see [What 60 hours hold](https://github.com/logos-co/logos-lips/blob/master/docs/blockchain/raw/rfc/RFC-559-cryptarchia-shorten-the-epoch-to-60-hours.md#what-60-hours-hold) for the source of the argument).
 
 The **epoch length** is the sum of the individual phases: $`4K + 2K = 6K`$ slots. With $`K = 36000`$, an epoch lasts $`216000`$ slots.
 

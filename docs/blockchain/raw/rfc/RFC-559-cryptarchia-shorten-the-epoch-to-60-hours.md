@@ -1,6 +1,6 @@
 # [RFC] Cryptarchia: Shorten the epoch to 60 hours
 
-**Motivation and proposal:** [PR #TBD](https://github.com/logos-co/logos-lips/pull/TBD)
+**Motivation and proposal:** [PR #559](https://github.com/logos-co/logos-lips/pull/559)
 
 ## Change log
 
