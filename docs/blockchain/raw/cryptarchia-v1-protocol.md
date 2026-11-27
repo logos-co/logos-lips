@@ -37,7 +37,7 @@
 | 1.2.5 | Required the slot of a referenced [uncle](#uncle-references) to exceed the slot of its parent. | 2026-10-06 |
 | 1.3.0 | Counted finality in slots: [Commit](#commit) makes a block immutable once it lies the finality window `K` behind the tip and the finality floor `φ` of occupied slots follows it. `K` replaces `s` and `⌊k/f⌋`. | 2026-11-17 |
 | 1.4.0 | Shortened the finality window `K` to 36,000 slots, sized for one disturbance at a time, and recomputed the finality floor `φ`. The [Epoch Schedule](#epoch-schedule) reads `⌊k/f⌋`, so its length does not change. | 2026-11-17 |
-| 1.5.0 | The [Epoch Schedule](#epoch-schedule) has two phases, the snapshot of `4K` slots and the lottery constants finalization of `2K` slots, without the Buffer phase: an epoch of 216,000 slots. The snapshot phase must hold a block of an honest leader, and the last phase must last at least `2K − 1` slots. | 2026-11-27 |
+| 1.5.0 | The [Epoch Schedule](#epoch-schedule) has two phases, the snapshot of `4K` slots and the lottery constants finalization of `2K` slots, without the Buffer phase: an epoch of 216,000 slots. The snapshot phase must hold a block of an honest leader and have the snapshot final before it, and the last phase must last at least `2K − 1` slots. | 2026-11-27 |
 
 # Introduction
 
@@ -154,7 +154,10 @@ An epoch is divided into 2 phases, as outlined below.
 | Stake Distribution Snapshot | $`4K`$ slots | A snapshot of note commitments are taken at the beginning of the epoch. We wait for this value to finalize before entering the next phase. |
 | Lottery Constants Finalization | $`2K`$ slots | On the $`4K^{th}`$ slot into the epoch, the epoch nonce $`\eta`$ and the inferred total stake $`D`$ can be computed. We wait another $`2K`$ slots for these values to finalize. |
 
-The Stake Distribution Snapshot phase must hold a block of an honest leader on the chain, except with the chance $`\varepsilon`$ of [Finality Floor](#finality-floor), or a coalition that predicts the epoch nonce can grind its notes.
+The Stake Distribution Snapshot phase must meet two conditions. Each must hold except with the chance $`\varepsilon`$ of [Finality Floor](#finality-floor), under the coalition and the disturbances of the row of $`K`$ in [Constants](#constants):
+
+- The chain from which the epoch nonce is read holds a block of an honest leader in the phase. Otherwise a coalition that predicts the epoch nonce can grind its notes.
+- The snapshot is final at every honest node, by [Commit](#commit), before the slot of the last such block. Otherwise a coalition can keep two branches with different snapshots and choose between their epoch nonces.
 
 The Lottery Constants Finalization phase must last at least $`2K - 1`$ slots, or the argument that the [Bootstrap](fork-choice.md) rule keeps a joining node on the honest chain no longer holds (see [What 60 hours hold](https://github.com/logos-co/logos-lips/blob/master/docs/blockchain/raw/rfc/RFC-TBD-cryptarchia-shorten-the-epoch-to-60-hours.md#what-60-hours-hold) for the argument).
 

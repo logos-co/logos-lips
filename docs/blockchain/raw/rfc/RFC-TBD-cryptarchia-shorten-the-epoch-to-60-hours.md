@@ -51,7 +51,7 @@ The Buffer phase was there so that an honest leader contributes to the epoch non
 
 The snapshot phase holds an honest block with chance `1 − 1e-9` in every state of the `K` row once it lasts 17,709 slots. At least 971 slots are necessary.
 
-The Epoch Schedule states the first condition in place of the Buffer row: the snapshot phase must hold a block of an honest leader on the chain, except with chance `ε`. The specification does not state the second condition. Its phase table asks only that the snapshot be final before the next phase starts.
+The Epoch Schedule states both conditions in place of the Buffer row. Each must hold except with chance `ε`, under the coalition and the disturbances of the `K` row. The lengths above follow from them.
 
 What the Buffer phase gave instead was length for the stake inference's window. The window ends at the cut-off and lies in one epoch, so without a Buffer phase it is at most the snapshot phase. This RFC gives it the whole phase.
 
@@ -197,7 +197,9 @@ In the [Epoch Schedule](../cryptarchia-v1-protocol.md#epoch-schedule), the Buffe
 - The epoch length is `4K + 2K = 6K` slots. With `K = 36000`, an epoch lasts 216,000 slots.
 - In [Epoch State Pseudocode](../cryptarchia-v1-protocol.md#epoch-state-pseudocode), the slot at which the epoch nonce is read and the end of the inference's window read `4K`.
 - The sentence "Each phase that waits for a value to finalize must last at least the finality window `K` …" is removed from the Epoch Schedule.
-- The Epoch Schedule adds: the Stake Distribution Snapshot phase must hold a block of an honest leader on the chain, except with the chance `ε` of [Finality Floor](../cryptarchia-v1-protocol.md#finality-floor), or a coalition that predicts the epoch nonce can grind its notes.
+- The Epoch Schedule adds two conditions on the Stake Distribution Snapshot phase. Each must hold except with the chance `ε` of [Finality Floor](../cryptarchia-v1-protocol.md#finality-floor), under the coalition and the disturbances of the `K` row:
+  - the chain from which the epoch nonce is read holds a block of an honest leader in the phase, or a coalition that predicts the epoch nonce can grind its notes;
+  - the snapshot is final at every honest node, by Commit, before the slot of the last such block, or a coalition can keep two branches with different snapshots and choose between their epoch nonces.
 - The Epoch Schedule adds: the Lottery Constants Finalization phase must last at least `2K − 1` slots, or the argument that the Bootstrap rule keeps a joining node on the honest chain no longer holds.
 - The `K` row of [Constants](../cryptarchia-v1-protocol.md#constants) says that `K` also sets the Epoch Schedule. It no longer says that `K` must not exceed a phase of the Epoch Schedule that waits for a value to finalize.
 
