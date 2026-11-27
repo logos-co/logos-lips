@@ -27,7 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-11-09 |
 | 1.1.0 | A transaction is decoded under the era its fork digest names, admitted only when the era in force accepts that digest, applied under the era of the block's slot, and retired when the era in force stops accepting its digest or a block of the block's era cannot carry it ([Bedrock Eras](bedrock-eras.md)). | 2026-11-10 |
 | 1.2.0 | `TRANSACTION_TTL` is an era parameter in place of a node setting, and expiry cannot be disabled; `RETIREMENT_GRACE` is an era parameter too, and must outlast the propagation of a selected transaction. | 2026-11-10 |
-| 1.3.0 | Transactions expire at a slot that their sender draws at random: a node refuses one whose expiry slot is too near or too far ahead, and retires and releases transactions by that slot. | 2026-11-24 |
+| 1.3.0 | Transactions expire at a slot that their sender draws at random: a node refuses one whose expiry slot is too near or too far ahead, and retires and releases transactions by that slot. | 2026-11-27 |
 
 # Introduction
 
