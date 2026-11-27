@@ -37,6 +37,7 @@
 | 1.10.0 | Introduced a shared maximum operation data payload size for channel inscriptions and channel deposit metadata, retaining their `UINT32` length prefixes; corrected SDP activity metadata to use its tagged variant encoding without a generic length prefix | 2026-10-06 |
 | 1.11.0 | [RFC] `SDPWithdraw` drops the redundant `ServiceNoteId` | 2026-10-27 |
 | 1.12.0 | Added the `ForkDigest` as the first field of `MantleTx`, and derived `MAX_OPERATION_DATA_SIZE` from the `MAX_BLOCK_SIZE` of the era that validates the transaction ([Bedrock Eras](bedrock-eras.md)). | 2026-11-09 |
+| 1.13.0 | Added the `ExpirySlot` as the second field of `MantleTx`. | 2026-11-24 |
 
 # Introduction
 
@@ -61,8 +62,9 @@ SignedMantleTx = MantleTx OpsProofs
 ## Mantle Tx
 
 ```schema
-MantleTx   = ForkDigest OpCount *Op
+MantleTx   = ForkDigest ExpirySlot OpCount *Op
 ForkDigest = Hash32
+ExpirySlot = UINT64
 OpCount    = Byte
 ```
 

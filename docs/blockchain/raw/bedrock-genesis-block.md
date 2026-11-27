@@ -34,6 +34,7 @@
 | 1.2.0 | Seed the pow reward pool at genesis from the initial token distribution | 2026-09-08 |
 | 1.2.1 | Align the initial service declarations with the Service Declaration Protocol: the `BN` service type, the full `DeclarationMessage` shape, and multiaddr locators | 2026-10-01 |
 | 1.3.0 | Removed the `bedrock_version` header field and moved `slot` first, and set the `fork_digest` of the Genesis Mantle Transaction to zero, parsing it under era 0 ([Bedrock Eras](bedrock-eras.md)); the inscription, renamed Genesis Parameters with field names that drop the genesis prefix, also carries the pow reward pool seed and the consensus-excluded keys; the Genesis block is counted neither as an occupied slot nor as a block of epoch 0. | 2026-11-05 |
+| 1.4.0 | Set the `expiry_slot` of the Genesis Mantle Transaction to 0, the Genesis slot. | 2026-11-24 |
 
 # Introduction
 
@@ -196,6 +197,7 @@ The initial stake distribution, service declarations and the inscription of the 
 ```python
 GENESIS_MANTLE_TX = MantleTx(
     fork_digest=bytes(32),
+    expiry_slot=0,
     ops=[STAKE_DISTRIBUTION, GENESIS_INSCRIPTION] + SERVICE_DECLARATIONS,
 )
 ```
@@ -282,6 +284,7 @@ SERVICE_DECLARATIONS = BLEND_DECLARATIONS
 # build the genesis Mantle Transaction
 GENESIS_MANTLE_TX = MantleTx(
     fork_digest=bytes(32),
+    expiry_slot=0,
     ops=[STAKE_DISTRIBUTION, GENESIS_INSCRIPTION] + SERVICE_DECLARATIONS,
 )
 

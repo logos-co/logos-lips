@@ -26,6 +26,7 @@
 | 1.1.1 | [\[RFC\] Simplify Mantle Transaction and Refactor Ledger Operations](mantle-transaction-encoding/appendices/rfc-simplify-mantle-transaction-and-refactor-ledger-operations.md) | 2026-05-06 |
 | 1.2.0 | Align the atomic transfer example with the `CHANNEL_DEPOSIT` execution consuming its inputs and re-creating them in the destination channel. | 2026-07-27 |
 | 1.2.1 | Align the atomic transfer example with the `fork_digest` field of the Mantle Transaction ([Bedrock Eras](bedrock-eras.md)). | 2026-09-30 |
+| 1.2.2 | Align the atomic transfer example with the `expiry_slot` field of the Mantle Transaction. | 2026-11-24 |
 
 # Introduction
 
@@ -203,6 +204,7 @@ transfer = Transfer(
 # withdrawal must precede the deposit for the note to be spendable
 tx = MantleTx(
     fork_digest=<fork_digest>,
+    expiry_slot=<expiry_slot>,
     ops=[Op(opcode=CHANNEL_INSCRIBE, payload=encode(sending)),
          Op(opcode=CHANNEL_INSCRIBE, payload=encode(receiving)),
          Op(opcode=CHANNEL_WITHDRAW, payload=encode(withdrawal)),
@@ -240,7 +242,7 @@ Synchronous messaging requires coordination between sequencers from different ch
 
 > Coordination Failure Handling: If coordination fails (e.g., a sequencer goes offline or refuses to sign), the atomic operation cannot proceed. The sequencers must either:
 >
-> - Wait for the unavailable sequencer to return and complete the protocol.
+> - Wait for the unavailable sequencer to return and complete the protocol, before the `expiry_slot` of the transaction.
 > - Abort the operation and potentially fall back to asynchronous messaging.
 > - Initiate a new coordination round with modified parameters.
 > This coordination requirement is the main trade-off of synchronous messaging: it provides stronger guarantees but requires more complex orchestration and is susceptible to availability issues of the involved sequencers.

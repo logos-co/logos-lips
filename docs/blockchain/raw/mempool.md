@@ -27,6 +27,7 @@
 | 1.0.0 | Initial revision. | 2026-11-09 |
 | 1.1.0 | A transaction is decoded under the era its fork digest names, admitted only when the era in force accepts that digest, applied under the era of the block's slot, and retired when the era in force stops accepting its digest or a block of the block's era cannot carry it ([Bedrock Eras](bedrock-eras.md)). | 2026-11-10 |
 | 1.2.0 | `TRANSACTION_TTL` is an era parameter in place of a node setting, and expiry cannot be disabled; `RETIREMENT_GRACE` is an era parameter too, and must outlast the propagation of a selected transaction. | 2026-11-10 |
+| 1.3.0 | Transactions expire at a slot that their sender draws at random: a node refuses one whose expiry slot is too near or too far ahead, and retires and releases transactions by that slot. | 2026-11-27 |
 
 # Introduction
 
@@ -34,15 +35,19 @@ A leader can include only transactions it holds, and a validator can rebuild a b
 
 The mempool removes this obstacle. The mempool is a node's store of Mantle Transactions that have been submitted but are not yet final. Nodes pass these transactions to each other, offer them to block building, and resolve the references of block proposals against them.
 
-This document specifies how a node admits and disseminates transactions, what it offers to block building, how it resolves references, when it stops offering a transaction to block building and when it discards it, what it persists, and what it exposes to local clients. [Mantle](bedrock-v1.1-mantle-specification.md) specifies when a transaction applies, [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies what a validator does with a resolved or unresolved reference, and [P2P Network](../draft/p2p-network.md) specifies the topic transactions travel on.
+This document specifies how a sender sets the slot at which its transaction expires, how a node admits and disseminates transactions, what it offers to block building, how it resolves references, when it stops offering a transaction to block building and when it discards it, what it persists, and what it exposes to local clients. [Mantle](bedrock-v1.1-mantle-specification.md) specifies when a transaction applies, [Block Construction, Validation and Execution](bedrock-v1.1-block-construction.md) specifies what a validator does with a resolved or unresolved reference, and [P2P Network](../draft/p2p-network.md) specifies the topic transactions travel on.
 
 # Overview
 
 Each node keeps its own mempool. Nodes admit and retire independently, so their pending sets differ.
 
-A transaction reaches a node from a local client, out of the Blend network, by gossip from another node, or back from a block that a fork switch removed from the chain. The node checks only that the transaction is well formed, that the era in force accepts its fork digest, and that a reward claim it carries has not expired. It does not consult the ledger, so its mempool can hold transactions that will never apply.
+Every transaction names its expiry slot, the last slot whose block may include it. Its sender draws the slot at random.
 
-Take a miner whose reward claim leaves the Blend network at node A in slot 12. The claim names the block of slot 10, and node B leads slot 16. In this example a transaction matures two slots after a node admits it.
+A transaction reaches a node from a local client, out of the Blend network, by gossip from another node, or back from a block that a fork switch removed from the chain. The node checks only that the transaction is well formed, that the era in force accepts its fork digest, that its expiry slot is neither too near nor too far ahead, and that a reward claim it carries has not expired. It does not consult the ledger, so its mempool can hold transactions that will never apply.
+
+An expiry slot is too far if it comes more than an hour ahead, which is the time to live. It is too near if it has passed, if it comes less than 191 seconds ahead when the sender submits the transaction, or less than twenty seconds ahead when the transaction leaves the Blend network.
+
+Take a miner whose reward claim leaves the Blend network at node A in slot 12. The claim names the block of slot 10, its transaction expires at slot 40, and node B leads slot 16. In this example a transaction matures two slots after a node admits it.
 
 ```mermaid
 ---
@@ -67,9 +72,9 @@ The claim reaches node B before B leads, so node A can rebuild B's proposal from
 
 A leader's block building receives the transactions that have been in its mempool long enough to have reached every node, oldest first, and keeps those that apply on its chain. A transaction that applies but does not fit in the block stays for the next leader.
 
-A transaction leaves block building when a block on the node's chain carries it, when a leader's block building cannot apply it, when it grows older than its time to live, or, for a reward claim, a set time after no block may include it any more. The node keeps it for a while after that, and can still rebuild a proposal that references it.
+A transaction leaves block building when a block on the node's chain carries it, when a leader's block building cannot apply it, when it expires, or, for a reward claim, a set time after no block may include it any more. The node keeps it for a while after that, and can still rebuild a proposal that references it.
 
-The node drops the transaction once the block that carries it is deep enough in the chain to be final, once that set time has passed for a reward claim, or otherwise ten minutes after it grows older than its time to live.
+The node drops the transaction once the block that carries it is deep enough in the chain to be final, once that set time has passed for a reward claim, or otherwise ten minutes after it expires.
 
 A block may include the example's claim up to slot 20, and a node keeps the claim for twenty slots after that.
 
@@ -98,9 +103,15 @@ gantt
 
 Node B's block of slot 16 carries the claim, so node A stops offering it to block building once that block enters its chain. With a window of ten slots and a grace of twenty, node A drops the claim once it holds a block of slot 41 or later, whether or not a block carried it.
 
-A transaction that a fork switch puts back keeps the time it first arrived, and comes back only if it is younger than its time to live. A node keeps its mempool across a restart.
+A transaction that a fork switch puts back keeps the time it first arrived, and comes back only if it has not expired. A node keeps its mempool across a restart.
 
 # Protocol
+
+## Transaction Lifetime
+
+A sender must be able to bound the time during which a block may include its transaction, without showing when it made the transaction. Every transaction therefore names its **expiry slot**, the last slot whose block may include it ([Validation](bedrock-v1.1-mantle-specification.md#validation)). Its sender draws that slot at random.
+
+The sender chooses the longest time for which it lets a block include the transaction, at most `TRANSACTION_TTL`, the time to live. The expiry slot is **in range** at a node while it is not before the current slot and comes at most `TRANSACTION_TTL` ahead. It must also come at least `MIN_LIFETIME` ahead when the sender submits the transaction, and at least `TRANSACTION_MATURITY` ahead when the transaction leaves the Blend network. `TRANSACTION_MATURITY` is the transaction maturity that [Block Proposal Reconstruction](bedrock-v1.1-block-construction.md#block-proposal-reconstruction) assumes. `MIN_LIFETIME` is the longest time a submitted transaction takes to reach every node, plus `TRANSACTION_MATURITY`, plus the time in which five blocks are made on average. The sender draws the expiry slot uniformly between `MIN_LIFETIME` and its longest time after submission. [Expiry Slot](#expiry-slot) specifies the draw and the range.
 
 ## Admission Pipeline
 
@@ -113,6 +124,7 @@ A transaction arrives by local submission, from a client, the node itself or the
 - the era in force accepts its fork digest ([Era of Chain Data](bedrock-eras.md#era-of-chain-data));
 - it passes `preverify`, a set of rules of Mantle's [Validation](bedrock-v1.1-mantle-specification.md#validation) that read no ledger state;
 - it is not already pending, and the node does not hold it for a block of its canonical chain after the [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block);
+- its expiry slot is in range;
 - it carries no [Proof of Work](proof-of-work.md) reward **claim** whose **deadline** has passed.
 
 A local submission is decoded and passes `preverify` before its size is checked.
@@ -123,13 +135,13 @@ A local submission is decoded and passes `preverify` before its size is checked.
 
 A transaction must reach every node, whichever node it was submitted to. Nodes pass transactions on by gossip.
 
-[Dissemination](#dissemination) specifies the topic, the message identity, and when a node relays and broadcasts.
+A node neither relays nor remembers a message whose transaction expires more than `TRANSACTION_TTL` ahead. [Dissemination](#dissemination) specifies the topic, the message identity, and when a node relays and broadcasts.
 
 ## Block Building Input
 
 A leader must fill its block with transactions that apply on its chain and that every validator holds. The mempool offers it only mature transactions, and block building finds the ones that apply.
 
-A pending transaction is **mature** once its age reaches `TRANSACTION_MATURITY`, the transaction maturity that [Block Proposal Reconstruction](bedrock-v1.1-block-construction.md#block-proposal-reconstruction) assumes. The leader passes over the mature transactions in admission order and applies each one that succeeds, repeating until a pass applies nothing new. It stops early at the first transaction that would take the block's Execution Gas past `G_max`. A mature transaction is **inapplicable** if its encoding is larger than `MAX_BLOCK_SIZE`, if its own Execution Gas exceeds `G_max`, or if no pass applies it and the leader did not stop early. The leader then fills the block in the order it applied the transactions, up to `MAX_BLOCK_TXS` and `MAX_BLOCK_SIZE`. A transaction that applies but does not fit stays pending. [Block Building View](#block-building-view) specifies both steps.
+A pending transaction is **mature** once its age reaches `TRANSACTION_MATURITY`. The leader passes over the mature transactions in admission order and applies each one that succeeds, repeating until a pass applies nothing new. It stops early at the first transaction that would take the block's Execution Gas past `G_max`. A mature transaction is **inapplicable** if its encoding is larger than `MAX_BLOCK_SIZE`, if its own Execution Gas exceeds `G_max`, or if no pass applies it and the leader did not stop early. The leader then fills the block in the order it applied the transactions, up to `MAX_BLOCK_TXS` and `MAX_BLOCK_SIZE`. A transaction that applies but does not fit stays pending. [Block Building View](#block-building-view) specifies both steps.
 
 ## Proposal References
 
@@ -143,7 +155,7 @@ The pending set must hold only transactions that block building may still select
 
 - a block that carries it enters the node's canonical chain;
 - a leader's block building finds it inapplicable;
-- its age reaches `TRANSACTION_TTL`;
+- its expiry slot is before the current slot;
 - it carries a claim whose deadline has passed;
 - the era in force changes to one that does not accept its fork digest.
 
@@ -156,10 +168,10 @@ A competing chain may carry a transaction that this node's chain already include
 A transaction that the node holds but that is not pending is **retained** until the node **releases** it. A retained transaction still resolves references, and keeps its admission time if it is admitted again. When a block enters its canonical chain, the node keeps in `included` each transaction of that block that it holds. It releases a retained transaction:
 
 - when the block that carries it becomes immutable, if it is in `included`;
-- when its age reaches `TRANSACTION_TTL` plus `RETIREMENT_GRACE`, if it is not in `included`;
+- `RETIREMENT_GRACE` after its expiry slot, if it is not in `included`;
 - when it carries a claim whose deadline has passed.
 
-When a fork switch displaces blocks from the canonical chain, their transactions that the new canonical chain does not carry leave `included`. The node re-admits each, except one whose age reaches `TRANSACTION_TTL`. If it holds no admission time for a transaction, it measures the age from the start of the displaced block's slot. [Release](#release) and [Reorganisation](#reorganisation) specify the rules.
+When a fork switch displaces blocks from the canonical chain, their transactions that the new canonical chain does not carry leave `included`. The node re-admits each whose expiry slot is in range, except one that it never held and whose expiry slot was too far ahead at the start of the displaced block's slot. [Release](#release) and [Reorganisation](#reorganisation) specify the rules.
 
 ```mermaid
 stateDiagram-v2
@@ -202,7 +214,7 @@ sequenceDiagram
     participant A as node A
     participant B as node B, a leader
     C->>A: submit through the Node API
-    A->>A: admit: decoding, fork digest,<br/>preverify, size, duplicate, claim
+    A->>A: admit: decoding, fork digest,<br/>preverify, size, duplicate,<br/>expiry, claim
     A->>B: broadcast on the mempool topic
     B->>B: relay to its mesh, then admit
     B->>B: once it is mature, apply it<br/>and select it into a block
@@ -246,35 +258,39 @@ A node keeps these values for its mempool, defined in [Mempool State](#mempool-s
 | `MAX_BLOCK_TXS` | maximum block transactions | From [Constants](cryptarchia-v1-protocol.md#constants). |
 | `G_max` | maximum Execution Gas per block | The limit on a block's total Execution Gas, $`G_{\max}`$ in the [Notation](execution-market.md#notation) of Execution Market. |
 | `REFERENCE_PREFIX_LENGTH` | reference prefix length | The length of a reference in bytes, from [References](bedrock-v1.1-block-construction.md#references). |
-| $`k`$ | security parameter | From [Constants](cryptarchia-v1-protocol.md#constants). |
 | $`T_M`$ | message traversal time | The message traversal time of [Transition Period](blend-protocol.md#transition-period), converted from rounds to seconds by the length of a round given in [Time](blend-protocol.md#time). |
+| $`f`$ | slot activation coefficient | The `slot_activation_coeff` of the era in force ([Era Parameters](bedrock-eras.md#era-parameters)), $`1/30`$ in [Constants](cryptarchia-v1-protocol.md#constants). Its parts are `f.num` and `f.den`. |
+| `SLOT_LENGTH` | slot length | `slot_length(n)` of [Era Boundaries](bedrock-eras.md#era-boundaries), in seconds, with `n` the era in force. A round lasts one slot ([Time](blend-protocol.md#time)). |
 
 ## Parameters
 
 ```python
-TRANSACTION_TTL: uint64 = 60 * 60                     # seconds a transaction may stay pending before it is retired
-RETIREMENT_GRACE: uint64 = 10 * 60                    # seconds a transaction that no canonical block carries stays resolvable after its age reaches TRANSACTION_TTL
+TRANSACTION_TTL: uint64 = 60 * 60                     # longest time, in seconds, that a transaction may have left until its expiry slot
+RETIREMENT_GRACE: uint64 = 10 * 60                    # seconds a transaction that no canonical block carries stays resolvable after its expiry slot
 BROADCAST_DELAY: uint64 = 5                           # seconds a block proposal takes to reach every node once it leaves the Blend network
 TRANSACTION_MATURITY: uint64 = T_M + BROADCAST_DELAY  # seconds of age at which a transaction is mature
+MIN_LIFETIME: uint64 = SLOT_LENGTH + 2 * TRANSACTION_MATURITY + 5 * f.den // f.num * SLOT_LENGTH  # shortest time, in seconds, that a transaction may have left until its expiry slot when its sender submits it
 CLAIM_GRACE: uint64 = 2 * WINDOW                      # slots a node keeps a claim after its acceptance window closes
 SEEN_TTL: uint64 = 24 * 60 * 60                       # seconds a node remembers a message identity on the mempool topic
 BROADCAST_RETRIES: uint64 = 3                         # retries of a broadcast that finds no peer on the mempool topic
 BROADCAST_BACKOFF: uint64 = 5                         # base, in seconds, of the wait before each retry
 ```
 
-`TRANSACTION_TTL` and `RETIREMENT_GRACE` are era parameters, the `transaction_ttl_in_seconds` and `retirement_grace_in_seconds` of the parameter record ([Era Parameters](bedrock-eras.md#era-parameters)). Those in force are those of the era in force.
+`TRANSACTION_TTL` and `RETIREMENT_GRACE` are era parameters, the `transaction_ttl_in_seconds` and `retirement_grace_in_seconds` of the parameter record ([Era Parameters](bedrock-eras.md#era-parameters)). The `TRANSACTION_TTL` of a transaction is that of the era of its expiry slot, and `RETIREMENT_GRACE` is that of the era in force.
 
 `SEEN_TTL` is a node setting, and the value above is its default.
 
 The wait before retry `i`, counting from `0`, is `BROADCAST_BACKOFF ** i` seconds. With `BROADCAST_BACKOFF` at 5, the retries follow the first attempt by 1, 6 and 31 seconds.
 
-With `WINDOW` at 300 slots, `CLAIM_GRACE` is 600 slots. With $`T_M`$ at 15 rounds of one second and `BROADCAST_DELAY` at 5 seconds, `TRANSACTION_MATURITY` is 20 seconds.
+A submitted transaction reaches every node at the latest one round, plus $`T_M`$, plus `BROADCAST_DELAY` after its submission, when its sender broadcasts it directly ([Direct Broadcast](blend-protocol.md#direct-broadcast)). `MIN_LIFETIME` adds `TRANSACTION_MATURITY` and $`\lfloor 5/f \rfloor`$ slots, in which five blocks are made on average.
 
-`RETIREMENT_GRACE` must exceed the time a transaction takes to reach every node by gossip, plus the time between two consecutive blocks, plus `TRANSACTION_MATURITY`. Otherwise a node can release an expired transaction before a proposal that selected it arrives.
+With `WINDOW` at 300 slots, `CLAIM_GRACE` is 600 slots. With $`T_M`$ at 15 rounds of one second and `BROADCAST_DELAY` at 5 seconds, `TRANSACTION_MATURITY` is 20 seconds. With $`f`$ at $`1/30`$, `MIN_LIFETIME` is $`1 + 2 \cdot 20 + 150 = 191`$ seconds.
 
-`BROADCAST_DELAY` must not be less than the time a block proposal takes to reach every node by gossip. Otherwise a mature transaction has had less time to spread than the proposal carrying it takes to arrive.
+`RETIREMENT_GRACE` must exceed one round plus `TRANSACTION_MATURITY`. Otherwise a node can release a transaction before a proposal that selected it in its expiry slot arrives.
 
-`TRANSACTION_MATURITY` must be less than `TRANSACTION_TTL`. Otherwise a transaction is retired before it is mature, and nothing is ever selected.
+`BROADCAST_DELAY` must not be less than the time a block proposal or a transaction takes to reach every node by gossip. Otherwise a mature transaction has had less time to spread than the proposal carrying it takes to arrive, or a transaction submitted with `MIN_LIFETIME` left can mature later than `MIN_LIFETIME` counts.
+
+`TRANSACTION_TTL` must be at least `2 * MIN_LIFETIME`. Otherwise a sender can choose no `max_lifetime` ([Expiry Slot](#expiry-slot)).
 
 `TRANSACTION_MATURITY` must be shorter than `WINDOW` slots. Otherwise a claim never matures while a block may still include it, and no claim is ever selected.
 
@@ -303,12 +319,39 @@ A `TimeOrderedSet` iterates in admission order, by ascending `admitted_at`, and 
 
 `highest_slot` is the highest slot of any block that [Chain Maintenance](cryptarchia-v1-protocol.md#chain-maintenance) has added to the node's block tree since the node started, or `None` before the first.
 
-## Transaction Admission
-
-A transaction reaches the mempool by local submission, by gossip on the mempool topic, or by re-insertion after a [Reorganisation](#reorganisation). A local submission is a transaction submitted through the [Node API](#node-api), one that the node's own services create, such as the SDP activity it posts, or one extracted from a data message as [Message Lifecycle](blend-protocol.md#message-lifecycle) in Blend Protocol specifies. All three follow this procedure.
+## Expiry Slot
 
 ```python
-def admit(mempool, encoded: bytes) -> Result:
+def draw_expiry_slot(submission: Timestamp, max_lifetime: uint64 = TRANSACTION_TTL) -> SlotNumber:
+    return uniform(slot_of_time(submission + MIN_LIFETIME), slot_of_time(submission + max_lifetime))
+
+def too_far(expiry_slot: SlotNumber, at: Timestamp) -> bool:
+    return expiry_slot > slot_of_time(at + ttl(expiry_slot))
+
+def expiry_in_range(expiry_slot: SlotNumber, least: uint64) -> bool:
+    return slot_of_time(now() + least) <= expiry_slot and not too_far(expiry_slot, now())
+```
+
+A sender should set the `expiry_slot` of its transaction to `draw_expiry_slot(submission, max_lifetime)`. `submission` is the time at which the sender expects to generate the data message that carries the transaction, or to submit the transaction to a node. `max_lifetime` is the longest time, in seconds after `submission`, for which the sender lets a block include the transaction. It is at least `2 * MIN_LIFETIME` and at most `TRANSACTION_TTL`. `uniform(a, b)` is a slot drawn uniformly at random from `a` to `b`, both included. `slot_of_time` is that of [Era Boundaries](bedrock-eras.md#era-boundaries), and `ttl(sl)` is the `TRANSACTION_TTL` of the era of slot `sl`.
+
+No block can include a transaction once the slot of the [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block) is after its expiry slot. Until then, a sender that replaces the transaction must spend one of the transaction's notes in the replacement.
+
+`least` is the shortest time, in seconds, that a transaction must have left until its expiry slot. It depends on the transaction's origin:
+
+| Origin | `least` |
+| --- | --- |
+| The [Node API](#node-api), or the node's own services | `MIN_LIFETIME` |
+| A data message ([Message Lifecycle](blend-protocol.md#message-lifecycle)), or a direct broadcast in its place ([Direct Broadcast](blend-protocol.md#direct-broadcast)) | `TRANSACTION_MATURITY` |
+| Gossip or re-insertion | `0` |
+
+An expiry slot is in range for submission while `expiry_in_range(expiry_slot, MIN_LIFETIME)` holds, and too near for submission once it is before `slot_of_time(now() + MIN_LIFETIME)`.
+
+## Transaction Admission
+
+A transaction reaches the mempool by local submission, by gossip on the mempool topic, or by re-insertion after a [Reorganisation](#reorganisation). A local submission is a transaction submitted through the [Node API](#node-api), one that the node's own services create, such as the SDP activity it posts, one extracted from a data message as [Message Lifecycle](blend-protocol.md#message-lifecycle) in Blend Protocol specifies, or one broadcast directly in place of a data message ([Direct Broadcast](blend-protocol.md#direct-broadcast)). All three follow this procedure.
+
+```python
+def admit(mempool, encoded: bytes, least: uint64) -> Result:
     if len(encoded) > MAX_BLOCK_SIZE:
         return Reject(TransactionTooLarge)
 
@@ -326,6 +369,9 @@ def admit(mempool, encoded: bytes) -> Result:
     if key in mempool.pending or key in mempool.included:
         return Duplicate(key)
 
+    if not expiry_in_range(tx.tx.expiry_slot, least):
+        return Reject(ExpiryOutOfRange)
+
     if claim_expired(mempool, tx):
         return Reject(ExpiredClaim)
 
@@ -336,9 +382,9 @@ def admit(mempool, encoded: bytes) -> Result:
     return Accept(key)
 ```
 
-Admission reads the transaction, the mempool, the node's block tree and the era in force, and no other state. A node must not treat membership of the mempool as evidence that a transaction can be applied.
+Admission reads the transaction, the mempool, the node's block tree and clock, and the era in force, and no other state. A node must not treat membership of the mempool as evidence that a transaction can be applied.
 
-`decode_signed_mantle_tx` returns the transaction that [Decoding](#decoding) describes, or `None` if `encoded` does not decode. `claim_expired` is defined in [Expired Claim](#expired-claim). `accepts_fork_digest` is that of [Era of Chain Data](bedrock-eras.md#era-of-chain-data), and `era_in_force` that of [Era Boundaries](bedrock-eras.md#era-boundaries). `admit` returns `Accept(key)` when it admits the transaction, `Duplicate(key)` when the transaction is already pending or in `included`, and `Reject` with the reason otherwise.
+`decode_signed_mantle_tx` returns the transaction that [Decoding](#decoding) describes, or `None` if `encoded` does not decode. `claim_expired` is defined in [Expired Claim](#expired-claim). `accepts_fork_digest` is that of [Era of Chain Data](bedrock-eras.md#era-of-chain-data), and `era_in_force` that of [Era Boundaries](bedrock-eras.md#era-boundaries). `admit` returns `Accept(key)` when it admits the transaction, `Duplicate(key)` when the transaction is already pending or in `included`, and `Reject` with the reason otherwise. `least` is that of the transaction's origin ([Expiry Slot](#expiry-slot)).
 
 For a local submission, a node decodes the transaction and runs `preverify` first, and then checks the size of its canonical encoding.
 
@@ -367,11 +413,10 @@ def reorganise(mempool, displaced: list[Block], adopted: list[Block]) -> None:
             if key in carried:
                 continue
             mempool.included.discard(key)
-            # A transaction is at least as old as the start of the slot of a block that carries it.
-            admitted = mempool.admitted_at.get(key, slot_start(block.header.slot))
-            if now() - admitted >= TRANSACTION_TTL:
+            # Without this, leaving a long fork would re-admit what old blocks carried.
+            if key not in mempool.bodies and too_far(tx.tx.expiry_slot, slot_start(block.header.slot)):
                 continue
-            admit(mempool, encode_signed_mantle_tx(tx))
+            admit(mempool, encode_signed_mantle_tx(tx), least=0)
 ```
 
 A node runs `reorganise` when a fork switch displaces blocks from the canonical chain. `displaced` holds the blocks that leave the canonical chain, newest first, and `adopted` holds the blocks that enter it. `Block` is defined in [Block](bedrock-v1.1-block-construction.md#block). `encode_signed_mantle_tx` produces the payload that [Decoding](#decoding) consumes. `slot_start(sl)` is the time at which slot `sl` starts: `start_time_of_era(n) + (sl - first_slot_of_era(n)) * slot_length(n)`, with `n` the era `era_of_slot(sl)` of [Era Boundaries](bedrock-eras.md#era-boundaries).
@@ -388,6 +433,8 @@ When `admit` returns `Duplicate`:
 Transactions are gossiped on the mempool topic defined in [Gossiping](../draft/p2p-network.md#gossiping), which carries the fork digest of an era. [Network Protocol Identity](bedrock-eras.md#network-protocol-identity) specifies which era's topic a node broadcasts on.
 
 A message's identity on that topic is the Blake2b-256 digest of its payload. A node remembers the identity of each message it receives or publishes on that topic for `SEEN_TTL`.
+
+A node drops a received message if `too_far` holds for its transaction's expiry slot one round from now. It neither relays the message nor remembers its identity. A node holds back a received message if `too_far` holds now but not one round from now, and handles it as received once `too_far` no longer holds. One round is more than the largest clock difference between honest nodes, $`T_C`$ of [Transition Period](blend-protocol.md#transition-period).
 
 A node drops a received message whose identity it remembers. It relays any other received message to its mesh neighbours on receipt, before admission.
 
@@ -453,7 +500,7 @@ def selection(applied: list[SignedMantleTx]) -> list[SignedMantleTx]:
 
 `applicability` is the leader's **applicability determination**. Its second result holds the inapplicable transactions.
 
-`parent_state` is the ledger state after the parent of the block being built, migrated to the era of the block's slot ([Era Migration](bedrock-eras.md#era-migration)), and the functions below apply the rules of that era. `apply_header(parent_state, header)` returns the state against which [Block Execution](bedrock-v1.1-block-construction.md#block-execution) executes the first transaction of a block with that header. `apply_transaction(state, tx)` returns the state after executing `tx` against `state` as [Mantle](bedrock-v1.1-mantle-specification.md) specifies, or `None` if `tx` is not valid against `state`. It skips step 6 of the [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation, the signature check, since a claim's proof is empty. It does not verify the ZK proofs that [Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs) verifies together, and `batched_proofs_verify(state, tx)` holds when those of `tx` verify. `execution_gas(state, tx)` is the Execution Gas of `tx` against `state`, as [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) derives it. `encoded_size(txs)` is the total length of the canonical encodings of the transactions in `txs`, which rule 1 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) bounds by `MAX_BLOCK_SIZE`.
+`parent_state` is the ledger state after the parent of the block being built, migrated to the era of the block's slot ([Era Migration](bedrock-eras.md#era-migration)), and the functions below apply the rules of that era. `apply_header(parent_state, header)` returns the state against which [Block Execution](bedrock-v1.1-block-construction.md#block-execution) executes the first transaction of a block with that header. `apply_transaction(state, tx)` returns the state after executing `tx` against `state` as [Mantle](bedrock-v1.1-mantle-specification.md) specifies, or `None` if `tx` is not valid against `state` in a block with that header. It skips step 6 of the [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation, the signature check, since a claim's proof is empty. It does not verify the ZK proofs that [Batch verification of ZK proofs](bedrock-v1.1-block-construction.md#batch-verification-of-zk-proofs) verifies together, and `batched_proofs_verify(state, tx)` holds when those of `tx` verify. `execution_gas(state, tx)` is the Execution Gas of `tx` against `state`, as [Gas Determination](bedrock-v1.1-mantle-specification.md#gas-determination) derives it. `encoded_size(txs)` is the total length of the canonical encodings of the transactions in `txs`, which rule 1 of [Block Header Validation](cryptarchia-v1-protocol.md#block-header-validation) bounds by `MAX_BLOCK_SIZE`.
 
 ## Reference Resolution
 
@@ -499,7 +546,7 @@ A transaction that the applicability determination of [Block Building View](#blo
 
 ### Expiry
 
-A pending transaction whose age reaches `TRANSACTION_TTL` is retired.
+A pending transaction whose `expiry_slot` is before the current slot, `slot_of_time(now())`, is retired.
 
 ### Expired Claim
 
@@ -547,13 +594,14 @@ def release_due(mempool) -> None:
     for key in list(mempool.bodies):
         if key in mempool.pending:
             continue
-        if claim_expired(mempool, mempool.bodies[key]) or (
+        tx = mempool.bodies[key]
+        if claim_expired(mempool, tx) or (
                 key not in mempool.included
-                and now() - mempool.admitted_at[key] >= TRANSACTION_TTL + RETIREMENT_GRACE):
+                and now() >= slot_start(tx.tx.expiry_slot) + RETIREMENT_GRACE):
             release(mempool, key)
 ```
 
-A node runs `release_block` on each block of its canonical chain once the block is at or before its [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block), after it has run `include` on that block. It runs `release_due` before it admits a transaction, and after it retires transactions for [Inapplicability](#inapplicability), [Expiry](#expiry) or [Expired Claim](#expired-claim).
+A node runs `release_block` on each block of its canonical chain once the block is at or before its [Latest Immutable Block](cryptarchia-v1-protocol.md#latest-immutable-block), after it has run `include` on that block. It runs `release_due` before it admits a transaction, and after it retires transactions for [Inapplicability](#inapplicability), [Expiry](#expiry) or [Expired Claim](#expired-claim). `slot_start` is defined in [Reorganisation](#reorganisation).
 
 ## Persistence and Recovery
 
