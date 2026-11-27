@@ -28,6 +28,7 @@
 | 1.1.0 | Changed `density_over_slots` to count **distinct occupied slots** instead of blocks, including the slots of the [uncles](cryptarchia-v1-protocol.md#uncle-references) referenced by the honest chain's in-period blocks, due to updated [Cryptarchia Protocol](cryptarchia-v1-protocol.md). | 2026-08-06 |
 | 1.2.0 | `PERIOD` reads the finality window `K`. `density_over_slots` and the inference take the chain they count, so that [Commit](cryptarchia-v1-protocol.md#commit) can read the count. | 2026-11-13 |
 | 1.2.1 | `PERIOD` reads `⌊k/f⌋` in place of the finality window `K`, so the observation period keeps its length when `K` changes. | 2026-11-13 |
+| 1.3.0 | `PERIOD` reads the finality window `K`, as the [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) does: 144,000 slots. The learning rate `beta` is 1/2, a ratio of integers. The next estimate keeps at least `gamma` = 3/4 of the current one. | 2026-11-27 |
 
 # Introduction
 
@@ -51,10 +52,11 @@ This algorithm has been analyzed and shown to have good accuracy, precision and 
 
 | Symbol | Value | Name | Description |
 | --- | --- | --- | --- |
-| `beta` | 1.0 | learning rate | Controls how quickly we adjust to new participation levels.  Lower values for `beta` give a more stable / gradual adjustment, while higher values give faster convergence but at the cost of less stability. |
-| `PERIOD` | $`6\lfloor \frac{k}{f} \rfloor`$ | observation period | The length of the observation period in slots. |
+| `beta` | 1/2 | learning rate | Scales each correction of the estimate. Its numerator `beta.num` and denominator `beta.den` are integers. `beta` must be above 0 and below 2, or the estimate does not settle on the stake that builds (see [The stake inference](https://github.com/logos-co/logos-lips/blob/master/docs/blockchain/raw/rfc/RFC-559-cryptarchia-shorten-the-epoch-to-60-hours.md#the-stake-inference) for the choice of 1/2). |
+| `gamma` | 3/4 | retained share | The least share of the current estimate that the next estimate keeps, rounded down to a whole unit. Its numerator `gamma.num` and denominator `gamma.den` are integers. `gamma` must be below 1, or the estimate cannot fall. An observation period without an occupied slot keeps the share max(1 − `beta`, `gamma`) of the estimate, and that share must be at least $`1/\sqrt{2.097}`$. [`K`](cryptarchia-v1-protocol.md#constants) meets its targets with every block up to its delay $`\Delta`$ late only while the total active stake is at most 2.097 times the estimate. With a smaller share, two observation periods in a row without an occupied slot, as during a halt of block production, let the total active stake exceed 2.097 times the estimate. A change of `K` or of its targets requires `gamma` to be derived again (see [The stake inference](https://github.com/logos-co/logos-lips/blob/master/docs/blockchain/raw/rfc/RFC-559-cryptarchia-shorten-the-epoch-to-60-hours.md#the-stake-inference) for the derivation). |
+| `PERIOD` | $`4K`$ | observation period | The length of the observation period in slots. |
 | `f` | *inherited from* [Constants](cryptarchia-v1-protocol.md#constants) | slot activation coefficient | The target rate of occupied slots. Not all slots contain blocks, many are empty. |
-| `k` | *inherited from* [Constants](cryptarchia-v1-protocol.md#constants) | security parameter | The parameter from which `PERIOD` is derived. |
+| `K` | *inherited from* [Constants](cryptarchia-v1-protocol.md#constants) | finality window | The parameter from which `PERIOD` is derived. |
 
 ### Functions
 
@@ -68,11 +70,12 @@ For the tip `tip` of the chain the estimate is derived on, a current epoch’s e
 ```rust
 const PRECISION: u64 = 1e3
 fn total_stake_inference(tip: Block, total_stake_estimate: u64, epoch_slot: u64) -> u64 {
+    // beta.num: u64, beta.den: u64
+    // gamma.num: u64, gamma.den: u64
     // f: f64
     // PERIOD: u64
     // density_over_slots(Block, u64, u64) -> u64
 
-    let beta_p: u64 = truncate(beta * PRECISION)
     let f_p: u64 = truncate(f * PRECISION)
     let tse_p: u64 = total_stake_estimate * PRECISION
 
@@ -80,8 +83,9 @@ fn total_stake_inference(tip: Block, total_stake_estimate: u64, epoch_slot: u64)
     let expected_density_p: u64 = PERIOD * f_p
     let density_diff_p: i128 = (expected_density_p as i128) - (measured_density_p as i128)
         let slot_activation_error_p: i128 = (tse_p * density_diff_p) / (expected_density_p as i128)
-        let correction_p: i128 = (beta_p * slot_activation_error_p) / PRECISION;
-        let new_total_stake_estimate = (tse_p - correction_p) / PRECISION;
+        let correction_p: i128 = (beta.num as i128 * slot_activation_error_p) / (beta.den as i128);
+        let retained_p: i128 = (gamma.num as i128 * tse_p as i128) / (gamma.den as i128);
+        let new_total_stake_estimate = max(tse_p as i128 - correction_p, retained_p) / PRECISION;
 
         max(new_total_stake_estimate, 1) as u64
 }
