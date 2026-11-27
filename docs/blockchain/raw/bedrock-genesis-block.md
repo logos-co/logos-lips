@@ -37,7 +37,7 @@
 | 1.3.0 | Support the private ledger of Mantle: the initial distribution is made of note commitments whose preimages are published in an inscription to the null channel, and the declarations consume no note, their amounts counting in the maximum supply. Genesis initializes the block reward stocks and records the commitment roots of the note sets | 2026-10-07 |
 | 1.3.1 | Genesis registers no program, each initial note takes its public key as its staking key, and each declaration names the `note_stake_pk` of its service note | 2026-11-06 |
 | 1.3.2 | [RFC] A Genesis declaration carries one spend with no inputs, whose value is its stake | 2026-11-06 |
-| 1.4.0 | [RFC] The pow reward pool is seeded with two hundredths of the maximum supply | 2026-11-06 |
+| 1.4.0 | [RFC] The pow reward pool is seeded with two hundredths of the maximum supply, and `epoch_pow_reward` starts from the initial storage price | 2026-11-27 |
 
 # Introduction
 
@@ -105,8 +105,6 @@ The pow reward pool is seeded once, at genesis, with a fixed quantity of tokens:
 POW_REWARD_POOL_GENESIS: TokenValue   # Initial balance of the pow reward pool
                                       # = 2/100 of the maximum supply
 ```
-
-The seed is two hundredths of the maximum supply $`S_{cap}`$, as specified in [Reward Pool](proof-of-work.md#reward-pool).
 
 This allocation is drawn from the initial token distribution, not created in addition to it: the tokens exist from genesis, and the seed determines how many of them are held in the pool rather than distributed to stakeholders directly.
 
@@ -377,7 +375,7 @@ The Transfer Operation distributing the initial tokens is validated and executed
 The pow reward pool is initialized at the same time:
 
 1. `pow_reward_pool` is set to `POW_REWARD_POOL_GENESIS`, as described in [Initial Proof of Work Reward Pool](#initial-proof-of-work-reward-pool).
-2. `epoch_pow_reward` and `epoch_pow_vested_share` are set by the computation given in [Reward Pool](proof-of-work.md#reward-pool), so that claiming is productive from the first epoch.
+2. `epoch_pow_reward` is set by the computation given in [Reward Pool](proof-of-work.md#reward-pool), at the initial storage price.
 3. `difficulty_blend` is set to `BLEND_DIFFICULTY_BASE` for **epochs 0 and 1**, as given in [Blend Difficulty](proof-of-work.md#blend-difficulty): the value for an epoch is fixed at the preceding epoch's nonce snapshot from the load of the epoch before that, and no complete input epoch exists before epoch 2. The schedule begins with epoch 2's value, computed during epoch 1 from epoch 0's load.
 4. `difficulty_reward` is set to the genesis value given in [Reward Difficulty](proof-of-work.md#reward-difficulty), and `pow_nullifiers` is empty.
 

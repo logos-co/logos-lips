@@ -24,7 +24,7 @@
 | 1.2.0 | A reward claim searches a nonce for the public key to be paid and carries no signature. Each block credits its fee share to the pool, and the reward per claim stays fixed for the epoch | 2026-10-06 |
 | 1.3.0 | [RFC] A claim pays `POW_VESTED_SHARE / SHARE_DEN` of its reward as a note vesting for `VESTING_EPOCHS` epochs, and the rest as a liquid note | 2026-11-06 |
 | 1.4.0 | [RFC] A reward claim solves HashWX in place of `zkhash`, against a 64-bit target | 2026-11-06 |
-| 1.5.0 | [RFC] A claim pays a fixed reward during a bootstrapping period of `POW_BOOTSTRAP_EPOCHS` epochs, and after it a reward derived from the storage price. The reward threshold is paced to the pool and smooths more slowly. The pool is seeded with two hundredths of the maximum supply | 2026-11-06 |
+| 1.5.0 | [RFC] A claim's reward pays for the gas it carries and takes at least `WORK_PER_LEPTA` hashes per LEPTON. The pool pays every claim while it can, and the threshold falls once claims exceed `TARGET_CLAIMS_PER_BLOCK` | 2026-11-27 |
 
 # Introduction
 
@@ -36,7 +36,7 @@ A Blend solution is proven inside the [Proof of Quota](proof-of-quota.md) circui
 
 The puzzles are measured against separate thresholds that follow separate objectives:
 
-- the reward threshold keeps the number of paid claims per block near a target,
+- the reward threshold asks a fixed amount of work per token paid, and more once claims exceed a set number per block,
 - and the Blend threshold keeps admission to the network affordable when the network is quiet and dearer when it is busy.
 
 This document specifies the two puzzles, their thresholds, the pow reward pool and the reward it pays per claim, and the window within which a reward may be claimed. The Blend side of the mechanism is specified in [Proof of Quota](proof-of-quota.md) and the claim Operation in [Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward); this document holds what both depend on.
@@ -56,23 +56,21 @@ graph LR
     c --> t["pays for transactions"]
 ```
 
-The tokens come from the pow reward pool, set aside at genesis and refilled by every block from a share of the transaction fees. Nothing is minted for it, so mining does not inflate the supply. For the first two years every claim pays one fixed reward, large enough to build a stake. After that a claim pays enough to pay for a transaction at the storage price of its epoch. Claims are paid for as long as the pool can pay them.
+The tokens come from the pow reward pool, set aside at genesis and refilled by every block from a share of the transaction fees. Nothing is minted for it, so mining does not inflate the supply.
 
-A share of each reward vests for a fixed period, and that share is larger in the first two years. Until then it cannot be spent in a Transfer, but it takes part in the leadership lottery and can be staked to declare a service.
+A claim pays a reward sized to the gas it carries. Its liquid part pays for the claim's own transaction and for one more transaction. Nine tenths of the reward vest for a year. Until then the vested part cannot be spent in a Transfer, but it takes part in the leadership lottery and can be staked to declare a service.
 
 Each puzzle has its own threshold, and a threshold sets how much work a solution costs. Every node computes both from what blocks carry, so no node trusts another for them.
 
-The reward threshold reads the claims in a block, the only sign of mining the chain has.
+The reward threshold reads the claims in a block, the only sign of mining the chain has. It never asks less than a fixed amount of work for each token a claim pays.
 
 ```mermaid
 graph LR
-    m["amount of mining"] -- "rises" --> mh["puzzle harder"]
-    m -- "falls" --> me["puzzle easier"]
-    mh --> mt["the target number of<br/>paid claims per block"]
-    me --> mt
+    m["amount of mining"] -- "fewer claims<br/>than the target" --> w["puzzle at the<br/>minimum work per token"]
+    m -- "more claims<br/>than the target" --> h["puzzle harder,<br/>claims at the target"]
 ```
 
-The two branches end in the same place. The target number of claims is paid once mining is heavy enough to find that many, so more mining changes the work behind a claim and not the number of claims paid. For the first two years the target is about one claim per block, the rate that pays out nearly all of the pool over those years. After that the target pays out a ninety-ninth of the pool per epoch, so a larger reward means fewer claims and a smaller pool pays out less.
+Here the branches end apart. Below the target every token costs the same work, so more mining pays out more. At the target more mining makes each claim harder, and blocks carry the target number of claims on average.
 
 A claim must name a recent block, so a solution cannot be spent long after it was found.
 
@@ -115,17 +113,22 @@ For a reward the miner picks the public key to be paid and searches a 64-bit non
 
 A validator checks a claim against the `difficulty_reward` the previous block produced. A block's own claims update `difficulty_reward` after the block is processed, and that new value governs the next block. The validator accepts a claim when all of these hold:
 
-- the ticket is below `difficulty_reward`,
-- the solution has not been claimed before,
+- `pow_reward_pool` still holds `epoch_pow_reward`,
+- the block holds fewer than `MAX_CLAIMS_FACTOR * TARGET_CLAIMS_PER_BLOCK` claims before this one,
 - the referenced block is canonical and inside the acceptance window,
 - the epoch nonce is the current one or the one before it,
-- `pow_reward_pool` still holds `epoch_pow_reward`.
+- the ticket is below `difficulty_reward`,
+- the solution has not been claimed before.
 
-[Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward) specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays `epoch_pow_reward` to the key, marks the solution spent, and subtracts the same amount from `pow_reward_pool`. It pays `epoch_pow_vested_share / SHARE_DEN` of the reward as a [vested note](bedrock-v1.1-mantle-specification.md#vested-notes), whose vesting ends at the first slot of the epoch `VESTING_EPOCHS` epochs after the epoch of the referenced block, and the rest as a liquid note.
+[Mantle](bedrock-v1.1-mantle-specification.md#claim_pow_reward) specifies these checks and the order they run in. A claim that fails any of them makes its transaction invalid. On acceptance the node pays `epoch_pow_reward` to the key, marks the solution spent, and subtracts the same amount from `pow_reward_pool`. It pays `POW_VESTED_SHARE / SHARE_DEN` of the reward as a [vested note](bedrock-v1.1-mantle-specification.md#vested-notes), whose vesting ends at the first slot of the epoch `VESTING_EPOCHS` epochs after the epoch of the referenced block, and the rest as a liquid note.
 
-The first `POW_BOOTSTRAP_EPOCHS` epochs are the **bootstrapping period**, which lets a participant that holds nothing mine a stake in a known time. During it, `epoch_pow_reward` is `POW_BOOTSTRAP_REWARD`, `epoch_pow_vested_share` is `POW_BOOTSTRAP_VESTED_SHARE` and `difficulty_reward` stays at or below `POW_BOOTSTRAP_TARGET_CAP`. The reward threshold steers toward the rate that pays out `POW_REWARD_POOL_GENESIS` over one epoch more than the period, so more mining makes a claim harder and the pool lasts the period. After the period, the liquid part of `epoch_pow_reward` pays the storage fee of a transaction of `POW_REFERENCE_TX_SIZE` bytes at the storage price of the epoch, `epoch_pow_vested_share` is `POW_VESTED_SHARE`, `difficulty_reward` stays at or below `REWARD_TARGET_CAP` and the threshold steers toward the rate that pays out `pow_reward_pool / (POW_BOOTSTRAP_EPOCHS + 1)` per epoch.
+The **reward** of an epoch pays for gas. Its liquid part, the reward less its vested share, pays the storage fee of a claim transaction and of one further transaction of `POW_REFERENCE_TX_SIZE` bytes, at the storage price of the epoch. [Reward Pool](#reward-pool) computes it.
 
-A node computes six values from the chain. `pow_reward_pool` and the set of spent solutions change when a claim is accepted. `difficulty_reward` is recomputed after every block, from the number of claims in that block and the target rate. Each block credits `pow_reward_pool` with a share of its fees, and `epoch_pow_reward` and `epoch_pow_vested_share` are set at each epoch boundary. `difficulty_blend` is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. [Reward Difficulty](#reward-difficulty), [Reward Pool](#reward-pool) and [Blend Difficulty](#blend-difficulty) specify the three computations.
+The reward threshold has a cap. `difficulty_reward` never rises above `reward_target_cap`, the threshold at which a claim takes `WORK_PER_LEPTA` hashes, in expectation, for each LEPTON of the reward. A larger reward therefore takes proportionally more work, and the least work per token stays the same.
+
+Below the cap the threshold holds the claims to a target rate. It steers toward `TARGET_CLAIMS_PER_BLOCK` claims per block, so more mining makes a claim harder rather than the claims more frequent. [Reward Difficulty](#reward-difficulty) specifies the cap and the retarget.
+
+A node computes five values from the chain. `pow_reward_pool` and the set of spent solutions change when a claim is accepted. `difficulty_reward` is recomputed after every block, from the number of claims in that block, the target rate and the cap. Each block credits `pow_reward_pool` with a share of its fees. At each epoch boundary `epoch_pow_reward` is set, and `difficulty_reward` is lowered to the new cap if it lies above it. `difficulty_blend` is recomputed once per epoch, from the transactions of the epoch before last, at the snapshot that fixes the epoch nonce. [Reward Difficulty](#reward-difficulty), [Reward Pool](#reward-pool) and [Blend Difficulty](#blend-difficulty) specify the three computations.
 
 A node keeps a spent solution only while its referenced block is inside the window, so the set stays small. [Acceptance Window](#acceptance-window) gives the window in slots.
 
@@ -136,33 +139,30 @@ A node keeps a spent solution only while its referenced block is inside the wind
 | Symbol | Name | Description |
 | --- | --- | --- |
 | $`p`$ | field modulus | Modulus of the scalar field $`\mathbb{F}_p`$ of [Poseidon2](common-cryptographic-components.md#poseidon2-zk-friendly-hash-function); Blend tickets and the Blend threshold are its elements. |
-| $`N_b`$ | expected blocks per epoch | `EXPECTED_BLOCKS_PER_EPOCH`, the epoch length in slots of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) times $`f`$. |
+| $`T`$ | target claims per block | `TARGET_CLAIMS_PER_BLOCK`, the accepted rate the reward threshold steers toward. |
 | $`W_b`$ | window depth | `EXPECTED_BLOCKS_PER_WINDOW`, the acceptance window in expected blocks. |
 | $`F`$, $`P`$ | smoothing factor and precision | `EMA_SMOOTHING_FACTOR` and `EMA_SMOOTHING_PRECISION`; the reward update weighs the previous estimate $`F`$ out of $`P`$. |
 | $`\alpha = a / b`$ | damping exponent | `BLEND_DAMPING_NUM / BLEND_DAMPING_DEN`, the Blend update's response to the load ratio. |
-| $`S_{cap}`$ | maximum supply | The hard cap of [Block Rewards](block-rewards.md). |
 | $`f`$ | slot activation coefficient | The probability that a slot has a leader, $`1/30`$, from [Constants](cryptarchia-v1-protocol.md#constants). |
 | $`k`$ | security parameter | $`2160`$, from [Constants](cryptarchia-v1-protocol.md#constants). |
 
 ## Parameters
 
 ```python
-POW_REWARD_POOL_GENESIS: TokenValue             # 2/100 of S_cap, set in the Genesis Block
-POW_BOOTSTRAP_EPOCHS: uint64 = 98               # the length of the bootstrapping period, in epochs
-POW_BOOTSTRAP_REWARD: TokenValue = 100 * 10**9  # the reward per claim during it, 100 LOGOS, in LEPTA
-POW_BOOTSTRAP_VESTED_SHARE: uint64 = 90         # the share of that reward paid as a vested note, out of SHARE_DEN
-POW_BOOTSTRAP_TARGET_CAP: uint64 = 2**64 // (HASHWX_MACHINE_RATE * 77_760)  # largest target the retarget returns during it, and its genesis value
-POW_REFERENCE_TX_SIZE: uint64 = 608             # the bytes whose storage fee the liquid part of a reward pays after it
-POW_VESTED_SHARE: uint64 = 30                   # the share of a reward paid as a vested note after it, out of SHARE_DEN
-EXPECTED_BLOCKS_PER_EPOCH: uint64 = 21_600      # N_b = 10 k
+POW_REWARD_POOL_GENESIS: TokenValue             # the seed of the pool, set in the Genesis Block
+WORK_PER_LEPTA: uint64 = 31                     # least expected HashWX hashes per LEPTON of a reward
+POW_CLAIM_TX_SIZE: uint64 = 341                 # the bytes of a claim transaction
+POW_REFERENCE_TX_SIZE: uint64 = 608             # the bytes of the further transaction a reward's liquid part pays for
+POW_VESTED_SHARE: uint64 = 90                   # the share of a reward paid as a vested note, out of SHARE_DEN
+VESTING_EPOCHS: uint64 = 49                     # the length of the vesting, in epochs
+TARGET_CLAIMS_PER_BLOCK: uint64 = 10            # T
+MAX_CLAIMS_FACTOR: uint64 = 10                  # a block's claim limit, in multiples of T
 EXPECTED_BLOCKS_PER_WINDOW: uint64 = 10         # W_b
 POW_SHARE: uint64 = 10                          # beta, as the fraction POW_SHARE / SHARE_DEN
-SHARE_DEN: uint64 = 100                         # the denominator of POW_SHARE and of the vested shares
-VESTING_EPOCHS: uint64 = 49                     # the length of the vesting, in epochs
+SHARE_DEN: uint64 = 100                         # the denominator of POW_SHARE and of POW_VESTED_SHARE
 EMA_SMOOTHING_FACTOR: uint64 = 999              # F, the weight given to the previous estimate
 EMA_SMOOTHING_PRECISION: uint64 = 1000          # P, the scale F is expressed against; F < P
-REWARD_TARGET_FLOOR: uint64 = 999               # smallest target the retarget returns; see Reward Difficulty
-REWARD_TARGET_CAP: uint64 = 2**64 // (HASHWX_MACHINE_RATE * 9_720)  # largest target the retarget returns after the bootstrapping period
+REWARD_TARGET_FLOOR: uint64 = max(1, (EMA_SMOOTHING_PRECISION - 1) // (EMA_SMOOTHING_PRECISION - EMA_SMOOTHING_FACTOR))  # max(1, ceil(F / (P - F))), the smallest target the retarget returns; see Reward Difficulty
 BLEND_DIFFICULTY_BASE: PowTarget = p // 2**19   # difficulty_blend at the reference load
 TARGET_TXS_PER_BLOCK: uint64 = 130              # Reference transactions per block, F_T / F_D
 BLEND_DAMPING_NUM: uint64 = 1                   # a, where the exponent is alpha = a / b
@@ -170,19 +170,17 @@ BLEND_DAMPING_DEN: uint64 = 2                   # b, with 0 < a <= b so that alp
 BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend may move per epoch
 ```
 
-`POW_BOOTSTRAP_REWARD` must be above zero, or a claim pays nothing. `POW_BOOTSTRAP_VESTED_SHARE` and `POW_VESTED_SHARE` must be below `SHARE_DEN`, or a claim has no liquid part to pay its fee and `compute_epoch_pow_reward` divides by zero.
+`WORK_PER_LEPTA` is the work of one core of the target machine in 30 days, divided by the LEPTA that the cheapest rented server's cost for the same work buys at a token price of $0.05. One core, at a quarter of the `HASHWX_MACHINE_RATE` of [HashWX](common-cryptographic-components.md#hashwx), does 242,500 × 2,592,000 = 6.29·10¹¹ hashes in 30 days. The cheapest rented server found in an October 2026 survey of plans costs $6.12 a month for 4 vCPUs, and a vCPU is counted as 1.5 cores of the target machine, so one core costs $1.02 a month. At $0.05 that buys 20.4 LOGOS, or 2.04·10¹⁰ LEPTA ([Token Units and Precision](overview-cryptoeconomics.md#token-units-and-precision)). 6.29·10¹¹ / 2.04·10¹⁰ = 30.8, rounded up to 31. At `WORK_PER_LEPTA` one core earns at most 20.28 LOGOS in 30 days.
 
-The liquid part of `POW_BOOTSTRAP_REWARD`, the reward minus its vested share, must be above the fee of a claim transaction, which pays for the claim and the `TRANSFER` that spends its liquid note, or a claim cannot pay its own fee. A load of claims alone takes the storage price to about 31 times its start, where a claim transaction of 341 bytes costs about 8.5 LOGOS. At 90-10 that needs a reward of at least 85 LOGOS, and `POW_BOOTSTRAP_REWARD` rounds it up to 100 LOGOS. Its liquid part of 10 LOGOS holds up to about 36 times the starting storage price.
+`POW_CLAIM_TX_SIZE` is the size of a claim transaction in the [Mantle Transaction Encoding](mantle-transaction-encoding.md): 1 byte of operation count, 105 bytes of claim and 235 bytes of the `TRANSFER` that spends its liquid note. `POW_REFERENCE_TX_SIZE` is the size of one transaction holding a claim, that `TRANSFER` and an inscription of 100 bytes. At the initial storage price of [Storage Markets](storage-markets.md), $`8 \cdot 10^{5}`$ LEPTA per byte, the liquid part pays 949 bytes, 0.7592 LOGOS, and the reward is 7.592 LOGOS.
 
-`POW_REFERENCE_TX_SIZE` is the size of one transaction holding a claim, that `TRANSFER` and an inscription of 100 bytes. It must be above the 341 bytes of a claim transaction, or a claim cannot pay its own fee after the bootstrapping period.
+`POW_VESTED_SHARE` must be below `SHARE_DEN`, or a claim has no liquid part to pay its fee and `compute_epoch_pow_reward` divides by zero. The liquid part must be at least the whole fee of a claim transaction, its Execution Gas included, or a claim cannot pay its own fee.
 
-During the bootstrapping period a miner needs `ceil(threshold / POW_BOOTSTRAP_REWARD)` claims to earn the [minimum stake](bedrock-service-declaration-protocol.md#minimum-stake), and holds one vested note per claim. The parameters must let one [SDP_DECLARE](bedrock-v1.1-mantle-specification.md#sdp_declare) stake that many notes within the Execution Gas limit of a block, or a miner cannot stake before its notes vest.
+An epoch of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) is $`10\lfloor k/f \rfloor`$ = 648,000 slots, 7.5 days of one-second slots. `VESTING_EPOCHS` is the number of such epochs that first reaches a year, $`\lceil 365 / 7.5 \rceil = 49`$, so a vested note vests 360 to 367.5 days after the block its claim references.
 
-An epoch of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) is $`10\lfloor k/f \rfloor`$ = 648,000 slots, 7.5 days of one-second slots. `VESTING_EPOCHS` is the number of such epochs that first reaches a year, $`\lceil 365 / 7.5 \rceil = 49`$, so a vested note vests 360 to 367.5 days after the block its claim references. `POW_BOOTSTRAP_EPOCHS` is the number of such epochs that first reaches two years, $`\lceil 730 / 7.5 \rceil = 98`$.
+`TARGET_CLAIMS_PER_BLOCK` must be at least 1, or no claim is valid. `MAX_CLAIMS_FACTOR` must be at least 2. At 1, no block holds more than `TARGET_CLAIMS_PER_BLOCK` claims, so the retarget never lowers `difficulty_reward`. `MAX_CLAIMS_FACTOR * TARGET_CLAIMS_PER_BLOCK` claim transactions of `POW_CLAIM_TX_SIZE` bytes must take less than the `MAX_BLOCK_SIZE` of [Constants](cryptarchia-v1-protocol.md#constants), or the claim limit cannot bind and claims can fill whole blocks. `TARGET_CLAIMS_PER_BLOCK` and `EMA_SMOOTHING_PRECISION` must each be below $`2^{32}`$, or the retarget's product can exceed 128 bits.
 
-At `POW_BOOTSTRAP_TARGET_CAP`, all four cores of the target machine, at the `HASHWX_MACHINE_RATE` of [HashWX](common-cryptographic-components.md#hashwx), find a claim about every 77,760 seconds, 21.6 hours, 8.33 claims per epoch, which earn about 833 LOGOS per epoch at `POW_BOOTSTRAP_REWARD`. At `REWARD_TARGET_CAP`, 8 times the target, they find a claim about every 9,720 seconds, 2.7 hours.
-
-`REWARD_TARGET_CAP` and `POW_BOOTSTRAP_TARGET_CAP` must each be above `REWARD_TARGET_FLOOR`. At or below the floor, every retarget would return the cap, so the target could not move.
+`REWARD_TARGET_FLOOR` must stay below `reward_target_cap(epoch_pow_reward)` for every reward, or every retarget returns the cap and the target cannot move. The cap stays above the floor while the reward is at most `2**64 // (WORK_PER_LEPTA * (REWARD_TARGET_FLOOR + 1))` LEPTA, about 595,000 LOGOS.
 
 `TARGET_TXS_PER_BLOCK` is the transaction rate the Blend network carries, $`F_T / F_D = 130`$ transactions per block ([Global Parameters](blend-protocol.md#global-parameters)).
 
@@ -192,30 +190,25 @@ At `POW_BOOTSTRAP_TARGET_CAP`, all four cores of the target machine, at the `HAS
 
 `difficulty_reward` is an unsigned 64-bit integer, as every reward ticket is. A reward ticket satisfies it when the ticket is strictly below it.
 
-The Blend update below multiplies and divides targets as integers rather than in the fixed-width types of [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic), and caps its result at or below $`p - 1`$, so that it converts back to a field element without reduction. Every intermediate fits in **512 bits**: the radicand reaches $`2^{493}`$. The reward retarget's product fits a 128-bit unsigned integer while both caps are below $`2^{54}`$, since the pool is at most 64 bits and `EMA_SMOOTHING_PRECISION` is at most 10 bits. Each operation is integer addition, multiplication, floor division or comparison, and `integer_nth_root` returns the exact floor, so two implementations agree exactly.
+The Blend update below multiplies and divides targets as integers rather than in the fixed-width types of [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic), and caps its result at or below $`p - 1`$, so that it converts back to a field element without reduction. Every intermediate fits in **512 bits**: the radicand reaches $`2^{493}`$. `reward_target_cap` and the reward retarget compute in 128-bit unsigned integers. The storage price is at least one LEPTON per byte, so a reward is at least 9,490 LEPTA and the cap at most $`2^{46}`$. The retarget's product therefore stays below $`2^{110}`$ under the bounds of [Parameters](#parameters). Each operation is integer addition, multiplication, floor division or comparison, and `integer_nth_root` returns the exact floor, so two implementations agree exactly.
 
 ## Reward Pool
 
-The pool is seeded once, at genesis, with `POW_REWARD_POOL_GENESIS`, two hundredths of $`S_{cap}`$, as specified in [Bedrock Genesis Block](bedrock-genesis-block.md). After that it changes through the fee share each block credits and through claims.
+The pool is seeded once, at genesis, with `POW_REWARD_POOL_GENESIS`, as specified in [Initial Proof of Work Reward Pool](bedrock-genesis-block.md#initial-proof-of-work-reward-pool). After that it changes through the fee share each block credits and through claims.
 
 ```python
-def compute_epoch_pow_reward(epoch: EpochNumber,
-                             permanent_storage_gas_price: TokenValue) -> tuple[TokenValue, uint64]:
-    # The reward per claim, and the share of it paid as a vested note.
-    if epoch < POW_BOOTSTRAP_EPOCHS:
-        return POW_BOOTSTRAP_REWARD, POW_BOOTSTRAP_VESTED_SHARE
-    # Rounded up, so that the liquid part covers the storage fee of POW_REFERENCE_TX_SIZE bytes.
-    fee = POW_REFERENCE_TX_SIZE * permanent_storage_gas_price
+def compute_epoch_pow_reward(permanent_storage_gas_price: TokenValue) -> TokenValue:
+    # Rounded up, so that the liquid part covers the storage fee of both transactions.
+    fee = (POW_CLAIM_TX_SIZE + POW_REFERENCE_TX_SIZE) * permanent_storage_gas_price
     liquid_share = SHARE_DEN - POW_VESTED_SHARE
-    reward = (fee * SHARE_DEN + liquid_share - 1) // liquid_share
-    return checked_uint64(reward), POW_VESTED_SHARE
+    return checked_uint64((fee * SHARE_DEN + liquid_share - 1) // liquid_share)
 ```
 
-Each block, once its transactions have run, credits the pool with its share `POW_SHARE / SHARE_DEN` of the fees it collected ([Block Rewards](block-rewards.md#deterministic-implementation)), so the claims of a block draw on what the blocks before it paid. At each epoch boundary, before any block of the new epoch is processed and once [Storage Markets](storage-markets.md#price-update-algorithm) has set the storage price of that epoch, `epoch_pow_reward` and `epoch_pow_vested_share` are set to `compute_epoch_pow_reward(epoch, permanent_storage_gas_price)` for that epoch and held for it. All arithmetic here is checked, in accordance with [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic), except that `fee * SHARE_DEN` in `compute_epoch_pow_reward` is computed in 128 bits.
+Each block, once its transactions have run, credits the pool with its share `POW_SHARE / SHARE_DEN` of the fees it collected ([Block Rewards](block-rewards.md#deterministic-implementation)), so the claims of a block draw on what the blocks before it paid. At each epoch boundary, before any block of the new epoch is processed and once [Storage Markets](storage-markets.md#price-update-algorithm) has set the storage price of that epoch, `epoch_pow_reward` is set to `compute_epoch_pow_reward(permanent_storage_gas_price)` and held for the epoch. Then `difficulty_reward` becomes `min(difficulty_reward, reward_target_cap(epoch_pow_reward))`. All arithmetic here is checked, in accordance with [Arithmetic](bedrock-v1.1-mantle-specification.md#arithmetic), except that `fee * SHARE_DEN` is computed in 128 bits.
 
 ### Exhaustion within an epoch
 
-The reward is fixed for the epoch while every claim draws on the pool and every block credits it. The first condition of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation, that the pool covers the reward, is evaluated for every claim against the pool as it stands at that point in the block, and a claim it rejects invalidates its transaction. Claiming resumes in the block after the fee shares of the blocks bring the pool back to the reward, or at the first epoch boundary that sets a reward the pool covers, whichever comes first. Since the pool receives only the share `POW_SHARE / SHARE_DEN` of a fee, paying fees to resume claiming costs `SHARE_DEN / POW_SHARE` times what the pool lacks: a pool just short of the reward can make one claim cheap, and each further reward costs `SHARE_DEN / POW_SHARE` times its value in fees, less what the payer earns back through block rewards.
+The reward is fixed for the epoch while every claim draws on the pool and every block credits it. The first condition of [CLAIM_POW_REWARD](bedrock-v1.1-mantle-specification.md#claim_pow_reward) validation, that the pool covers the reward, is evaluated for every claim against the pool as it stands at that point in the block, and a claim it rejects invalidates its transaction. Claiming resumes in the block after the fee shares of the blocks bring the pool back to the reward, or at the first epoch boundary that sets a reward the pool covers, whichever comes first.
 
 ## Acceptance Window
 
@@ -228,36 +221,27 @@ With $`W_b = 10`$ and $`f = 1/30`$, `WINDOW` is $`300`$ slots. A claim's referen
 ## Reward Difficulty
 
 ```python
-def target_claims_per_block(epoch: EpochNumber,
-                            epoch_pow_reward: TokenValue,
-                            pow_reward_pool: TokenValue) -> tuple[int, int]:
-    # As a fraction: the rate that pays out one part in POW_BOOTSTRAP_EPOCHS + 1 of the pool per epoch.
-    # During the bootstrapping period the pool here is the seed, and the extra epoch is the
-    # margin that lets the seed last the period although the retarget overshoots its target.
-    # After it the pool here is what the pool holds, so the payout falls as the pool does
-    # and rises with the fee shares, and a higher reward means fewer claims.
-    pool = POW_REWARD_POOL_GENESIS if epoch < POW_BOOTSTRAP_EPOCHS else pow_reward_pool
-    return pool, epoch_pow_reward * (POW_BOOTSTRAP_EPOCHS + 1) * EXPECTED_BLOCKS_PER_EPOCH
+def reward_target_cap(epoch_pow_reward: TokenValue) -> uint64:
+    # 128-bit integers; see Puzzle Target.
+    # The target at which a claim takes WORK_PER_LEPTA hashes per LEPTON of its reward,
+    # in expectation, since a target t costs 2**64 / t hashes.
+    return 2**64 // (epoch_pow_reward * WORK_PER_LEPTA)
 
 def compute_new_reward_difficulty(claims_in_block: uint64,
                                   current_target: uint64,
-                                  epoch: EpochNumber,
-                                  epoch_pow_reward: TokenValue,
-                                  pow_reward_pool: TokenValue) -> uint64:
+                                  epoch_pow_reward: TokenValue) -> uint64:
     # 128-bit integers; see Puzzle Target.
-    num, den = target_claims_per_block(epoch, epoch_pow_reward, pow_reward_pool)
     # The demand implied by this block, reconstructed from the target that produced
     # it and smoothed against the target rate; floored at 1 so the division is defined.
-    demand = max(1, (EMA_SMOOTHING_PRECISION - EMA_SMOOTHING_FACTOR) * claims_in_block * den
-                    + EMA_SMOOTHING_FACTOR * num)
-    new_target = (num * current_target * EMA_SMOOTHING_PRECISION) // demand
-    cap = POW_BOOTSTRAP_TARGET_CAP if epoch < POW_BOOTSTRAP_EPOCHS else REWARD_TARGET_CAP
-    return min(max(new_target, REWARD_TARGET_FLOOR), cap)
+    demand = max(1, (EMA_SMOOTHING_PRECISION - EMA_SMOOTHING_FACTOR) * claims_in_block
+                    + EMA_SMOOTHING_FACTOR * TARGET_CLAIMS_PER_BLOCK)
+    new_target = (TARGET_CLAIMS_PER_BLOCK * current_target * EMA_SMOOTHING_PRECISION) // demand
+    return min(max(new_target, REWARD_TARGET_FLOOR), reward_target_cap(epoch_pow_reward))
 ```
 
-`claims_in_block` counts the `CLAIM_POW_REWARD` Operations the block includes, `epoch` is the epoch of that block, and `pow_reward_pool` is the pool once that block's claims and fee share are applied. Every claim in a block is validated against the target produced by the previous block's update; the update from a block's own count is applied after the block is processed and governs the next block. At genesis `difficulty_reward` is `POW_BOOTSTRAP_TARGET_CAP`. During the bootstrapping period the target rate is about 0.935 claims per block. The extra epoch keeps back about 1% of the seed, which must cover the overshoot of the retarget, or the pool runs out before the period ends.
+`claims_in_block` counts the `CLAIM_POW_REWARD` Operations the block includes, and `epoch_pow_reward` is the reward of that block's epoch. Every claim in a block is validated against the target produced by the previous block's update, capped at an epoch boundary as [Reward Pool](#reward-pool) specifies. The update from a block's own count is applied after the block is processed and governs the next block. At genesis `difficulty_reward` is `reward_target_cap` of the reward of epoch 0.
 
-The update is multiplicative in the current target, so a target of zero never recovers. With $`F \gt 0`$, the update from a block without claims is $`\lfloor t \cdot P/F \rfloor`$, which equals $`t`$ for every $`t \lt F/(P-F)`$. `REWARD_TARGET_FLOOR` is the smallest target that a block without claims strictly raises, $`\max(1, \lceil F/(P-F) \rceil)`$, which is 999 at the specified smoothing.
+The update is multiplicative in the current target, so a target of zero never recovers. With $`F \gt 0`$, the update from a block without claims is $`\lfloor t \cdot P/F \rfloor`$, which equals $`t`$ for every $`t \lt F/(P-F)`$. `REWARD_TARGET_FLOOR` is the smallest target that a block without claims strictly raises: 999 at the specified smoothing.
 
 ## Blend Difficulty
 

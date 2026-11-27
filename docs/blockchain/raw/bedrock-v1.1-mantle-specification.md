@@ -56,7 +56,7 @@
 | 2.3.0 | [RFC] `SDP_ACTIVE` and `SDP_WITHDRAW` advance the `sequence` of the declaration's `nonce` by exactly one | 2026-11-04 |
 | 2.4.0 | [RFC] A claim pays a share of its reward as a vested note, which a proof consumes only once its vesting has ended, and `SDP_DECLARE` stakes notes through ZkStake proofs until its `locked_until` slot | 2026-11-06 |
 | 2.5.0 | [RFC] A reward claim solves HashWX: its nonce and its ticket are 64 bits, and its nullifier hashes the challenge and the nonce | 2026-11-06 |
-| 2.6.0 | [RFC] A claim reads the vested share from `epoch_pow_vested_share`, fixed for the epoch like the reward | 2026-11-06 |
+| 2.6.0 | [RFC] A block holds at most `MAX_CLAIMS_FACTOR * TARGET_CLAIMS_PER_BLOCK` claims | 2026-11-27 |
 
 # Introduction
 
@@ -1584,13 +1584,12 @@ Validators must maintain the following state to process proof of work Operations
 ```python
 pow_reward_pool: TokenValue      # Reserve the rewards are paid from
 epoch_pow_reward: TokenValue     # Reward per claim, fixed for the epoch
-epoch_pow_vested_share: uint64   # Share of that reward that vests, out of SHARE_DEN, fixed for the epoch
 difficulty_reward: uint64        # the reward threshold, retargeted every block
 pow_nullifiers: set[hash]        # Spent solutions, retained for the acceptance window
 block_slots: dict[hash, SlotNumber]  # Slots of recently seen blocks, for the window check
 ```
 
-The acceptance window and the maintenance of `pow_reward_pool`, `epoch_pow_reward`, `epoch_pow_vested_share` and `difficulty_reward` between blocks are specified in [Proof of Work](proof-of-work.md).
+The acceptance window and the maintenance of `pow_reward_pool`, `epoch_pow_reward` and `difficulty_reward` between blocks are specified in [Proof of Work](proof-of-work.md).
 
 ### CLAIM_POW_REWARD
 
@@ -1623,6 +1622,7 @@ claim: ClaimPowRewardOp            # the CLAIM_POW_REWARD payload
 ledger: Ledger
 
 current_slot: SlotNumber           # slot of the block including this claim
+claims_before: uint64              # CLAIM_POW_REWARD Operations that block holds before this one
 epoch_nonce_current: zkhash        # Cryptarchia epoch nonce of the current epoch
 epoch_nonce_previous: zkhash       # and of the epoch before it, genesis_epoch_nonce at epoch 0
 WINDOW: SlotNumber                 # the acceptance window, in slots
@@ -1630,19 +1630,23 @@ difficulty_reward: uint64          # retargeted every block
 pow_nullifiers: set[hash]          # spent solutions, retained for WINDOW
 pow_reward_pool: TokenValue
 epoch_pow_reward: TokenValue
-epoch_pow_vested_share: uint64     # the share of a reward that vests, out of SHARE_DEN
-SHARE_DEN: uint64                  # the denominator of POW_SHARE and of the vested shares
+POW_VESTED_SHARE: uint64           # the share of a reward that vests, out of SHARE_DEN
+SHARE_DEN: uint64                  # the denominator of POW_SHARE and of POW_VESTED_SHARE
 VESTING_EPOCHS: uint64             # the length of the vesting, in epochs
+TARGET_CLAIMS_PER_BLOCK: uint64    # the claims per block the reward threshold steers toward
+MAX_CLAIMS_FACTOR: uint64          # a block's claim limit, in multiples of TARGET_CLAIMS_PER_BLOCK
 EPOCH_LENGTH: uint64               # the length of an epoch, in slots
 ```
 
-  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window), `SHARE_DEN` and `VESTING_EPOCHS` are [Parameters](proof-of-work.md#parameters) of Proof of Work, `EPOCH_LENGTH` is as in [SDP_DECLARE](#sdp_declare), and `hashwx_ticket` is as in [HashWX](common-cryptographic-components.md#hashwx).
+  The epoch nonces are the Cryptarchia epoch nonce $`\eta`$ of [Epoch Nonce](cryptarchia-v1-protocol.md#epoch-nonce), `WINDOW` is derived in [Acceptance Window](proof-of-work.md#acceptance-window), `POW_VESTED_SHARE`, `SHARE_DEN`, `VESTING_EPOCHS`, `TARGET_CLAIMS_PER_BLOCK` and `MAX_CLAIMS_FACTOR` are [Parameters](proof-of-work.md#parameters) of Proof of Work, `EPOCH_LENGTH` is as in [SDP_DECLARE](#sdp_declare), and `hashwx_ticket` is as in [HashWX](common-cryptographic-components.md#hashwx).
 
   *Validate*
 
 ```python
-# 1. Claiming must be enabled for this block: the pool must be able to cover a reward.
+# 1. Claiming must be enabled for this block: the pool must be able to cover a reward,
+#    and the block must have room for the claim.
 assert pow_reward_pool >= epoch_pow_reward
+assert claims_before < MAX_CLAIMS_FACTOR * TARGET_CLAIMS_PER_BLOCK
 
 # 2. The referenced block must be canonical and within the acceptance window.
 block = get_block_from_hash(claim.block_hash)   # None if unknown or not canonical
@@ -1665,7 +1669,7 @@ assert pow_nullifier not in pow_nullifiers
 # 6. Construct the liquid and the vested output notes under the public key given in the
 #    payload, which is also their staking key, and add them to the buffer of the ledger note set.
 claim_id = derive_op_id(claim)
-vested_value = checked_uint64(epoch_pow_reward * epoch_pow_vested_share) // SHARE_DEN
+vested_value = checked_uint64(epoch_pow_reward * POW_VESTED_SHARE) // SHARE_DEN
 liquid_value = checked_uint64(epoch_pow_reward - vested_value)
 liquid_note = Note(
     value = liquid_value,
