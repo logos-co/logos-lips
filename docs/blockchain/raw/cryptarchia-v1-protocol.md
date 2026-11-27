@@ -103,7 +103,7 @@ Our design starts from the solid foundation provided by Ouroboros Crypsinous: Pr
 | *none* | slot length | The duration of a single slot. | 1 second |
 | MAX_BLOCK_SIZE | max block size | The maximum size of the block body (not including the header) | 2 MiB (2,097,152 bytes) |
 | MAX_BLOCK_TXS | max block transactions | The maximum number of transactions in a block | 1024 |
-| $`W`$ | uncle reference window | The width of the [uncle](#uncle-references) reference window, in expected block intervals of $`f^{-1}`$ slots each. $`W\cdot f^{-1}`$ must be at most $`4\lfloor\frac{k}{f}\rfloor`$, the length of the Lottery Constants Finalization phase ([Epoch Schedule](#epoch-schedule)). Then every uncle is won under the epoch state of the chain that references it. $`W\cdot f^{-1}`$ must exceed `T_M` of [Uncle Selection](#uncle-selection), or that selection finds no candidate. | 240 |
+| $`W`$ | uncle reference window | The width of the [uncle](#uncle-references) reference window, in expected block intervals of $`f^{-1}`$ slots each. $`W\cdot f^{-1}`$ must be at most $`4\lfloor\frac{k}{f}\rfloor`$, the length of the Lottery Constants Finalization phase ([Epoch Schedule](#epoch-schedule)). Then the uncle of every valid entry is won under the epoch state of the chain that references it. $`W\cdot f^{-1}`$ must exceed `T_M` of [Uncle Selection](#uncle-selection), or that selection finds no candidate. | 240 |
 | MAX_UNCLES | max uncle references | The maximum number of [uncles](#uncle-references) a block may reference. | 4 |
 
 ## Notation
@@ -351,7 +351,7 @@ def uncle_candidates(B) -> Set[Block]:
               and all(broadcast(Y) or block_id(Y) in referenced for Y in branch(X, B))}
 ```
 
-`branch(X, B)` is the blocks after the fork point of $`X`$ up to $`X`$, and `fork_point(X, B)` is its fork point. `T_M` is the message traversal time ([Global Parameters](blend-protocol.md#global-parameters)) in slots. `broadcast(Y)` holds if the node received the [proposal](bedrock-v1.1-block-construction.md#block-proposal) of $`Y`$ on the broadcasting channel ([Broadcasting](blend-protocol.md#broadcasting-2)) or sent it there.
+`branch(X, B)` is the blocks after the fork point of $`X`$ up to $`X`$, and `fork_point(X, B)` is its fork point. `T_M` is the message traversal time ([Global Parameters](blend-protocol.md#global-parameters)) in slots. `broadcast(Y)` holds if the node [reconstructed](bedrock-v1.1-block-construction.md#block-proposal-reconstruction) $`Y`$ from a proposal that it received on the broadcasting channel ([Broadcasting](blend-protocol.md#broadcasting-2)), or sent that proposal there.
 
 The proposer then takes at most `MAX_UNCLES` of these candidates, oldest fork point first, and sets `uncles` to the result:
 
