@@ -39,6 +39,7 @@
 | 2.0.0 | Follow the private note ledger of Mantle 2.0.0: nullifier inputs and commitment outputs with their `CommitmentRoot` and `Value`, channel steps with their own `Inscription` in the `MiniBlocks` of `ChannelInscribe`, holder withdrawals, the SDP payloads over notes with `NotePk` in `SDPDeclare`, `PowNonce` in `ClaimPowReward`, the `ZkTransfer` proof variants, and the removal of `ChannelTransfer`, `TransferThreshold` and `LeaderClaim`. A `FieldElement` not less than $`p`$ is rejected | 2026-11-06 |
 | 2.1.0 | Follow the programs of Mantle 2.1.0: the `ProgramRegister` Operation with its `Groth16VerificationKey`, user and program steps in the `MiniBlocks` of `ChannelInscribe` with their proofs and the openings of the program notes with their `StakePublicKey`, the payments of program steps, each step and payment with its own `Inscription`, `NoteStakePk` in `SDPDeclare`, the `Groth16` terminal renamed `Groth16Proof`, and the format of compressed points | 2026-11-06 |
 | 2.2.0 | [RFC] `SDPDeclare` carries `LockedUntil` and `StakeSpends`, nullifiers with their value, in place of its `Inputs` and `Value`, proven by an `SDPDeclareProof` holding one `ZkStake` per spend | 2026-11-06 |
+| 2.3.0 | [RFC] `PowNonce` is a `UINT64` | 2026-11-06 |
 
 # Introduction
 
@@ -170,7 +171,7 @@ The current Blend variant occupies 229 bytes including its discriminant. Its enc
 ClaimPowReward = EpochNonce BlockHash ZkPublicKey PowNonce
 EpochNonce     = FieldElement ; the epoch nonce the solution was found against
 BlockHash      = Hash32       ; recent canonical block the solution is anchored to
-PowNonce       = FieldElement ; value searched for a ticket satisfying the reward threshold
+PowNonce       = UINT64       ; value searched for a ticket satisfying the reward threshold
 ```
 
 ### Program Operations
