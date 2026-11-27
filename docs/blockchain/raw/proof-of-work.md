@@ -24,7 +24,7 @@
 | 1.2.0 | A reward claim searches a nonce for the public key to be paid and carries no signature. Each block credits its fee share to the pool, and the reward per claim stays fixed for the epoch | 2026-10-06 |
 | 1.3.0 | [RFC] A claim pays `POW_VESTED_SHARE / SHARE_DEN` of its reward as a note vesting for `VESTING_EPOCHS` epochs, and the rest as a liquid note | 2026-11-06 |
 | 1.4.0 | [RFC] A reward claim solves HashWX in place of `zkhash`, against a 64-bit target | 2026-11-06 |
-| 1.5.0 | [RFC] A claim's reward pays for the gas it carries and takes at least `WORK_PER_LEPTA` hashes per LEPTON. The pool pays every claim while it can, and the threshold falls once claims exceed `TARGET_CLAIMS_PER_BLOCK` | 2026-11-27 |
+| 1.5.0 | [RFC] A claim's reward pays for the gas it carries and takes at least `WORK_PER_LEPTA` hashes per LEPTON. The pool pays every claim while it can, and the threshold falls once claims exceed `TARGET_CLAIMS_PER_BLOCK`, raised to 12 | 2026-11-27 |
 
 # Introduction
 
@@ -150,12 +150,12 @@ A node keeps a spent solution only while its referenced block is inside the wind
 
 ```python
 POW_REWARD_POOL_GENESIS: TokenValue             # the seed of the pool, set in the Genesis Block
-WORK_PER_LEPTA: uint64 = 31                     # least expected HashWX hashes per LEPTON of a reward
+WORK_PER_LEPTA: uint64 = 37                     # least expected HashWX hashes per LEPTON of a reward
 POW_CLAIM_TX_SIZE: uint64 = 341                 # the bytes of a claim transaction
 POW_REFERENCE_TX_SIZE: uint64 = 608             # the bytes of the further transaction a reward's liquid part pays for
 POW_VESTED_SHARE: uint64 = 90                   # the share of a reward paid as a vested note, out of SHARE_DEN
 VESTING_EPOCHS: uint64 = 49                     # the length of the vesting, in epochs
-TARGET_CLAIMS_PER_BLOCK: uint64 = 10            # T
+TARGET_CLAIMS_PER_BLOCK: uint64 = 12            # T
 MAX_CLAIMS_FACTOR: uint64 = 10                  # a block's claim limit, in multiples of T
 EXPECTED_BLOCKS_PER_WINDOW: uint64 = 10         # W_b
 POW_SHARE: uint64 = 10                          # beta, as the fraction POW_SHARE / SHARE_DEN
@@ -170,7 +170,7 @@ BLEND_DAMPING_DEN: uint64 = 2                   # b, with 0 < a <= b so that alp
 BLEND_MAX_STEP: uint64 = 2                      # Max factor difficulty_blend may move per epoch
 ```
 
-`WORK_PER_LEPTA` is the work of one core of the target machine in 30 days, divided by the LEPTA that the cheapest rented server's cost for the same work buys at a token price of $0.05. One core, at a quarter of the `HASHWX_MACHINE_RATE` of [HashWX](common-cryptographic-components.md#hashwx), does 242,500 × 2,592,000 = 6.29·10¹¹ hashes in 30 days. The cheapest rented server found in an October 2026 survey of plans costs $6.12 a month for 4 vCPUs, and a vCPU is counted as 1.5 cores of the target machine, so one core costs $1.02 a month. At $0.05 that buys 20.4 LOGOS, or 2.04·10¹⁰ LEPTA ([Token Units and Precision](overview-cryptoeconomics.md#token-units-and-precision)). 6.29·10¹¹ / 2.04·10¹⁰ = 30.8, rounded up to 31. At `WORK_PER_LEPTA` one core earns at most 20.28 LOGOS in 30 days.
+`WORK_PER_LEPTA` is the work of one core of the target machine in 30 days, divided by the LEPTA that the cheapest rented server's cost for the same work buys at a token price of $0.05. One core, at a quarter of the `HASHWX_MACHINE_RATE` of [HashWX](common-cryptographic-components.md#hashwx), does 242,500 × 2,592,000 = 6.29·10¹¹ hashes in 30 days. The cheapest rented server found in an October 2026 survey of plans costs $6.12 a month for 4 vCPUs. A vCPU is counted as one core of an Intel Core Ultra 9 285HX with all 24 cores busy, which does 10.34M / 24 = 430,833 hashes a second, 1.777 cores of the target machine. One core of the target machine therefore costs $6.12 / 4 / 1.777 = $0.861 a month. At $0.05 that buys 17.22 LOGOS, or 1.722·10¹⁰ LEPTA ([Token Units and Precision](overview-cryptoeconomics.md#token-units-and-precision)). 6.29·10¹¹ / 1.722·10¹⁰ = 36.5, rounded up to 37. At `WORK_PER_LEPTA` one core earns at most 16.99 LOGOS in 30 days.
 
 `POW_CLAIM_TX_SIZE` is the size of a claim transaction in the [Mantle Transaction Encoding](mantle-transaction-encoding.md): 1 byte of operation count, 105 bytes of claim and 235 bytes of the `TRANSFER` that spends its liquid note. `POW_REFERENCE_TX_SIZE` is the size of one transaction holding a claim, that `TRANSFER` and an inscription of 100 bytes. At the initial storage price of [Storage Markets](storage-markets.md), $`8 \cdot 10^{5}`$ LEPTA per byte, the liquid part pays 949 bytes, 0.7592 LOGOS, and the reward is 7.592 LOGOS.
 
@@ -180,7 +180,7 @@ An epoch of [Epoch Schedule](cryptarchia-v1-protocol.md#epoch-schedule) is $`10\
 
 `TARGET_CLAIMS_PER_BLOCK` must be at least 1, or no claim is valid. `MAX_CLAIMS_FACTOR` must be at least 2. At 1, no block holds more than `TARGET_CLAIMS_PER_BLOCK` claims, so the retarget never lowers `difficulty_reward`. `MAX_CLAIMS_FACTOR * TARGET_CLAIMS_PER_BLOCK` claim transactions of `POW_CLAIM_TX_SIZE` bytes must take less than the `MAX_BLOCK_SIZE` of [Constants](cryptarchia-v1-protocol.md#constants), or the claim limit cannot bind and claims can fill whole blocks. `TARGET_CLAIMS_PER_BLOCK` and `EMA_SMOOTHING_PRECISION` must each be below $`2^{32}`$, or the retarget's product can exceed 128 bits.
 
-`REWARD_TARGET_FLOOR` must stay below `reward_target_cap(epoch_pow_reward)` for every reward, or every retarget returns the cap and the target cannot move. The cap stays above the floor while the reward is at most `2**64 // (WORK_PER_LEPTA * (REWARD_TARGET_FLOOR + 1))` LEPTA, about 595,000 LOGOS.
+`REWARD_TARGET_FLOOR` must stay below `reward_target_cap(epoch_pow_reward)` for every reward, or every retarget returns the cap and the target cannot move. The cap stays above the floor while the reward is at most `2**64 // (WORK_PER_LEPTA * (REWARD_TARGET_FLOOR + 1))` LEPTA, about 499,000 LOGOS.
 
 `TARGET_TXS_PER_BLOCK` is the transaction rate the Blend network carries, $`F_T / F_D = 130`$ transactions per block ([Global Parameters](blend-protocol.md#global-parameters)).
 
