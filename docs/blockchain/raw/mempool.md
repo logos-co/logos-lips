@@ -45,7 +45,7 @@ Every transaction names its expiry slot, the last slot whose block may include i
 
 A transaction reaches a node from a local client, out of the Blend network, by gossip from another node, or back from a block that a fork switch removed from the chain. The node checks only that the transaction is well formed, that the era in force accepts its fork digest, that its expiry slot is neither too near nor too far ahead, and that a reward claim it carries has not expired. It does not consult the ledger, so its mempool can hold transactions that will never apply.
 
-An expiry slot is too far if it comes more than an hour ahead, which is the time to live. It is too near if it has passed, if it comes less than a minute ahead when the sender submits the transaction, or less than twenty seconds ahead when the transaction leaves the Blend network.
+An expiry slot is too far if it comes more than an hour ahead, which is the time to live. It is too near if it has passed, if it comes less than 191 seconds ahead when the sender submits the transaction, or less than twenty seconds ahead when the transaction leaves the Blend network.
 
 Take a miner whose reward claim leaves the Blend network at node A in slot 12. The claim names the block of slot 10, its transaction expires at slot 40, and node B leads slot 16. In this example a transaction matures two slots after a node admits it.
 
@@ -111,7 +111,7 @@ A transaction that a fork switch puts back keeps the time it first arrived, and 
 
 A sender must be able to bound the time during which a block may include its transaction, without showing when it made the transaction. Every transaction therefore names its **expiry slot**, the last slot whose block may include it ([Validation](bedrock-v1.1-mantle-specification.md#validation)). Its sender draws that slot at random.
 
-The sender chooses the longest time for which it lets a block include the transaction, at most `TRANSACTION_TTL`, the time to live. It draws the expiry slot from the second half of that time. The expiry slot is **in range** at a node while it is not before the current slot and comes at most `TRANSACTION_TTL` ahead. It must also come at least `MIN_LIFETIME` ahead when the sender submits the transaction, and at least `TRANSACTION_MATURITY` ahead when the transaction leaves the Blend network. `TRANSACTION_MATURITY` is the transaction maturity that [Block Proposal Reconstruction](bedrock-v1.1-block-construction.md#block-proposal-reconstruction) assumes. [Expiry Slot](#expiry-slot) specifies the draw and the range.
+The sender chooses the longest time for which it lets a block include the transaction, at most `TRANSACTION_TTL`, the time to live. The expiry slot is **in range** at a node while it is not before the current slot and comes at most `TRANSACTION_TTL` ahead. It must also come at least `MIN_LIFETIME` ahead when the sender submits the transaction, and at least `TRANSACTION_MATURITY` ahead when the transaction leaves the Blend network. `TRANSACTION_MATURITY` is the transaction maturity that [Block Proposal Reconstruction](bedrock-v1.1-block-construction.md#block-proposal-reconstruction) assumes. `MIN_LIFETIME` is the longest time a submitted transaction takes to reach every node, plus `TRANSACTION_MATURITY`, plus the time in which five blocks are made on average. The sender draws the expiry slot uniformly between `MIN_LIFETIME` and its longest time after submission. [Expiry Slot](#expiry-slot) specifies the draw and the range.
 
 ## Admission Pipeline
 
@@ -259,6 +259,8 @@ A node keeps these values for its mempool, defined in [Mempool State](#mempool-s
 | `G_max` | maximum Execution Gas per block | The limit on a block's total Execution Gas, $`G_{\max}`$ in the [Notation](execution-market.md#notation) of Execution Market. |
 | `REFERENCE_PREFIX_LENGTH` | reference prefix length | The length of a reference in bytes, from [References](bedrock-v1.1-block-construction.md#references). |
 | $`T_M`$ | message traversal time | The message traversal time of [Transition Period](blend-protocol.md#transition-period), converted from rounds to seconds by the length of a round given in [Time](blend-protocol.md#time). |
+| $`f`$ | slot activation coefficient | The `slot_activation_coeff` of the era in force ([Era Parameters](bedrock-eras.md#era-parameters)), $`1/30`$ in [Constants](cryptarchia-v1-protocol.md#constants). Its parts are `f.num` and `f.den`. |
+| `SLOT_LENGTH` | slot length | `slot_length(n)` of [Era Boundaries](bedrock-eras.md#era-boundaries), in seconds, with `n` the era in force. A round lasts one slot ([Time](blend-protocol.md#time)). |
 
 ## Parameters
 
@@ -267,7 +269,7 @@ TRANSACTION_TTL: uint64 = 60 * 60                     # longest time, in seconds
 RETIREMENT_GRACE: uint64 = 10 * 60                    # seconds a transaction that no canonical block carries stays resolvable after its expiry slot
 BROADCAST_DELAY: uint64 = 5                           # seconds a block proposal takes to reach every node once it leaves the Blend network
 TRANSACTION_MATURITY: uint64 = T_M + BROADCAST_DELAY  # seconds of age at which a transaction is mature
-MIN_LIFETIME: uint64 = 3 * TRANSACTION_MATURITY       # shortest time, in seconds, that a transaction may have left until its expiry slot when its sender submits it
+MIN_LIFETIME: uint64 = SLOT_LENGTH + 2 * TRANSACTION_MATURITY + 5 * f.den // f.num * SLOT_LENGTH  # shortest time, in seconds, that a transaction may have left until its expiry slot when its sender submits it
 CLAIM_GRACE: uint64 = 2 * WINDOW                      # slots a node keeps a claim after its acceptance window closes
 SEEN_TTL: uint64 = 24 * 60 * 60                       # seconds a node remembers a message identity on the mempool topic
 BROADCAST_RETRIES: uint64 = 3                         # retries of a broadcast that finds no peer on the mempool topic
@@ -280,13 +282,13 @@ BROADCAST_BACKOFF: uint64 = 5                         # base, in seconds, of the
 
 The wait before retry `i`, counting from `0`, is `BROADCAST_BACKOFF ** i` seconds. With `BROADCAST_BACKOFF` at 5, the retries follow the first attempt by 1, 6 and 31 seconds.
 
-With `WINDOW` at 300 slots, `CLAIM_GRACE` is 600 slots. With $`T_M`$ at 15 rounds of one second and `BROADCAST_DELAY` at 5 seconds, `TRANSACTION_MATURITY` is 20 seconds and `MIN_LIFETIME` is 60 seconds.
+A submitted transaction reaches every node at the latest one round, plus $`T_M`$, plus `BROADCAST_DELAY` after its submission, when its sender broadcasts it directly ([Direct Broadcast](blend-protocol.md#direct-broadcast)). `MIN_LIFETIME` adds `TRANSACTION_MATURITY` and $`\lfloor 5/f \rfloor`$ slots, in which five blocks are made on average.
+
+With `WINDOW` at 300 slots, `CLAIM_GRACE` is 600 slots. With $`T_M`$ at 15 rounds of one second and `BROADCAST_DELAY` at 5 seconds, `TRANSACTION_MATURITY` is 20 seconds. With $`f`$ at $`1/30`$, `MIN_LIFETIME` is $`1 + 2 \cdot 20 + 150 = 191`$ seconds.
 
 `RETIREMENT_GRACE` must exceed one round plus `TRANSACTION_MATURITY`. Otherwise a node can release a transaction before a proposal that selected it in its expiry slot arrives.
 
-`BROADCAST_DELAY` must not be less than the time a block proposal takes to reach every node by gossip. Otherwise a mature transaction has had less time to spread than the proposal carrying it takes to arrive.
-
-`MIN_LIFETIME` must exceed one round, plus $`T_M`$, plus the time a transaction takes to reach every node by gossip, plus `TRANSACTION_MATURITY`. Otherwise a transaction that its sender broadcasts directly ([Direct Broadcast](blend-protocol.md#direct-broadcast)) can expire before any leader may select it.
+`BROADCAST_DELAY` must not be less than the time a block proposal or a transaction takes to reach every node by gossip. Otherwise a mature transaction has had less time to spread than the proposal carrying it takes to arrive, or a transaction submitted with `MIN_LIFETIME` left can mature later than `MIN_LIFETIME` counts.
 
 `TRANSACTION_TTL` must be at least `2 * MIN_LIFETIME`. Otherwise a sender can choose no `max_lifetime` ([Expiry Slot](#expiry-slot)).
 
@@ -321,7 +323,7 @@ A `TimeOrderedSet` iterates in admission order, by ascending `admitted_at`, and 
 
 ```python
 def draw_expiry_slot(submission: Timestamp, max_lifetime: uint64 = TRANSACTION_TTL) -> SlotNumber:
-    return uniform(slot_of_time(submission + max_lifetime // 2), slot_of_time(submission + max_lifetime))
+    return uniform(slot_of_time(submission + MIN_LIFETIME), slot_of_time(submission + max_lifetime))
 
 def too_far(expiry_slot: SlotNumber, at: Timestamp) -> bool:
     return expiry_slot > slot_of_time(at + ttl(expiry_slot))
