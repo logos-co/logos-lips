@@ -369,7 +369,7 @@ def select_uncles(B) -> list[UncleReference]:   # at most MAX_UNCLES entries, in
     return selected
 ```
 
-This procedure is a recommendation.
+A proposer must not reference a block that fails the `T_M` or the `broadcast` condition of `uncle_candidates`. The rest of this procedure is a recommendation.
 
 ### Block Header Validation
 
