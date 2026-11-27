@@ -18,6 +18,7 @@
 | v10 | Corrections from a review against the calculator: claim fees take 1% to 6% of a board's income, the storage price peaks at up to 32 times, the reward-10 row follows the paced renter rule, and smaller figures and wording | 2026-11-09 |
 | v11 | The reward puzzle is HashWX. The two caps follow its measured rate, and a claim transaction falls to 341 bytes and the reference transaction to 608 | 2026-11-10 |
 | v12 | Rebuilt from first principles: no bootstrapping period. A reward pays for the gas it carries, vests 90% for a year and takes at least `WORK_PER_LEPTA` hashes per LEPTON. The threshold keeps steering toward `TARGET_CLAIMS_PER_BLOCK`, raised to 12, with no payout limit | 2026-11-27 |
+| v13 | `VESTING_EPOCHS` is the number of epochs that first reaches a year, so the vesting follows the epoch length: 49 epochs of 7.5 days, 146 of 60 hours. The change lands after the epoch is shortened to 60 hours | 2026-11-27 |
 
 ## Reviewer Orientation
 
@@ -26,7 +27,7 @@ Read the PR's Motivation first.
 | # | Priority | Document / Change | What to look for |
 | --- | --- | --- | --- |
 | 1 | Critical | **Start here** — [Proof of Work](#affected-specifications), [the work floor](#2-the-work-floor) | `WORK_PER_LEPTA` and its derivation; the cap scales with the reward, so every token costs the same work |
-| 2 | Critical | [Proof of Work](#affected-specifications), [the reward](#1-the-reward) | the liquid part pays the storage fee of a claim and of one reference transaction; `POW_VESTED_SHARE` rises from 50 to 90 |
+| 2 | Critical | [Proof of Work](#affected-specifications), [the reward](#1-the-reward) | the liquid part pays the storage fee of a claim and of one reference transaction; `POW_VESTED_SHARE` rises from 50 to 90; `VESTING_EPOCHS` follows the epoch length |
 | 3 | High | [Proof of Work](#affected-specifications), [the claim limit](#3-the-claim-limit) | the threshold steers toward `TARGET_CLAIMS_PER_BLOCK`, raised from 10 to 12, under the new cap; a block holds at most `MAX_CLAIMS_FACTOR` times the target |
 | 4 | High | [Mantle](#affected-specifications), [the claim limit](#4-the-claim-limit-in-mantle) | `claims_before < MAX_CLAIMS_FACTOR * TARGET_CLAIMS_PER_BLOCK`; the check that the reward is positive goes |
 | 5 | Medium | [Genesis Block](#affected-specifications), [the pool seed](#5-the-pool-seed) | 200M LOGOS; `epoch_pow_reward` at the initial storage price |
@@ -98,7 +99,7 @@ The total paid per core is the same in every row. The liquid part is gas, so a s
 
 A claim leaves one vested note, which cannot merge before it vests, and one liquid change note. The `TRANSFER` that pays its fee spends its first liquid note at once. A claim therefore adds up to three nullifiers in its life. One core makes about 27 vested notes a year. At the claims target, claims add at most 1.2 GB of nullifiers a year: 12 claims a block, 1,051,200 blocks and three nullifiers of 32 bytes each.
 
-The vesting lasts a year: `VESTING_EPOCHS` is 49 epochs of 7.5 days, and would be 146 of 60 hours. A vested note leads and can be staked like a liquid one, so vesting delays sales on the open market rather than every sale. A miner can mine to a buyer's key, or stake its vested notes under a buyer's keys in one transaction with a `TRANSFER` paying the seller.
+The vesting lasts a year: `VESTING_EPOCHS` is the number of epochs that first reaches a year, 49 of 7.5 days today and 146 of 60 hours once the epoch is shortened. A vested note leads and can be staked like a liquid one, so vesting delays sales on the open market rather than every sale. A miner can mine to a buyer's key, or stake its vested notes under a buyer's keys in one transaction with a `TRANSFER` paying the seller.
 
 ## The claims target
 
@@ -123,7 +124,7 @@ A block holds at most `MAX_CLAIMS_FACTOR` = 10 times the target: 120 claims, 40,
 
 ## Era parameters
 
-Eras holds every proof of work value as an era parameter. This change adds `WORK_PER_LEPTA`, `MAX_CLAIMS_FACTOR`, `POW_CLAIM_TX_SIZE` and `POW_REFERENCE_TX_SIZE` to the record. `WORK_PER_LEPTA` replaces `minimum_difficulty`, the field of `REWARD_TARGET_CAP`. `rate_num` and `rate_den`, the distribution rate, leave the record. `target_claims_per_block` stays and takes 12. `ema_smoothing_factor` and `ema_smoothing_precision` take 999 and 1000, and `REWARD_TARGET_FLOOR` follows from them. `POW_VESTED_SHARE` takes 90. `POW_REWARD_POOL_GENESIS` is set at genesis only.
+Eras holds every proof of work value as an era parameter. This change adds `WORK_PER_LEPTA`, `MAX_CLAIMS_FACTOR`, `POW_CLAIM_TX_SIZE` and `POW_REFERENCE_TX_SIZE` to the record. `WORK_PER_LEPTA` replaces `minimum_difficulty`, the field of `REWARD_TARGET_CAP`. `rate_num` and `rate_den`, the distribution rate, leave the record. `target_claims_per_block` stays and takes 12. `ema_smoothing_factor` and `ema_smoothing_precision` take 999 and 1000, and `REWARD_TARGET_FLOOR` follows from them. `POW_VESTED_SHARE` takes 90. `VESTING_EPOCHS` follows from `EPOCH_LENGTH`. `POW_REWARD_POOL_GENESIS` is set at genesis only.
 
 ## Compatibility
 
@@ -137,19 +138,21 @@ Bedrock has no genesis yet, so the change needs no migration.
 - **Stolen machines.** Owned machines include stolen ones, so botnets earn the most. Their earnings are 90% vested stake rather than cash.
 - **Graphics cards.** The figure for the RTX 5060 Ti is the author's, not reproduced.
 - **The reference transaction.** 608 bytes is this RFC's choice of an ordinary transaction, to revise once real sizes are known.
-- **Epochs of 60 hours.** With them, `VESTING_EPOCHS` becomes 146.
 
 # Details
 
 ## 1. The reward
 
-A reward pays for the gas it carries, and `POW_VESTED_SHARE` rises from 50 to 90. The reward computed from the pool goes, with the distribution rate and `EXPECTED_BLOCKS_PER_EPOCH`.
+A reward pays for the gas it carries, and `POW_VESTED_SHARE` rises from 50 to 90. `VESTING_EPOCHS` becomes the number of epochs that first reaches a year, so it follows the epoch length. The reward computed from the pool goes, with the distribution rate and `EXPECTED_BLOCKS_PER_EPOCH`.
 
 ```diff
 +POW_CLAIM_TX_SIZE: uint64 = 341                 # the bytes of a claim transaction
 +POW_REFERENCE_TX_SIZE: uint64 = 608             # the bytes of the further transaction a reward's liquid part pays for
 -POW_VESTED_SHARE: uint64 = 50
 +POW_VESTED_SHARE: uint64 = 90                   # the share of a reward paid as a vested note, out of SHARE_DEN
+-VESTING_EPOCHS: uint64 = 49                     # the length of the vesting, in epochs
++EPOCH_LENGTH: uint64                            # the slots of an epoch of Epoch Schedule
++VESTING_EPOCHS: uint64 = (31_536_000 + EPOCH_LENGTH - 1) // EPOCH_LENGTH  # the epochs that first reach a year of one-second slots
 -EPOCH_POW_DISTRIBUTION_RATE_NUM: uint64 = 1
 -EPOCH_POW_DISTRIBUTION_RATE_DEN: uint64 = 200
 -EXPECTED_BLOCKS_PER_EPOCH: uint64 = 21_600
@@ -227,17 +230,17 @@ A claim fails in a block that already holds `MAX_CLAIMS_FACTOR * TARGET_CLAIMS_P
 
 - The Introduction and Overview of Proof of Work describe the reward, the work floor and the claims target.
 - The Protocol of Proof of Work lists the claim checks in the order Mantle runs them.
-- The Notation of Proof of Work drops $`\rho`$, $`N_b`$ and $`S_{cap}`$. Only the Genesis Block states the value of the seed.
+- The Notation of Proof of Work drops $`\rho`$, $`N_b`$, $`S_{cap}`$ and $`k`$. Only the Genesis Block states the value of the seed.
 - Block Rewards says its projected growth leaves out the claims paid from the pool.
 
 # Implementation
 
-- [ ] Land this after the reward puzzle is replaced by HashWX.
+- [ ] Land this after the reward puzzle is replaced by HashWX, and after the epoch is shortened to 60 hours.
 - [ ] Set `epoch_pow_reward` from the storage price at each epoch boundary and at genesis, after the storage price of the new epoch, and remove the reward computed from the pool.
 - [ ] Cap `difficulty_reward` at `reward_target_cap(epoch_pow_reward)` after every block and at each epoch boundary, keep steering it toward `TARGET_CLAIMS_PER_BLOCK`, and start it at the cap of epoch 0.
 - [ ] Set the smoothing constants to 999 and 1000, and derive `REWARD_TARGET_FLOOR` from them.
 - [ ] Refuse a claim in a block that already holds `MAX_CLAIMS_FACTOR * TARGET_CLAIMS_PER_BLOCK` claims, and drop the check that the reward is positive.
-- [ ] Set `POW_VESTED_SHARE` to 90.
+- [ ] Set `POW_VESTED_SHARE` to 90, and derive `VESTING_EPOCHS` from the epoch length.
 - [ ] Set `TARGET_CLAIMS_PER_BLOCK` to 12.
 - [ ] Seed the pow reward pool with two hundredths of the supply cap.
 - [ ] Measure HashWX on a rented server, and revise `WORK_PER_LEPTA` if a vCPU is not about 1.78 Pi 5 cores.
